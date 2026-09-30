@@ -12,6 +12,7 @@ from content_automation.core.jobs import Job, JobParams, create_job
 from content_automation.core.limits import check_daily_limit
 from content_automation.core.log import get_logger, mask_secrets, secret_values
 from content_automation.core.retry import call_with_retry
+from content_automation.references import asset_id_for
 
 _EXTENSIONS = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
 
@@ -82,6 +83,8 @@ def run_image_job(
             path = job.folder / f"image-{index}.{_EXTENSIONS.get(image.mime_type, 'png')}"
             path.write_bytes(image.data)
             written.append(path)
+        # Same ID scheme as reference photos, so a video plan can use it as startImageAssetId.
+        job.output_asset_ids = [asset_id_for(path) for path in written]
         job.complete([path.name for path in written])
     except KeyboardInterrupt:
         _remove(written)

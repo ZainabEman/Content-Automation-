@@ -21,6 +21,7 @@ MAX_TEXT_CHARS = 5000
 WORDS_PER_MINUTE = 150  # used to estimate speech length
 STEP_ID_PATTERN = r"^[a-z0-9][a-z0-9_-]*$"
 TIMINGS_SUFFIX = "-timings.json"
+VOICE_OFF = "none"  # VOICE_PROVIDER=none: voiceover disabled (MVP)
 
 # Provider name -> adapter module. Adding a provider = one adapter file + one line here.
 _ADAPTERS: dict[str, str] = {
@@ -120,6 +121,8 @@ def get_provider(name: str, settings: Settings | None = None) -> VoiceProvider:
 def generate_voice(request: VoiceRequest, settings: Settings | None = None) -> VoiceResult:
     """Make the voiceover; save the audio and word timings in the job folder."""
     settings = settings or load_settings()
+    if settings.voice_provider == VOICE_OFF:
+        raise VoiceError("Voiceover is disabled (VOICE_PROVIDER=none).")
     provider = get_provider(settings.voice_provider, settings)
     audio = provider.synthesize(request, settings.voice_model)
     if not audio.data:

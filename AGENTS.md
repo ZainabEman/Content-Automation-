@@ -29,6 +29,15 @@
 
 ### Make videos
 
+1. Workflow: Reel/Short → `reel_short` (≤90 s); ad → `ugc_ad` (≤60 s); talking head or podcast → `podcast_clip` (≤90 s, avatar scenes plus optional video b-roll). Voiceover is off in the MVP.
+2. Write `outputs/plans/<short-name>.json` (fields in `docs/guides/module-2-video.md`): scenes numbered 1…N, each ≤15 s, adding up to `durationSec`; video `prompt` = a rich shot description; avatar `prompt` = the exact words (≈2.5 words/s); short `onScreenText`.
+3. Start images: `startImageAssetId` = an ID from an image job's `outputAssetIds` or a set's `set.json`, or `<jobId>/image-N.png`; image scenes need one.
+4. Run `uv run ca video --plan <file> --dry-run`; fix every listed problem; state the credits.
+5. Run `uv run ca video --plan <file> --request "<the user's exact words>"`.
+6. If it prints the `awaiting_agent` checklist: for each step read `requests/scene-N.json`, call the MCP tool it names, save the clip, run the printed `uv run ca job complete …` (on failure retry once, then `ca job fail`); then `uv run ca video resume "<job folder>"`.
+7. Success: reply with the `final.mp4` path and one line per scene; if `notes` in `details.json` say the text was not burned in, mention `captions.srt`.
+8. Failure: show the error; plan problems → fix the plan and rerun; otherwise read `error` in the job's `details.json`.
+
 ### Research
 
 ### Idea to package

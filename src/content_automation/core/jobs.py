@@ -68,11 +68,13 @@ class Job(CamelModel):
     inputs: dict[str, str | bool] = Field(default_factory=dict)
     status: JobStatus = "queued"
     outputs: list[str] = Field(default_factory=list)
+    output_asset_ids: list[str] = Field(default_factory=list)  # image outputs, same order
     error: str | None = None
     provider_request_ids: list[str] = Field(default_factory=list)
     est_cost_usd: float | None = None
     actual_cost_usd: float | None = None  # as reported by the provider
     steps: list[JobStep] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)  # plain-language remarks, e.g. about text
     created_at: datetime
     updated_at: datetime
 

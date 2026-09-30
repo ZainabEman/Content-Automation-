@@ -1,9 +1,12 @@
 """FFmpeg helpers (bundled by imageio-ffmpeg, no manual install) for clips and audio."""
 
+import functools
 import os
+import re
 import subprocess
 import tempfile
 import textwrap
+from dataclasses import dataclass
 from pathlib import Path
 
 import imageio_ffmpeg
@@ -18,23 +21,77 @@ CLIP_SIZES: dict[str, tuple[int, int]] = {
 }
 _TIMEOUT_S = 300
 _ERROR_TAIL = 400
+_DURATION = re.compile(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)")
+_VIDEO = re.compile(r"Stream #[^\n]*Video:[^\n]*?(\d{2,5})x(\d{2,5})")
+_FPS = re.compile(r"Stream #[^\n]*Video:[^\n]*?(\d+(?:\.\d+)?) fps")
+_AUDIO = re.compile(r"Stream #[^\n]*Audio:")
 
 
 class MediaError(RuntimeError):
     """FFmpeg failed or produced no output."""
 
 
-def run_ffmpeg(args: list[str], *, timeout_s: float = _TIMEOUT_S) -> bytes:
+@dataclass(frozen=True)
+class MediaInfo:
+    duration_sec: float | None
+    width: int | None
+    height: int | None
+    fps: float | None
+    has_audio: bool
+
+
+def run_ffmpeg(
+    args: list[str], *, timeout_s: float = _TIMEOUT_S, cwd: Path | None = None
+) -> bytes:
     """Run ffmpeg with args; return stdout (used when writing to pipe:1)."""
     command = [imageio_ffmpeg.get_ffmpeg_exe(), "-hide_banner", "-loglevel", "error", *args]
     try:
-        result = subprocess.run(command, capture_output=True, timeout=timeout_s, check=False)
+        result = subprocess.run(
+            command, capture_output=True, timeout=timeout_s, check=False, cwd=cwd
+        )
     except subprocess.TimeoutExpired:
         raise MediaError(f"FFmpeg did not finish within {timeout_s:g} seconds.") from None
     if result.returncode != 0:
         detail = result.stderr.decode("utf-8", "replace").strip()[-_ERROR_TAIL:]
         raise MediaError(f"FFmpeg failed (exit {result.returncode}): {detail}")
     return result.stdout
+
+
+def probe_media(path: Path) -> MediaInfo:
+    """Read length, size, frame rate and whether there is sound (ffprobe is not bundled)."""
+    try:
+        result = subprocess.run(
+            [imageio_ffmpeg.get_ffmpeg_exe(), "-hide_banner", "-i", str(path)],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=60, check=False,
+        )
+    except subprocess.TimeoutExpired:
+        raise MediaError(f"FFmpeg could not read {path.name} in time.") from None
+    info = result.stderr
+    duration = _DURATION.search(info)
+    size = _VIDEO.search(info)
+    fps = _FPS.search(info)
+    seconds = None
+    if duration:
+        hours, minutes, secs = duration.groups()
+        seconds = int(hours) * 3600 + int(minutes) * 60 + float(secs)
+    return MediaInfo(
+        duration_sec=seconds,
+        width=int(size.group(1)) if size else None,
+        height=int(size.group(2)) if size else None,
+        fps=float(fps.group(1)) if fps else None,
+        has_audio=_AUDIO.search(info) is not None,
+    )
+
+
+@functools.cache
+def has_filter(name: str) -> bool:
+    """Whether this ffmpeg build includes the named filter (e.g. drawtext)."""
+    try:
+        listing = run_ffmpeg(["-filters"]).decode("utf-8", "replace")
+    except MediaError:
+        return False
+    return any(line.split()[1:2] == [name] for line in listing.splitlines())
 
 
 def placeholder_clip(

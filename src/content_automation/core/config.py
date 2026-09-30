@@ -9,7 +9,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 ImageProvider = Literal["mock", "gemini", "openrouter"]
 VideoProvider = Literal["mock", "higgsfield-mcp"]
 AvatarProvider = Literal["mock", "heygen-mcp"]
-VoiceProvider = Literal["mock", "elevenlabs"]
+# "none" (default): no voiceover step runs; the MVP videos have no voiceover.
+VoiceProvider = Literal["none", "mock", "elevenlabs"]
 ScraperProvider = Literal["mock", "apify"]
 
 
@@ -48,7 +49,7 @@ class Settings(BaseSettings):
     avatar_provider: AvatarProvider = "mock"
     avatar_model: str = Field(default="mock", min_length=1)
     heygen_avatar_id: str | None = None
-    voice_provider: VoiceProvider = "mock"
+    voice_provider: VoiceProvider = "none"
     voice_model: str = Field(default="mock", min_length=1)
     elevenlabs_api_key: SecretStr | None = None
     elevenlabs_voice_id: str | None = None

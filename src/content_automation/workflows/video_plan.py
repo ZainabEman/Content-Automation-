@@ -50,31 +50,35 @@ class VideoPlan(_PlanModel):
     hook: str = Field(min_length=1)
     script: str = Field(min_length=1)
     cta: str | None = None
-    voice: PlanVoice = Field(default_factory=PlanVoice)
+    voice: PlanVoice | None = None  # optional: voiceover is disabled in the MVP
     scenes: list[PlanScene] = Field(min_length=1)
 
 
-def parse_plan(text: str) -> VideoPlan:
-    """Validate plan JSON; raise PlanError with one readable line per problem."""
+def parse_plan(text: str, *, check_scenes: bool = True) -> VideoPlan:
+    """Validate plan JSON; raise PlanError with one readable line per problem.
+
+    check_scenes=False skips the scene numbering/length checks so a caller can report
+    them together with its own checks (see workflows.video_job.prepare_video).
+    """
     try:
         plan = VideoPlan.model_validate_json(text)
     except ValidationError as error:
         raise PlanError([_describe(issue) for issue in error.errors(include_url=False)]) from None
-    problems = _scene_problems(plan)
+    problems = scene_problems(plan) if check_scenes else []
     if problems:
         raise PlanError(problems)
     return plan
 
 
-def load_plan(path: Path) -> VideoPlan:
+def load_plan(path: Path, *, check_scenes: bool = True) -> VideoPlan:
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
         raise PlanError([f"cannot read {path}"]) from None
-    return parse_plan(text)
+    return parse_plan(text, check_scenes=check_scenes)
 
 
-def _scene_problems(plan: VideoPlan) -> list[str]:
+def scene_problems(plan: VideoPlan) -> list[str]:
     problems: list[str] = []
     numbers = [scene.n for scene in plan.scenes]
     if numbers != list(range(1, len(plan.scenes) + 1)):

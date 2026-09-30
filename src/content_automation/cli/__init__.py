@@ -7,7 +7,9 @@ from typing import Annotated
 import typer
 from pydantic import ValidationError
 
+from content_automation.ai.avatar import AvatarError
 from content_automation.ai.image import ASPECT_RATIOS, ImageError, ImageRequest
+from content_automation.ai.video import VideoError
 from content_automation.core.agent_steps import record_agent_output, request_path
 from content_automation.core.config import ConfigurationError, Settings, load_settings
 from content_automation.core.jobs import DETAILS_FILE, Job, JobStateError
@@ -31,14 +33,24 @@ from content_automation.workflows.image_workflows import (
     run_workflow,
 )
 from content_automation.workflows.registry import DEFAULT_STYLE_COUNT, WorkflowError
+from content_automation.workflows.video_job import (
+    agent_checklist,
+    prepare_video,
+    resume_video_job,
+    start_video_job,
+)
+from content_automation.workflows.video_job import dry_run_lines as video_dry_run_lines
+from content_automation.workflows.video_plan import PlanError, load_plan
 
 app = typer.Typer(name="ca", no_args_is_help=True, help="Content Automation CLI.")
 refs_app = typer.Typer(no_args_is_help=True, help="Reference photo library.")
 brand_app = typer.Typer(no_args_is_help=True, help="Brand profile (brand.json).")
 job_app = typer.Typer(no_args_is_help=True, help="Job records and agent steps.")
+video_app = typer.Typer(help="Short vertical videos (1080x1920) from a plan.json.")
 app.add_typer(refs_app, name="refs")
 app.add_typer(brand_app, name="brand")
 app.add_typer(job_app, name="job")
+app.add_typer(video_app, name="video")
 
 JobDir = Annotated[Path, typer.Argument(help="Job folder (the one with details.json).")]
 StepOption = Annotated[str, typer.Option("--step", help="Step ID, e.g. scene-1.")]
@@ -49,10 +61,15 @@ def _root() -> None:
     """Root command for the Content Automation CLI."""
 
 
-def _settings(*, dry_run: bool = False) -> Settings:
-    """Load settings; a dry run needs no API key and creates no folders."""
+def _settings(*, dry_run: bool = False, check_keys: bool = True) -> Settings:
+    """Load settings; a dry run needs no API key and creates no folders.
+
+    check_keys=False skips the API-key check for commands whose providers need none.
+    """
     try:
-        return load_settings(require_credentials=not dry_run, create_directories=not dry_run)
+        return load_settings(
+            require_credentials=check_keys and not dry_run, create_directories=not dry_run
+        )
     except ConfigurationError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from None
@@ -384,3 +401,76 @@ def job_fail(
         typer.echo(str(state_error), err=True)
         raise typer.Exit(code=1) from None
     typer.echo(f"{step} failed; job {job.job_id} is now failed.")
+
+
+@video_app.callback(invoke_without_command=True)
+def video(
+    ctx: typer.Context,
+    plan: Annotated[
+        Path | None, typer.Option("--plan", help="The plan.json Codex wrote.")
+    ] = None,
+    request: Annotated[
+        str | None, typer.Option(help="The original plain-English request, for the record.")
+    ] = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Check the plan and show scenes and credits.")
+    ] = False,
+) -> None:
+    """Make a video from plan.json: check it, make each scene, assemble final.mp4.
+
+    If a scene waits for Codex (an MCP provider), the job pauses; record each clip with
+    `ca job complete`, then run `ca video resume <job folder>`.
+    """
+    if ctx.invoked_subcommand is not None:
+        if plan is not None or request is not None or dry_run:
+            typer.echo("--plan, --request and --dry-run belong to `ca video` itself.", err=True)
+            raise typer.Exit(code=2)
+        return
+    if plan is None:
+        typer.echo(ctx.get_help())
+        raise typer.Exit(code=2)
+    # Video, avatar and image scenes need no API key in the MVP (mock or agent providers).
+    settings = _settings(dry_run=dry_run, check_keys=False)
+    try:
+        if dry_run:
+            prepared = prepare_video(load_plan(plan, check_scenes=False), settings)
+            for line in video_dry_run_lines(prepared, settings):
+                typer.echo(line)
+            return
+        configure_logging(settings)
+        job = start_video_job(plan, settings, request=request)
+    except (PlanError, VideoError, AvatarError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    _report_video(job)
+
+
+@video_app.command("resume")
+def video_resume(job_dir: JobDir) -> None:
+    """Continue a paused video: once every step is recorded, assemble final.mp4."""
+    settings = _settings(check_keys=False)
+    configure_logging(settings)
+    job = _load_job(job_dir)
+    try:
+        job = resume_video_job(job, settings)
+    except (VideoError, AvatarError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    _report_video(job)
+
+
+def _report_video(job: Job) -> None:
+    if job.status == "completed":
+        for note in job.notes:
+            typer.echo(note)
+        typer.echo(f"Completed: {job.folder / 'final.mp4'}")
+        typer.echo(str(job.folder))
+        return
+    if job.status == "awaiting_agent":
+        for line in agent_checklist(job):
+            typer.echo(line)
+        typer.echo(f"Status: awaiting_agent ({job.folder})")
+        return
+    typer.echo(f"Failed: {job.error or job.status}", err=True)
+    typer.echo(str(job.folder), err=True)
+    raise typer.Exit(code=1)

@@ -3,6 +3,11 @@
 # Module 2 — Video & Voice Branch
 Status: build with mocks; live tests use existing Higgsfield / HeyGen / ElevenLabs plan credits.
 
+> MVP note: **voiceover disabled in MVP.** `VOICE_PROVIDER=none` is the default, so no voice
+> step runs and `voice` is optional in plan.json; videos keep their clips' own sound (avatar
+> speech, generated sound) and captions come from the avatar's words. The ElevenLabs adapter
+> stays in the code for later.
+
 > Implementation mapping: use Python 3.13 with uv/`pyproject.toml`, type hints with mypy strict, Pydantic schemas, and the `ca` CLI instead of Node/npm tooling.
 
 ## Goal

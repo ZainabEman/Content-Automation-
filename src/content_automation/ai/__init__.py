@@ -1,0 +1,1 @@
+"""AI capability entry packages."""

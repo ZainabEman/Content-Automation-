@@ -1,0 +1,16 @@
+.env
+.venv/
+outputs/
+assets/reference/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+*.py[cod]
+.coverage
+htmlcov/
+research/
+packages/
+.uv-cache/
+.pytest-tmp/

@@ -71,6 +71,7 @@ class Job(CamelModel):
     error: str | None = None
     provider_request_ids: list[str] = Field(default_factory=list)
     est_cost_usd: float | None = None
+    actual_cost_usd: float | None = None  # as reported by the provider
     steps: list[JobStep] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime

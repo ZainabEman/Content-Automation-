@@ -47,6 +47,7 @@ class WorkflowInputs:
     aspect_ratio: str | None = None
     count: int = 1
     request: str | None = None
+    service: str | None = None
 
     def provided(self) -> set[InputName]:
         values: dict[InputName, str | bool | None] = {
@@ -56,6 +57,7 @@ class WorkflowInputs:
             "variant": self.variant,
             "headline": self.headline,
             "logo": self.logo,
+            "service": (self.service or "").strip() or None,
         }
         return {name for name, value in values.items() if value not in (None, "", False)}
 
@@ -115,23 +117,39 @@ def prepare_workflow(
     _check_inputs(spec, inputs)
     root = settings.references_dir
     # Capabilities only: no API key is needed and no provider call is made here.
-    capabilities: ProviderCapabilities = get_provider(settings.image_provider).capabilities
+    capabilities: ProviderCapabilities = get_provider(
+        settings.image_provider, settings
+    ).capabilities
     recorded: dict[str, str | bool] = {"scenePrompt": inputs.prompt.strip()}
+    service = (inputs.service or "").strip() or None
+    if service:
+        recorded["service"] = service
 
     identity: list[ReferenceImage] = []
     if inputs.identity_set:
-        identity = select_identity_refs(inputs.identity_set, capabilities.max_identity_refs, root)
+        # Primary photos first, capped by IMAGE_IDENTITY_REFS_MAX and the provider's limit.
+        identity_max = min(capabilities.max_identity_refs, settings.image_identity_refs_max)
+        identity = select_identity_refs(inputs.identity_set, identity_max, root)
         if not identity:
             raise WorkflowError(f"Identity set {inputs.identity_set} has no usable photos.")
         recorded["identitySet"] = load_set(inputs.identity_set, root).set_id
 
+    # Room left when the provider caps all reference images together (logo counted first).
+    total_left = (
+        capabilities.max_total_refs - len(identity) - (1 if inputs.logo else 0)
+        if capabilities.max_total_refs is not None
+        else None
+    )
     brand = _load_brand_if_present(settings)
     style: list[ReferenceImage] = []
     style_set = inputs.style_set or spec.default_style_set
     if style_set and "style" in spec.ref_categories:
-        wanted = inputs.style_count or DEFAULT_STYLE_COUNT
-        style = select_style_refs(style_set, min(wanted, capabilities.max_style_refs), root)
-        recorded["styleSet"] = load_set(style_set, root).set_id
+        wanted = min(inputs.style_count or DEFAULT_STYLE_COUNT, capabilities.max_style_refs)
+        if total_left is not None:
+            wanted = min(wanted, total_left)
+        if wanted > 0:
+            style = select_style_refs(style_set, wanted, root)
+            recorded["styleSet"] = load_set(style_set, root).set_id
 
     logo: list[ReferenceImage] = []
     if inputs.logo:
@@ -142,6 +160,8 @@ def prepare_workflow(
         object_budget = min(
             object_budget, capabilities.max_object_and_style_refs - len(style) - len(logo)
         )
+    if total_left is not None:
+        object_budget = min(object_budget, total_left - len(style))
     product: list[ReferenceImage] = []
     if inputs.product_set:
         if object_budget < 1:
@@ -164,6 +184,7 @@ def prepare_workflow(
         brand,
         variant=variant,
         headline=inputs.headline,
+        service=service,
     )
     request = ImageRequest(
         prompt=prompt,

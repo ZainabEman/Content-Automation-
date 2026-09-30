@@ -77,13 +77,19 @@ def image(
     workflow: Annotated[
         str | None,
         typer.Option(
-            help="person_lifestyle, person_product or social_creative. Omit for raw mode."
+            help="person_lifestyle, person_service or social_creative. Omit for raw mode."
         ),
     ] = None,
     identity_set: Annotated[
         str | None, typer.Option("--set", help="Identity set, e.g. identity/person_01.")
     ] = None,
-    product: Annotated[str | None, typer.Option(help="Product set, e.g. product/mug.")] = None,
+    service: Annotated[
+        str | None,
+        typer.Option(help='person_service: the service shown, e.g. "Tax advice for startups".'),
+    ] = None,
+    product: Annotated[
+        str | None, typer.Option(help="social_creative: product set, e.g. product/mug.")
+    ] = None,
     style: Annotated[
         str | None, typer.Option(help="Style set, e.g. creative/facebook_ads.")
     ] = None,
@@ -129,6 +135,7 @@ def image(
         aspect_ratio=aspect,
         count=count,
         request=request,
+        service=service,
     )
     try:
         if dry_run:
@@ -173,8 +180,8 @@ def _raw_request(inputs: WorkflowInputs) -> ImageRequest:
     """Raw mode: the prompt is sent as written, without references or brand rules."""
     if inputs.provided() or inputs.style_count is not None:
         raise WorkflowError(
-            "--set, --product, --style, --style-count, --variant, --headline and --logo "
-            "need --workflow."
+            "--set, --service, --product, --style, --style-count, --variant, --headline and "
+            "--logo need --workflow."
         )
     try:
         return ImageRequest(
@@ -286,6 +293,7 @@ def brand_show() -> None:
     typer.echo(f"Tone: {brand.tone or '-'}")
     typer.echo(f"Audience: {brand.audience or '-'}")
     typer.echo(f"Content pillars: {', '.join(brand.content_pillars) or '-'}")
+    typer.echo(f"Services: {', '.join(brand.services) or '- (add them to brand.json)'}")
     typer.echo(f"Do: {len(brand.do)} rules; Don't: {len(brand.dont)} rules")
     if brand.needs_review:
         typer.echo("Needs review:")

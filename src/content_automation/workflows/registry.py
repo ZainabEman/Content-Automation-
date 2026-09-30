@@ -5,7 +5,9 @@ from typing import Literal
 
 from content_automation.ai.image import AspectRatio
 
-InputName = Literal["identity_set", "product_set", "style_set", "variant", "headline", "logo"]
+InputName = Literal[
+    "identity_set", "product_set", "style_set", "variant", "headline", "logo", "service"
+]
 RefCategory = Literal["identity", "product", "brand", "style"]
 DEFAULT_STYLE_COUNT = 3
 
@@ -17,6 +19,7 @@ INPUT_FLAGS: dict[InputName, str] = {
     "variant": "--variant",
     "headline": "--headline",
     "logo": "--logo",
+    "service": "--service",
 }
 
 
@@ -51,13 +54,13 @@ WORKFLOWS: dict[str, WorkflowSpec] = {
             ref_categories=("identity", "style"),
         ),
         WorkflowSpec(
-            workflow_id="person_product",
+            workflow_id="person_service",
             version="1",
-            description="Photo of the person using or presenting a product.",
-            required_inputs=("identity_set", "product_set"),
+            description="Photo of the person providing or presenting a company service.",
+            required_inputs=("identity_set", "service"),
             optional_inputs=(),
             default_aspect="4:5",
-            ref_categories=("identity", "product"),
+            ref_categories=("identity",),
         ),
         WorkflowSpec(
             workflow_id="social_creative",

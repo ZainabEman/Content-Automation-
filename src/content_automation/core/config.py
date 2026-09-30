@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ImageProvider = Literal["mock", "gemini"]
+ImageProvider = Literal["mock", "gemini", "openrouter"]
 VideoProvider = Literal["mock", "higgsfield-mcp"]
 AvatarProvider = Literal["mock", "heygen-mcp"]
 VoiceProvider = Literal["mock", "elevenlabs"]
@@ -39,7 +39,9 @@ class Settings(BaseSettings):
     image_daily_limit: int = Field(default=10, gt=0)
     image_timeout_ms: int = Field(default=120_000, gt=0)
     image_max_retries: int = Field(default=1, ge=0, le=5)
+    image_identity_refs_max: int = Field(default=4, ge=1, le=14)
     gemini_api_key: SecretStr | None = None
+    openrouter_api_key: SecretStr | None = None
 
     video_provider: VideoProvider = "mock"
     video_model: str = Field(default="mock", min_length=1)
@@ -107,6 +109,10 @@ def load_settings(
     missing: list[str] = []
     if settings.image_provider == "gemini" and not _secret_is_set(settings.gemini_api_key):
         missing.append("GEMINI_API_KEY")
+    if settings.image_provider == "openrouter" and not _secret_is_set(
+        settings.openrouter_api_key
+    ):
+        missing.append("OPENROUTER_API_KEY")
     if settings.voice_provider == "elevenlabs" and not _secret_is_set(
         settings.elevenlabs_api_key
     ):

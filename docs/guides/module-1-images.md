@@ -1,17 +1,21 @@
 # Module guide: Images
 
 > Status: Module 1 is built and tested offline (job records, reference library, brand profile,
-> the three workflows, the Codex playbook, and the Gemini provider). The first real (paid)
-> Gemini test happens in the LIVE task at project end.
+> the three workflows, the Codex playbook, and the OpenRouter and Gemini providers).
+> Real images are made through **OpenRouter** (the Gemini image model, paid per image).
 
 ## What it does
 
 It makes images from a text description and saves each request in its own dated folder,
 with a `details.json` file that records exactly what was asked, what was sent, and what came back.
 
-By default it makes free **placeholder images** (the "mock" provider): your prompt as text on a
-coloured card at the right shape, so you can try the whole flow without spending money. With
-`IMAGE_PROVIDER=gemini` it makes real images with Google Gemini (paid, see "Costs and limits").
+With the free **mock** provider it makes placeholder images (your prompt as text on a coloured
+card at the right shape), so you can try the whole flow without spending money. With
+`IMAGE_PROVIDER=openrouter` it makes real images with Google's Gemini image model through
+OpenRouter (paid, see "Costs and limits"). `IMAGE_PROVIDER=gemini` calls Google directly instead.
+
+**Consent:** the company lead provided his own photos for his company's marketing. Only use
+photos of people who have agreed to this use.
 
 ## What was built
 
@@ -22,7 +26,10 @@ coloured card at the right shape, so you can try the whole flow without spending
   requests once `IMAGE_DAILY_LIMIT` is reached, before contacting any provider.
 - **Dry run** (`--dry-run`): shows the final prompt, which reference photos would be sent,
   how many provider calls it takes and the estimated cost, without making anything.
-- **Gemini provider**: real image generation with `gemini-3.1-flash-image`.
+- **OpenRouter provider** (the one used for real images): the Gemini image model
+  `google/gemini-3.1-flash-image` through OpenRouter. The real price of each request is saved
+  as `actualCostUsd` next to the estimate.
+- **Gemini provider**: the same model called directly at Google (kept as an alternative).
 - **Time limit and retries**: a request that takes too long is stopped and marked failed.
   Temporary provider errors (such as "busy") are retried; timeouts are not retried, so you
   are never charged twice for one request.
@@ -40,15 +47,32 @@ coloured card at the right shape, so you can try the whole flow without spending
 - **Video frames**: carousel videos are turned into still frames (3 per video) so they can be
   used as style examples.
 - **Three workflows** that turn a short scene description into a full prompt: they add the
-  right reference photos, say what each photo is for (the person, the product, the logo, or
-  style only), and add the brand rules from `brand.json` automatically.
+  right reference photos, say what each photo is for (the person, the logo, or style only),
+  and add the brand rules from `brand.json` automatically. Any text in an image is in English.
+- **Services, not products**: `person_service` shows the person delivering one of the
+  company's services, described in words (no product photos needed).
 
 ## One-time setup
 
 1. Install uv using the [official installer](https://docs.astral.sh/uv/getting-started/installation/).
 2. In the project folder, run `uv sync`.
-3. Make sure `.env` exists (copy `.env.example` if not) and contains `IMAGE_PROVIDER=mock`.
+3. Make sure `.env` exists (copy `.env.example` if not). Use `IMAGE_PROVIDER=mock` to try
+   things for free.
 4. Check it works: `uv run ca hello`.
+
+### Set up OpenRouter (real images)
+
+1. Create an account at [openrouter.ai](https://openrouter.ai), add some credits
+   (Settings → Credits), and create an API key (Settings → Keys).
+2. Open `.env` in a text editor and set:
+   ```
+   IMAGE_PROVIDER=openrouter
+   IMAGE_MODEL=google/gemini-3.1-flash-image
+   OPENROUTER_API_KEY=<paste your key here>
+   ```
+   Keep the key only in `.env`: never paste it into Codex, chat, documents or screenshots.
+3. Test without spending anything: add `--dry-run` to any image command. It shows the photos
+   that would be sent and the estimated cost.
 
 ### Add your photos
 
@@ -57,7 +81,7 @@ Put photos in `assets/reference/`. The **first folder** is the kind, the **folde
 ```
 assets/reference/
   identity/person_01/        photos of one person (clear face, different angles)
-  product/<product-name>/    product photos
+  product/<product-name>/    product photos (optional; only social_creative uses them)
   brand/logo/                logos
   brand/guidelines/          brand style guide PDF (read for brand.json, not sent)
   creative/facebook_ads/     past ads (style examples)
@@ -96,7 +120,10 @@ Pick sharp, well-lit photos where the face is clearly visible, ideally from diff
 Open `assets/reference/brand/brand.json` in any text editor, or run `uv run ca brand show`.
 Fix anything wrong, remove each item from `needsReview` once you have checked it, and change
 `"status": "draft"` to `"status": "approved"` when you are happy. `logoFile` is the file in
-`brand/logo/` that is added when you ask for the logo.
+`brand/logo/` that is added when you ask for the logo. `language` is `"en"`, so any text in an
+image is written in English. Fill in `services` with the services the company offers, for
+example `["Business strategy consulting", "AI marketing workshops"]`; they are a handy list to
+pick from for `person_service`.
 
 ## How to use
 
@@ -109,7 +136,7 @@ The three workflows:
 | Workflow | Use it for | Needs |
 |---|---|---|
 | `person_lifestyle` | The person in a real-life scene | `--set` (the person); style set optional |
-| `person_product` | The person using or showing a product | `--set` and `--product` |
+| `person_service` | The person delivering or presenting one of the company's services | `--set` and `--service "…"` (the service in words) |
 | `social_creative` | A designed post, ad (`--variant ad`) or carousel slide (`--variant carousel_slide`) | Nothing required; optional person, product, `--headline`, `--logo`, `--style` (default: Facebook ads) |
 
 If Codex doesn't specify them, the shape is 4:5 (Instagram feed) and it makes 3 versions. Brand colours,
@@ -125,9 +152,9 @@ tone and "don't" rules are added automatically, so you don't need to repeat them
    ```
    uv run ca image --workflow person_lifestyle --set identity/person_01 --aspect 9:16 --count 3 --prompt "Speaking on a conference stage with a microphone, audience in soft focus, blue stage lights, low angle, 24mm" --request "A story of me speaking on stage at a marketing conference"
    ```
-3. "2 LinkedIn photos of me holding our new mug"
+3. "2 LinkedIn photos of me running a strategy workshop"
    ```
-   uv run ca image --workflow person_product --set identity/person_01 --product product/<mug-set> --aspect 1:1 --count 2 --prompt "Holding the mug at a clean desk in a bright home office, candid smile, natural light, 50mm" --request "2 LinkedIn photos of me holding our new mug"
+   uv run ca image --workflow person_service --set identity/person_01 --service "Business strategy workshop for small companies" --aspect 1:1 --count 2 --prompt "Leading a whiteboard session with three attentive clients in a bright modern meeting room, mid-gesture, natural window light, 35mm" --request "2 LinkedIn photos of me running a strategy workshop"
    ```
 4. "A Facebook ad saying 'Grow faster with AI', with our logo"
    ```
@@ -143,13 +170,15 @@ tone and "don't" rules are added automatically, so you don't need to repeat them
 - `--workflow`: one of the three workflows above. Leave it out for "raw" mode: the prompt is
   sent exactly as written, with no photos or brand rules.
 - `--prompt`: what the picture should show (required).
-- `--set`, `--product`, `--style`: which reference sets to use (see `uv run ca refs list`).
+- `--set`, `--style`: which reference sets to use (see `uv run ca refs list`).
+- `--service`: for `person_service`, the service shown, in words.
+- `--product`: for `social_creative` only, a product photo set (if you ever add one).
 - `--variant`, `--headline`, `--logo`: for `social_creative` only.
 - `--aspect`: `1:1` square, `4:5` Instagram portrait, `9:16` story/reel, `16:9` wide.
 - `--count`: how many versions, 1 to 4. Default 1 (Codex uses 3).
 - `--request`: your original words, saved in `details.json`.
-- `--style-count`: how many style images to send (default 3, Gemini's maximum). They are taken
-  from different videos/files, spread across the set.
+- `--style-count`: how many style images to send (default 3). They are taken from different
+  videos/files, spread across the set.
 - `--dry-run`: show the prompt, reference photos, number of calls and estimated cost. Nothing
   is created, nothing is sent, and it does not count toward the daily limit. No API key needed.
 
@@ -161,7 +190,7 @@ job or contacting any provider.
 | Command | What it does |
 |---|---|
 | `uv run ca hello` | Shows your settings (keys are hidden). |
-| `uv run ca image --workflow <id> --set … --prompt "…" [--product …] [--style …] [--variant …] [--headline "…"] [--logo] [--aspect 4:5] [--count N] [--request "…"]` | Makes images with a workflow and prints the output folder. |
+| `uv run ca image --workflow <id> --set … --prompt "…" [--service "…"] [--style …] [--variant …] [--headline "…"] [--logo] [--aspect 4:5] [--count N] [--request "…"]` | Makes images with a workflow and prints the output folder. |
 | `uv run ca image --prompt "…" [--aspect 4:5] [--count N]` | Raw mode: sends the prompt as written. |
 | `uv run ca image … --dry-run` | Shows prompt, references, calls and estimated cost; makes nothing. |
 | `uv run ca refs frames` | Saves 3 still frames of each reference video into `_frames/`. |
@@ -176,10 +205,11 @@ Each request creates: `outputs/YYYY-MM-DD/HHmm_<short-name>/`
 
 - `image-1.png`, `image-2.png`, …: the images.
 - `details.json`: the record. Key fields: `status`, `workflowId` and `workflowVersion`,
-  `request` (your words), `prompt` (the full text sent), `inputs` (scene, sets, variant, headline),
+  `request` (your words), `prompt` (the full text sent), `inputs` (scene, sets, service, variant, headline),
   `identityAssetIds` / `productAssetIds` / `brandAssetIds` / `styleAssetIds` (exactly which
   reference photos were sent), `provider`, `model`, `params` (shape, size, count), `outputs`
-  (file names), `error` (why it failed, if it did), `estCostUsd`, `createdAt`.
+  (file names), `error` (why it failed, if it did), `estCostUsd` (estimate), `actualCostUsd`
+  (what OpenRouter actually charged), `createdAt`.
 
 If a folder name is already taken, `-2`, `-3`, … is added. A failed job keeps its folder and
 `details.json` (with the error) but has no images.
@@ -198,8 +228,10 @@ Set these in `.env`:
 
 | Setting | Meaning | Default |
 |---|---|---|
-| `IMAGE_PROVIDER` | Which service makes images: `mock` (free test images) or `gemini` (real, paid). | `mock` |
-| `IMAGE_MODEL` | Model name. For Gemini: `gemini-3.1-flash-image`. For the mock, `mock-fail` and `mock-timeout` simulate problems; anything else works. | `gemini-3.1-flash-image` |
+| `IMAGE_PROVIDER` | Which service makes images: `mock` (free test images), `openrouter` (real, paid) or `gemini` (real, paid, direct at Google). | `mock` |
+| `IMAGE_MODEL` | Model name. OpenRouter: `google/gemini-3.1-flash-image`. Gemini: `gemini-3.1-flash-image`. For the mock, `mock-fail` and `mock-timeout` simulate problems; anything else works. | `gemini-3.1-flash-image` |
+| `OPENROUTER_API_KEY` | Your OpenRouter key. Only needed when `IMAGE_PROVIDER=openrouter` (not for `--dry-run`). Keep it only in `.env`; never share it. | empty |
+| `IMAGE_IDENTITY_REFS_MAX` | How many photos of the person are sent (1 to 14; the 4 primary photos first, then the others). More photos can help the likeness. | `4` |
 | `GEMINI_API_KEY` | Your Gemini API key. Only needed when `IMAGE_PROVIDER=gemini` (not for `--dry-run`). Keep it only in `.env`; never share it. | empty |
 | `IMAGE_DAILY_LIMIT` | Maximum real images per day (mock images don't count). | `10` |
 | `IMAGE_TIMEOUT_MS` | How long to wait for each image, in milliseconds. | `120000` (2 min) |
@@ -211,12 +243,17 @@ Set these in `.env`:
 ## Costs and limits
 
 - **Mock** images are free (`estCostUsd` is 0) and don't count toward the daily limit.
-- **Gemini** (`gemini-3.1-flash-image`), estimated per image: **1K $0.067**, 2K $0.101, 4K $0.151.
-  The tool uses 1K. Each image is a separate call, so 3 images at 1K ≈ $0.20. The estimate is
-  saved as `estCostUsd` in `details.json`; always check `--dry-run` first.
+- **OpenRouter** and **Gemini** (the same model), estimated per image: **1K $0.067**, 2K $0.101,
+  4K $0.151. The tool uses 1K. Each image is a separate call, so 3 images at 1K ≈ $0.20. The
+  estimate is saved as `estCostUsd`; with OpenRouter the real charge is saved as
+  `actualCostUsd` (it can be slightly higher, because the reference photos also count).
+  Always check `--dry-run` first.
+- If OpenRouter's model fails (error 502) you are **not** charged, and the tool retries.
 - Up to 4 images per request; shapes 1:1, 4:5, 9:16, 16:9.
-- Reference photos per request: up to **4 identity**, **3 style**, and at most **10 product,
-  logo and style images together**. Requests over this are refused before anything is sent.
+- Reference photos per request:
+  - OpenRouter: up to **14 in total**; photos of the person up to `IMAGE_IDENTITY_REFS_MAX`.
+  - Gemini: up to **4 identity**, **3 style**, and at most **10 logo and style images together**.
+  Requests over this are refused before anything is sent.
 - The daily limit (`IMAGE_DAILY_LIMIT`) counts real images that were actually made today; when
   it is reached, requests are refused before any provider call.
 - Temporary errors (rate limit, server busy) are retried per image; images already made are
@@ -228,6 +265,14 @@ Set these in `.env`:
 |---|---|
 | `Missing or invalid environment variables: X` | Fix setting X in `.env`. |
 | `Daily image limit reached` | Wait until tomorrow or raise `IMAGE_DAILY_LIMIT`. |
+| `OPENROUTER_API_KEY missing` | Add the key to `.env`, or use `IMAGE_PROVIDER=mock`. `--dry-run` works without a key. |
+| `OpenRouter needs more credits (HTTP 402)` | Add credits at openrouter.ai → Settings → Credits, then try again. |
+| `OpenRouter rejected the API key (HTTP 401)` | Check `OPENROUTER_API_KEY` in `.env` (no spaces or quotes). |
+| `OpenRouter rejected the request (HTTP 400)` | Something in the request is not accepted; the details say what. |
+| `OpenRouter rate limit reached (HTTP 429)` | Wait a minute and try again (it is already retried once). |
+| `The image model failed (HTTP 502, not billed)` | A temporary failure with no charge; try again. |
+| `OpenRouter returned no image` | Often a safety block: reword the prompt or use other reference photos. |
+| `… reference images in total (max 14)` | Lower `IMAGE_IDENTITY_REFS_MAX` or `--style-count`. |
 | `GEMINI_API_KEY missing` | Add the key to `.env`, or use `IMAGE_PROVIDER=mock`. `--dry-run` works without a key. |
 | `Gemini rate limit or quota reached (HTTP 429)` | Wait a few minutes, or check the quota/billing in Google AI Studio. |
 | `Gemini rejected the API key` | Check `GEMINI_API_KEY` in `.env`. |
@@ -238,9 +283,9 @@ Set these in `.env`:
 | `rejected x.jpg: too small` | Use a larger photo (512 px short side; logos 256 px). |
 | `rejected x.svg` / `x.pdf` | Export it as PNG or JPG and put the image in the set folder. |
 | `skipped …: no JPG/PNG/WebP images` | The folder only has PDFs or other files; add images. If it has videos, run `uv run ca refs frames`. |
-| `… needs --set` / `needs --product` | Add the missing option (see `uv run ca refs list` for set names). |
+| `… needs --set` / `needs --service` | Add the missing option (see `uv run ca refs list` for set names). |
 | `… does not use --logo` (or another option) | That workflow ignores the option; remove it or use `social_creative`. |
-| `… need --workflow` | `--set`, `--product`, etc. only work together with `--workflow`. |
+| `… need --workflow` | `--set`, `--service`, etc. only work together with `--workflow`. |
 | `logoFile '…' is not a usable image` | Set `logoFile` in `brand.json` to a file listed in `brand/logo/set.json` as `ok`. |
 | `duplicate of y.jpg` | The same photo is in the set twice; one copy is enough. |
 | `Set '…' not found` | Run `uv run ca refs scan`, then `uv run ca refs list` to see set names. |
@@ -248,16 +293,18 @@ Set these in `.env`:
 
 ## Switching providers
 
-To go live with Gemini, edit `.env`:
+Real images use OpenRouter (see "Set up OpenRouter" above):
 
 ```
-IMAGE_PROVIDER=gemini
-IMAGE_MODEL=gemini-3.1-flash-image
-GEMINI_API_KEY=<your key>
+IMAGE_PROVIDER=openrouter
+IMAGE_MODEL=google/gemini-3.1-flash-image
+OPENROUTER_API_KEY=<your key>
 ```
 
-Then run a `--dry-run` to check the prompt and cost, and run the command again without
-`--dry-run`. To go back to free test images, set `IMAGE_PROVIDER=mock`. Nothing else changes.
+To call Google directly instead, use `IMAGE_PROVIDER=gemini`, `IMAGE_MODEL=gemini-3.1-flash-image`
+and `GEMINI_API_KEY`. Always run a `--dry-run` first to check the prompt and cost, then run the
+command again without `--dry-run`. To go back to free test images, set `IMAGE_PROVIDER=mock`.
+Nothing else changes.
 
 For developers: a new provider is one file in `src/content_automation/ai/image/providers/`
 (with `create_provider(settings)` and its limits) plus one line in the provider list in

@@ -22,6 +22,7 @@ MAX_COUNT = 4
 _ADAPTERS: dict[str, str] = {
     "mock": "content_automation.ai.image.providers.mock",
     "gemini": "content_automation.ai.image.providers.gemini",
+    "openrouter": "content_automation.ai.image.providers.openrouter",
 }
 
 
@@ -40,11 +41,15 @@ class UnknownImageProviderError(ImageError):
 
 
 class ImageProviderError(ImageError):
-    """The provider call failed; ``retryable`` marks temporary failures."""
+    """The provider call failed; ``retryable`` marks temporary failures and
+    ``cost_usd`` what earlier images of the same request were already billed."""
 
-    def __init__(self, message: str, *, retryable: bool = False) -> None:
+    def __init__(
+        self, message: str, *, retryable: bool = False, cost_usd: float | None = None
+    ) -> None:
         super().__init__(message)
         self.retryable = retryable
+        self.cost_usd = cost_usd
 
 
 class ImageTimeoutError(ImageProviderError, TimeoutError):
@@ -89,6 +94,7 @@ class ImageResult(BaseModel):
     provider: str
     model: str
     provider_request_ids: list[str] = Field(default_factory=list)
+    cost_usd: float | None = None  # actual charge, when the provider reports it
 
 
 class ProviderCapabilities(BaseModel):
@@ -100,6 +106,7 @@ class ProviderCapabilities(BaseModel):
     max_object_refs: int
     max_style_refs: int
     max_object_and_style_refs: int | None = None  # combined cap, if the model has one
+    max_total_refs: int | None = None  # cap on all reference images together, if any
     aspect_ratios: frozenset[str]
     image_sizes: frozenset[str]
     max_count: int = MAX_COUNT
@@ -155,13 +162,16 @@ def validate_request(request: ImageRequest, capabilities: ProviderCapabilities) 
         problems.append(
             f"{combined} product/brand/style references together (max {combined_limit})"
         )
+    total = len(request.identity_refs) + combined
+    if capabilities.max_total_refs is not None and total > capabilities.max_total_refs:
+        problems.append(f"{total} reference images in total (max {capabilities.max_total_refs})")
     if problems:
         raise ImageRequestError("Request exceeds provider limits: " + "; ".join(problems) + ".")
 
 
 def estimate_cost_usd(request: ImageRequest, settings: Settings | None = None) -> float:
     settings = settings or load_settings(require_credentials=False)
-    capabilities = get_provider(settings.image_provider).capabilities
+    capabilities = get_provider(settings.image_provider, settings).capabilities
     per_image = capabilities.est_cost_usd_per_image.get(request.image_size, 0.0)
     return round(per_image * request.count, 4)
 

@@ -93,18 +93,20 @@ def test_person_lifestyle_end_to_end(settings: Settings) -> None:
         assert expected in prompt, expected
 
 
-def test_person_product_end_to_end(settings: Settings) -> None:
+def test_person_service_end_to_end(settings: Settings) -> None:
     job = run_workflow(
-        "person_product",
-        WorkflowInputs(prompt="Holding the mug", identity_set="person_01", product_set="mug"),
+        "person_service",
+        WorkflowInputs(prompt="Advising a client", identity_set="person_01",
+                       service="Tax advice for startups"),
         settings,
     )
 
     data = _details(job.folder)
     assert data["status"] == "completed"
-    assert data["productAssetIds"] == list(_ids(settings, "product/mug").values())
+    assert data["productAssetIds"] == []
     assert data["styleAssetIds"] == [] and data["brandAssetIds"] == []
-    assert "Images 5-14 - PRODUCT: include this exact product" in data["prompt"]
+    assert data["inputs"]["service"] == "Tax advice for startups"
+    assert "Service: Tax advice for startups" in data["prompt"]
     assert data["params"]["aspectRatio"] == "4:5"
 
 
@@ -139,7 +141,7 @@ def test_social_creative_ad_with_logo_headline_and_default_style(settings: Setti
     ("workflow_id", "inputs", "message"),
     [
         ("person_lifestyle", {}, "needs --set"),
-        ("person_product", {"identity_set": "person_01"}, "needs --product"),
+        ("person_service", {"identity_set": "person_01"}, "needs --service"),
         ("person_lifestyle", {"identity_set": "person_01", "logo": True}, "does not use --logo"),
         ("social_creative", {"variant": "story"}, "--variant must be one of"),
         ("social_creative", {"aspect_ratio": "3:2"}, "--aspect must be one of"),
@@ -163,8 +165,8 @@ def test_wrong_set_type_is_rejected(settings: Settings) -> None:
         )
     with pytest.raises(ValueError, match="product set is needed"):
         prepare_workflow(
-            "person_product",
-            WorkflowInputs(prompt="x", identity_set="person_01", product_set="person_01"),
+            "social_creative",
+            WorkflowInputs(prompt="x", product_set="person_01"),
             settings,
         )
 
@@ -181,7 +183,7 @@ def test_prompt_without_brand_file(settings: Settings, library: Path) -> None:
 
 
 def test_registry_defaults() -> None:
-    assert set(WORKFLOWS) == {"person_lifestyle", "person_product", "social_creative"}
+    assert set(WORKFLOWS) == {"person_lifestyle", "person_service", "social_creative"}
     assert WORKFLOWS["social_creative"].default_style_set == "creative/facebook_ads"
 
 
@@ -192,12 +194,12 @@ def test_cli_workflow_mode_and_errors(settings: Settings) -> None:
         "image", "--workflow", "person_lifestyle", "--set", "identity/person_01",
         "--prompt", "Walking in a park", "--count", "3",
     ])
-    missing = runner.invoke(app, ["image", "--workflow", "person_product", "--prompt", "x"])
+    missing = runner.invoke(app, ["image", "--workflow", "person_service", "--prompt", "x"])
     raw_with_set = runner.invoke(app, ["image", "--set", "person_01", "--prompt", "x"])
 
     assert ok.exit_code == 0, ok.output
     assert _details(Path(ok.stdout.strip()))["workflowId"] == "person_lifestyle"
-    assert missing.exit_code == 1 and "needs --set, --product" in missing.output
+    assert missing.exit_code == 1 and "needs --set, --service" in missing.output
     assert raw_with_set.exit_code == 1 and "need --workflow" in raw_with_set.output
     assert len(list(settings.output_dir.glob("*/*/details.json"))) == 1
 
@@ -233,8 +235,8 @@ def test_style_count_changes_and_is_capped(settings: Settings) -> None:
     assert len(many.request.style_refs) == 3  # provider style limit
     with pytest.raises(WorkflowError, match="does not use --style-count"):
         prepare_workflow(
-            "person_product",
-            WorkflowInputs(prompt="x", identity_set="person_01", product_set="mug",
+            "person_service",
+            WorkflowInputs(prompt="x", identity_set="person_01", service="x",
                            style_count=2),
             settings,
         )

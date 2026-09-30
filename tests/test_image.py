@@ -36,8 +36,8 @@ def test_registry_picks_mock_and_rejects_unknown() -> None:
         get_provider("nope")
 
 
-def test_registry_lists_mock_and_gemini() -> None:
-    assert available_providers() == ("gemini", "mock")
+def test_registry_lists_all_image_providers() -> None:
+    assert available_providers() == ("gemini", "mock", "openrouter")
 
 
 @pytest.mark.parametrize(

@@ -173,6 +173,7 @@ source = { editable = "." }
 dependencies = [
     { name = "elevenlabs" },
     { name = "google-genai" },
+    { name = "httpx" },
     { name = "imageio-ffmpeg" },
     { name = "pillow" },
     { name = "pydantic" },
@@ -192,6 +193,7 @@ dev = [
 requires-dist = [
     { name = "elevenlabs", specifier = ">=2.70.0" },
     { name = "google-genai", specifier = ">=2.3.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "imageio-ffmpeg", specifier = ">=0.5" },
     { name = "pillow", specifier = ">=11" },
     { name = "pydantic", specifier = ">=2.9" },

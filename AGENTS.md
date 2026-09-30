@@ -6,7 +6,7 @@
 - Providers: each capability has one public interface in its entry package (`content_automation/ai/<cap>/__init__.py`; scraper: `content_automation/research/collectors/__init__.py`).
 - Put one adapter module per provider under that capability's `providers/`; choose with `<CAP>_PROVIDER` and `<CAP>_MODEL`, and always provide a mock adapter.
 - App code imports capability entry packages only; a test enforces this boundary. A new provider takes one adapter file and two environment changes.
-- Images: `generate_image()` lives in `content_automation.ai.image`; adapters are mock and Gemini, selected by `IMAGE_PROVIDER` and `IMAGE_MODEL`.
+- Images: `generate_image()` lives in `content_automation.ai.image`; adapters are mock, OpenRouter (used for real images) and Gemini, selected by `IMAGE_PROVIDER` and `IMAGE_MODEL`.
 - Adapter modes are `code` (the app calls the API) and `agent` (Codex calls the MCP tool; the app records it through job commands).
 - Keep keys only in `.env`. Never print, log, commit, or put keys in docs or prompts; never ask for keys in chat.
 - Every job writes `details.json`; never mark a job completed without its output file, and record failures with the error.
@@ -18,14 +18,14 @@
 
 ### Make images
 
-1. Pick the workflow: the person in a scene → `person_lifestyle`; the person with a product → `person_product` (`--product product/<set>`); a designed post, ad or carousel slide → `social_creative` (`--variant post|ad|carousel_slide`; add `--headline "…"` for exact on-image text, `--logo` for the logo, and `--style creative/<set>` if a style is named; the default is `creative/facebook_ads`).
-2. Identity: `--set identity/person_01` unless another person is named (`uv run ca refs list` shows the sets). Add it to social_creative only if the person should appear.
+1. Pick the workflow: the person in a scene → `person_lifestyle`; the person delivering one of the company's services → `person_service` (`--service "…"`: the service in words; `uv run ca brand show` lists `services`); a designed post, ad or carousel slide → `social_creative` (`--variant post|ad|carousel_slide`; add `--headline "…"` for exact on-image text, `--logo` for the logo, and `--style creative/<set>` if a style is named; the default is `creative/facebook_ads`).
+2. Identity: `--set identity/person_01` unless another person is named (`uv run ca refs list` shows the sets). Add it to social_creative only if the person should appear. Consent: person_01 is the company lead, who provided his own photos for his company's marketing; use only identity sets of people who agreed to this use.
 3. Aspect ratio by platform: IG feed 4:5 · story/reel 9:16 · LinkedIn 1:1 · YouTube 16:9. Default `--count 3` unless a number is given (max 4).
 4. `--prompt`: a rich scene description (action, setting, light, camera/lens, mood). Leave out brand colours, tone and rules; the builder adds them.
 5. Pass the user's exact words as `--request "…"`.
-6. Run: `uv run ca image --workflow <id> --set … --prompt "…" --aspect … --count … --request "…"`. If `IMAGE_PROVIDER` is not `mock`, first run the same command with `--dry-run` and state the estimated cost.
-7. Success (exit 0): reply with the printed folder path and one line per image (`image-N.png`: what it shows).
-8. Failure: show the error message and the next step: a missing set → `uv run ca refs scan` / `ca refs list`; a daily limit → wait or raise `IMAGE_DAILY_LIMIT`; a provider error → read `error` in the folder's `details.json`.
+6. Run: `uv run ca image --workflow <id> --set … --prompt "…" --aspect … --count … --request "…"`. If `IMAGE_PROVIDER` is not `mock` (real images use `openrouter`), first run the same command with `--dry-run` and state the estimated cost.
+7. Success (exit 0): reply with the printed folder path, `actualCostUsd` from its `details.json` if set, and one line per image (`image-N.png`: what it shows).
+8. Failure: show the error message and the next step: a missing set → `uv run ca refs scan` / `ca refs list`; a daily limit → wait or raise `IMAGE_DAILY_LIMIT`; `OPENROUTER_API_KEY missing` → the user adds the key to `.env` (never ask for it in chat); HTTP 402 → the user adds OpenRouter credits; a provider error → read `error` in the folder's `details.json`.
 
 ### Make videos
 

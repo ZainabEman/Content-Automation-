@@ -31,7 +31,7 @@ def dry_run_lines(
 
     Loads only the adapter's capabilities: no API key, job, file or provider call.
     """
-    capabilities = get_provider(settings.image_provider).capabilities
+    capabilities = get_provider(settings.image_provider, settings).capabilities
     validate_request(request, capabilities)
     calls = math.ceil(request.count / capabilities.max_images_per_call)
     per_image = capabilities.est_cost_usd_per_image.get(request.image_size, 0.0)

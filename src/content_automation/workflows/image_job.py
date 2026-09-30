@@ -77,6 +77,7 @@ def run_image_job(
         )
         job.provider_request_ids = result.provider_request_ids
         job.model = result.model
+        job.actual_cost_usd = result.cost_usd
         for index, image in enumerate(result.images, start=1):
             path = job.folder / f"image-{index}.{_EXTENSIONS.get(image.mime_type, 'png')}"
             path.write_bytes(image.data)
@@ -89,6 +90,7 @@ def run_image_job(
     except Exception as error:
         _remove(written)
         message = mask_secrets(f"{type(error).__name__}: {error}", secret_values(settings))
+        job.actual_cost_usd = getattr(error, "cost_usd", None)
         job.fail(message)
         logger.error("Job %s failed: %s", job.job_id, message)
     return job

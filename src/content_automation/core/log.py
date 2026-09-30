@@ -40,12 +40,20 @@ class SecretMaskingFormatter(logging.Formatter):
         return mask_secrets(super().format(record), self._secrets)
 
 
+class _CurrentStderrHandler(logging.StreamHandler):  # type: ignore[type-arg]
+    """Writes to whatever sys.stderr is at emit time (it can be swapped, e.g. in tests)."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.stream = sys.stderr
+        super().emit(record)
+
+
 def configure_logging(settings: Settings, level: int = logging.INFO) -> logging.Logger:
     """Attach one masking stderr handler to the application logger."""
     logger = logging.getLogger(ROOT_LOGGER)
     for handler in [h for h in logger.handlers if getattr(h, "_ca_handler", False)]:
         logger.removeHandler(handler)
-    handler = logging.StreamHandler(sys.stderr)
+    handler = _CurrentStderrHandler(sys.stderr)
     handler.setFormatter(
         SecretMaskingFormatter(secret_values(settings), "%(levelname)s %(name)s: %(message)s")
     )

@@ -90,8 +90,12 @@ def load_settings(
     env_file: str | Path | None = ".env",
     *,
     create_directories: bool = True,
+    require_credentials: bool = True,
 ) -> Settings:
-    """Load settings, report only variable names, and create data folders."""
+    """Load settings, report only variable names, and create data folders.
+
+    require_credentials=False skips the API-key check (dry runs make no calls).
+    """
     try:
         settings = Settings(_env_file=env_file)  # type: ignore[call-arg]
     except ValidationError as error:
@@ -109,9 +113,11 @@ def load_settings(
         missing.append("ELEVENLABS_API_KEY")
     if settings.scraper_provider == "apify" and not _secret_is_set(settings.apify_token):
         missing.append("APIFY_TOKEN")
-    if missing:
+    if missing and require_credentials:
         names = ", ".join(sorted(missing))
-        raise ConfigurationError(f"Missing or invalid environment variables: {names}.")
+        raise ConfigurationError(
+            f"{names} missing: add it to .env to use the selected provider."
+        )
 
     if create_directories:
         for directory in (

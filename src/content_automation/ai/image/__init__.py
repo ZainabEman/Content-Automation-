@@ -21,6 +21,7 @@ MAX_COUNT = 4
 # Provider name -> adapter module. Adding a provider = one adapter file + one line here.
 _ADAPTERS: dict[str, str] = {
     "mock": "content_automation.ai.image.providers.mock",
+    "gemini": "content_automation.ai.image.providers.gemini",
 }
 
 
@@ -57,6 +58,7 @@ class ReferenceImage(BaseModel):
 
     asset_id: str = Field(min_length=1)
     path: Path
+    source: str = ""  # original file, e.g. identity/person_01/1.jpg (for display)
 
 
 class ImageRequest(BaseModel):
@@ -97,13 +99,18 @@ class ProviderCapabilities(BaseModel):
     max_identity_refs: int
     max_object_refs: int
     max_style_refs: int
+    max_object_and_style_refs: int | None = None  # combined cap, if the model has one
     aspect_ratios: frozenset[str]
     image_sizes: frozenset[str]
     max_count: int = MAX_COUNT
+    max_images_per_call: int = 1  # count N may take several provider calls
     est_cost_usd_per_image: dict[str, float] = Field(default_factory=dict)
 
 
 class ImageProvider(Protocol):
+    """Adapter contract. Each adapter module exposes ``create_provider(settings)``;
+    settings may be None when only the capabilities are needed (no call is made)."""
+
     name: str
     capabilities: ProviderCapabilities
 
@@ -114,8 +121,8 @@ def available_providers() -> tuple[str, ...]:
     return tuple(sorted(_ADAPTERS))
 
 
-def get_provider(name: str) -> ImageProvider:
-    """Load the adapter registered under ``name``."""
+def get_provider(name: str, settings: Settings | None = None) -> ImageProvider:
+    """Load the adapter registered under ``name``; creating it makes no provider call."""
     module_name = _ADAPTERS.get(name)
     if module_name is None:
         raise UnknownImageProviderError(
@@ -123,7 +130,7 @@ def get_provider(name: str) -> ImageProvider:
             f"{', '.join(available_providers())}."
         )
     module = importlib.import_module(module_name)
-    provider: ImageProvider = module.create_provider()
+    provider: ImageProvider = module.create_provider(settings)
     return provider
 
 
@@ -142,12 +149,18 @@ def validate_request(request: ImageRequest, capabilities: ProviderCapabilities) 
     ):
         if len(refs) > limit:
             problems.append(f"{len(refs)} {label} references (max {limit})")
+    combined = len(request.object_refs) + len(request.style_refs)
+    combined_limit = capabilities.max_object_and_style_refs
+    if combined_limit is not None and combined > combined_limit:
+        problems.append(
+            f"{combined} product/brand/style references together (max {combined_limit})"
+        )
     if problems:
         raise ImageRequestError("Request exceeds provider limits: " + "; ".join(problems) + ".")
 
 
 def estimate_cost_usd(request: ImageRequest, settings: Settings | None = None) -> float:
-    settings = settings or load_settings()
+    settings = settings or load_settings(require_credentials=False)
     capabilities = get_provider(settings.image_provider).capabilities
     per_image = capabilities.est_cost_usd_per_image.get(request.image_size, 0.0)
     return round(per_image * request.count, 4)
@@ -156,7 +169,7 @@ def estimate_cost_usd(request: ImageRequest, settings: Settings | None = None) -
 def generate_image(request: ImageRequest, settings: Settings | None = None) -> ImageResult:
     """Validate the request against the selected adapter, then generate the images."""
     settings = settings or load_settings()
-    provider = get_provider(settings.image_provider)
+    provider = get_provider(settings.image_provider, settings)
     validate_request(request, provider.capabilities)
     result = provider.generate(request, settings.image_model)
     if len(result.images) != request.count:

@@ -20,10 +20,12 @@ from content_automation.references import (
     select_identity_refs,
     select_logo_ref,
     select_set_refs,
+    select_style_refs,
 )
 from content_automation.workflows.image_job import run_image_job
 from content_automation.workflows.prompt import RefCounts, build_prompt
 from content_automation.workflows.registry import (
+    DEFAULT_STYLE_COUNT,
     INPUT_FLAGS,
     InputName,
     WorkflowError,
@@ -38,6 +40,7 @@ class WorkflowInputs:
     identity_set: str | None = None
     product_set: str | None = None
     style_set: str | None = None
+    style_count: int | None = None
     variant: str | None = None
     headline: str | None = None
     logo: bool = False
@@ -61,9 +64,17 @@ class WorkflowInputs:
 class PreparedWorkflow:
     spec: WorkflowSpec
     request: ImageRequest
-    product_asset_ids: list[str] = field(default_factory=list)
-    brand_asset_ids: list[str] = field(default_factory=list)
+    product_refs: list[ReferenceImage] = field(default_factory=list)
+    brand_refs: list[ReferenceImage] = field(default_factory=list)
     inputs: dict[str, str | bool] = field(default_factory=dict)
+
+    @property
+    def product_asset_ids(self) -> list[str]:
+        return [ref.asset_id for ref in self.product_refs]
+
+    @property
+    def brand_asset_ids(self) -> list[str]:
+        return [ref.asset_id for ref in self.brand_refs]
 
 
 def _check_inputs(spec: WorkflowSpec, inputs: WorkflowInputs) -> None:
@@ -83,6 +94,11 @@ def _check_inputs(spec: WorkflowSpec, inputs: WorkflowInputs) -> None:
         raise WorkflowError(f"--aspect must be one of: {', '.join(ASPECT_RATIOS)}.")
     if not 1 <= inputs.count <= MAX_COUNT:
         raise WorkflowError(f"--count must be between 1 and {MAX_COUNT}.")
+    if inputs.style_count is not None:
+        if "style_set" not in allowed:
+            raise WorkflowError(f"{spec.workflow_id} does not use --style-count.")
+        if inputs.style_count < 1:
+            raise WorkflowError("--style-count must be at least 1.")
 
 
 def _load_brand_if_present(settings: Settings) -> BrandProfile | None:
@@ -98,6 +114,7 @@ def prepare_workflow(
     spec = get_workflow(workflow_id)
     _check_inputs(spec, inputs)
     root = settings.references_dir
+    # Capabilities only: no API key is needed and no provider call is made here.
     capabilities: ProviderCapabilities = get_provider(settings.image_provider).capabilities
     recorded: dict[str, str | bool] = {"scenePrompt": inputs.prompt.strip()}
 
@@ -109,22 +126,28 @@ def prepare_workflow(
         recorded["identitySet"] = load_set(inputs.identity_set, root).set_id
 
     brand = _load_brand_if_present(settings)
-    object_budget = capabilities.max_object_refs
-    logo: list[ReferenceImage] = []
-    if inputs.logo:
-        logo = [select_logo_ref(root, preferred=brand.logo_file if brand else None)]
-        object_budget -= 1
-        recorded["logo"] = True
-    product: list[ReferenceImage] = []
-    if inputs.product_set:
-        product = select_set_refs(inputs.product_set, object_budget, root, ref_type="product")
-        recorded["productSet"] = load_set(inputs.product_set, root).set_id
-
     style: list[ReferenceImage] = []
     style_set = inputs.style_set or spec.default_style_set
     if style_set and "style" in spec.ref_categories:
-        style = select_set_refs(style_set, capabilities.max_style_refs, root, ref_type="creative")
+        wanted = inputs.style_count or DEFAULT_STYLE_COUNT
+        style = select_style_refs(style_set, min(wanted, capabilities.max_style_refs), root)
         recorded["styleSet"] = load_set(style_set, root).set_id
+
+    logo: list[ReferenceImage] = []
+    if inputs.logo:
+        logo = [select_logo_ref(root, preferred=brand.logo_file if brand else None)]
+        recorded["logo"] = True
+    object_budget = capabilities.max_object_refs - len(logo)
+    if capabilities.max_object_and_style_refs is not None:
+        object_budget = min(
+            object_budget, capabilities.max_object_and_style_refs - len(style) - len(logo)
+        )
+    product: list[ReferenceImage] = []
+    if inputs.product_set:
+        if object_budget < 1:
+            raise WorkflowError("No room for product images; lower --style-count.")
+        product = select_set_refs(inputs.product_set, object_budget, root, ref_type="product")
+        recorded["productSet"] = load_set(inputs.product_set, root).set_id
 
     variant = inputs.variant or spec.default_variant
     if variant:
@@ -151,11 +174,7 @@ def prepare_workflow(
         style_refs=style,
     )
     return PreparedWorkflow(
-        spec=spec,
-        request=request,
-        product_asset_ids=[ref.asset_id for ref in product],
-        brand_asset_ids=[ref.asset_id for ref in logo],
-        inputs=recorded,
+        spec=spec, request=request, product_refs=product, brand_refs=logo, inputs=recorded
     )
 
 

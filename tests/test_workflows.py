@@ -78,14 +78,15 @@ def test_person_lifestyle_end_to_end(settings: Settings) -> None:
     assert data["status"] == "completed" and len(data["outputs"]) == 2
     assert (data["workflowId"], data["workflowVersion"]) == ("person_lifestyle", "1")
     assert data["identityAssetIds"] == [identity[f"{i}.jpg"] for i in (1, 2, 3, 4)]
-    assert len(data["styleAssetIds"]) == 10  # mock cap
+    ads = _ids(settings, "creative/facebook_ads")
+    assert data["styleAssetIds"] == [ads["ad03.jpg"], ads["ad07.jpg"], ads["ad11.jpg"]]
     assert data["productAssetIds"] == [] and data["brandAssetIds"] == []
     assert data["request"] == "2 café photos"
     assert data["inputs"]["identitySet"] == "identity/person_01"
     prompt = data["prompt"]
     for expected in (
         "Laughing at a café table", "Images 1-4 - IDENTITY", "Keep this exact person",
-        "Images 5-14 - STYLE", "copy only the look and layout", "Confident and warm",
+        "Images 5-7 - STYLE", "copy only the look and layout", "Confident and warm",
         "Bright natural light", "Royal Blue #004BA0", "Avoid: Don't stretch the logo.",
         "must be in English", "do not add any text",
     ):
@@ -120,16 +121,17 @@ def test_social_creative_ad_with_logo_headline_and_default_style(settings: Setti
     data = _details(job.folder)
     assert data["status"] == "completed"
     assert data["brandAssetIds"] == [_ids(settings, "brand/logo")["logo.png"]]
-    assert len(data["productAssetIds"]) == 9  # one object slot kept for the logo
-    assert len(data["styleAssetIds"]) == 10
+    # 10 product/brand/style slots: 3 style + 1 logo leaves 6 for the product
+    assert len(data["productAssetIds"]) == 6
+    assert len(data["styleAssetIds"]) == 3
     assert data["inputs"]["styleSet"] == "creative/facebook_ads"
     assert data["inputs"]["variant"] == "ad"
     prompt = data["prompt"]
     assert "advertisement" in prompt
     assert '"Grow faster with AI"' in prompt
-    assert "Images 1-9 - PRODUCT" in prompt
-    assert "Image 10 - BRAND LOGO" in prompt
-    assert "Images 11-20 - STYLE" in prompt
+    assert "Images 1-6 - PRODUCT" in prompt
+    assert "Image 7 - BRAND LOGO" in prompt
+    assert "Images 8-10 - STYLE" in prompt
     assert data["params"]["aspectRatio"] == "1:1"
 
 
@@ -211,3 +213,67 @@ def test_logo_file_from_brand_json_is_preferred(settings: Settings, library: Pat
     brand_file.write_text(json.dumps({**BRAND, "logoFile": "missing.png"}), encoding="utf-8")
     with pytest.raises(ValueError, match="missing.png"):
         prepare_workflow("social_creative", inputs, settings)
+
+
+def test_style_count_changes_and_is_capped(settings: Settings) -> None:
+    one = prepare_workflow(
+        "person_lifestyle",
+        WorkflowInputs(prompt="x", identity_set="person_01", style_set="facebook_ads",
+                       style_count=1),
+        settings,
+    )
+    many = prepare_workflow(
+        "person_lifestyle",
+        WorkflowInputs(prompt="x", identity_set="person_01", style_set="facebook_ads",
+                       style_count=9),
+        settings,
+    )
+
+    assert len(one.request.style_refs) == 1
+    assert len(many.request.style_refs) == 3  # provider style limit
+    with pytest.raises(WorkflowError, match="does not use --style-count"):
+        prepare_workflow(
+            "person_product",
+            WorkflowInputs(prompt="x", identity_set="person_01", product_set="mug",
+                           style_count=2),
+            settings,
+        )
+
+
+def test_dry_run_with_gemini_needs_no_key_and_makes_nothing(
+    library: Path, isolated: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from content_automation.ai.image.providers import gemini
+
+    def no_client(_: str) -> Any:
+        raise AssertionError("provider client created during dry run")
+
+    monkeypatch.setattr(gemini, "_google_client", no_client)
+    monkeypatch.setenv("IMAGE_PROVIDER", "gemini")
+    monkeypatch.setenv("IMAGE_MODEL", "gemini-3.1-flash-image")
+
+    result = CliRunner().invoke(app, [
+        "image", "--workflow", "person_lifestyle", "--set", "identity/person_01",
+        "--style", "creative/facebook_ads", "--prompt", "At a café", "--count", "3",
+        "--dry-run",
+    ])
+
+    assert result.exit_code == 0, result.output
+    for expected in (
+        "DRY RUN", "Provider: gemini", "Provider calls: 3", "Estimated cost: $0.201",
+        "identity (4): identity/person_01/1.jpg", "style (3): creative/facebook_ads/ad03.jpg",
+        "Images 1-4 - IDENTITY", "Daily limit: 0 of",
+    ):
+        assert expected in result.output, expected
+    assert not (isolated / "outputs").exists()
+
+
+def test_dry_run_raw_mode_with_mock(library: Path, isolated: Path) -> None:
+    result = CliRunner().invoke(
+        app, ["image", "--prompt", "Plain prompt", "--count", "2", "--dry-run"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Provider calls: 1" in result.output and "$0.000" in result.output
+    assert "Plain prompt" in result.output
+    assert not (isolated / "outputs").exists()

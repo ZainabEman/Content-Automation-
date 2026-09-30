@@ -65,7 +65,7 @@ def test_timeout_raises() -> None:
         run_with_timeout(lambda: time.sleep(1), timeout_s=0.05)
 
 
-def _completed_job(output_dir: Path, images: int) -> None:
+def _completed_job(output_dir: Path, images: int, provider: str = "gemini") -> None:
     job = create_job(
         output_dir,
         workflow_id="direct",
@@ -73,8 +73,8 @@ def _completed_job(output_dir: Path, images: int) -> None:
         requested_by="Tester",
         request="x",
         prompt="x",
-        provider="mock",
-        model="mock",
+        provider=provider,
+        model="m",
         params=JobParams(aspect_ratio="1:1", image_size="1K", count=images),
     )
     names = []
@@ -86,9 +86,10 @@ def _completed_job(output_dir: Path, images: int) -> None:
 
 def test_daily_limit_counts_completed_images_today(tmp_path: Path) -> None:
     _completed_job(tmp_path, 3)
+    _completed_job(tmp_path, 4, provider="mock")  # free test images are not counted
     failed = create_job(
         tmp_path, workflow_id="direct", workflow_version="1", requested_by="T", request="y",
-        prompt="y", provider="mock", model="mock",
+        prompt="y", provider="gemini", model="m",
         params=JobParams(aspect_ratio="1:1", image_size="1K", count=4),
     )
     failed.fail("boom")

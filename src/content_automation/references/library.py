@@ -40,7 +40,7 @@ MAX_LONG_SIDE = 1536
 PRIMARY_COUNT = 4
 _ASSET_ID = re.compile(r"[0-9a-f]{12}")
 _GENERATED_DIRS = frozenset({RESIZED_DIR, FRAMES_DIR})
-_FRAME_NUMBER = re.compile(r"_(\d+)\.[a-z]+$")
+_FRAME_FILE = re.compile(rf"{FRAMES_DIR}/(.+)_(\d+)\.[a-z]+")
 LOGO_SET = "brand/logo"
 
 
@@ -352,7 +352,9 @@ def set_primary(set_id: str, files: list[str], root: Path | None = None) -> Refe
 
 def _as_reference(ref_set: ReferenceSet, asset: RefAsset) -> ReferenceImage:
     path = ref_set.folder / (asset.resized or asset.file)
-    return ReferenceImage(asset_id=asset.asset_id, path=path)
+    return ReferenceImage(
+        asset_id=asset.asset_id, path=path, source=f"{ref_set.set_id}/{asset.file}"
+    )
 
 
 def select_identity_refs(
@@ -375,11 +377,7 @@ def select_set_refs(
     *,
     ref_type: RefType | None = None,
 ) -> list[ReferenceImage]:
-    """Usable assets of a set, capped at max_n.
-
-    Still images come first; video frames follow, middle frames (_2) before the
-    others, so a capped selection covers as many different slides as possible.
-    """
+    """Usable assets of a set in file order, capped at max_n."""
     ref_set = load_set(set_id, root)
     if ref_type is not None and ref_set.type != ref_type:
         raise ReferenceLibraryError(
@@ -387,16 +385,52 @@ def select_set_refs(
         )
     if not ref_set.ok_assets:
         raise ReferenceLibraryError(f"{ref_set.set_id} has no usable images.")
-    ordered = sorted(ref_set.ok_assets, key=_style_order)
+    ordered = sorted(ref_set.ok_assets, key=lambda a: natural_key(a.file))
     return [_as_reference(ref_set, asset) for asset in ordered[: max(max_n, 0)]]
 
 
-def _style_order(asset: RefAsset) -> tuple[bool, int, list[int | str]]:
-    if not asset.file.startswith(f"{FRAMES_DIR}/"):
-        return (False, 0, natural_key(asset.file))
-    match = _FRAME_NUMBER.search(asset.file)
-    distance = abs(int(match.group(1)) - 2) if match else 9
-    return (True, distance, natural_key(asset.file))
+def _source_key(file: str) -> str:
+    """Frames of one video share a source; every other file is its own source."""
+    match = _FRAME_FILE.fullmatch(file)
+    return match.group(1) if match else file
+
+
+def _frame_preference(file: str) -> int:
+    """Middle frame (_2) first, then the others."""
+    match = _FRAME_FILE.fullmatch(file)
+    return abs(int(match.group(2)) - 2) if match else 0
+
+
+def spread_indices(total: int, wanted: int) -> list[int]:
+    """`wanted` distinct indices spread evenly over range(total)."""
+    wanted = min(wanted, total)
+    return [int((i + 0.5) * total / wanted) for i in range(wanted)]
+
+
+def select_style_refs(
+    set_id: str, max_n: int, root: Path | None = None
+) -> list[ReferenceImage]:
+    """Pick up to max_n style images from different videos/files, spread across the set."""
+    ref_set = load_set(set_id, root)
+    if ref_set.type != "creative":
+        raise ReferenceLibraryError(
+            f"{ref_set.set_id} is a {ref_set.type} set; a creative set is needed for style."
+        )
+    if not ref_set.ok_assets:
+        raise ReferenceLibraryError(f"{ref_set.set_id} has no usable images.")
+    groups: dict[str, list[RefAsset]] = {}
+    for asset in sorted(ref_set.ok_assets, key=lambda a: natural_key(a.file)):
+        groups.setdefault(_source_key(asset.file), []).append(asset)
+    queues = [
+        sorted(items, key=lambda a: (_frame_preference(a.file), natural_key(a.file)))
+        for items in groups.values()
+    ]
+    picked: list[RefAsset] = []
+    while len(picked) < max_n and any(queues):
+        open_queues = [queue for queue in queues if queue]
+        for index in spread_indices(len(open_queues), max_n - len(picked)):
+            picked.append(open_queues[index].pop(0))
+    return [_as_reference(ref_set, asset) for asset in picked]
 
 
 def select_logo_ref(

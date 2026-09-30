@@ -33,10 +33,12 @@ def run_image_job(
     """Run one image job and return its record (status completed or failed).
 
     Raises DailyLimitError before any job or provider call when the limit is hit.
+    Mock images are free and do not count toward the limit.
     """
-    check_daily_limit(
-        settings.output_dir, limit=settings.image_daily_limit, requested=request.count
-    )
+    if settings.image_provider != "mock":
+        check_daily_limit(
+            settings.output_dir, limit=settings.image_daily_limit, requested=request.count
+        )
     object_ids = [ref.asset_id for ref in request.object_refs]
     job = create_job(
         settings.output_dir,
@@ -66,7 +68,8 @@ def run_image_job(
         job.start()
         result = call_with_retry(
             lambda: generate_image(request, settings=settings),
-            timeout_s=settings.image_timeout_ms / 1000,
+            # IMAGE_TIMEOUT_MS is per image; some providers make one call per image.
+            timeout_s=settings.image_timeout_ms / 1000 * request.count,
             max_retries=settings.image_max_retries,
             on_retry=lambda attempt, error, delay: logger.warning(
                 "Retry %d after error: %s (waiting %.0fs)", attempt, error, delay

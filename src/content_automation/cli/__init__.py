@@ -7,7 +7,6 @@ from pydantic import ValidationError
 
 from content_automation.ai.image import ASPECT_RATIOS, ImageError, ImageRequest
 from content_automation.core.config import ConfigurationError, Settings, load_settings
-from content_automation.core.jobs import Job
 from content_automation.core.limits import DailyLimitError
 from content_automation.core.log import configure_logging
 from content_automation.references import (
@@ -20,9 +19,14 @@ from content_automation.references import (
     scan,
     set_primary,
 )
+from content_automation.workflows.dry_run import dry_run_lines
 from content_automation.workflows.image_job import run_image_job
-from content_automation.workflows.image_workflows import WorkflowInputs, run_workflow
-from content_automation.workflows.registry import WorkflowError
+from content_automation.workflows.image_workflows import (
+    WorkflowInputs,
+    prepare_workflow,
+    run_workflow,
+)
+from content_automation.workflows.registry import DEFAULT_STYLE_COUNT, WorkflowError
 
 app = typer.Typer(name="ca", no_args_is_help=True, help="Content Automation CLI.")
 refs_app = typer.Typer(no_args_is_help=True, help="Reference photo library.")
@@ -36,9 +40,10 @@ def _root() -> None:
     """Root command for the Content Automation CLI."""
 
 
-def _settings() -> Settings:
+def _settings(*, dry_run: bool = False) -> Settings:
+    """Load settings; a dry run needs no API key and creates no folders."""
     try:
-        return load_settings()
+        return load_settings(require_credentials=not dry_run, create_directories=not dry_run)
     except ConfigurationError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from None
@@ -73,6 +78,10 @@ def image(
     style: Annotated[
         str | None, typer.Option(help="Style set, e.g. creative/facebook_ads.")
     ] = None,
+    style_count: Annotated[
+        int | None,
+        typer.Option(help=f"Style images to send (default {DEFAULT_STYLE_COUNT}).", min=1),
+    ] = None,
     variant: Annotated[
         str | None, typer.Option(help="social_creative: post, ad or carousel_slide.")
     ] = None,
@@ -88,15 +97,23 @@ def image(
     request: Annotated[
         str | None, typer.Option(help="The original plain-English request, for the record.")
     ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run", help="Show prompt, references, calls and cost; make nothing."
+        ),
+    ] = False,
 ) -> None:
     """Generate images and save them with a details.json record."""
-    settings = _settings()
-    configure_logging(settings)
+    settings = _settings(dry_run=dry_run)
+    if not dry_run:
+        configure_logging(settings)
     inputs = WorkflowInputs(
         prompt=prompt,
         identity_set=identity_set,
         product_set=product,
         style_set=style,
+        style_count=style_count,
         variant=variant,
         headline=headline,
         logo=logo,
@@ -105,8 +122,12 @@ def image(
         request=request,
     )
     try:
+        if dry_run:
+            for line in _dry_run(workflow, inputs, settings):
+                typer.echo(line)
+            return
         if workflow is None:
-            job = _run_raw(inputs, settings)
+            job = run_image_job(_raw_request(inputs), settings, user_request=inputs.request)
         else:
             job = run_workflow(workflow, inputs, settings)
     except (
@@ -126,14 +147,28 @@ def image(
     typer.echo(str(job.folder))
 
 
-def _run_raw(inputs: WorkflowInputs, settings: Settings) -> Job:
+def _dry_run(workflow: str | None, inputs: WorkflowInputs, settings: Settings) -> list[str]:
+    if workflow is None:
+        return dry_run_lines(_raw_request(inputs), settings, workflow="raw (prompt as written)")
+    prepared = prepare_workflow(workflow, inputs, settings)
+    return dry_run_lines(
+        prepared.request,
+        settings,
+        workflow=f"{prepared.spec.workflow_id} (v{prepared.spec.version})",
+        product_refs=prepared.product_refs,
+        brand_refs=prepared.brand_refs,
+    )
+
+
+def _raw_request(inputs: WorkflowInputs) -> ImageRequest:
     """Raw mode: the prompt is sent as written, without references or brand rules."""
-    if inputs.provided():
+    if inputs.provided() or inputs.style_count is not None:
         raise WorkflowError(
-            "--set, --product, --style, --variant, --headline and --logo need --workflow."
+            "--set, --product, --style, --style-count, --variant, --headline and --logo "
+            "need --workflow."
         )
     try:
-        image_request = ImageRequest(
+        return ImageRequest(
             prompt=inputs.prompt,
             aspect_ratio=inputs.aspect_ratio or "1:1",  # type: ignore[arg-type]
             count=inputs.count,
@@ -144,7 +179,6 @@ def _run_raw(inputs: WorkflowInputs, settings: Settings) -> Job:
         if "aspect_ratio" in fields:
             message += f" Aspect must be one of {', '.join(ASPECT_RATIOS)}."
         raise WorkflowError(message) from None
-    return run_image_job(image_request, settings, user_request=inputs.request)
 
 
 @refs_app.command("scan")

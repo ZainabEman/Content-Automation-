@@ -2,6 +2,7 @@
 
 IMAGE_MODEL=mock-fail raises a provider error, IMAGE_MODEL=mock-timeout raises a
 timeout, and any other model succeeds. Images are always drawn at 1K size.
+Its limits mirror Gemini's so mock runs catch the same over-limit requests.
 """
 
 import io
@@ -20,6 +21,7 @@ from content_automation.ai.image import (
     ImageTimeoutError,
     ProviderCapabilities,
 )
+from content_automation.core.config import Settings
 
 _SIZES_1K = {"1:1": (1024, 1024), "4:5": (819, 1024), "9:16": (576, 1024), "16:9": (1024, 576)}
 _BACKGROUNDS = ((226, 232, 240), (254, 243, 199), (220, 252, 231), (237, 233, 254))
@@ -30,10 +32,12 @@ class MockImageProvider:
     capabilities = ProviderCapabilities(
         max_identity_refs=4,
         max_object_refs=10,
-        max_style_refs=10,
+        max_style_refs=3,
+        max_object_and_style_refs=10,
         aspect_ratios=frozenset(ASPECT_RATIOS),
         image_sizes=frozenset(IMAGE_SIZES),
         est_cost_usd_per_image={size: 0.0 for size in IMAGE_SIZES},
+        max_images_per_call=4,
     )
 
     def generate(self, request: ImageRequest, model: str) -> ImageResult:
@@ -76,5 +80,5 @@ def _render(request: ImageRequest, index: int) -> bytes:
     return buffer.getvalue()
 
 
-def create_provider() -> MockImageProvider:
+def create_provider(settings: Settings | None = None) -> MockImageProvider:
     return MockImageProvider()

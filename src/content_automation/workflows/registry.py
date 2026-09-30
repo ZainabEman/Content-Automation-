@@ -7,6 +7,7 @@ from content_automation.ai.image import AspectRatio
 
 InputName = Literal["identity_set", "product_set", "style_set", "variant", "headline", "logo"]
 RefCategory = Literal["identity", "product", "brand", "style"]
+DEFAULT_STYLE_COUNT = 3
 
 # CLI flag for each input, used in error messages.
 INPUT_FLAGS: dict[InputName, str] = {

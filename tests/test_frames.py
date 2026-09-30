@@ -4,7 +4,7 @@ from pathlib import Path
 import imageio_ffmpeg
 import pytest
 
-from content_automation.references import extract_frames, load_set, scan, select_set_refs
+from content_automation.references import extract_frames, load_set, scan, select_style_refs
 
 
 def make_video(path: Path, pattern: str = "testsrc", seconds: int = 1) -> Path:
@@ -65,14 +65,17 @@ def test_scan_uses_frames_as_set_assets(tmp_path: Path, carousel: Path) -> None:
     assert not report.skipped
 
 
-def test_style_selection_prefers_middle_frames(tmp_path: Path, carousel: Path) -> None:
+def test_style_selection_uses_different_videos_middle_frame_first(
+    tmp_path: Path, carousel: Path
+) -> None:
     extract_frames(tmp_path)
     scan(tmp_path)
     ref_set = load_set("c1", tmp_path)
     by_id = {a.asset_id: a.file for a in ref_set.assets}
 
-    refs = select_set_refs("c1", 3, tmp_path, ref_type="creative")
+    two = select_style_refs("c1", 2, tmp_path)
+    three = select_style_refs("c1", 3, tmp_path)
 
-    assert [by_id[r.asset_id] for r in refs] == [
-        "_frames/slide a_2.jpg", "_frames/slide b_2.jpg", "_frames/slide a_1.jpg",
-    ]
+    assert [by_id[r.asset_id] for r in two] == ["_frames/slide a_2.jpg", "_frames/slide b_2.jpg"]
+    assert [by_id[r.asset_id] for r in three][:2] == [by_id[r.asset_id] for r in two]
+    assert len({by_id[r.asset_id] for r in three}) == 3

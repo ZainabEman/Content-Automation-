@@ -23,7 +23,7 @@
 3. Aspect ratio by platform: IG feed 4:5 · story/reel 9:16 · LinkedIn 1:1 · YouTube 16:9. Default `--count 3` unless a number is given (max 4).
 4. `--prompt`: a rich scene description (action, setting, light, camera/lens, mood). Leave out brand colours, tone and rules; the builder adds them.
 5. Pass the user's exact words as `--request "…"`.
-6. Run: `uv run ca image --workflow <id> --set … --prompt "…" --aspect … --count … --request "…"`.
+6. Run: `uv run ca image --workflow <id> --set … --prompt "…" --aspect … --count … --request "…"`. If `IMAGE_PROVIDER` is not `mock`, first run the same command with `--dry-run` and state the estimated cost.
 7. Success (exit 0): reply with the printed folder path and one line per image (`image-N.png`: what it shows).
 8. Failure: show the error message and the next step: a missing set → `uv run ca refs scan` / `ca refs list`; a daily limit → wait or raise `IMAGE_DAILY_LIMIT`; a provider error → read `error` in the folder's `details.json`.
 

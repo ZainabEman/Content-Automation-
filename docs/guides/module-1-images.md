@@ -1,23 +1,28 @@
 # Module guide: Images
 
-> Status: Parts A, B and C1 are built (job records, test "mock" images, reference library,
-> brand profile, the three workflows and the Codex playbook). The real Gemini provider comes next.
+> Status: Module 1 is built and tested offline (job records, reference library, brand profile,
+> the three workflows, the Codex playbook, and the Gemini provider). The first real (paid)
+> Gemini test happens in the LIVE task at project end.
 
 ## What it does
 
 It makes images from a text description and saves each request in its own dated folder,
 with a `details.json` file that records exactly what was asked, what was sent, and what came back.
 
-Today it only makes **placeholder images** (the "mock" provider). They show your prompt as
-text on a coloured card at the right shape. This lets you try the whole flow without spending money.
+By default it makes free **placeholder images** (the "mock" provider): your prompt as text on a
+coloured card at the right shape, so you can try the whole flow without spending money. With
+`IMAGE_PROVIDER=gemini` it makes real images with Google Gemini (paid, see "Costs and limits").
 
 ## What was built
 
 - **Job records**: every request gets a folder and a `details.json` with its status
   (`queued`, `processing`, `completed`, `failed`, or `cancelled`).
   A job is only marked `completed` when all its image files really exist.
-- **Daily limit**: the tool counts today's finished images and refuses new requests
-  once `IMAGE_DAILY_LIMIT` is reached, before contacting any provider.
+- **Daily limit**: the tool counts today's finished real (non-mock) images and refuses new
+  requests once `IMAGE_DAILY_LIMIT` is reached, before contacting any provider.
+- **Dry run** (`--dry-run`): shows the final prompt, which reference photos would be sent,
+  how many provider calls it takes and the estimated cost, without making anything.
+- **Gemini provider**: real image generation with `gemini-3.1-flash-image`.
 - **Time limit and retries**: a request that takes too long is stopped and marked failed.
   Temporary provider errors (such as "busy") are retried; timeouts are not retried, so you
   are never charged twice for one request.
@@ -143,6 +148,10 @@ tone and "don't" rules are added automatically, so you don't need to repeat them
 - `--aspect`: `1:1` square, `4:5` Instagram portrait, `9:16` story/reel, `16:9` wide.
 - `--count`: how many versions, 1 to 4. Default 1 (Codex uses 3).
 - `--request`: your original words, saved in `details.json`.
+- `--style-count`: how many style images to send (default 3, Gemini's maximum). They are taken
+  from different videos/files, spread across the set.
+- `--dry-run`: show the prompt, reference photos, number of calls and estimated cost. Nothing
+  is created, nothing is sent, and it does not count toward the daily limit. No API key needed.
 
 If something required is missing, the tool stops with a clear message **before** creating a
 job or contacting any provider.
@@ -154,6 +163,7 @@ job or contacting any provider.
 | `uv run ca hello` | Shows your settings (keys are hidden). |
 | `uv run ca image --workflow <id> --set … --prompt "…" [--product …] [--style …] [--variant …] [--headline "…"] [--logo] [--aspect 4:5] [--count N] [--request "…"]` | Makes images with a workflow and prints the output folder. |
 | `uv run ca image --prompt "…" [--aspect 4:5] [--count N]` | Raw mode: sends the prompt as written. |
+| `uv run ca image … --dry-run` | Shows prompt, references, calls and estimated cost; makes nothing. |
 | `uv run ca refs frames` | Saves 3 still frames of each reference video into `_frames/`. |
 | `uv run ca refs scan` | Checks the reference folders and updates each set's `set.json`. |
 | `uv run ca refs list [--type identity]` | Shows every set with accepted, rejected and primary counts. |
@@ -188,24 +198,29 @@ Set these in `.env`:
 
 | Setting | Meaning | Default |
 |---|---|---|
-| `IMAGE_PROVIDER` | Which service makes images: `mock` (free test images). `gemini` comes later. | `mock` |
-| `IMAGE_MODEL` | Model name passed to the provider. For the mock, `mock-fail` and `mock-timeout` simulate problems. | `gemini-3.1-flash-image` |
-| `IMAGE_DAILY_LIMIT` | Maximum images per day. | `10` |
-| `IMAGE_TIMEOUT_MS` | How long to wait for the provider, in milliseconds. | `120000` (2 min) |
-| `IMAGE_MAX_RETRIES` | Extra tries after a temporary error (0 = none). | `1` |
+| `IMAGE_PROVIDER` | Which service makes images: `mock` (free test images) or `gemini` (real, paid). | `mock` |
+| `IMAGE_MODEL` | Model name. For Gemini: `gemini-3.1-flash-image`. For the mock, `mock-fail` and `mock-timeout` simulate problems; anything else works. | `gemini-3.1-flash-image` |
+| `GEMINI_API_KEY` | Your Gemini API key. Only needed when `IMAGE_PROVIDER=gemini` (not for `--dry-run`). Keep it only in `.env`; never share it. | empty |
+| `IMAGE_DAILY_LIMIT` | Maximum real images per day (mock images don't count). | `10` |
+| `IMAGE_TIMEOUT_MS` | How long to wait for each image, in milliseconds. | `120000` (2 min) |
+| `IMAGE_MAX_RETRIES` | Extra tries after a temporary error such as "busy" or "rate limit" (0 = none). | `1` |
 | `OUTPUT_DIR` | Where output folders are created. | `outputs` |
 | `REFERENCES_DIR` | Where reference photo folders live. | `assets/reference` |
 | `USER_NAME` | Your name, saved as `requestedBy`. | `User` |
 
 ## Costs and limits
 
-- The mock provider is free (`estCostUsd` is 0).
+- **Mock** images are free (`estCostUsd` is 0) and don't count toward the daily limit.
+- **Gemini** (`gemini-3.1-flash-image`), estimated per image: **1K $0.067**, 2K $0.101, 4K $0.151.
+  The tool uses 1K. Each image is a separate call, so 3 images at 1K ≈ $0.20. The estimate is
+  saved as `estCostUsd` in `details.json`; always check `--dry-run` first.
 - Up to 4 images per request; shapes 1:1, 4:5, 9:16, 16:9.
-- Up to 4 identity photos, 10 product/brand images and 10 style images per request
-  (requests over this are refused before anything is sent).
-- The daily limit counts only images that were actually made today (test images included).
-- Style sets: when a set has more images than allowed, still images come first, then one
-  frame from the middle of each video, so the selection covers as many slides as possible.
+- Reference photos per request: up to **4 identity**, **3 style**, and at most **10 product,
+  logo and style images together**. Requests over this are refused before anything is sent.
+- The daily limit (`IMAGE_DAILY_LIMIT`) counts real images that were actually made today; when
+  it is reached, requests are refused before any provider call.
+- Temporary errors (rate limit, server busy) are retried per image; images already made are
+  never requested twice. Timeouts are not retried.
 
 ## Troubleshooting
 
@@ -213,7 +228,11 @@ Set these in `.env`:
 |---|---|
 | `Missing or invalid environment variables: X` | Fix setting X in `.env`. |
 | `Daily image limit reached` | Wait until tomorrow or raise `IMAGE_DAILY_LIMIT`. |
-| `Image provider 'gemini' is not available` | The Gemini provider is not built yet; use `IMAGE_PROVIDER=mock`. |
+| `GEMINI_API_KEY missing` | Add the key to `.env`, or use `IMAGE_PROVIDER=mock`. `--dry-run` works without a key. |
+| `Gemini rate limit or quota reached (HTTP 429)` | Wait a few minutes, or check the quota/billing in Google AI Studio. |
+| `Gemini rejected the API key` | Check `GEMINI_API_KEY` in `.env`. |
+| `Gemini returned no image` | Often a safety block: reword the prompt or use other reference photos. The reason is shown. |
+| `… references together (max 10)` | Use fewer product images or a lower `--style-count`. |
 | `Invalid image request: aspect_ratio` | Use one of 1:1, 4:5, 9:16, 16:9. |
 | `Failed: …` and exit code 1 | Open the printed folder's `details.json` and read `error`. |
 | `rejected x.jpg: too small` | Use a larger photo (512 px short side; logos 256 px). |
@@ -229,6 +248,18 @@ Set these in `.env`:
 
 ## Switching providers
 
-Change `IMAGE_PROVIDER` (and `IMAGE_MODEL`) in `.env`. Nothing else changes for you.
+To go live with Gemini, edit `.env`:
+
+```
+IMAGE_PROVIDER=gemini
+IMAGE_MODEL=gemini-3.1-flash-image
+GEMINI_API_KEY=<your key>
+```
+
+Then run a `--dry-run` to check the prompt and cost, and run the command again without
+`--dry-run`. To go back to free test images, set `IMAGE_PROVIDER=mock`. Nothing else changes.
+
 For developers: a new provider is one file in `src/content_automation/ai/image/providers/`
-plus one line in the provider list in `src/content_automation/ai/image/__init__.py`.
+(with `create_provider(settings)` and its limits) plus one line in the provider list in
+`src/content_automation/ai/image/__init__.py`.
+

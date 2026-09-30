@@ -1,3 +1,4 @@
+import socket
 from collections.abc import Callable
 from pathlib import Path
 
@@ -6,6 +7,18 @@ import pytest
 from content_automation.core.config import Settings, load_settings
 
 SETTING_ENV_NAMES = tuple(name.upper() for name in Settings.model_fields)
+
+
+@pytest.fixture(autouse=True)
+def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tests run offline: any attempt to open a network connection fails the test."""
+
+    def blocked(*_: object, **__: object) -> None:
+        raise RuntimeError("Network access is disabled in tests.")
+
+    monkeypatch.setattr(socket.socket, "connect", blocked)
+    monkeypatch.setattr(socket.socket, "connect_ex", blocked)
+    monkeypatch.setattr(socket, "create_connection", blocked)
 
 
 def clear_settings_environment(monkeypatch: pytest.MonkeyPatch) -> None:

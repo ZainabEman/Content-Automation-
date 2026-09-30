@@ -13,11 +13,11 @@ from content_automation.ai.image import (
     ImageTimeoutError,
     ReferenceImage,
     UnknownImageProviderError,
+    available_providers,
     generate_image,
     get_provider,
 )
 from content_automation.core.config import Settings
-from content_automation.core.limits import DailyLimitError
 from content_automation.workflows.image_job import run_image_job
 
 SettingsFactory = Callable[..., Settings]
@@ -36,13 +36,8 @@ def test_registry_picks_mock_and_rejects_unknown() -> None:
         get_provider("nope")
 
 
-def test_selected_but_unregistered_provider_gives_clear_error(
-    make_settings: SettingsFactory,
-) -> None:
-    settings = make_settings(image_provider="gemini", gemini_api_key="synthetic")
-
-    with pytest.raises(UnknownImageProviderError, match="gemini"):
-        generate_image(ImageRequest(prompt="x"), settings=settings)
+def test_registry_lists_mock_and_gemini() -> None:
+    assert available_providers() == ("gemini", "mock")
 
 
 @pytest.mark.parametrize(
@@ -117,14 +112,10 @@ def test_run_image_job_records_failure_without_images(make_settings: SettingsFac
     assert not list(job.folder.glob("image-*"))
 
 
-def test_run_image_job_refuses_over_daily_limit(
-    make_settings: SettingsFactory, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_mock_images_do_not_count_toward_daily_limit(make_settings: SettingsFactory) -> None:
     settings = make_settings(image_daily_limit="3")
-    run_image_job(ImageRequest(prompt="x", count=3), settings)
-    provider_type = type(get_provider("mock"))
-    monkeypatch.setattr(provider_type, "generate", lambda *_: pytest.fail("provider called"))
 
-    with pytest.raises(DailyLimitError):
-        run_image_job(ImageRequest(prompt="y"), settings)
-    assert len(list(settings.output_dir.glob("*/*/details.json"))) == 1
+    first = run_image_job(ImageRequest(prompt="x", count=3), settings)
+    second = run_image_job(ImageRequest(prompt="y", count=3), settings)
+
+    assert first.status == second.status == "completed"

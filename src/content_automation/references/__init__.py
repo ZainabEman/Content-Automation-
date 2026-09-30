@@ -25,6 +25,7 @@ from content_automation.references.library import (
     select_identity_refs,
     select_logo_ref,
     select_set_refs,
+    select_style_refs,
     set_primary,
 )
 from content_automation.references.models import (
@@ -58,5 +59,6 @@ __all__ = [
     "select_identity_refs",
     "select_logo_ref",
     "select_set_refs",
+    "select_style_refs",
     "set_primary",
 ]

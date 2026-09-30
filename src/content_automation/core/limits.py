@@ -13,7 +13,7 @@ class DailyLimitError(RuntimeError):
 
 
 def images_generated_on(output_dir: Path, day: date) -> int:
-    """Count output images of completed jobs in OUTPUT_DIR/<day>/."""
+    """Count output images of completed non-mock jobs in OUTPUT_DIR/<day>/."""
     day_folder = output_dir / day.isoformat()
     if not day_folder.is_dir():
         return 0
@@ -23,7 +23,7 @@ def images_generated_on(output_dir: Path, day: date) -> int:
             job = Job.load(details)
         except (OSError, ValueError, ValidationError):
             continue
-        if job.status == "completed":
+        if job.status == "completed" and job.provider != "mock":
             total += len(job.outputs)
     return total
 

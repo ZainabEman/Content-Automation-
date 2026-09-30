@@ -36,6 +36,7 @@ class BrandProfile(_BrandModel):
     sources: list[str] = Field(default_factory=list)
     colors: list[BrandColor] = Field(min_length=1)
     fonts: list[BrandFont] = Field(default_factory=list)
+    language: str = ""
     tone: str = ""
     audience: str = ""
     content_pillars: list[str] = Field(default_factory=list)

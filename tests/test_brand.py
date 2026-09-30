@@ -12,6 +12,7 @@ VALID = {
     "status": "draft",
     "colors": [{"name": "Royal Blue", "hex": "#004BA0", "usage": "primary"}],
     "fonts": [{"name": "Futura Bold", "usage": "headings"}],
+    "language": "English",
     "tone": "confident",
     "audience": "founders",
     "contentPillars": ["tips"],
@@ -71,4 +72,5 @@ def test_brand_show(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.exit_code == 0
     assert "Example Brand (draft)" in result.output
     assert "Royal Blue #004BA0" in result.output
+    assert "Language: English" in result.output
     assert "tone: drafted" in result.output

@@ -162,6 +162,7 @@ def brand_show() -> None:
     typer.echo(f"{brand.brand_name} ({brand.status})")
     typer.echo("Colors: " + ", ".join(f"{c.name} {c.hex}" for c in brand.colors))
     typer.echo("Fonts: " + (", ".join(f"{f.name} ({f.usage})" for f in brand.fonts) or "-"))
+    typer.echo(f"Language: {brand.language or '-'}")
     typer.echo(f"Tone: {brand.tone or '-'}")
     typer.echo(f"Audience: {brand.audience or '-'}")
     typer.echo(f"Content pillars: {', '.join(brand.content_pillars) or '-'}")

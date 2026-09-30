@@ -7,18 +7,22 @@ from pydantic import ValidationError
 
 from content_automation.ai.image import ASPECT_RATIOS, ImageError, ImageRequest
 from content_automation.core.config import ConfigurationError, Settings, load_settings
+from content_automation.core.jobs import Job
 from content_automation.core.limits import DailyLimitError
 from content_automation.core.log import configure_logging
 from content_automation.references import (
     REF_TYPES,
     BrandProfileError,
     ReferenceLibraryError,
+    extract_frames,
     list_sets,
     load_brand,
     scan,
     set_primary,
 )
 from content_automation.workflows.image_job import run_image_job
+from content_automation.workflows.image_workflows import WorkflowInputs, run_workflow
+from content_automation.workflows.registry import WorkflowError
 
 app = typer.Typer(name="ca", no_args_is_help=True, help="Content Automation CLI.")
 refs_app = typer.Typer(no_args_is_help=True, help="Reference photo library.")
@@ -53,10 +57,33 @@ def hello() -> None:
 
 @app.command()
 def image(
-    prompt: Annotated[str, typer.Option(help="Final prompt sent to the image provider.")],
+    prompt: Annotated[
+        str, typer.Option(help="Scene description (or the full prompt in raw mode).")
+    ],
+    workflow: Annotated[
+        str | None,
+        typer.Option(
+            help="person_lifestyle, person_product or social_creative. Omit for raw mode."
+        ),
+    ] = None,
+    identity_set: Annotated[
+        str | None, typer.Option("--set", help="Identity set, e.g. identity/person_01.")
+    ] = None,
+    product: Annotated[str | None, typer.Option(help="Product set, e.g. product/mug.")] = None,
+    style: Annotated[
+        str | None, typer.Option(help="Style set, e.g. creative/facebook_ads.")
+    ] = None,
+    variant: Annotated[
+        str | None, typer.Option(help="social_creative: post, ad or carousel_slide.")
+    ] = None,
+    headline: Annotated[str | None, typer.Option(help="Exact text to show in the image.")] = None,
+    logo: Annotated[bool, typer.Option("--logo", help="Add the brand logo.")] = False,
     aspect: Annotated[
-        str, typer.Option(help=f"Aspect ratio: {', '.join(ASPECT_RATIOS)}.")
-    ] = "1:1",
+        str | None,
+        typer.Option(
+            help=f"Aspect ratio: {', '.join(ASPECT_RATIOS)} (default: workflow's; raw mode 1:1)."
+        ),
+    ] = None,
     count: Annotated[int, typer.Option(min=1, max=4, help="Number of variations (1-4).")] = 1,
     request: Annotated[
         str | None, typer.Option(help="The original plain-English request, for the record.")
@@ -65,18 +92,30 @@ def image(
     """Generate images and save them with a details.json record."""
     settings = _settings()
     configure_logging(settings)
+    inputs = WorkflowInputs(
+        prompt=prompt,
+        identity_set=identity_set,
+        product_set=product,
+        style_set=style,
+        variant=variant,
+        headline=headline,
+        logo=logo,
+        aspect_ratio=aspect,
+        count=count,
+        request=request,
+    )
     try:
-        image_request = ImageRequest(prompt=prompt, aspect_ratio=aspect, count=count)  # type: ignore[arg-type]
-    except ValidationError as error:
-        fields = sorted({str(issue["loc"][0]) for issue in error.errors()})
-        message = f"Invalid image request: {', '.join(fields)}."
-        if "aspect_ratio" in fields:
-            message += f" Aspect must be one of {', '.join(ASPECT_RATIOS)}."
-        typer.echo(message, err=True)
-        raise typer.Exit(code=1) from None
-    try:
-        job = run_image_job(image_request, settings, user_request=request)
-    except (DailyLimitError, ImageError) as error:
+        if workflow is None:
+            job = _run_raw(inputs, settings)
+        else:
+            job = run_workflow(workflow, inputs, settings)
+    except (
+        WorkflowError,
+        ReferenceLibraryError,
+        BrandProfileError,
+        DailyLimitError,
+        ImageError,
+    ) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from None
 
@@ -85,6 +124,27 @@ def image(
         typer.echo(str(job.folder), err=True)
         raise typer.Exit(code=1)
     typer.echo(str(job.folder))
+
+
+def _run_raw(inputs: WorkflowInputs, settings: Settings) -> Job:
+    """Raw mode: the prompt is sent as written, without references or brand rules."""
+    if inputs.provided():
+        raise WorkflowError(
+            "--set, --product, --style, --variant, --headline and --logo need --workflow."
+        )
+    try:
+        image_request = ImageRequest(
+            prompt=inputs.prompt,
+            aspect_ratio=inputs.aspect_ratio or "1:1",  # type: ignore[arg-type]
+            count=inputs.count,
+        )
+    except ValidationError as error:
+        fields = sorted({str(issue["loc"][0]) for issue in error.errors()})
+        message = f"Invalid image request: {', '.join(fields)}."
+        if "aspect_ratio" in fields:
+            message += f" Aspect must be one of {', '.join(ASPECT_RATIOS)}."
+        raise WorkflowError(message) from None
+    return run_image_job(image_request, settings, user_request=inputs.request)
 
 
 @refs_app.command("scan")
@@ -108,6 +168,23 @@ def refs_scan() -> None:
     for warning in report.warnings:
         typer.echo(f"warning: {warning}", err=True)
     typer.echo(f"{len(report.sets)} sets scanned, {len(report.skipped)} folders skipped.")
+
+
+@refs_app.command("frames")
+def refs_frames() -> None:
+    """Extract 3 still frames (10%, 50%, 90%) from each reference video into _frames/."""
+    settings = _settings()
+    report = extract_frames(settings.references_dir)
+    for label in report.extracted:
+        typer.echo(f"extracted {label}")
+    for label, reason in report.failed:
+        typer.echo(f"failed {label}: {reason}", err=True)
+    typer.echo(
+        f"{len(report.extracted)} videos extracted, {len(report.skipped)} already done, "
+        f"{len(report.failed)} failed. Run `ca refs scan` next."
+    )
+    if report.failed:
+        raise typer.Exit(code=1)
 
 
 @refs_app.command("list")

@@ -69,7 +69,10 @@ def test_scan_detects_types_sets_and_skips(tmp_path: Path) -> None:
         ("creative/carousels/c1", "creative"),
     }
     assert [(s.path, s.reason) for s in report.skipped] == [
-        ("creative/carousels/videos_only", "no JPG/PNG/WebP images (1 mp4, 1 pdf)")
+        (
+            "creative/carousels/videos_only",
+            "no JPG/PNG/WebP images (1 mp4, 1 pdf); run `ca refs frames` to use video frames",
+        )
     ]
     assert any("misc" in warning for warning in report.warnings)
     assert (tmp_path / "identity" / "person_01" / "set.json").is_file()

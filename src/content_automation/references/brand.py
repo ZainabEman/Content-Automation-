@@ -40,6 +40,7 @@ class BrandProfile(_BrandModel):
     tone: str = ""
     audience: str = ""
     content_pillars: list[str] = Field(default_factory=list)
+    logo_file: str | None = None  # file in brand/logo used by --logo
     logo_rules: list[str] = Field(default_factory=list)
     image_style: str = ""
     do: list[str] = Field(default_factory=list)

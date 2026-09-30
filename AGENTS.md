@@ -18,6 +18,15 @@
 
 ### Make images
 
+1. Pick the workflow: the person in a scene → `person_lifestyle`; the person with a product → `person_product` (`--product product/<set>`); a designed post, ad or carousel slide → `social_creative` (`--variant post|ad|carousel_slide`; add `--headline "…"` for exact on-image text, `--logo` for the logo, and `--style creative/<set>` if a style is named; the default is `creative/facebook_ads`).
+2. Identity: `--set identity/person_01` unless another person is named (`uv run ca refs list` shows the sets). Add it to social_creative only if the person should appear.
+3. Aspect ratio by platform: IG feed 4:5 · story/reel 9:16 · LinkedIn 1:1 · YouTube 16:9. Default `--count 3` unless a number is given (max 4).
+4. `--prompt`: a rich scene description (action, setting, light, camera/lens, mood). Leave out brand colours, tone and rules; the builder adds them.
+5. Pass the user's exact words as `--request "…"`.
+6. Run: `uv run ca image --workflow <id> --set … --prompt "…" --aspect … --count … --request "…"`.
+7. Success (exit 0): reply with the printed folder path and one line per image (`image-N.png`: what it shows).
+8. Failure: show the error message and the next step: a missing set → `uv run ca refs scan` / `ca refs list`; a daily limit → wait or raise `IMAGE_DAILY_LIMIT`; a provider error → read `error` in the folder's `details.json`.
+
 ### Make videos
 
 ### Research

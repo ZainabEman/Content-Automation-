@@ -16,7 +16,9 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 from content_automation.ai.image import ReferenceImage
 from content_automation.core.config import load_settings
+from content_automation.references.frames import frame_paths
 from content_automation.references.models import (
+    FRAMES_DIR,
     REF_TYPES,
     RESIZED_DIR,
     SET_FILE,
@@ -37,6 +39,9 @@ DEFAULT_MIN_SHORT_SIDE = 512
 MAX_LONG_SIDE = 1536
 PRIMARY_COUNT = 4
 _ASSET_ID = re.compile(r"[0-9a-f]{12}")
+_GENERATED_DIRS = frozenset({RESIZED_DIR, FRAMES_DIR})
+_FRAME_NUMBER = re.compile(r"_(\d+)\.[a-z]+$")
+LOGO_SET = "brand/logo"
 
 
 class ReferenceLibraryError(ValueError):
@@ -97,11 +102,12 @@ def scan(root: Path | None = None) -> ScanReport:
             continue
         for dirpath, dirnames, filenames in os.walk(type_dir):
             dirnames[:] = sorted(
-                (d for d in dirnames if d != RESIZED_DIR and not d.startswith(".")),
+                (d for d in dirnames if d not in _GENERATED_DIRS and not d.startswith(".")),
                 key=natural_key,
             )
             folder = Path(dirpath)
             files = sorted((f for f in filenames if _is_candidate(f)), key=natural_key)
+            files += _frame_files(folder)
             has_images = any(Path(f).suffix.lower() in IMAGE_LIKE_SUFFIXES for f in files)
             relative = folder.relative_to(root).as_posix()
             if folder == type_dir:
@@ -123,6 +129,15 @@ def scan(root: Path | None = None) -> ScanReport:
     return report
 
 
+def _frame_files(folder: Path) -> list[str]:
+    """Frames extracted by `ca refs frames` count as assets of the parent set."""
+    frames = folder / FRAMES_DIR
+    if not frames.is_dir():
+        return []
+    names = (p.name for p in frames.iterdir() if p.is_file() and _is_candidate(p.name))
+    return [f"{FRAMES_DIR}/{name}" for name in sorted(names, key=natural_key)]
+
+
 def _is_candidate(name: str) -> bool:
     return not name.startswith(".") and name.casefold() not in IGNORED_FILES
 
@@ -130,7 +145,10 @@ def _is_candidate(name: str) -> bool:
 def _no_images_reason(files: list[str]) -> str:
     counts = Counter(Path(f).suffix.lower().lstrip(".") or "no extension" for f in files)
     summary = ", ".join(f"{count} {ext}" for ext, count in sorted(counts.items()))
-    return f"no JPG/PNG/WebP images ({summary})"
+    hint = ""
+    if any(Path(f).suffix.lower() in VIDEO_SUFFIXES for f in files):
+        hint = "; run `ca refs frames` to use video frames"
+    return f"no JPG/PNG/WebP images ({summary}){hint}"
 
 
 def _load_previous(folder: Path) -> dict[str, RefAsset]:
@@ -152,14 +170,13 @@ def _scan_set(
     assets: list[RefAsset] = []
     seen: dict[str, str] = {}
     for name in files:
-        path = folder / name
-        asset_id = asset_id_for(path)
+        asset_id = asset_id_for(folder / name)
         if asset_id in seen:
             reason = f"duplicate of {seen[asset_id]}"
             assets.append(RefAsset(asset_id=asset_id, file=name, status="rejected", reason=reason))
             continue
         seen[asset_id] = name
-        asset = _check_and_copy(path, asset_id, ref_type, resized_dir)
+        asset = _check_and_copy(folder, name, asset_id, ref_type)
         old = previous.get(asset_id)
         if ref_type == "identity" and asset.status == "ok" and old is not None:
             asset.primary = old.primary
@@ -179,31 +196,35 @@ def _scan_set(
     return ref_set
 
 
-def _unsupported_reason(suffix: str) -> str:
+def _unsupported_reason(path: Path) -> str:
+    suffix = path.suffix.lower()
     if suffix == ".svg":
         return "SVG (vector) is not supported; export it as PNG"
     if suffix == ".pdf":
         return "PDF is not supported; export the pages as PNG or JPG"
     if suffix in VIDEO_SUFFIXES:
-        return "video files are not supported"
+        if all(frame.is_file() for frame in frame_paths(path)):
+            return f"video; its frames in {FRAMES_DIR}/ are used instead"
+        return "video files are not supported; run `ca refs frames` to use its frames"
     label = suffix.lstrip(".").upper() or "files without an extension"
     return f"{label} is not supported; use JPG, PNG or WebP"
 
 
-def _check_and_copy(path: Path, asset_id: str, ref_type: RefType, resized_dir: Path) -> RefAsset:
+def _check_and_copy(folder: Path, name: str, asset_id: str, ref_type: RefType) -> RefAsset:
+    path = folder / name
+
     def rejected(reason: str, size: tuple[int, int] | None = None) -> RefAsset:
         return RefAsset(
             asset_id=asset_id,
-            file=path.name,
+            file=name,
             width=size[0] if size else None,
             height=size[1] if size else None,
             status="rejected",
             reason=reason,
         )
 
-    suffix = path.suffix.lower()
-    if suffix not in SUPPORTED_SUFFIXES:
-        return rejected(_unsupported_reason(suffix))
+    if path.suffix.lower() not in SUPPORTED_SUFFIXES:
+        return rejected(_unsupported_reason(path))
     try:
         with Image.open(path) as source:
             image_format = source.format or "unknown"
@@ -225,7 +246,7 @@ def _check_and_copy(path: Path, asset_id: str, ref_type: RefType, resized_dir: P
     has_alpha = image.mode in ("RGBA", "LA", "PA") or "transparency" in image.info
     extension = "png" if image_format == "PNG" or has_alpha else "jpg"
     resized = f"{RESIZED_DIR}/{asset_id}.{extension}"
-    target = path.parent / resized
+    target = folder / resized
     if not target.is_file():
         try:
             _write_copy(image, target, extension)
@@ -233,7 +254,7 @@ def _check_and_copy(path: Path, asset_id: str, ref_type: RefType, resized_dir: P
             return rejected("could not be converted to a resized copy", (width, height))
     return RefAsset(
         asset_id=asset_id,
-        file=path.name,
+        file=name,
         resized=resized,
         width=width,
         height=height,
@@ -275,7 +296,7 @@ def list_sets(ref_type: RefType | None = None, root: Path | None = None) -> list
         return []
     sets = []
     for set_file in root.rglob(SET_FILE):
-        if RESIZED_DIR in set_file.parts:
+        if _GENERATED_DIRS.intersection(set_file.parts):
             continue
         try:
             ref_set = ReferenceSet.load(set_file)
@@ -345,6 +366,63 @@ def select_identity_refs(
         ref_set.ok_assets, key=lambda a: (not a.primary, natural_key(a.file))
     )
     return [_as_reference(ref_set, asset) for asset in ordered[: max(max_n, 0)]]
+
+
+def select_set_refs(
+    set_id: str,
+    max_n: int,
+    root: Path | None = None,
+    *,
+    ref_type: RefType | None = None,
+) -> list[ReferenceImage]:
+    """Usable assets of a set, capped at max_n.
+
+    Still images come first; video frames follow, middle frames (_2) before the
+    others, so a capped selection covers as many different slides as possible.
+    """
+    ref_set = load_set(set_id, root)
+    if ref_type is not None and ref_set.type != ref_type:
+        raise ReferenceLibraryError(
+            f"{ref_set.set_id} is a {ref_set.type} set; a {ref_type} set is needed here."
+        )
+    if not ref_set.ok_assets:
+        raise ReferenceLibraryError(f"{ref_set.set_id} has no usable images.")
+    ordered = sorted(ref_set.ok_assets, key=_style_order)
+    return [_as_reference(ref_set, asset) for asset in ordered[: max(max_n, 0)]]
+
+
+def _style_order(asset: RefAsset) -> tuple[bool, int, list[int | str]]:
+    if not asset.file.startswith(f"{FRAMES_DIR}/"):
+        return (False, 0, natural_key(asset.file))
+    match = _FRAME_NUMBER.search(asset.file)
+    distance = abs(int(match.group(1)) - 2) if match else 9
+    return (True, distance, natural_key(asset.file))
+
+
+def select_logo_ref(
+    root: Path | None = None, set_id: str = LOGO_SET, preferred: str | None = None
+) -> ReferenceImage:
+    """Pick the brand logo: the preferred file (brand.json logoFile) if given; otherwise
+    file names containing "logo" first, PNG before other formats."""
+    ref_set = load_set(set_id, root)
+    if ref_set.type != "brand" or not ref_set.ok_assets:
+        raise ReferenceLibraryError(f"No usable logo found in {set_id}.")
+    if preferred:
+        match = next((a for a in ref_set.ok_assets if a.file == preferred), None)
+        if match is None:
+            raise ReferenceLibraryError(
+                f"logoFile '{preferred}' is not a usable image in {ref_set.set_id}."
+            )
+        return _as_reference(ref_set, match)
+    best = min(
+        ref_set.ok_assets,
+        key=lambda a: (
+            "logo" not in a.file.casefold(),
+            not a.file.casefold().endswith(".png"),
+            natural_key(a.file),
+        ),
+    )
+    return _as_reference(ref_set, best)
 
 
 def assets_by_type(root: Path | None = None) -> dict[RefType, list[ReferenceImage]]:

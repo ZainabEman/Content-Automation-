@@ -12,6 +12,7 @@ from content_automation.references.brand import (
     brand_path,
     load_brand,
 )
+from content_automation.references.frames import FramesReport, extract_frames
 from content_automation.references.library import (
     PRIMARY_COUNT,
     ReferenceLibraryError,
@@ -22,6 +23,8 @@ from content_automation.references.library import (
     load_set,
     scan,
     select_identity_refs,
+    select_logo_ref,
+    select_set_refs,
     set_primary,
 )
 from content_automation.references.models import (
@@ -38,6 +41,7 @@ __all__ = [
     "BrandFont",
     "BrandProfile",
     "BrandProfileError",
+    "FramesReport",
     "RefAsset",
     "RefType",
     "ReferenceLibraryError",
@@ -46,10 +50,13 @@ __all__ = [
     "SkippedFolder",
     "assets_by_type",
     "brand_path",
+    "extract_frames",
     "list_sets",
     "load_brand",
     "load_set",
     "scan",
     "select_identity_refs",
+    "select_logo_ref",
+    "select_set_refs",
     "set_primary",
 ]

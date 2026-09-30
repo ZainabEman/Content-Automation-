@@ -41,6 +41,7 @@ class Job(CamelModel):
     product_asset_ids: list[str] = Field(default_factory=list)
     brand_asset_ids: list[str] = Field(default_factory=list)
     style_asset_ids: list[str] = Field(default_factory=list)
+    inputs: dict[str, str | bool] = Field(default_factory=dict)
     status: JobStatus = "queued"
     outputs: list[str] = Field(default_factory=list)
     error: str | None = None
@@ -122,6 +123,7 @@ def create_job(
     product_asset_ids: list[str] | None = None,
     brand_asset_ids: list[str] | None = None,
     style_asset_ids: list[str] | None = None,
+    inputs: dict[str, str | bool] | None = None,
     est_cost_usd: float | None = None,
     now: datetime | None = None,
 ) -> Job:
@@ -146,6 +148,7 @@ def create_job(
         product_asset_ids=product_asset_ids or [],
         brand_asset_ids=brand_asset_ids or [],
         style_asset_ids=style_asset_ids or [],
+        inputs=inputs or {},
         est_cost_usd=est_cost_usd,
         created_at=created,
         updated_at=created,

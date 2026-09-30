@@ -60,7 +60,11 @@ class ReferenceImage(BaseModel):
 
 
 class ImageRequest(BaseModel):
-    """What to generate. Reference categories are kept as separate lists."""
+    """What to generate. Reference categories are kept as separate lists.
+
+    Adapters must attach reference images in this order: identity_refs, then
+    object_refs, then style_refs, because prompts number the images that way.
+    """
 
     model_config = ConfigDict(frozen=True)
 

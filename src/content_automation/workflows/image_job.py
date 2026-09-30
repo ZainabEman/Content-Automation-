@@ -28,6 +28,7 @@ def run_image_job(
     requested_by: str | None = None,
     product_asset_ids: list[str] | None = None,
     brand_asset_ids: list[str] | None = None,
+    inputs: dict[str, str | bool] | None = None,
 ) -> Job:
     """Run one image job and return its record (status completed or failed).
 
@@ -55,6 +56,7 @@ def run_image_job(
         product_asset_ids=product_asset_ids if product_asset_ids is not None else object_ids,
         brand_asset_ids=brand_asset_ids or [],
         style_asset_ids=[ref.asset_id for ref in request.style_refs],
+        inputs=inputs,
     )
     logger.info("Job %s created in %s", job.job_id, job.folder)
 

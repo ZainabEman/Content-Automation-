@@ -13,6 +13,7 @@ REF_TYPES: tuple[RefType, ...] = ("identity", "brand", "creative", "product")
 AssetStatus = Literal["ok", "rejected"]
 SET_FILE = "set.json"
 RESIZED_DIR = "_resized"
+FRAMES_DIR = "_frames"
 
 
 class RefAsset(CamelModel):

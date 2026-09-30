@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     image_model: str = Field(default="gemini-3.1-flash-image", min_length=1)
     image_daily_limit: int = Field(default=10, gt=0)
     image_timeout_ms: int = Field(default=120_000, gt=0)
+    image_max_retries: int = Field(default=1, ge=0, le=5)
     gemini_api_key: SecretStr | None = None
 
     video_provider: VideoProvider = "mock"

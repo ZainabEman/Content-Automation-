@@ -22,7 +22,7 @@ The Python version is pinned to 3.13. Copy `../.env.example` to `.env` only if y
 
 - [Guide template](guides/_TEMPLATE.md)
 - [Module 1: Images](guides/module-1-images.md)
-- [Module 2: Video](guides/module-2-video.md)
-- [Module 3: Research](guides/module-3-research.md)
+- Module 2: Video (planned)
+- Module 3: Research (planned)
 
 Module guides are written as each module is implemented.

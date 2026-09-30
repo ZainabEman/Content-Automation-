@@ -10,9 +10,17 @@ from pydantic import Field, PrivateAttr
 
 from content_automation.core.files import CamelModel, atomic_write_text
 
-JobStatus = Literal["queued", "processing", "completed", "failed", "cancelled"]
+JobStatus = Literal[
+    "queued", "processing", "awaiting_agent", "completed", "failed", "cancelled"
+]
 TERMINAL_STATUSES: frozenset[str] = frozenset({"completed", "failed", "cancelled"})
 DETAILS_FILE = "details.json"
+_ACTIVE = {"processing", "awaiting_agent"}
+
+# "code": the app calls the provider API. "agent": Codex calls an MCP tool, then records
+# the result with `ca job complete` / `ca job fail`.
+AdapterMode = Literal["code", "agent"]
+StepStatus = Literal["processing", "awaiting_agent", "completed", "failed"]
 
 
 class JobStateError(RuntimeError):
@@ -23,6 +31,22 @@ class JobParams(CamelModel):
     aspect_ratio: str
     image_size: str
     count: int
+
+
+class JobStep(CamelModel):
+    """One provider step of a multi-step job (voice, one scene clip, ...)."""
+
+    step_id: str
+    capability: str
+    provider: str
+    mode: AdapterMode
+    status: StepStatus = "processing"
+    file: str | None = None  # output file, relative to the job folder
+    provider_job_id: str | None = None
+    credits_used: float | None = None
+    error: str | None = None
+    created_at: datetime = Field(default_factory=lambda: _utc_now())
+    updated_at: datetime = Field(default_factory=lambda: _utc_now())
 
 
 class Job(CamelModel):
@@ -47,6 +71,7 @@ class Job(CamelModel):
     error: str | None = None
     provider_request_ids: list[str] = Field(default_factory=list)
     est_cost_usd: float | None = None
+    steps: list[JobStep] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
@@ -75,32 +100,130 @@ class Job(CamelModel):
         self.save()
 
     def complete(self, output_files: list[str]) -> None:
-        """Mark completed only when every listed output file exists and is non-empty."""
+        """Mark completed only when every listed output file exists and is non-empty
+        and every step is completed."""
         if not output_files:
             raise JobStateError("A job cannot be completed without output files.")
-        missing = [
-            name
-            for name in output_files
-            if not (self.folder / name).is_file() or (self.folder / name).stat().st_size == 0
-        ]
+        missing = [name for name in output_files if not self._has_file(name)]
         if missing:
             raise JobStateError(f"Output files are missing or empty: {', '.join(missing)}.")
+        unfinished = [step.step_id for step in self.steps if step.status != "completed"]
+        if unfinished:
+            raise JobStateError(f"Steps are not completed: {', '.join(unfinished)}.")
         self._transition("completed", allowed_from={"queued", "processing"})
         self.outputs = list(output_files)
         self.error = None
         self.save()
 
     def fail(self, error: str) -> None:
-        self._transition("failed", allowed_from={"queued", "processing"})
+        self._transition("failed", allowed_from={"queued", *_ACTIVE})
         self.outputs = []
         self.error = error or "Unknown error."
+        self._stop_steps("Stopped because the job failed.")
         self.save()
 
     def cancel(self, reason: str = "Cancelled by user.") -> None:
-        self._transition("cancelled", allowed_from={"queued", "processing"})
+        self._transition("cancelled", allowed_from={"queued", *_ACTIVE})
         self.outputs = []
         self.error = reason
+        self._stop_steps("Stopped because the job was cancelled.")
         self.save()
+
+    def step(self, step_id: str) -> JobStep:
+        for step in self.steps:
+            if step.step_id == step_id:
+                return step
+        known = ", ".join(step.step_id for step in self.steps) or "none"
+        raise JobStateError(f"This job has no step '{step_id}' (steps: {known}).")
+
+    def add_step(self, step: JobStep) -> None:
+        """Record a step; an awaiting_agent step pauses the job until the agent reports."""
+        if self.status not in _ACTIVE:
+            raise JobStateError(f"Cannot add a step to a {self.status} job.")
+        if any(existing.step_id == step.step_id for existing in self.steps):
+            raise JobStateError(f"Step '{step.step_id}' already exists.")
+        if step.status == "completed" and not (step.file and self._has_file(step.file)):
+            raise JobStateError(f"Step '{step.step_id}' has no output file.")
+        self.steps.append(step)
+        if step.status == "awaiting_agent":
+            self.status = "awaiting_agent"
+        self.save()
+
+    def complete_step(
+        self,
+        step_id: str,
+        file: str,
+        *,
+        provider_job_id: str | None = None,
+        credits_used: float | None = None,
+    ) -> None:
+        """Record an agent step's output; the job resumes once no step is waiting."""
+        step = self.waiting_step(step_id)
+        if not self._has_file(file):
+            raise JobStateError(f"Output file is missing or empty: {file}.")
+        step.status = "completed"
+        step.file = file
+        step.provider_job_id = provider_job_id
+        step.credits_used = credits_used
+        step.error = None
+        step.updated_at = _utc_now()
+        if not self.waiting_steps():
+            self.status = "processing"
+        self.save()
+
+    def fail_step(self, step_id: str, error: str) -> None:
+        """A failed step fails the whole job; it is never marked completed."""
+        step = self.waiting_step(step_id)
+        step.status = "failed"
+        step.error = error or "Unknown error."
+        step.updated_at = _utc_now()
+        self.fail(f"Step {step_id} failed: {step.error}")
+
+    def expire_steps(self, timeout_min: int, now: datetime | None = None) -> list[str]:
+        """Fail agent steps waiting longer than timeout_min; return their IDs."""
+        if self.status not in _ACTIVE:
+            return []
+        current = now or _utc_now()
+        expired = [
+            step
+            for step in self.waiting_steps()
+            if (current - step.created_at).total_seconds() > timeout_min * 60
+        ]
+        if not expired:
+            return []
+        for step in expired:
+            step.status = "failed"
+            step.error = f"Timed out after {timeout_min} min waiting for the agent."
+            step.updated_at = current
+        ids = [step.step_id for step in expired]
+        self.fail(
+            f"Agent step timed out ({', '.join(ids)}) after {timeout_min} min "
+            "(AGENT_STEP_TIMEOUT_MIN)."
+        )
+        return ids
+
+    def waiting_steps(self) -> list[JobStep]:
+        return [step for step in self.steps if step.status == "awaiting_agent"]
+
+    def waiting_step(self, step_id: str) -> JobStep:
+        if self.status in TERMINAL_STATUSES:
+            raise JobStateError(f"This job is already {self.status}.")
+        step = self.step(step_id)
+        if step.status != "awaiting_agent":
+            raise JobStateError(f"Step '{step_id}' is {step.status}, not awaiting_agent.")
+        return step
+
+    def _stop_steps(self, reason: str) -> None:
+        now = _utc_now()
+        for step in self.steps:
+            if step.status in _ACTIVE:
+                step.status = "failed"
+                step.error = step.error or reason
+                step.updated_at = now
+
+    def _has_file(self, name: str) -> bool:
+        path = self.folder / name
+        return path.is_file() and path.stat().st_size > 0
 
     def _transition(self, new_status: JobStatus, *, allowed_from: set[str]) -> None:
         if self.status not in allowed_from:

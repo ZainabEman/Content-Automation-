@@ -1,12 +1,16 @@
 """Typer command line interface."""
 
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated
 
 import typer
 from pydantic import ValidationError
 
 from content_automation.ai.image import ASPECT_RATIOS, ImageError, ImageRequest
+from content_automation.core.agent_steps import record_agent_output, request_path
 from content_automation.core.config import ConfigurationError, Settings, load_settings
+from content_automation.core.jobs import DETAILS_FILE, Job, JobStateError
 from content_automation.core.limits import DailyLimitError
 from content_automation.core.log import configure_logging
 from content_automation.references import (
@@ -31,8 +35,13 @@ from content_automation.workflows.registry import DEFAULT_STYLE_COUNT, WorkflowE
 app = typer.Typer(name="ca", no_args_is_help=True, help="Content Automation CLI.")
 refs_app = typer.Typer(no_args_is_help=True, help="Reference photo library.")
 brand_app = typer.Typer(no_args_is_help=True, help="Brand profile (brand.json).")
+job_app = typer.Typer(no_args_is_help=True, help="Job records and agent steps.")
 app.add_typer(refs_app, name="refs")
 app.add_typer(brand_app, name="brand")
+app.add_typer(job_app, name="job")
+
+JobDir = Annotated[Path, typer.Argument(help="Job folder (the one with details.json).")]
+StepOption = Annotated[str, typer.Option("--step", help="Step ID, e.g. scene-1.")]
 
 
 @app.callback()
@@ -282,3 +291,88 @@ def brand_show() -> None:
         typer.echo("Needs review:")
         for item in brand.needs_review:
             typer.echo(f"  - {item}")
+
+
+def _load_job(job_dir: Path) -> Job:
+    folder = job_dir.parent if job_dir.name == DETAILS_FILE else job_dir
+    details = folder / DETAILS_FILE
+    if not details.is_file():
+        typer.echo(f"No {DETAILS_FILE} in {folder}.", err=True)
+        raise typer.Exit(code=1)
+    try:
+        return Job.load(details)
+    except (OSError, ValueError) as error:
+        typer.echo(f"Cannot read {details}: {error}", err=True)
+        raise typer.Exit(code=1) from None
+
+
+@job_app.command("status")
+def job_status(job_dir: JobDir) -> None:
+    """Show a job and its steps; agent steps waiting too long are marked failed."""
+    settings = _settings(dry_run=True)  # job commands call no provider and need no key
+    job = _load_job(job_dir)
+    timeout_min = settings.agent_step_timeout_min
+    expired = job.expire_steps(timeout_min)
+    now = datetime.now(UTC)
+    typer.echo(f"{job.job_id} ({job.workflow_id}): {job.status}")
+    typer.echo(f"Folder: {job.folder}")
+    for step in job.steps:
+        line = f"  {step.step_id}: {step.status} ({step.capability}, {step.provider}, {step.mode})"
+        if step.file:
+            line += f" -> {step.file}"
+        typer.echo(line)
+        if step.status == "awaiting_agent":
+            waited = int((now - step.created_at).total_seconds() // 60)
+            request = request_path(job.folder, step.step_id).relative_to(job.folder)
+            typer.echo(f"    request: {request.as_posix()} (waiting {waited} of {timeout_min} min)")
+        if step.error:
+            typer.echo(f"    error: {step.error}")
+    if job.error:
+        typer.echo(f"Error: {job.error}")
+    if expired:
+        typer.echo(f"Timed out, marked failed: {', '.join(expired)}", err=True)
+
+
+@job_app.command("complete")
+def job_complete(
+    job_dir: JobDir,
+    step: StepOption,
+    file: Annotated[Path, typer.Option("--file", help="The file the agent saved.")],
+    provider_job_id: Annotated[
+        str | None, typer.Option(help="The provider's job or request ID.")
+    ] = None,
+    credits: Annotated[
+        float | None, typer.Option(min=0, help="Credits the provider charged.")
+    ] = None,
+) -> None:
+    """Record an agent step's file; it is copied into the job folder."""
+    job = _load_job(job_dir)
+    try:
+        saved = record_agent_output(
+            job, step, file, provider_job_id=provider_job_id, credits_used=credits
+        )
+    except (JobStateError, OSError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"{step} completed: {job.folder / saved}")
+    waiting = [waiting_step.step_id for waiting_step in job.waiting_steps()]
+    if waiting:
+        typer.echo(f"Still waiting for: {', '.join(waiting)}")
+    else:
+        typer.echo("All agent steps are done; the job can continue.")
+
+
+@job_app.command("fail")
+def job_fail(
+    job_dir: JobDir,
+    step: StepOption,
+    error: Annotated[str, typer.Option("--error", help="What went wrong.")],
+) -> None:
+    """Record that an agent step failed; the whole job ends as failed."""
+    job = _load_job(job_dir)
+    try:
+        job.fail_step(step, error)
+    except JobStateError as state_error:
+        typer.echo(str(state_error), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"{step} failed; job {job.job_id} is now failed.")

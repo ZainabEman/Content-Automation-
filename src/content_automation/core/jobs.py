@@ -1,15 +1,14 @@
 """Job records: one dated output folder per job with an atomically written details.json."""
 
-import os
 import re
-import tempfile
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
-from pydantic.alias_generators import to_camel
+from pydantic import Field, PrivateAttr
+
+from content_automation.core.files import CamelModel, atomic_write_text
 
 JobStatus = Literal["queued", "processing", "completed", "failed", "cancelled"]
 TERMINAL_STATUSES: frozenset[str] = frozenset({"completed", "failed", "cancelled"})
@@ -20,17 +19,13 @@ class JobStateError(RuntimeError):
     """Raised when a job is moved to a state it cannot reach."""
 
 
-class _CamelModel(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
-
-
-class JobParams(_CamelModel):
+class JobParams(CamelModel):
     aspect_ratio: str
     image_size: str
     count: int
 
 
-class Job(_CamelModel):
+class Job(CamelModel):
     """The details.json record described in docs/prd/module-1.md."""
 
     job_id: str
@@ -72,7 +67,7 @@ class Job(_CamelModel):
         """Write details.json atomically so readers never see a half-written file."""
         self.updated_at = _utc_now()
         text = self.model_dump_json(by_alias=True, indent=2) + "\n"
-        _atomic_write_text(self.folder / DETAILS_FILE, text)
+        atomic_write_text(self.folder / DETAILS_FILE, text)
 
     def start(self) -> None:
         self._transition("processing", allowed_from={"queued"})
@@ -176,19 +171,6 @@ def _unique_folder(parent: Path, name: str) -> Path:
             suffix += 1
             continue
         return candidate
-
-
-def _atomic_write_text(path: Path, text: str) -> None:
-    descriptor, temporary = tempfile.mkstemp(
-        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
-    )
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-            handle.write(text)
-        os.replace(temporary, path)
-    except BaseException:
-        Path(temporary).unlink(missing_ok=True)
-        raise
 
 
 def _utc_now() -> datetime:

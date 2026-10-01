@@ -16,6 +16,7 @@ from content_automation.references import (
     BrandProfile,
     brand_path,
     load_brand,
+    load_company,
     load_set,
     select_identity_refs,
     select_logo_ref,
@@ -185,6 +186,7 @@ def prepare_workflow(
         variant=variant,
         headline=inputs.headline,
         service=service,
+        company=load_company(settings.company_file),
     )
     request = ImageRequest(
         prompt=prompt,

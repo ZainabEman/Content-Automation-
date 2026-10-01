@@ -18,6 +18,7 @@
 
 ### Make images
 
+0. Read `docs/company/services.md` first: base scenes, headlines and captions on it (English only; never invent results, statistics, prices or client names).
 1. Pick the workflow: the person in a scene → `person_lifestyle`; the person delivering one of the company's services → `person_service` (`--service "…"`: the service in words; `uv run ca brand show` lists `services`); a designed post, ad or carousel slide → `social_creative` (`--variant post|ad|carousel_slide`; add `--headline "…"` for exact on-image text, `--logo` for the logo, and `--style creative/<set>` if a style is named; the default is `creative/facebook_ads`).
 2. Identity: `--set identity/person_01` unless another person is named (`uv run ca refs list` shows the sets). Add it to social_creative only if the person should appear. Consent: person_01 is the company lead, who provided his own photos for his company's marketing; use only identity sets of people who agreed to this use.
 3. Aspect ratio by platform: IG feed 4:5 · story/reel 9:16 · LinkedIn 1:1 · YouTube 16:9. Default `--count 3` unless a number is given (max 4).
@@ -30,7 +31,7 @@
 ### Make videos
 
 1. Workflow: Reel/Short → `reel_short` (≤90 s); ad → `ugc_ad` (≤60 s); talking head or podcast → `podcast_clip` (≤90 s, avatar scenes plus optional video b-roll). Voiceover is off in the MVP.
-2. Write `outputs/plans/<short-name>.json` (fields in `docs/guides/module-2-video.md`): scenes numbered 1…N, each ≤15 s, adding up to `durationSec`; video `prompt` = a rich shot description; avatar `prompt` = the exact words (≈2.5 words/s); short `onScreenText`.
+2. Write `outputs/plans/<short-name>.json` (fields in `docs/guides/module-2-video.md`): scenes numbered 1…N, each ≤15 s, adding up to `durationSec`; video `prompt` = a rich shot description; avatar `prompt` = the exact words (≈2.5 words/s); short `onScreenText`; take services, messages and captions from `docs/company/services.md` (English only; never invent results, statistics, prices or client names).
 3. Start images: `startImageAssetId` = an ID from an image job's `outputAssetIds` or a set's `set.json`, or `<jobId>/image-N.png`; image scenes need one.
 4. Run `uv run ca video --plan <file> --dry-run`; fix every listed problem; state the credits.
 5. Run `uv run ca video --plan <file> --request "<the user's exact words>"`.

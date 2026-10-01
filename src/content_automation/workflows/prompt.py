@@ -6,7 +6,7 @@ identity, then objects (products, then logo), then style.
 
 from dataclasses import dataclass
 
-from content_automation.references import BrandProfile
+from content_automation.references import BrandProfile, CompanyProfile, first_sentence
 from content_automation.workflows.registry import WorkflowSpec
 
 PHOTO_WORKFLOWS = frozenset({"person_lifestyle", "person_service"})
@@ -115,6 +115,7 @@ def build_prompt(
     variant: str | None = None,
     headline: str | None = None,
     service: str | None = None,
+    company: CompanyProfile | None = None,
 ) -> str:
     photo = spec.workflow_id in PHOTO_WORKFLOWS
     if photo:
@@ -126,6 +127,11 @@ def build_prompt(
         if counts.product:
             intro += " Feature the product shown in the product reference images."
     sections = [intro]
+    if company is not None and company.name and (service or not photo):
+        lines = [f"Company: {company.name}, {first_sentence(company.summary)}"]
+        if company.core_message and not photo:
+            lines.append(f"Core message: {first_sentence(company.core_message)}")
+        sections.append("\n".join(lines))
     if service:
         sections.append(f"Service: {service.strip()}")
     sections.append(f"Scene: {scene.strip()}")
@@ -143,7 +149,10 @@ def build_prompt(
         text = "Text: do not add any text, captions, watermarks or logos."
     else:
         text = "Text: only add text if the scene asks for it, and spell it exactly."
-    sections.append(f"{text} Any text in the image must be in {text_language(brand)}.")
+    text += f" Any text in the image must be in {text_language(brand)}."
+    if company is not None and company.content_rules:
+        text += f" Content rules: {company.content_rules}"
+    sections.append(text)
 
     if brand is not None:
         rules = brand_lines(brand, photo=photo)

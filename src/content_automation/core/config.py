@@ -31,6 +31,7 @@ class Settings(BaseSettings):
 
     user_name: str = Field(default="User", min_length=1)
     references_dir: Path = Path("assets/reference")
+    company_file: Path = Path("docs/company/services.md")
     output_dir: Path = Path("outputs")
     research_dir: Path = Path("research")
     packages_dir: Path = Path("packages")

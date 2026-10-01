@@ -50,6 +50,10 @@ photos of people who have agreed to this use.
   and add the brand rules from `brand.json` automatically. Any text in an image is in English.
 - **Services, not products**: `person_service` shows the person delivering one of the
   company's services, described in words (no product photos needed).
+- **Company profile** (`docs/company/services.md`): who Branded Genius is, its 7 services, core
+  message and content rules. Codex reads it for scenes, headlines and captions, and the tool
+  adds the company line and the content rules ("never invent results, statistics, prices or
+  client names") to every prompt that needs them.
 
 ## One-time setup
 
@@ -120,9 +124,9 @@ Open `assets/reference/brand/brand.json` in any text editor, or run `uv run ca b
 Fix anything wrong, remove each item from `needsReview` once you have checked it, and change
 `"status": "draft"` to `"status": "approved"` when you are happy. `logoFile` is the file in
 `brand/logo/` that is added when you ask for the logo. `language` is `"en"`, so any text in an
-image is written in English. Fill in `services` with the services the company offers, for
-example `["Business strategy consulting", "AI marketing workshops"]`; they are a handy list to
-pick from for `person_service`.
+image is written in English. `services` lists the company's 7 services (from
+`docs/company/services.md`); pick one for `person_service`. To change what the company offers,
+edit `docs/company/services.md` and `services` in `brand.json` together.
 
 ## How to use
 

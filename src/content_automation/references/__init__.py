@@ -12,6 +12,7 @@ from content_automation.references.brand import (
     brand_path,
     load_brand,
 )
+from content_automation.references.company import CompanyProfile, first_sentence, load_company
 from content_automation.references.frames import FramesReport, extract_frames
 from content_automation.references.library import (
     PRIMARY_COUNT,
@@ -43,6 +44,7 @@ __all__ = [
     "BrandFont",
     "BrandProfile",
     "BrandProfileError",
+    "CompanyProfile",
     "FramesReport",
     "RefAsset",
     "RefType",
@@ -54,8 +56,10 @@ __all__ = [
     "assets_by_type",
     "brand_path",
     "extract_frames",
+    "first_sentence",
     "list_sets",
     "load_brand",
+    "load_company",
     "load_set",
     "scan",
     "select_identity_refs",

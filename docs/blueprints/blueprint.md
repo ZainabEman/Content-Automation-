@@ -57,8 +57,8 @@ USER / FUTURE UI
    v                     v                v
 IMAGE BRANCH         VIDEO BRANCH      RESEARCH BRANCH
    |                     |                |
-ComfyUI / selected      Higgsfield       Apify /
-image provider          HeyGen           scraper provider
+ComfyUI / selected      Higgsfield       own free
+image provider          HeyGen           scraper (RSS + pages)
    |                     |                |
 FLUX / reference        ElevenLabs       sources
 conditioning            audio            |
@@ -93,7 +93,7 @@ Codex should be the orchestration layer. Provider-specific operations should be 
 | Video | Higgsfield | Paid account; later branch | Selected |
 | Avatar | HeyGen | Paid account; later branch | Selected |
 | Voice | ElevenLabs | Paid account; later branch | Selected |
-| Scraper | Apify primary candidate | Actors, API, datasets, storage and scheduling | Candidate |
+| Scraper | Own free scraper (httpx, feedparser, trafilatura) | RSS first, else homepage links; polite, no account | Selected |
 | Scraper alternative | Firecrawl | Useful if clean AI-ready crawling/extraction is the priority | Alternative |
 | Asset storage | Object storage — TBD | Persistent generated files and URLs | Open |
 | Metadata DB | Postgres-class DB — TBD | Jobs, assets, sources, workflows and metadata | Open |
@@ -335,15 +335,18 @@ The business brief describes UGC advertisements, Reels/Shorts, and Podcast workf
 
 The business requirement is to collect title, source, date, link, and main content/summary, then send the structured data to Codex for relevance, trend analysis, and content idea generation.
 
-### Recommended starting candidate: Apify
+### Selected approach: our own free scraper
 
-Apify is a strong candidate because its Actors accept structured input, can be run programmatically, can be scheduled, and can write results to datasets/key-value/file storage.
+A small scraper of our own, built only on free open-source libraries (httpx, feedparser,
+trafilatura): no paid scraping API and no account. It reads each source's RSS feed (or, if
+there is none, the homepage's article links), respects robots.txt, waits 1–2 s between
+requests, and extracts title, date, author and clean text from each article.
 
 ```
 Source configuration
       |
       v
-Apify Actor / scraper
+free scraper (RSS / homepage links → trafilatura)
       |
       v
 raw result
@@ -519,7 +522,7 @@ Do not build an MCP server for every provider just for architectural symmetry. M
 ### Phase 8 — Research branch
 
 - Confirm target sources.
-- Select Apify Actor(s) or Firecrawl based on source requirements.
+- Build the free scraper (RSS first, else homepage links); Firecrawl stays a future option.
 - Implement normalization and deduplication.
 - Store article records.
 - Implement Codex research analysis.

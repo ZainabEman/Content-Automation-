@@ -1,0 +1,32 @@
+{
+  "sources": [
+    {
+      "name": "Search Engine Journal",
+      "url": "https://www.searchenginejournal.com",
+      "rssUrl": "https://www.searchenginejournal.com/feed/",
+      "topics": ["SEO", "AI marketing"],
+      "active": true
+    },
+    {
+      "name": "HubSpot Marketing Blog",
+      "url": "https://blog.hubspot.com/marketing",
+      "rssUrl": "https://blog.hubspot.com/marketing/rss.xml",
+      "topics": ["lead generation", "marketing automation", "AI marketing"],
+      "active": true
+    },
+    {
+      "name": "Marketing AI Institute",
+      "url": "https://www.marketingaiinstitute.com/blog",
+      "rssUrl": "https://www.marketingaiinstitute.com/blog/rss.xml",
+      "topics": ["AI marketing", "marketing automation", "AI chatbots"],
+      "active": true
+    },
+    {
+      "name": "Intercom Blog",
+      "url": "https://www.intercom.com/blog/",
+      "rssUrl": "https://www.intercom.com/blog/feed",
+      "topics": ["AI chatbots", "marketing automation"],
+      "active": true
+    }
+  ]
+}

@@ -9,12 +9,14 @@ description = "A local, traceable foundation for AI-assisted content workflows."
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "elevenlabs>=2.70.0",
+    "feedparser>=6.0.14",
     "httpx>=0.28.1",
     "imageio-ffmpeg>=0.5",
     "pillow>=11",
     "pydantic>=2.9",
     "pydantic-settings>=2.5",
     "python-dotenv>=1.0",
+    "trafilatura>=2.2.0",
     "typer>=0.12",
 ]
 
@@ -43,7 +45,7 @@ strict = true
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-module = ["imageio_ffmpeg"]
+module = ["imageio_ffmpeg", "feedparser"]
 ignore_missing_imports = true
 
 [tool.ruff]

@@ -1,6 +1,6 @@
 .env
 .venv/
-outputs/
+/outputs/
 assets/reference/
 __pycache__/
 .pytest_cache/
@@ -10,7 +10,7 @@ __pycache__/
 *.py[cod]
 .coverage
 htmlcov/
-research/
-packages/
+/research/
+/packages/
 .uv-cache/
 .pytest-tmp/

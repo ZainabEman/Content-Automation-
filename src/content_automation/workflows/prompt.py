@@ -141,9 +141,11 @@ def build_prompt(
         sections.append("Reference images (numbered in the order attached):\n" + "\n".join(refs))
 
     if headline:
+        plus_logo = " (plus the logo)" if counts.logo else ""
         text = (
             f'Text: render this headline exactly, spelled correctly and clearly legible: '
-            f'"{headline.strip()}".'
+            f'"{headline.strip()}". The only text in the image is the headline{plus_logo}. '
+            "No buttons, CTAs or other text. English only."
         )
     elif photo:
         text = "Text: do not add any text, captions, watermarks or logos."

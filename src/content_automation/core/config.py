@@ -11,7 +11,8 @@ VideoProvider = Literal["mock", "higgsfield-mcp"]
 AvatarProvider = Literal["mock", "heygen-mcp"]
 # "none" (default): no voiceover step runs; the MVP videos have no voiceover.
 VoiceProvider = Literal["none", "mock", "elevenlabs"]
-ScraperProvider = Literal["mock", "apify"]
+# "free" (default): our own scraper (RSS + article pages); no paid API, no account.
+ScraperProvider = Literal["free", "mock"]
 
 
 class ConfigurationError(ValueError):
@@ -55,9 +56,9 @@ class Settings(BaseSettings):
     elevenlabs_voice_id: str | None = None
     agent_step_timeout_min: int = Field(default=30, gt=0)
 
-    scraper_provider: ScraperProvider = "mock"
-    scraper_model: str = Field(default="mock", min_length=1)
-    apify_token: SecretStr | None = None
+    scraper_provider: ScraperProvider = "free"
+    scraper_model: str = Field(default="default", min_length=1)  # not used by free/mock
+    sources_file: Path = Path("config/sources.json")
     research_max_items_per_source: int = Field(default=25, gt=0)
     research_lookback_days: int = Field(default=30, gt=0)
 
@@ -72,7 +73,7 @@ class Settings(BaseSettings):
             f"Video: {self.video_provider} ({self.video_model})",
             f"Avatar: {self.avatar_provider} ({self.avatar_model})",
             f"Voice: {self.voice_provider} ({self.voice_model})",
-            f"Research: {self.scraper_provider} ({self.scraper_model})",
+            f"Research: {self.scraper_provider} (sources: {self.sources_file})",
             "Credential values: hidden",
         )
 
@@ -116,8 +117,6 @@ def load_settings(
         settings.elevenlabs_api_key
     ):
         missing.append("ELEVENLABS_API_KEY")
-    if settings.scraper_provider == "apify" and not _secret_is_set(settings.apify_token):
-        missing.append("APIFY_TOKEN")
     if missing and require_credentials:
         names = ", ".join(sorted(missing))
         raise ConfigurationError(

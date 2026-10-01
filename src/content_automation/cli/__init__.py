@@ -1,5 +1,6 @@
 """Typer command line interface."""
 
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
@@ -25,6 +26,11 @@ from content_automation.references import (
     scan,
     set_primary,
 )
+from content_automation.research.collectors import CollectorError
+from content_automation.research.models import SourcesError
+from content_automation.research.run import collect as collect_research
+from content_automation.research.run import digest as research_digest_articles
+from content_automation.research.run import digest_lines
 from content_automation.workflows.dry_run import dry_run_lines
 from content_automation.workflows.image_job import run_image_job
 from content_automation.workflows.image_workflows import (
@@ -47,10 +53,12 @@ refs_app = typer.Typer(no_args_is_help=True, help="Reference photo library.")
 brand_app = typer.Typer(no_args_is_help=True, help="Brand profile (brand.json).")
 job_app = typer.Typer(no_args_is_help=True, help="Job records and agent steps.")
 video_app = typer.Typer(help="Short vertical videos (1080x1920) from a plan.json.")
+research_app = typer.Typer(no_args_is_help=True, help="News research: collect and digest articles.")
 app.add_typer(refs_app, name="refs")
 app.add_typer(brand_app, name="brand")
 app.add_typer(job_app, name="job")
 app.add_typer(video_app, name="video")
+app.add_typer(research_app, name="research")
 
 JobDir = Annotated[Path, typer.Argument(help="Job folder (the one with details.json).")]
 StepOption = Annotated[str, typer.Option("--step", help="Step ID, e.g. scene-1.")]
@@ -474,3 +482,47 @@ def _report_video(job: Job) -> None:
     typer.echo(f"Failed: {job.error or job.status}", err=True)
     typer.echo(str(job.folder), err=True)
     raise typer.Exit(code=1)
+
+
+def _utf8_output() -> None:
+    """Article titles can contain any character; print them as UTF-8 for Codex."""
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(encoding="utf-8", errors="replace")
+
+
+@research_app.command("collect")
+def research_collect() -> None:
+    """Collect new articles from every active source in config/sources.json."""
+    _utf8_output()
+    settings = _settings(check_keys=False)
+    try:
+        report, path = collect_research(settings)
+    except (SourcesError, CollectorError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    for stats in report.sources:
+        typer.echo(
+            f"{stats.source} ({stats.via or 'not reached'}): {stats.new} new, "
+            f"{stats.duplicates} duplicates, {stats.too_old} too old, {stats.no_date} undated, "
+            f"{stats.blocked} blocked by robots.txt, {stats.failed} failed"
+        )
+        for problem in stats.errors:
+            typer.echo(f"  error: {problem}")
+    typer.echo(f"Total: {report.new} new, {report.duplicates} duplicates. Report: {path}")
+
+
+@research_app.command("digest")
+def research_digest(
+    days: Annotated[int, typer.Option(min=1, help="Only articles from the last N days.")] = 7,
+) -> None:
+    """Compact list of saved articles for Codex: id, source, date, title, snippet."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    articles = research_digest_articles(settings, days)
+    if not articles:
+        typer.echo(f"No articles from the last {days} days. Run `uv run ca research collect`.")
+        return
+    typer.echo(f"{len(articles)} articles from the last {days} days (newest first):")
+    for line in digest_lines(articles):
+        typer.echo(line)

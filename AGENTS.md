@@ -1,3 +1,17 @@
+# Start here (Codex)
+
+You run this project's `ca` commands for the user. Setup: `docs/SETUP-CODEX.md`; if anything fails, run `uv run ca doctor` and follow its fixes. Details for every command: `docs/README.md`.
+
+For requests like "make a post / ad / reel about X":
+
+1. Run `uv run ca content start --topic "X" [--platform instagram|facebook|linkedin] [--formats post,ad,reel]` (defaults: instagram; post,ad,reel). It collects news and prints the package folder.
+2. In that folder read `research.md` and `brief.template.json`, plus `docs/company/services.md`. Write `brief.json` there: English only; one service from `_help.services`; follow the brand rules; never invent results, statistics, prices or client names; headlines at most 6 words; list the articles you used in `sourceArticleIds`.
+3. Run `uv run ca content build "<folder>" --dry-run`; fix every listed problem in `brief.json`; state the cost and wait for the user's OK.
+4. Run `uv run ca content build "<folder>"`. If it prints a video checklist (Higgsfield/HeyGen), do each step as its `requests/<step>.json` says, then run `uv run ca content build "<folder>"` again. Status "draft — video pending" is fine until then.
+5. Reply with the folder path, the status, and the list of files it printed (images/, video/final.mp4, post.md, package.json).
+
+Single images or videos: use the playbooks below.
+
 # Working rules
 
 - Stack: Python 3.13, uv, Typer, Pydantic, pytest, mypy strict, and Ruff. Run project commands with `uv run`.
@@ -25,7 +39,7 @@
 4. `--prompt`: a rich scene description (action, setting, light, camera/lens, mood). Leave out brand colours, tone and rules; the builder adds them.
 5. Pass the user's exact words as `--request "…"`.
 6. Run: `uv run ca image --workflow <id> --set … --prompt "…" --aspect … --count … --request "…"`. If `IMAGE_PROVIDER` is not `mock` (real images use `openrouter`), first run the same command with `--dry-run` and state the estimated cost.
-7. Success (exit 0): reply with the printed folder path, `actualCostUsd` from its `details.json` if set, and one line per image (`image-N.png`: what it shows).
+7. Success (exit 0): reply with the printed folder path (under `outputs/jobs/`), `actualCostUsd` from its `details.json` if set, and one line per image (`image-N.png`: what it shows).
 8. Failure: show the error message and the next step: a missing set → `uv run ca refs scan` / `ca refs list`; a daily limit → wait or raise `IMAGE_DAILY_LIMIT`; `OPENROUTER_API_KEY missing` → the user adds the key to `.env` (never ask for it in chat); HTTP 402 → the user adds OpenRouter credits; a provider error → read `error` in the folder's `details.json`.
 
 ### Make videos
@@ -35,10 +49,15 @@
 3. Start images: `startImageAssetId` = an ID from an image job's `outputAssetIds` or a set's `set.json`, or `<jobId>/image-N.png`; image scenes need one.
 4. Run `uv run ca video --plan <file> --dry-run`; fix every listed problem; state the credits.
 5. Run `uv run ca video --plan <file> --request "<the user's exact words>"`.
-6. If it prints the `awaiting_agent` checklist: for each step read `requests/scene-N.json`, call the MCP tool it names, save the clip, run the printed `uv run ca job complete …` (on failure retry once, then `ca job fail`); then `uv run ca video resume "<job folder>"`.
+6. If it prints the `awaiting_agent` checklist: for each step follow the numbered instructions in `requests/scene-N.json` (use the connected Higgsfield/HeyGen MCP's generation tool, check its status until done, download, run the printed `uv run ca job complete …`; on failure retry once, then `ca job fail`); then `uv run ca video resume "<job folder>"`.
 7. Success: reply with the `final.mp4` path and one line per scene; if `notes` in `details.json` say the text was not burned in, mention `captions.srt`.
 8. Failure: show the error; plan problems → fix the plan and rerun; otherwise read `error` in the job's `details.json`.
 
 ### Research
 
+1. Run `uv run ca research collect` (free scraper; sites in `config/sources.json`), then `uv run ca research digest --topic "…" [--days 14] [--limit 10]` (without `--topic`: newest first).
+2. Summarize trends only from these articles, with their titles and links; if it says "no strong match", say so. Suggest ideas that fit `docs/company/services.md`.
+
 ### Idea to package
+
+Use "Start here (Codex)" above: `ca content start` → `brief.json` → `ca content build --dry-run` → OK → `ca content build`.

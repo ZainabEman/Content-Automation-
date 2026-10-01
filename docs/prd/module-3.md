@@ -1,7 +1,9 @@
 
 
 # Module 3 — Research + Full Pipeline
-Status: build with mocks; live tests use our own free scraper (no paid API, no account). Images stay mock until the OpenRouter key (live image test in M1.E).
+Status: build with mocks; live tests use our own free scraper (no paid API, no account). Real images use OpenRouter (live image test in M1.E).
+
+> Final flow (built): `ca content start --topic` (research + brief template) → Codex writes brief.json → `ca content build [--dry-run]` (images, reel, post.md, package.json). This replaces the planned ideas.json / `brief:run` steps below. `package:review` is not built yet: reviewers fill `reviewer` and `note` in package.json.
 
 > Implementation mapping: use Python 3.13 with uv/`pyproject.toml`, type hints with mypy strict, Pydantic schemas, and the `ca` CLI instead of Node/npm tooling.
 
@@ -14,7 +16,7 @@ Collect articles from chosen sources, let Codex find trends and content ideas, a
   scraper: RSS first, else the homepage's article links; articles read with trafilatura) and mock.
   Env SCRAPER_PROVIDER (free | mock); SCRAPER_MODEL is not used by either.
 - Clean-up + duplicate check → SourceArticle files; per-run report; item limits.
-- `uv run ca research:digest` → compact article list for Codex; ideas.json + ideas report written by Codex, validated.
+- `uv run ca research digest [--topic]` → compact article list for Codex; ideas.json + ideas report written by Codex, validated.
 - ContentBrief (JSON) → `uv run ca brief:run` → M1 image jobs + M2 video plan + post text → content package.
 - Package review with `uv run ca package:review`: draft → approved | rejected (reviewer, note). Nothing is posted automatically.
 - Codex playbooks "Research" and "Idea to package" in AGENTS.md.
@@ -39,7 +41,7 @@ Automatic schedules (run on request) · paid scraping APIs · social-media scrap
   (reel|carousel|linkedin|podcast|image_post), hook, whyNow, articleIds[]}]}.
 - brief.json — ContentBrief {briefId, ideaId, topic, audience, platform, objective, hook, keyPoints[],
   script, imageRequirements[], videoRequirements[], voiceRequirements[], brandConstraints[], sourceArticleIds[]}.
-- `PACKAGES_DIR/YYYY-MM-DD_<slug>/` (default `PACKAGES_DIR=packages`) — brief.json, images/, video/final.mp4, script.md, post.md,
+- `PACKAGES_DIR/YYYY-MM-DD_<slug>/` (default `PACKAGES_DIR=outputs/content`) — brief.json, images/, video/final.mp4, script.md, post.md,
   package.json {packageId, briefId, childJobIds[], status, reviewer, note, timestamps}.
 
 ## Integrations / APIs
@@ -47,7 +49,7 @@ Automatic schedules (run on request) · paid scraping APIs · social-media scrap
   (article text, title, date, author). No paid scraping API, no account. Polite: robots.txt, 1–2 s between
   requests, clear user agent, timeouts, RESEARCH_MAX_ITEMS_PER_SOURCE, RESEARCH_LOOKBACK_DAYS.
 - Reuses M1 images and M2 video/voice (including agent steps).
-- Env: `SCRAPER_PROVIDER=free` (or mock), `SOURCES_FILE=config/sources.json`, `RESEARCH_DIR=research`, `PACKAGES_DIR=packages`, `OUTPUT_DIR=outputs`, `REFERENCES_DIR=assets/reference`,
+- Env: `SCRAPER_PROVIDER=free` (or mock), `SOURCES_FILE=config/sources.json`, `RESEARCH_DIR=research`, `PACKAGES_DIR=outputs/content`, `OUTPUT_DIR=outputs/jobs`, `REFERENCES_DIR=assets/reference`,
   RESEARCH_MAX_ITEMS_PER_SOURCE, RESEARCH_LOOKBACK_DAYS.
 
 ## Acceptance criteria

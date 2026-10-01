@@ -31,7 +31,7 @@ Video, voice, research (M2/M3) · web page, database, login · ComfyUI · LoRA t
 - `REFERENCES_DIR/<type>/<setPath>/set.json`: setId, name, type (identity|product|brand|creative),
   assets[{assetId = first 12 chars of SHA-256, file, width, height, primary}]. Keep originals in place and resized copies in `_resized/` (≤1536px) inside each set folder.
 - `REFERENCES_DIR/brand/brand.json`: colors, fonts, tone, do/don't; draft it in M1.T3 from `assets/reference/brand/guidelines/*.pdf` for review.
-- `OUTPUT_DIR/YYYY-MM-DD/HHmm_<slug>/` (default `OUTPUT_DIR=outputs`): image-N.png + details.json
+- `OUTPUT_DIR/YYYY-MM-DD/HHmm_<slug>/` (default `OUTPUT_DIR=outputs/jobs`): image-N.png + details.json
   {jobId, workflowId, workflowVersion, requestedBy, request, prompt, provider, model,
    params{aspectRatio, imageSize, count}, identityAssetIds, productAssetIds, brandAssetIds,
    status (queued|processing|completed|failed|cancelled), outputs[], error,
@@ -41,7 +41,7 @@ Video, voice, research (M2/M3) · web page, database, login · ComfyUI · LoRA t
 - OpenRouter Image API (POST /api/v1/images), model google/gemini-3.1-flash-image.
   Limits: ≤14 reference images in total (identity: IMAGE_IDENTITY_REFS_MAX); sizes 1K/2K/4K.
   Est. cost $0.067 per 1K image; the charge is saved as actualCostUsd. Key: OPENROUTER_API_KEY.
-- Env: `IMAGE_PROVIDER` (mock|openrouter), `IMAGE_MODEL`, `OUTPUT_DIR=outputs`, `REFERENCES_DIR=assets/reference`,
+- Env: `IMAGE_PROVIDER` (mock|openrouter), `IMAGE_MODEL`, `OUTPUT_DIR=outputs/jobs`, `REFERENCES_DIR=assets/reference`,
   `USER_NAME`, `IMAGE_DAILY_LIMIT`, `IMAGE_TIMEOUT_MS`, `IMAGE_IDENTITY_REFS_MAX`, and `OPENROUTER_API_KEY`.
 - Pillow for validating and resizing images. No other services.
 

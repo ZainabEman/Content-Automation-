@@ -11,8 +11,10 @@ from content_automation.research.store import (
     save_article,
     save_run_report,
 )
+from content_automation.research.topics import TopicDigest, rank_by_topic
 
 SNIPPET_CHARS = 300
+DEFAULT_TOPIC_LIMIT = 10
 
 
 def collect(settings: Settings) -> tuple[RunReport, str]:
@@ -62,6 +64,20 @@ def collect(settings: Settings) -> tuple[RunReport, str]:
 def digest(settings: Settings, days: int) -> list[SourceArticle]:
     """Saved articles from the last `days` days, newest first."""
     return load_articles(settings.research_dir, datetime.now(UTC) - timedelta(days=days))
+
+
+def topic_digest(settings: Settings, topic: str, days: int, limit: int) -> TopicDigest:
+    """Articles from the last `days` days ranked by relevance to `topic`."""
+    return rank_by_topic(digest(settings, days), topic, days=days, limit=limit)
+
+
+def topic_note(result: TopicDigest) -> str | None:
+    if not result.weak:
+        return None
+    return (
+        f'no strong match: only {result.strong_matches} article(s) match "{result.topic}"; '
+        "added the latest articles."
+    )
 
 
 def digest_lines(articles: list[SourceArticle]) -> list[str]:

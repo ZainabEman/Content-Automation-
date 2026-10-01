@@ -283,8 +283,8 @@ def agent_checklist(job: Job) -> list[str]:
     for number, step in enumerate(waiting, start=1):
         request = request_path(folder, step.step_id).relative_to(folder).as_posix()
         lines += [
-            f"  {number}. {step.step_id} ({step.capability} via {step.provider}): read {request}, "
-            "make it with the MCP tool it names, save the file, then run:",
+            f"  {number}. {step.step_id} ({step.capability} via {step.provider}): read {request} "
+            "and follow its instructions (generate, wait, download), then run:",
             f'     uv run ca job complete "{folder}" --step {step.step_id} --file <saved file>',
         ]
     lines += [

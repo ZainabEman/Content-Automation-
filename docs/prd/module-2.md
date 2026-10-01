@@ -37,7 +37,7 @@ Research-driven topics (M3) · auto-posting · background music · episodes over
 ## Data
 - plan.json {workflowId, platform, durationSec, hook, script, cta, voice{voiceId},
   scenes[{n, type: video|avatar|image, prompt, startImageAssetId?, durationSec ≤15, onScreenText?}]}
-- Job folder `OUTPUT_DIR/YYYY-MM-DD/HHmm_<slug>/` (default `OUTPUT_DIR=outputs`): plan.json, script.md, voice.mp3, captions.srt,
+- Job folder `OUTPUT_DIR/YYYY-MM-DD/HHmm_<slug>/` (default `OUTPUT_DIR=outputs/jobs`): plan.json, script.md, voice.mp3, captions.srt,
   requests/scene-N.json, clips/scene-N.mp4, final.mp4, details.json
   (M1 fields + steps[{stepId, provider, mode, status, file, providerJobId, creditsUsed}]).
 - Job states add awaiting_agent.
@@ -48,7 +48,7 @@ Research-driven topics (M3) · auto-posting · background music · episodes over
 - ElevenLabs API — text-to-speech with timestamps (→ captions.srt); plan credits.
 - FFmpeg via imageio-ffmpeg (no manual install).
 - Env: `VIDEO_PROVIDER=mock`, `VIDEO_MODEL`, `AVATAR_PROVIDER=mock`, `AVATAR_MODEL`, `HEYGEN_AVATAR_ID`,
-  `VOICE_PROVIDER=mock`, `VOICE_MODEL`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`, `AGENT_STEP_TIMEOUT_MIN`, and `OUTPUT_DIR=outputs`.
+  `VOICE_PROVIDER=mock`, `VOICE_MODEL`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`, `AGENT_STEP_TIMEOUT_MIN`, and `OUTPUT_DIR=outputs/jobs`.
 
 ## Acceptance criteria
 - [ ] `uv run pytest` passes offline with every provider set to mock.

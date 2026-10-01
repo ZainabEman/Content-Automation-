@@ -130,6 +130,8 @@ edit `docs/company/services.md` and `services` in `brand.json` together.
 
 ## How to use
 
+For a complete post, ad and reel about a topic, use the content flow in the [Module 3 guide](module-3-research.md#make-a-content-package); it uses these image workflows for you. This section is about single image requests.
+
 The easiest way: **ask Codex in plain English**. Codex follows the "Make images" playbook in
 `AGENTS.md`. It picks the workflow, the photos and the shape, writes a detailed scene
 description, runs the command, and replies with the folder and one line per image.
@@ -204,7 +206,7 @@ job or contacting any provider.
 
 ## Outputs
 
-Each request creates: `outputs/YYYY-MM-DD/HHmm_<short-name>/`
+Each request creates: `outputs/jobs/YYYY-MM-DD/HHmm_<short-name>/`
 
 - `image-1.png`, `image-2.png`, …: the images.
 - `details.json`: the record. Key fields: `status`, `workflowId` and `workflowVersion`,
@@ -238,7 +240,7 @@ Set these in `.env`:
 | `IMAGE_DAILY_LIMIT` | Maximum real images per day (mock images don't count). | `10` |
 | `IMAGE_TIMEOUT_MS` | How long to wait for each image, in milliseconds. | `120000` (2 min) |
 | `IMAGE_MAX_RETRIES` | Extra tries after a temporary error such as "busy" or "rate limit" (0 = none). | `1` |
-| `OUTPUT_DIR` | Where output folders are created. | `outputs` |
+| `OUTPUT_DIR` | Where job folders are created. | `outputs/jobs` |
 | `REFERENCES_DIR` | Where reference photo folders live. | `assets/reference` |
 | `USER_NAME` | Your name, saved as `requestedBy`. | `User` |
 

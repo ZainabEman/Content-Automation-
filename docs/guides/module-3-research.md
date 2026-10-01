@@ -1,8 +1,8 @@
 # Module guide: Research
 
-> Status: Module 3 is being built. Step A is done: our own free news scraper collects articles
-> from the sites in `config/sources.json`, and `ca research digest` gives Codex a short list to
-> find trends and content ideas. Ideas, briefs and content packages come in later steps.
+> Status: our own free news scraper collects articles from the sites in `config/sources.json`;
+> `ca research digest` ranks them for a topic; and `ca content start` / `ca content build` turn a
+> topic into a content package (research, brief, images, reel, post text).
 
 ## What it does
 
@@ -69,8 +69,41 @@ Some sites block automated readers (for example Search Engine Land and MarTech a
 
 ## How to use
 
-The easiest way: **ask Codex**. It runs `ca research collect`, then `ca research digest`, and
-uses the list to suggest trends and ideas based on `docs/company/services.md`.
+The easiest way: **ask Codex**. For research it runs `ca research collect`, then
+`ca research digest --topic "…"`, and uses the list to suggest trends and ideas based on
+`docs/company/services.md`.
+
+### Topic research
+
+`uv run ca research digest --topic "AI chatbots" --days 14 --limit 10` ranks the saved articles:
+topic words in the title count most, then in the text, and newer articles get a bonus. If fewer
+than 3 articles really match, it says **"no strong match"** and fills the list with the latest
+articles, so Codex knows the topic is thin this week.
+
+### Make a content package
+
+For "make a post / ad / reel about X", Codex runs two commands and writes one file in between:
+
+1. `uv run ca content start --topic "X" [--platform instagram|facebook|linkedin]
+   [--formats post,ad,reel]` collects news, ranks it for the topic, and creates
+   `outputs/content/YYYY-MM-DD_<topic>/` with:
+   - `research.md`: the best-matching articles with links;
+   - `brief.template.json`: a pre-filled brief (topic, platform, formats, the company's
+     services, brand rules, and empty slots for the post, ad and reel);
+   - `package.json`: the package record.
+2. Codex writes `brief.json` from the template (English; one of the services; no invented
+   results, statistics, prices or client names; headlines of at most 6 words).
+3. `uv run ca content build "<folder>" --dry-run` checks `brief.json` (every problem is listed)
+   and shows the cost. Codex waits for your OK.
+4. `uv run ca content build "<folder>"` makes:
+   - **post**: 2 image options (designed post with the headline, logo and brand style);
+   - **ad**: 1 ad image;
+   - **reel**: a 9:16 video whose first frame is the first post image;
+   - `post.md` (caption, call to action, hashtags, source links) and an updated `package.json`.
+
+   Each part is saved as soon as it is done. If one part fails or waits (for example the video,
+   while Higgsfield is not connected), the others still finish and the status says, for example,
+   **"draft — video pending"**. Running `ca content build` again redoes only what is missing.
 
 ### Example Codex requests
 
@@ -83,11 +116,19 @@ uses the list to suggest trends and ideas based on `docs/company/services.md`.
 | Command | What it does |
 | --- | --- |
 | `uv run ca research collect` | Collects new articles from every active site; prints counts per site and the report path. |
-| `uv run ca research digest [--days N]` | Lists saved articles from the last N days (default 7), newest first: ID, site, date, title and a short snippet. |
+| `uv run ca research digest [--topic "…"] [--days 14] [--limit 10]` | Lists saved articles from the last N days (default 14): ranked by topic if given, otherwise newest first. Each line: ID, site, date, title and a short snippet. |
+| `uv run ca content start --topic "…" [--platform …] [--formats post,ad,reel]` | Research + package folder with `research.md` and `brief.template.json`. |
+| `uv run ca content build <folder> [--dry-run]` | Checks `brief.json`, shows the cost (dry run) or makes what is missing. |
 
 ## Outputs
 
-Everything is saved in the `research/` folder (`RESEARCH_DIR`):
+Content packages are saved in `outputs/content/YYYY-MM-DD_<topic>/` (`PACKAGES_DIR`):
+`research.md`, `brief.template.json`, `brief.json`, `images/` (`post-1.png`, `post-2.png`,
+`ad-1.png`), `video/` (`plan.json`, `final.mp4`, `captions.srt`), `post.md` and `package.json`
+(status, the job behind each part, costs, sources; `reviewer` and `note` for your review).
+The single jobs behind them are in `outputs/jobs/`.
+
+Articles are saved in the `research/` folder (`RESEARCH_DIR`):
 
 | File | What it is |
 | --- | --- |
@@ -101,6 +142,7 @@ Everything is saved in the `research/` folder (`RESEARCH_DIR`):
 | `SCRAPER_PROVIDER` | `free` (our own scraper) or `mock` (offline test articles). | `free` |
 | `SOURCES_FILE` | The list of sites. | `config/sources.json` |
 | `RESEARCH_DIR` | Where articles and run reports are saved. | `research` |
+| `PACKAGES_DIR` | Where content packages are saved. | `outputs/content` |
 | `RESEARCH_MAX_ITEMS_PER_SOURCE` | Newest articles looked at per site and run. | `25` |
 | `RESEARCH_LOOKBACK_DAYS` | Only articles from the last N days are saved. | `30` |
 

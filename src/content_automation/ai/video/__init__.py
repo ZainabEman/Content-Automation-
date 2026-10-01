@@ -21,8 +21,9 @@ MAX_CLIP_SEC = 15
 STEP_ID_PATTERN = r"^[a-z0-9][a-z0-9_-]*$"
 CLIPS_DIR = "clips"
 
-# Provider name -> adapter module. higgsfield-mcp (agent) is added in M2.T5.
+# Provider name -> adapter module. Adding a provider = one adapter file + one line here.
 _ADAPTERS: dict[str, str] = {
+    "higgsfield-mcp": "content_automation.ai.video.providers.higgsfield_mcp",
     "mock": "content_automation.ai.video.providers.mock",
 }
 

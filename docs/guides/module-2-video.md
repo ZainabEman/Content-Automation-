@@ -1,8 +1,9 @@
 # Module guide: Video
 
-> Status: Module 2 is being built. Parts A and B are done: `ca video` turns a video plan into
-> a finished `final.mp4` with the free mock providers. The real Higgsfield (video) and HeyGen
-> (avatar) connections come in Part C (M2.C).
+> Status: `ca video` turns a video plan into a finished `final.mp4`. With the free mock providers
+> it works offline; with Higgsfield (video) and HeyGen (avatar) Codex makes the clips through
+> their MCP connections (see "Connect Higgsfield and HeyGen in Codex"). The exact MCP tool names
+> are confirmed and documented when the connections are first used.
 >
 > **Voiceover is disabled in the MVP** (`VOICE_PROVIDER=none`): videos use the sound of their
 > own clips (for example the avatar's speech). The ElevenLabs voice code is kept for later.
@@ -58,7 +59,37 @@ A video is made of **scenes** (each 15 seconds or less). Each scene is one of:
 1. Module 1 setup (see [Module 1: Images](module-1-images.md)).
 2. Nothing else is needed for the free mock providers: `.env` has `VIDEO_PROVIDER=mock`,
    `AVATAR_PROVIDER=mock` and `VOICE_PROVIDER=none`.
-3. Higgsfield and HeyGen are connected in Codex in Part C.
+3. For real clips, connect Higgsfield and HeyGen in Codex (below).
+
+### Connect Higgsfield and HeyGen in Codex
+
+Both services are used through Codex with your own Higgsfield and HeyGen accounts and plan
+credits; no API key goes into `.env`.
+
+1. In the Codex app open **Settings**, then **MCP servers**, then **Add server**.
+2. Enter the name `higgsfield`, choose **Streamable HTTP**, and enter the URL
+   `https://mcp.higgsfield.ai/mcp`. Save.
+3. Add a second server: name `heygen`, **Streamable HTTP**, URL `https://mcp.heygen.com/mcp/v1/`.
+4. For each server select **Authenticate** and sign in with that service's account.
+5. In `.env` set `VIDEO_PROVIDER=higgsfield-mcp` and `AVATAR_PROVIDER=heygen-mcp`.
+6. For avatar videos: ask Codex "List my HeyGen avatars", pick one, and put its ID in `.env` as
+   `HEYGEN_AVATAR_ID=`.
+7. Run `uv run ca doctor`.
+
+The same servers can also be added to `C:\Users\<your name>\.codex\config.toml` (the Codex app,
+CLI and IDE extension share this file):
+
+```toml
+[mcp_servers.higgsfield]
+url = "https://mcp.higgsfield.ai/mcp"
+
+[mcp_servers.heygen]
+url = "https://mcp.heygen.com/mcp/v1/"
+```
+
+With the Codex CLI, sign in with `codex mcp login higgsfield` and `codex mcp login heygen`.
+Official guide: <https://learn.chatgpt.com/docs/extend/mcp>. This project's `.mcp.json` lists
+the same two servers for Claude Code.
 
 ## How to use
 
@@ -109,8 +140,11 @@ Rules:
 ### When a job pauses
 
 With Higgsfield or HeyGen, `ca video` stops at `awaiting_agent` and prints a checklist. For each
-step, Codex reads `requests/scene-N.json`, makes the clip with the MCP tool it names, and runs
-`ca job complete`. When all are recorded, it runs `ca video resume <job folder>`.
+step, Codex opens `requests/scene-N.json`, which holds the prompt, length, 9:16 shape, start
+image (or, for HeyGen, the script and avatar) and numbered instructions: use the connected
+MCP's generation tool, check its status until the clip is ready, download it, and run
+`ca job complete`. When all are recorded, it runs `ca video resume <job folder>` (or, for a
+content package, `ca content build <package folder>`).
 
 ## Commands
 
@@ -125,7 +159,7 @@ step, Codex reads `requests/scene-N.json`, makes the clip with the MCP tool it n
 
 ## Outputs
 
-Each video job gets a folder `outputs/YYYY-MM-DD/HHmm_<name>/` containing:
+Each video job gets a folder `outputs/jobs/YYYY-MM-DD/HHmm_<name>/` containing:
 
 | File | What it is |
 | --- | --- |
@@ -144,8 +178,8 @@ Job status can be `queued`, `processing`, `awaiting_agent` (paused for Codex),
 
 | Setting | Meaning |
 | --- | --- |
-| `VIDEO_PROVIDER`, `VIDEO_MODEL` | Video clips: `mock` for now (Higgsfield in Part C). |
-| `AVATAR_PROVIDER`, `AVATAR_MODEL`, `HEYGEN_AVATAR_ID` | Avatar clips: `mock` for now (HeyGen in Part C). |
+| `VIDEO_PROVIDER`, `VIDEO_MODEL` | Video clips: `mock` (free placeholders) or `higgsfield-mcp` (made by Codex). `VIDEO_MODEL` is passed on as the model (`mock`/`default` = the tool's default). |
+| `AVATAR_PROVIDER`, `AVATAR_MODEL`, `HEYGEN_AVATAR_ID` | Avatar clips: `mock` or `heygen-mcp` (made by Codex); `HEYGEN_AVATAR_ID` is the avatar to use. |
 | `VOICE_PROVIDER` | `none` (default): no voiceover. `mock` and `elevenlabs` are kept for later. |
 | `VOICE_MODEL`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` | Only for a later voiceover (the key stays in `.env`). |
 | `AGENT_STEP_TIMEOUT_MIN` | Minutes an agent step may wait before it is marked failed (default 30). |
@@ -153,8 +187,8 @@ Job status can be `queued`, `processing`, `awaiting_agent` (paused for Codex),
 ## Costs and limits
 
 - Mock providers are free, and so are image scenes (they reuse existing pictures).
-- Higgsfield and HeyGen use your plan credits; the dry run shows "TBD until M2.C" until they
-  are connected and measured. Credits used per clip are saved as `creditsUsed`.
+- Higgsfield and HeyGen use your plan credits; the dry run shows "TBD until the MCP is
+  connected" until they are measured. Codex records the credits of each clip as `creditsUsed`.
 - Scenes are at most 15 seconds. Videos: `ugc_ad` up to 60 seconds; `reel_short` and
   `podcast_clip` up to 90 seconds.
 - Making `final.mp4` takes a few seconds per scene on this computer.

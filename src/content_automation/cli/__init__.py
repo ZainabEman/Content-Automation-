@@ -11,11 +11,14 @@ from pydantic import ValidationError
 from content_automation.ai.avatar import AvatarError
 from content_automation.ai.image import ASPECT_RATIOS, ImageError, ImageRequest
 from content_automation.ai.video import VideoError
+from content_automation.content.brief import FORMATS, PLATFORMS, BriefError
+from content_automation.content.package import build_package, start_package
 from content_automation.core.agent_steps import record_agent_output, request_path
 from content_automation.core.config import ConfigurationError, Settings, load_settings
 from content_automation.core.jobs import DETAILS_FILE, Job, JobStateError
 from content_automation.core.limits import DailyLimitError
 from content_automation.core.log import configure_logging
+from content_automation.doctor import run_checks
 from content_automation.references import (
     REF_TYPES,
     BrandProfileError,
@@ -30,7 +33,12 @@ from content_automation.research.collectors import CollectorError
 from content_automation.research.models import SourcesError
 from content_automation.research.run import collect as collect_research
 from content_automation.research.run import digest as research_digest_articles
-from content_automation.research.run import digest_lines
+from content_automation.research.run import (
+    DEFAULT_TOPIC_LIMIT,
+    digest_lines,
+    topic_digest,
+    topic_note,
+)
 from content_automation.workflows.dry_run import dry_run_lines
 from content_automation.workflows.image_job import run_image_job
 from content_automation.workflows.image_workflows import (
@@ -54,11 +62,15 @@ brand_app = typer.Typer(no_args_is_help=True, help="Brand profile (brand.json)."
 job_app = typer.Typer(no_args_is_help=True, help="Job records and agent steps.")
 video_app = typer.Typer(help="Short vertical videos (1080x1920) from a plan.json.")
 research_app = typer.Typer(no_args_is_help=True, help="News research: collect and digest articles.")
+content_app = typer.Typer(
+    no_args_is_help=True, help="Content packages: research, brief, images, reel, post text."
+)
 app.add_typer(refs_app, name="refs")
 app.add_typer(brand_app, name="brand")
 app.add_typer(job_app, name="job")
 app.add_typer(video_app, name="video")
 app.add_typer(research_app, name="research")
+app.add_typer(content_app, name="content")
 
 JobDir = Annotated[Path, typer.Argument(help="Job folder (the one with details.json).")]
 StepOption = Annotated[str, typer.Option("--step", help="Step ID, e.g. scene-1.")]
@@ -514,15 +526,107 @@ def research_collect() -> None:
 
 @research_app.command("digest")
 def research_digest(
-    days: Annotated[int, typer.Option(min=1, help="Only articles from the last N days.")] = 7,
+    topic: Annotated[
+        str | None, typer.Option(help='Rank by relevance to a topic, e.g. "AI chatbots".')
+    ] = None,
+    days: Annotated[int, typer.Option(min=1, help="Only articles from the last N days.")] = 14,
+    limit: Annotated[
+        int | None,
+        typer.Option(min=1, help="At most N articles (default 10 with --topic)."),
+    ] = None,
 ) -> None:
     """Compact list of saved articles for Codex: id, source, date, title, snippet."""
     _utf8_output()
     settings = _settings(dry_run=True)
-    articles = research_digest_articles(settings, days)
+    if topic:
+        result = topic_digest(settings, topic, days, limit or DEFAULT_TOPIC_LIMIT)
+        articles = [ranked.article for ranked in result.articles]
+        header = f'{len(articles)} articles for "{topic}" from the last {days} days (best first):'
+    else:
+        articles = research_digest_articles(settings, days)[:limit]
+        header = f"{len(articles)} articles from the last {days} days (newest first):"
     if not articles:
         typer.echo(f"No articles from the last {days} days. Run `uv run ca research collect`.")
         return
-    typer.echo(f"{len(articles)} articles from the last {days} days (newest first):")
+    typer.echo(header)
+    if topic and (note := topic_note(result)):
+        typer.echo(note)
     for line in digest_lines(articles):
         typer.echo(line)
+
+
+@content_app.command("start")
+def content_start(
+    topic: Annotated[str, typer.Option(help='What it is about, e.g. "AI chatbots for SMEs".')],
+    platform: Annotated[str, typer.Option(help="instagram, facebook or linkedin.")] = "instagram",
+    formats: Annotated[str, typer.Option(help="Comma-separated: post, ad, reel.")] = "post,ad,reel",
+) -> None:
+    """Collect news, rank it for the topic, and create the package folder for brief.json."""
+    _utf8_output()
+    parts = [part.strip().lower() for part in formats.split(",") if part.strip()]
+    chosen = list(dict.fromkeys(parts))
+    problems = []
+    if platform not in PLATFORMS:
+        problems.append(f"--platform must be one of: {', '.join(PLATFORMS)}.")
+    if not chosen or any(item not in FORMATS for item in chosen):
+        problems.append(f"--formats must be a comma list of: {', '.join(FORMATS)}.")
+    if not topic.strip():
+        problems.append("--topic cannot be empty.")
+    if problems:
+        typer.echo(" ".join(problems), err=True)
+        raise typer.Exit(code=2)
+    settings = _settings(check_keys=False)
+    configure_logging(settings)
+    result = start_package(topic.strip(), platform, chosen, settings)
+    for line in result.lines:
+        typer.echo(line)
+
+
+@content_app.command("build")
+def content_build(
+    folder: Annotated[Path, typer.Argument(help="The package folder from `ca content start`.")],
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Check brief.json and show the cost; make nothing.")
+    ] = False,
+) -> None:
+    """Make what is still missing: post images, ad image, reel, post.md, package.json."""
+    _utf8_output()
+    if not folder.is_dir():
+        typer.echo(f"Folder not found: {folder}", err=True)
+        raise typer.Exit(code=1)
+    # No key check here: a missing key fails only the part that needs it (shown in the status).
+    settings = _settings(dry_run=dry_run, check_keys=False)
+    if not dry_run:
+        configure_logging(settings)
+    try:
+        result = build_package(folder, settings, dry_run=dry_run)
+    except BriefError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    for line in result.lines:
+        typer.echo(line)
+    if dry_run or result.package is None:
+        return
+    package = result.package
+    typer.echo(f"Status: {package.status}")
+    typer.echo(f"Folder: {folder.resolve()}")
+    for name in sorted(path.relative_to(folder).as_posix() for path in folder.rglob("*")
+                       if path.is_file() and not path.name.startswith(".")):
+        typer.echo(f"  {name}")
+
+
+@app.command()
+def doctor() -> None:
+    """Check the setup (keys are only shown as set yes/no) and say how to fix problems."""
+    _utf8_output()
+    checks = run_checks()
+    labels = {"ok": "[ OK ]", "warn": "[WARN]", "fail": "[FAIL]"}
+    for check in checks:
+        typer.echo(f"{labels[check.level]} {check.name}: {check.detail}")
+        if check.fix:
+            typer.echo(f"       Fix: {check.fix}")
+    failures = sum(check.level == "fail" for check in checks)
+    warnings = sum(check.level == "warn" for check in checks)
+    typer.echo(f"{failures} problem(s), {warnings} warning(s).")
+    if failures:
+        raise typer.Exit(code=1)

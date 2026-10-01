@@ -30,11 +30,10 @@ import trafilatura
 
 from content_automation.core.config import Settings
 from content_automation.core.jobs import AdapterMode
-from content_automation.research.collectors import CollectRequest, CollectResult
+from content_automation.research.collectors import USER_AGENT, CollectRequest, CollectResult
 from content_automation.research.models import Source, SourceArticle, SourceStats
 from content_automation.research.store import article_id, clean_url
 
-USER_AGENT = "BrandedGeniusResearchBot/0.1 (content research; respects robots.txt)"
 DELAY_RANGE_S = (1.0, 2.0)
 MAX_CRAWL_DELAY_S = 10.0
 TIMEOUT_S = 20.0

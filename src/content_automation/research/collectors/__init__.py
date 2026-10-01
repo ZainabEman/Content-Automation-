@@ -17,6 +17,9 @@ from content_automation.core.config import Settings
 from content_automation.core.jobs import AdapterMode
 from content_automation.research.models import Source, SourceArticle, SourceStats
 
+# How our scraper names itself to websites (also used by `ca doctor`).
+USER_AGENT = "BrandedGeniusResearchBot/0.1 (content research; respects robots.txt)"
+
 # Provider name -> adapter module. Adding a provider = one adapter file + one line here.
 _ADAPTERS: dict[str, str] = {
     "free": "content_automation.research.collectors.providers.free",

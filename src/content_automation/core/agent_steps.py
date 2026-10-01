@@ -34,6 +34,7 @@ class AgentRequest(CamelModel):
     start_image_path: str | None = None
     start_image_asset_id: str | None = None
     options: dict[str, str | int | float | bool] = Field(default_factory=dict)
+    instructions: list[str] = Field(default_factory=list)  # numbered steps for Codex
     created_at: datetime = Field(default_factory=lambda: datetime.now().astimezone())
 
 

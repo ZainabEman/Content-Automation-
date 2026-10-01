@@ -33,9 +33,9 @@ class Settings(BaseSettings):
     user_name: str = Field(default="User", min_length=1)
     references_dir: Path = Path("assets/reference")
     company_file: Path = Path("docs/company/services.md")
-    output_dir: Path = Path("outputs")
+    output_dir: Path = Path("outputs/jobs")
     research_dir: Path = Path("research")
-    packages_dir: Path = Path("packages")
+    packages_dir: Path = Path("outputs/content")
 
     image_provider: ImageProvider = "mock"
     image_model: str = Field(default="google/gemini-3.1-flash-image", min_length=1)

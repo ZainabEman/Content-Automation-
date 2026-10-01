@@ -276,6 +276,7 @@ Set these in `.env`:
 | `OpenRouter rate limit reached (HTTP 429)` | Wait a minute and try again (it is already retried once). |
 | `The image model failed (HTTP 502, not billed)` | A temporary failure with no charge; try again. |
 | `OpenRouter returned no image` | Often a safety block: reword the prompt or use other reference photos. |
+| Extra text you did not ask for (for example a German button like "Mehr erfahren") | The style examples can bring in their own text. Check every post before use; pick the other version or run it again. |
 | `… did not respond within … seconds` / `did not respond in time` | The image took too long (more likely with many photos of the person). Try again, or raise `IMAGE_TIMEOUT_MS` (e.g. `300000`). |
 | `… reference images in total (max 14)` | Lower `IMAGE_IDENTITY_REFS_MAX` or `--style-count`. |
 | `Invalid image request: aspect_ratio` | Use one of 1:1, 4:5, 9:16, 16:9. |

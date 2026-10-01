@@ -242,17 +242,17 @@ def test_style_count_changes_and_is_capped(settings: Settings) -> None:
         )
 
 
-def test_dry_run_with_gemini_needs_no_key_and_makes_nothing(
+def test_dry_run_with_openrouter_needs_no_key_and_makes_nothing(
     library: Path, isolated: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from content_automation.ai.image.providers import gemini
+    from content_automation.ai.image.providers import openrouter
 
-    def no_client(_: str) -> Any:
+    def no_client(*_: object, **__: object) -> Any:
         raise AssertionError("provider client created during dry run")
 
-    monkeypatch.setattr(gemini, "_google_client", no_client)
-    monkeypatch.setenv("IMAGE_PROVIDER", "gemini")
-    monkeypatch.setenv("IMAGE_MODEL", "gemini-3.1-flash-image")
+    monkeypatch.setattr(openrouter.httpx, "Client", no_client)
+    monkeypatch.setenv("IMAGE_PROVIDER", "openrouter")
+    monkeypatch.setenv("IMAGE_MODEL", "google/gemini-3.1-flash-image")
 
     result = CliRunner().invoke(app, [
         "image", "--workflow", "person_lifestyle", "--set", "identity/person_01",
@@ -262,7 +262,7 @@ def test_dry_run_with_gemini_needs_no_key_and_makes_nothing(
 
     assert result.exit_code == 0, result.output
     for expected in (
-        "DRY RUN", "Provider: gemini", "Provider calls: 3", "Estimated cost: $0.201",
+        "DRY RUN", "Provider: openrouter", "Provider calls: 3", "Estimated cost: $0.201",
         "identity (4): identity/person_01/1.jpg", "style (3): creative/facebook_ads/ad03.jpg",
         "Images 1-4 - IDENTITY", "Daily limit: 0 of",
     ):

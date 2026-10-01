@@ -67,10 +67,12 @@ def run_image_job(
     try:
         job.est_cost_usd = estimate_cost_usd(request, settings)
         job.start()
+        # A safety net above the adapter's own limits: each image may take a full
+        # IMAGE_TIMEOUT_MS call per attempt, plus short waits between retries.
+        per_image_s = (settings.image_timeout_ms / 1000 + 5) * (settings.image_max_retries + 1)
         result = call_with_retry(
             lambda: generate_image(request, settings=settings),
-            # IMAGE_TIMEOUT_MS is per image; some providers make one call per image.
-            timeout_s=settings.image_timeout_ms / 1000 * request.count,
+            timeout_s=(per_image_s + 30) * request.count,
             max_retries=settings.image_max_retries,
             on_retry=lambda attempt, error, delay: logger.warning(
                 "Retry %d after error: %s (waiting %.0fs)", attempt, error, delay

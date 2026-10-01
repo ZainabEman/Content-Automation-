@@ -9,7 +9,7 @@ from content_automation.cli import app
 
 @pytest.mark.usefixtures("isolated")
 def test_hello_never_prints_secret_values(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("GEMINI_API_KEY", "synthetic-cli-secret")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "synthetic-cli-secret")
     result = CliRunner().invoke(app, ["hello"])
 
     assert result.exit_code == 0

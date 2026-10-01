@@ -1,7 +1,7 @@
 
 
 # Module 3 — Research + Full Pipeline
-Status: build with mocks; live tests use RSS (free) + Apify free plan. Images stay mock until the Gemini key (M1.T7).
+Status: build with mocks; live tests use RSS (free) + Apify free plan. Images stay mock until the OpenRouter key (live image test in M1.E).
 
 > Implementation mapping: use Python 3.13 with uv/`pyproject.toml`, type hints with mypy strict, Pydantic schemas, and the `ca` CLI instead of Node/npm tooling.
 

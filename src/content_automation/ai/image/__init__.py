@@ -21,7 +21,6 @@ MAX_COUNT = 4
 # Provider name -> adapter module. Adding a provider = one adapter file + one line here.
 _ADAPTERS: dict[str, str] = {
     "mock": "content_automation.ai.image.providers.mock",
-    "gemini": "content_automation.ai.image.providers.gemini",
     "openrouter": "content_automation.ai.image.providers.openrouter",
 }
 

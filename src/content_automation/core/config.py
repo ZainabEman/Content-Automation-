@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ImageProvider = Literal["mock", "gemini", "openrouter"]
+ImageProvider = Literal["mock", "openrouter"]
 VideoProvider = Literal["mock", "higgsfield-mcp"]
 AvatarProvider = Literal["mock", "heygen-mcp"]
 # "none" (default): no voiceover step runs; the MVP videos have no voiceover.
@@ -36,12 +36,11 @@ class Settings(BaseSettings):
     packages_dir: Path = Path("packages")
 
     image_provider: ImageProvider = "mock"
-    image_model: str = Field(default="gemini-3.1-flash-image", min_length=1)
+    image_model: str = Field(default="google/gemini-3.1-flash-image", min_length=1)
     image_daily_limit: int = Field(default=10, gt=0)
     image_timeout_ms: int = Field(default=120_000, gt=0)
     image_max_retries: int = Field(default=1, ge=0, le=5)
     image_identity_refs_max: int = Field(default=4, ge=1, le=14)
-    gemini_api_key: SecretStr | None = None
     openrouter_api_key: SecretStr | None = None
 
     video_provider: VideoProvider = "mock"
@@ -108,8 +107,6 @@ def load_settings(
         ) from None
 
     missing: list[str] = []
-    if settings.image_provider == "gemini" and not _secret_is_set(settings.gemini_api_key):
-        missing.append("GEMINI_API_KEY")
     if settings.image_provider == "openrouter" and not _secret_is_set(
         settings.openrouter_api_key
     ):

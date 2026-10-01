@@ -2,7 +2,7 @@
 
 
 # Module 1 — Core + Image Branch
-Status: build and test with the mock provider now; live Gemini test at project end (M1.T7).
+Status: build and test with the mock provider now; live test at project end (M1.T7), done through OpenRouter in M1.E.
 
 > Implementation mapping: use Python 3.13 with uv/`pyproject.toml`, type hints with mypy strict, Pydantic schemas, and the `ca` CLI instead of Node/npm tooling.
 
@@ -11,7 +11,7 @@ Build the shared engine for all branches, plus on-brand images of one person, re
 
 ## In scope
 - Core: validated env config, job records (details.json), job states, dated output folders, timeout/retry, logs that never print secrets, daily image limit.
-- Image interface `generate_image()` in src/content_automation/ai/image/__init__.py; adapters: mock, gemini.
+- Image interface `generate_image()` in src/content_automation/ai/image/__init__.py; adapters: mock, openrouter (the direct Gemini adapter was removed in M1.E).
 - Reference library: identity / product / brand / creative sets kept separate; stable IDs; 4 "primary" identity photos. Creative ads and carousels are style references, not identity references.
 - Workflows: person_lifestyle, person_product, social_creative (post, ad, carousel slide).
 - Aspect presets 1:1, 4:5, 9:16, 16:9; 1–4 variations per request.
@@ -38,12 +38,11 @@ Video, voice, research (M2/M3) · web page, database, login · ComfyUI · LoRA t
    providerRequestIds, estCostUsd, createdAt, updatedAt}
 
 ## Integrations / APIs
-- Gemini API, model gemini-3.1-flash-image, Interactions API via google-genai.
-  Read ai.google.dev/gemini-api/docs/image-generation before coding.
-  Limits: ≤4 identity images, ≤10 object images; sizes 1K/2K/4K.
-  Est. cost $0.067 per 1K image. Key: GEMINI_API_KEY (added at project end).
-- Env: `IMAGE_PROVIDER` (mock|gemini), `IMAGE_MODEL`, `OUTPUT_DIR=outputs`, `REFERENCES_DIR=assets/reference`,
-  `USER_NAME`, `IMAGE_DAILY_LIMIT`, `IMAGE_TIMEOUT_MS`, and `GEMINI_API_KEY`.
+- OpenRouter Image API (POST /api/v1/images), model google/gemini-3.1-flash-image.
+  Limits: ≤14 reference images in total (identity: IMAGE_IDENTITY_REFS_MAX); sizes 1K/2K/4K.
+  Est. cost $0.067 per 1K image; the charge is saved as actualCostUsd. Key: OPENROUTER_API_KEY.
+- Env: `IMAGE_PROVIDER` (mock|openrouter), `IMAGE_MODEL`, `OUTPUT_DIR=outputs`, `REFERENCES_DIR=assets/reference`,
+  `USER_NAME`, `IMAGE_DAILY_LIMIT`, `IMAGE_TIMEOUT_MS`, `IMAGE_IDENTITY_REFS_MAX`, and `OPENROUTER_API_KEY`.
 - Pillow for validating and resizing images. No other services.
 
 ## Acceptance criteria
@@ -56,8 +55,8 @@ Video, voice, research (M2/M3) · web page, database, login · ComfyUI · LoRA t
 - [ ] A forced mock failure gives details.json "failed" with the error, no images, and a non-zero exit code.
 - [ ] If a set has more than 4 identity photos, only the 4 primary ones are sent, and they are listed in details.json.
 - [ ] When the daily limit is reached, the request is refused before any provider call.
-- [ ] IMAGE_PROVIDER=gemini with no key gives a clear "GEMINI_API_KEY missing" error.
-- [ ] Gemini adapter tests pass against a fake response: request shape, image saved, errors mapped.
+- [ ] IMAGE_PROVIDER=openrouter with no key gives a clear "OPENROUTER_API_KEY missing" error.
+- [ ] The image adapter is checked against a fake response: request shape, image saved, errors mapped.
 - [ ] You and your social media manager each ask Codex in plain English and get the mock folder.
 - [ ] docs/guides/module-1-images.md has every template section, uses plain language, and your social media manager can follow it alone to import photos and make an image; docs/README.md links it.
 - [ ] LIVE (M1.T7): 1 real image saved; at least 7 of 10 identity test scenes judged the same person; guide updated with live notes.
@@ -68,6 +67,6 @@ Every task updates the guide sections for what it built.
 - M1.T2 Image interface, provider registry, mock adapter, import-boundary test.
 - M1.T3 Reference library: refs:scan, refs:list, in-place set.json, `_resized/` copies, and brand.json drafted from guideline PDFs for review.
 - M1.T4 Workflows + `uv run ca image` command, aspect presets, variations, end-to-end mock test.
-- M1.T5 Gemini adapter + fake-response tests (no live call).
+- M1.T5 Image adapter + fake-response checks (no live call); OpenRouter since M1.D.
 - M1.T6 Codex playbook in AGENTS.md; finish the module guide + docs/README.md; test by asking Codex.
 - M1.T7 (at project end) Add key, live test, 10-scene identity check, tune prompts, update guide.

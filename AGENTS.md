@@ -1,12 +1,12 @@
 # Working rules
 
 - Stack: Python 3.13, uv, Typer, Pydantic, pytest, mypy strict, and Ruff. Run project commands with `uv run`.
-- Background architecture: `docs/blueprints/blueprint.md`; read it only when needed. Do not touch `imagegen/`.
+- Background architecture: `docs/blueprints/blueprint.md`; read it only when needed.
 - Before each task, read `docs/PROGRESS.md` and that task's PRD; inspect the code first, do only that task, keep working code, and avoid big rewrites.
 - Providers: each capability has one public interface in its entry package (`content_automation/ai/<cap>/__init__.py`; scraper: `content_automation/research/collectors/__init__.py`).
 - Put one adapter module per provider under that capability's `providers/`; choose with `<CAP>_PROVIDER` and `<CAP>_MODEL`, and always provide a mock adapter.
 - App code imports capability entry packages only; a test enforces this boundary. A new provider takes one adapter file and two environment changes.
-- Images: `generate_image()` lives in `content_automation.ai.image`; adapters are mock, OpenRouter (used for real images) and Gemini, selected by `IMAGE_PROVIDER` and `IMAGE_MODEL`.
+- Images: `generate_image()` lives in `content_automation.ai.image`; adapters are mock and OpenRouter (real images), selected by `IMAGE_PROVIDER` and `IMAGE_MODEL`.
 - Adapter modes are `code` (the app calls the API) and `agent` (Codex calls the MCP tool; the app records it through job commands).
 - Keep keys only in `.env`. Never print, log, commit, or put keys in docs or prompts; never ask for keys in chat.
 - Every job writes `details.json`; never mark a job completed without its output file, and record failures with the error.

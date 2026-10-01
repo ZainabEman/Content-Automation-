@@ -1,7 +1,7 @@
 # Module guide: Images
 
 > Status: Module 1 is built and tested offline (job records, reference library, brand profile,
-> the three workflows, the Codex playbook, and the OpenRouter and Gemini providers).
+> the three workflows, the Codex playbook, and the OpenRouter provider).
 > Real images are made through **OpenRouter** (the Gemini image model, paid per image).
 
 ## What it does
@@ -12,7 +12,7 @@ with a `details.json` file that records exactly what was asked, what was sent, a
 With the free **mock** provider it makes placeholder images (your prompt as text on a coloured
 card at the right shape), so you can try the whole flow without spending money. With
 `IMAGE_PROVIDER=openrouter` it makes real images with Google's Gemini image model through
-OpenRouter (paid, see "Costs and limits"). `IMAGE_PROVIDER=gemini` calls Google directly instead.
+OpenRouter (paid, see "Costs and limits").
 
 **Consent:** the company lead provided his own photos for his company's marketing. Only use
 photos of people who have agreed to this use.
@@ -29,7 +29,6 @@ photos of people who have agreed to this use.
 - **OpenRouter provider** (the one used for real images): the Gemini image model
   `google/gemini-3.1-flash-image` through OpenRouter. The real price of each request is saved
   as `actualCostUsd` next to the estimate.
-- **Gemini provider**: the same model called directly at Google (kept as an alternative).
 - **Time limit and retries**: a request that takes too long is stopped and marked failed.
   Temporary provider errors (such as "busy") are retried; timeouts are not retried, so you
   are never charged twice for one request.
@@ -228,11 +227,10 @@ Set these in `.env`:
 
 | Setting | Meaning | Default |
 |---|---|---|
-| `IMAGE_PROVIDER` | Which service makes images: `mock` (free test images), `openrouter` (real, paid) or `gemini` (real, paid, direct at Google). | `mock` |
-| `IMAGE_MODEL` | Model name. OpenRouter: `google/gemini-3.1-flash-image`. Gemini: `gemini-3.1-flash-image`. For the mock, `mock-fail` and `mock-timeout` simulate problems; anything else works. | `gemini-3.1-flash-image` |
+| `IMAGE_PROVIDER` | Which service makes images: `mock` (free test images) or `openrouter` (real, paid). | `mock` |
+| `IMAGE_MODEL` | Model name. OpenRouter: `google/gemini-3.1-flash-image`. For the mock, `mock-fail` and `mock-timeout` simulate problems; anything else works. | `google/gemini-3.1-flash-image` |
 | `OPENROUTER_API_KEY` | Your OpenRouter key. Only needed when `IMAGE_PROVIDER=openrouter` (not for `--dry-run`). Keep it only in `.env`; never share it. | empty |
 | `IMAGE_IDENTITY_REFS_MAX` | How many photos of the person are sent (1 to 14; the 4 primary photos first, then the others). More photos can help the likeness. | `4` |
-| `GEMINI_API_KEY` | Your Gemini API key. Only needed when `IMAGE_PROVIDER=gemini` (not for `--dry-run`). Keep it only in `.env`; never share it. | empty |
 | `IMAGE_DAILY_LIMIT` | Maximum real images per day (mock images don't count). | `10` |
 | `IMAGE_TIMEOUT_MS` | How long to wait for each image, in milliseconds. | `120000` (2 min) |
 | `IMAGE_MAX_RETRIES` | Extra tries after a temporary error such as "busy" or "rate limit" (0 = none). | `1` |
@@ -243,17 +241,19 @@ Set these in `.env`:
 ## Costs and limits
 
 - **Mock** images are free (`estCostUsd` is 0) and don't count toward the daily limit.
-- **OpenRouter** and **Gemini** (the same model), estimated per image: **1K $0.067**, 2K $0.101,
+- **OpenRouter** (Google's Gemini image model), estimated per image: **1K $0.067**, 2K $0.101,
   4K $0.151. The tool uses 1K. Each image is a separate call, so 3 images at 1K ≈ $0.20. The
-  estimate is saved as `estCostUsd`; with OpenRouter the real charge is saved as
+  estimate is saved as `estCostUsd`; the real charge is saved as
   `actualCostUsd` (it can be slightly higher, because the reference photos also count).
   Always check `--dry-run` first.
 - If OpenRouter's model fails (error 502) you are **not** charged, and the tool retries.
+- **Live test (2026-10-01)**: one 1K 4:5 portrait cost **$0.0696** with 4 photos of the person
+  and **$0.0724** with 9 photos; each took about a minute. One call with 9 photos once took over
+  2 minutes and was stopped by the time limit (it was not charged). If that happens often, set
+  `IMAGE_TIMEOUT_MS=300000` (5 minutes).
 - Up to 4 images per request; shapes 1:1, 4:5, 9:16, 16:9.
-- Reference photos per request:
-  - OpenRouter: up to **14 in total**; photos of the person up to `IMAGE_IDENTITY_REFS_MAX`.
-  - Gemini: up to **4 identity**, **3 style**, and at most **10 logo and style images together**.
-  Requests over this are refused before anything is sent.
+- Reference photos per request: up to **14 in total**; photos of the person up to
+  `IMAGE_IDENTITY_REFS_MAX` (default 4). Requests over this are refused before anything is sent.
 - The daily limit (`IMAGE_DAILY_LIMIT`) counts real images that were actually made today; when
   it is reached, requests are refused before any provider call.
 - Temporary errors (rate limit, server busy) are retried per image; images already made are
@@ -272,12 +272,8 @@ Set these in `.env`:
 | `OpenRouter rate limit reached (HTTP 429)` | Wait a minute and try again (it is already retried once). |
 | `The image model failed (HTTP 502, not billed)` | A temporary failure with no charge; try again. |
 | `OpenRouter returned no image` | Often a safety block: reword the prompt or use other reference photos. |
+| `… did not respond within … seconds` / `did not respond in time` | The image took too long (more likely with many photos of the person). Try again, or raise `IMAGE_TIMEOUT_MS` (e.g. `300000`). |
 | `… reference images in total (max 14)` | Lower `IMAGE_IDENTITY_REFS_MAX` or `--style-count`. |
-| `GEMINI_API_KEY missing` | Add the key to `.env`, or use `IMAGE_PROVIDER=mock`. `--dry-run` works without a key. |
-| `Gemini rate limit or quota reached (HTTP 429)` | Wait a few minutes, or check the quota/billing in Google AI Studio. |
-| `Gemini rejected the API key` | Check `GEMINI_API_KEY` in `.env`. |
-| `Gemini returned no image` | Often a safety block: reword the prompt or use other reference photos. The reason is shown. |
-| `… references together (max 10)` | Use fewer product images or a lower `--style-count`. |
 | `Invalid image request: aspect_ratio` | Use one of 1:1, 4:5, 9:16, 16:9. |
 | `Failed: …` and exit code 1 | Open the printed folder's `details.json` and read `error`. |
 | `rejected x.jpg: too small` | Use a larger photo (512 px short side; logos 256 px). |
@@ -301,8 +297,7 @@ IMAGE_MODEL=google/gemini-3.1-flash-image
 OPENROUTER_API_KEY=<your key>
 ```
 
-To call Google directly instead, use `IMAGE_PROVIDER=gemini`, `IMAGE_MODEL=gemini-3.1-flash-image`
-and `GEMINI_API_KEY`. Always run a `--dry-run` first to check the prompt and cost, then run the
+Always run a `--dry-run` first to check the prompt and cost, then run the
 command again without `--dry-run`. To go back to free test images, set `IMAGE_PROVIDER=mock`.
 Nothing else changes.
 

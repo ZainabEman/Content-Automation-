@@ -9,7 +9,6 @@ description = "A local, traceable foundation for AI-assisted content workflows."
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "elevenlabs>=2.70.0",
-    "google-genai>=2.3.0",
     "httpx>=0.28.1",
     "imageio-ffmpeg>=0.5",
     "pillow>=11",
@@ -51,7 +50,7 @@ ignore_missing_imports = true
 target-version = "py313"
 line-length = 100
 src = ["src", "tests"]
-extend-exclude = ["imagegen", ".uv-cache", ".pytest-tmp"]
+extend-exclude = [".uv-cache", ".pytest-tmp"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]

@@ -31,7 +31,7 @@ def test_invalid_values_are_named_without_echoing_them(
     monkeypatch.setenv("IMAGE_PROVIDER", "not-a-provider")
     monkeypatch.setenv("IMAGE_DAILY_LIMIT", "0")
     monkeypatch.setenv("IMAGE_MAX_RETRIES", "-1")
-    monkeypatch.setenv("GEMINI_API_KEY", "synthetic-secret-value")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "synthetic-secret-value")
 
     with pytest.raises(ConfigurationError) as caught:
         load_settings(env_file=None, create_directories=False)
@@ -47,8 +47,8 @@ def test_invalid_values_are_named_without_echoing_them(
 def test_live_image_provider_names_missing_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("IMAGE_PROVIDER", "gemini")
-    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("IMAGE_PROVIDER", "openrouter")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "")
 
-    with pytest.raises(ConfigurationError, match="GEMINI_API_KEY"):
+    with pytest.raises(ConfigurationError, match="OPENROUTER_API_KEY"):
         load_settings(env_file=None, create_directories=False)

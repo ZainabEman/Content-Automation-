@@ -38,7 +38,7 @@ API_URL = "https://openrouter.ai/api/v1/images"
 MAX_INPUT_REFERENCES = 14
 DEFAULT_IDENTITY_REFS = 4
 # Output images cost $0.00006 per token (endpoint pricing): about 1120 / 1680 / 2520 tokens
-# at 1K / 2K / 4K, the same per-image prices as the Gemini adapter.
+# at 1K / 2K / 4K (Google's price for this model).
 EST_COST_USD_PER_IMAGE = {"1K": 0.067, "2K": 0.101, "4K": 0.151}
 MISSING_KEY = "OPENROUTER_API_KEY missing: add it to .env to use IMAGE_PROVIDER=openrouter."
 _MIME_BY_SUFFIX = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",

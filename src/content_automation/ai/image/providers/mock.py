@@ -2,7 +2,7 @@
 
 IMAGE_MODEL=mock-fail raises a provider error, IMAGE_MODEL=mock-timeout raises a
 timeout, and any other model succeeds. Images are always drawn at 1K size.
-Its limits mirror Gemini's so mock runs catch the same over-limit requests.
+Its limits are those of gemini-3.1-flash-image (the model behind OpenRouter).
 """
 
 import io

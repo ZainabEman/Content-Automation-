@@ -20,7 +20,8 @@ Ask Codex for a post, ad or reel about a topic. Codex follows `AGENTS.md`:
    profile (`docs/company/services.md`), the brand rules and the design system
    (`config/design_system.json`).
 3. `uv run ca content build "<folder>" --dry-run` shows the cost; Codex waits for your OK.
-4. `uv run ca content build "<folder>"` makes 2 post images, 3 ad variants and the reel, plus
+4. `uv run ca content build "<folder>"` makes 2 post images (in a format that changes from
+   package to package; a carousel gets one image per slide), 3 ad variants and the reel, plus
    `post.md` (caption, hashtags, call to action, source links) and `package.json`.
    If the video needs Higgsfield/HeyGen, the package says "draft — video pending" until Codex
    has made the clips; running the build again finishes only what is missing.

@@ -11,11 +11,20 @@ from typing import Any, Literal
 from pydantic import ConfigDict, Field, ValidationError
 
 from content_automation.core.files import CamelModel
-from content_automation.workflows.design_system import CtaIconId, Kind, LayoutId, SlideRole
+from content_automation.workflows.design_system import (
+    DEFAULT_FORMAT,
+    CtaIconId,
+    FormatId,
+    Kind,
+    LayoutId,
+    SlideRole,
+)
 
 Platform = Literal["instagram", "facebook", "linkedin"]
 Format = Literal["post", "ad", "reel"]
-ImageRef = Literal["post-1", "post-2", "ad-1", "ad-2", "ad-3"]
+ImageRef = Literal[
+    "post-1", "post-2", "post-3", "post-4", "post-5", "post-6", "post-7", "ad-1", "ad-2", "ad-3"
+]
 PLATFORMS: tuple[Platform, ...] = ("instagram", "facebook", "linkedin")
 FORMATS: tuple[Format, ...] = ("post", "ad", "reel")
 ASPECT_BY_PLATFORM = {"instagram": "4:5", "facebook": "4:5", "linkedin": "1:1"}
@@ -25,7 +34,7 @@ SLOT_KINDS: dict[str, tuple[Kind, ...]] = {
     "post": ("organic", "story", "carousel_slide"),
     "ad": ("ad",),
 }
-MAX_HEADLINE_WORDS = 6
+MIN_SLIDES, MAX_SLIDES = 3, 7  # a carousel: hook, at least one tip, call to action
 MAX_REEL_SEC = 90
 MIN_HASHTAGS, MAX_HASHTAGS = 3, 5
 _PLACEHOLDER = re.compile(r"<[^<>]{2,}>")
@@ -44,27 +53,47 @@ class _BriefModel(CamelModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class SlideSlot(_BriefModel):
+    """One slide of a carousel: the first is the hook (with the man), the last has the CTA."""
+
+    headline: str = Field(min_length=1)
+    highlight: list[str] = Field(default_factory=list, max_length=2)  # headline words
+    subheadline: str | None = None
+    sub_highlight: str | None = None
+    visual: str | None = None  # tip slides: what the icon shows
+    cta: str | None = None  # last slide only: the button label
+    cta_icon: CtaIconId | None = None
+
+
 class ImageSlot(_BriefModel):
     """A post or ad image: a designed graphic (social_creative) from the design system.
 
-    The fields match the `ca image` flags; subheadline and cta are required so that no
-    design is left empty.
+    The fields match the `ca image` flags. Which texts are required depends on ``format``
+    (see "formats" in config/design_system.json); a brief without a format is an "ad".
     """
 
-    kind: Kind | None = None  # default: post -> organic, ad -> ad
-    layout: LayoutId | None = None  # required, except for carousel slides
-    pose: str | None = None  # layouts B and C: a pose key of the design system
-    headline: str = Field(min_length=1)
+    format: FormatId = DEFAULT_FORMAT
+    kind: Kind | None = None  # default: post -> organic (carousel: carousel_slide), ad -> ad
+    layout: LayoutId | None = None  # format ad: required; news: B or C to show the man
+    pose: str | None = None  # a pose from the pools; picked when left out
+    headline: str | None = None
     highlight: list[str] = Field(default_factory=list, max_length=2)  # headline words
-    subheadline: str = Field(min_length=1)
+    subheadline: str | None = None
     sub_highlight: str | None = None  # one subheadline word
-    cta: str = Field(min_length=1)  # the button label
+    cta: str | None = None  # the button label (format ad only)
     cta_icon: CtaIconId | None = None  # default: chosen from the cta label
     icons: list[str] = Field(default_factory=list, max_length=4)  # icon row labels
     visual: str | None = None  # layout A: the system visual
-    slide: str | None = None  # carousel slides: "N/TOTAL"
+    stat: str | None = None  # format stat: the one big number
+    source: str | None = None  # format stat (required) and news: the research article ID
+    steps: list[str] = Field(default_factory=list, max_length=5)  # format checklist
+    slides: list[SlideSlot] = Field(default_factory=list, max_length=MAX_SLIDES)  # carousel
+    slide: str | None = None  # a single carousel slide instead of "slides": "N/TOTAL"
     slide_role: SlideRole | None = None
-    scene: str = Field(min_length=1)  # scene details: setting, light, camera, mood
+    # A pool ID from the design system or own words; picked for variety when left out.
+    scene: str | None = None
+    wardrobe: str | None = None
+    props: str | None = None
 
 
 class Caption(_BriefModel):
@@ -114,7 +143,9 @@ def brand_hashtag(brand_name: str) -> str:
 
 
 def slot_kind(name: str, slot: ImageSlot) -> Kind:
-    return slot.kind or SLOT_KINDS[name][0]
+    if slot.kind is not None:
+        return slot.kind
+    return "carousel_slide" if slot.format == "carousel" else SLOT_KINDS[name][0]
 
 
 def load_brief(
@@ -164,12 +195,25 @@ def brief_problems(
         image: ImageSlot | None = getattr(brief, name)
         if image is None:
             continue
-        if len(image.headline.split()) > MAX_HEADLINE_WORDS:
-            problems.append(f"{name}.headline has more than {MAX_HEADLINE_WORDS} words")
         if slot_kind(name, image) not in kinds:
             problems.append(f"{name}.kind must be one of: {', '.join(kinds)}")
-        elif image.layout is None and slot_kind(name, image) != "carousel_slide":
+        if name == "ad" and image.format != "ad":
+            problems.append('ad.format must be "ad" (headline, subheadline and CTA button)')
+        if image.format == "ad" and image.layout is None:
             problems.append(f"{name}.layout: choose A, B, C or D")
+        if image.format == "carousel":
+            if image.slide is None and not MIN_SLIDES <= len(image.slides) <= MAX_SLIDES:
+                problems.append(
+                    f"{name}.slides: a carousel has {MIN_SLIDES}-{MAX_SLIDES} slides "
+                    "(hook, tips, call to action)"
+                )
+        elif image.slides:
+            problems.append(f'{name}.slides is only for "format": "carousel"')
+        if image.stat is not None and image.source not in brief.source_article_ids:
+            problems.append(
+                f"{name}.source: a stat needs the ID of the research article its number comes "
+                "from, and that ID must also be listed in sourceArticleIds"
+            )
     if services and brief.service not in services:
         problems.append(f"service must be one of: {'; '.join(services)}")
     for tag in brief.hashtags:

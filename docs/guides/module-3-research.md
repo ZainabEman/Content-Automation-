@@ -89,25 +89,33 @@ For "make a post / ad / reel about X", Codex runs two commands and writes one fi
    `outputs/content/YYYY-MM-DD_<topic>/` with:
    - `research.md`: the best-matching articles with links;
    - `brief.template.json`: a pre-filled brief (topic, platform, formats, the company's
-     services, brand rules, the design choices, and empty slots for the post, ad and reel);
+     services, brand rules, the design choices, and empty slots for the post, ad and reel).
+     The post slot already has a **suggested format** that the last 3 packages did not use
+     (statement, stat, news, carousel, person photo, checklist or ad);
    - `package.json`: the package record.
 2. Codex writes `brief.json` from the template (English; one of the services; no invented
-   results, statistics, prices or client names; headlines of at most 6 words). For the post
-   and the ad it picks the design: `layout` (A product/feature, B or C trust, D pain vs gain),
-   `pose`, `headline` with `highlight` words, `subheadline`, `cta` (always filled) and the
-   `scene`; see "Designed graphics" in the [Images guide](module-1-images.md). The caption has
+   results, statistics, prices or client names). The fields a post needs depend on its
+   `format`; see "Designed graphics" in the [Images guide](module-1-images.md). A brief without
+   `format` is an `ad` (headline, subheadline, CTA button), so older briefs keep working. A
+   `stat` post must name the research article its number comes from (`source`); if the number
+   is not written in that article, the build refuses. A `carousel` post lists its `slides`.
+   Scene, wardrobe and props are normally left out: they are picked so that they differ from
+   the last 5 packages, and the picks are saved in `package.json`. The caption has
    a fixed shape: `hook` (line 1), 2–3 short `lines` (problem → solution), one `question` to
    get comments, the `cta` with the `link`, and 3–5 English hashtags including `#BrandedGenius`.
    To pre-fill the link, add a line `Website: https://…` to `docs/company/services.md`.
 3. `uv run ca content build "<folder>" --dry-run` checks `brief.json` (every problem is listed)
    and shows the cost. Codex waits for your OK.
 4. `uv run ca content build "<folder>"` makes:
-   - **post**: 2 image options (designed post with headline, subheadline, CTA button and logo);
+   - **post**: 2 image options in the post's format; a carousel instead makes one image per
+     slide (`post-1.png` is the hook slide);
    - **ad**: 3 ad variants (one message, one offer, one CTA; same branding);
    - **reel**: a 9:16 video whose first frame is the first post image;
    - `post.md` (the caption ready to paste, source links) and an updated `package.json`.
 
-   Designed images are made at 2K: 5 images cost about $0.51 with OpenRouter.
+   Designed images are made at 2K: 5 images cost about $0.51 with OpenRouter (a 5-slide
+   carousel plus 3 ad variants: about $0.81). If a carousel stops part-way, the next build
+   makes only the missing slides.
 
    Each part is saved as soon as it is done. If one part fails or waits (for example the video,
    while Higgsfield is not connected), the others still finish and the status says, for example,

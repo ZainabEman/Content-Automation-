@@ -21,9 +21,11 @@ from content_automation.references import (
     load_set,
     select_identity_refs,
     select_logo_ref,
+    select_rotating_style_refs,
     select_set_refs,
     select_style_refs,
 )
+from content_automation.research.store import find_article, number_in_article
 from content_automation.workflows.design_system import (
     DesignChoice,
     DesignSystem,
@@ -40,15 +42,23 @@ from content_automation.workflows.registry import (
     WorkflowSpec,
     get_workflow,
 )
+from content_automation.workflows.variety import (
+    DesignLook,
+    DesignPicks,
+    choose_look,
+    flatten,
+    recent_packages,
+)
 
 AD_VARIANTS = 3  # ads are made as 3 variants unless a count is given
+MAX_REFERENCE_IMAGES = 14  # the image model's limit for all reference images together
 # --variant is the old name of --kind.
 KIND_BY_VARIANT = {"post": "organic", "ad": "ad", "carousel_slide": "carousel_slide"}
 
 
 @dataclass
 class WorkflowInputs:
-    prompt: str
+    prompt: str = ""  # photo workflows: the scene; designs: the scene, or extra scene details
     identity_set: str | None = None
     product_set: str | None = None
     style_set: str | None = None
@@ -61,6 +71,7 @@ class WorkflowInputs:
     request: str | None = None
     service: str | None = None
     # Designed graphics (social_creative); checked by resolve_design().
+    format: str | None = None
     kind: str | None = None
     layout: str | None = None
     pose: str | None = None
@@ -71,11 +82,20 @@ class WorkflowInputs:
     cta_icon: str | None = None
     icons: str | None = None  # comma-separated labels
     visual: str | None = None
+    stat: str | None = None
+    source: str | None = None  # research article ID behind a stat or news line
+    steps: str | None = None  # "|"-separated
     slide: str | None = None  # "N/TOTAL"
     slide_role: str | None = None
+    # Variable parts: a pool ID from the design system or own words; picked when left out.
+    scene: str | None = None
+    wardrobe: str | None = None
+    props: str | None = None
     # The person to show when the design has one and no identity_set is given (from a brief);
     # unlike identity_set it is simply unused by designs without a person.
     fallback_identity_set: str | None = None
+    # Picks to avoid, newest first (from a brief's package); default: the newest packages.
+    history: list[DesignPicks] | None = None
 
     def provided(self) -> set[InputName]:
         values: dict[InputName, str | bool | None] = {
@@ -86,6 +106,7 @@ class WorkflowInputs:
             "headline": self.headline,
             "logo": self.logo,
             "service": (self.service or "").strip() or None,
+            "format": self.format,
             "kind": self.kind,
             "layout": self.layout,
             "pose": self.pose,
@@ -96,8 +117,14 @@ class WorkflowInputs:
             "cta_icon": self.cta_icon,
             "icons": self.icons,
             "visual": self.visual,
+            "stat": self.stat,
+            "source": self.source,
+            "steps": self.steps,
             "slide": self.slide,
             "slide_role": self.slide_role,
+            "scene": self.scene,
+            "wardrobe": self.wardrobe,
+            "props": self.props,
         }
         return {name for name, value in values.items() if value not in (None, "", False)}
 
@@ -109,6 +136,7 @@ class PreparedWorkflow:
     product_refs: list[ReferenceImage] = field(default_factory=list)
     brand_refs: list[ReferenceImage] = field(default_factory=list)
     inputs: dict[str, str | bool] = field(default_factory=dict)
+    picks: DesignPicks | None = None  # designs: what was used from the pools
 
     @property
     def product_asset_ids(self) -> list[str]:
@@ -128,7 +156,7 @@ def _check_inputs(spec: WorkflowSpec, inputs: WorkflowInputs) -> None:
     missing = [INPUT_FLAGS[name] for name in spec.required_inputs if name not in given]
     if missing:
         raise WorkflowError(f"{spec.workflow_id} needs {', '.join(missing)}.")
-    if not inputs.prompt.strip():
+    if not spec.designed and not inputs.prompt.strip():
         raise WorkflowError("--prompt cannot be empty.")
     if inputs.variant is not None and inputs.variant not in spec.variants:
         raise WorkflowError(f"--variant must be one of: {', '.join(spec.variants)}.")
@@ -159,7 +187,8 @@ def _design_identity_set(
         )
     if inputs.identity_set:
         raise WorkflowError(
-            f"{design.label} shows no person: remove --set, or use --layout B, C or D."
+            f"{design.label} shows no person: remove --set, or pick a layout or format "
+            "that shows him."
         )
     return None
 
@@ -186,7 +215,7 @@ def _identity_refs(
 
 
 def _design_aspect(design: DesignChoice, system: DesignSystem, wanted: str | None) -> str:
-    allowed = system.formats[design.kind].aspects
+    allowed = system.kinds[design.kind].aspects
     if wanted is None:
         return allowed[0]
     if wanted not in allowed:
@@ -196,11 +225,36 @@ def _design_aspect(design: DesignChoice, system: DesignSystem, wanted: str | Non
     return wanted
 
 
-def _recorded_design(design: DesignChoice) -> dict[str, str | bool]:
+def _check_source(design: DesignChoice, settings: Settings) -> None:
+    """A stat is refused unless its number is written in the research article it names."""
+    if design.source is None:
+        return
+    article = find_article(settings.research_dir, design.source)
+    if article is None:
+        raise WorkflowError(
+            f"--source {design.source} is not a saved research article (see research.md or "
+            "`uv run ca research digest` for the IDs)."
+        )
+    if design.stat is not None and not number_in_article(design.stat, article):
+        raise WorkflowError(
+            f'Refused: the number "{design.stat}" is not in research article {design.source} '
+            f'("{article.title}"). A stat must come from the research; never invent one.'
+        )
+
+
+def _variety_seed(design: DesignChoice) -> str:
+    """Picks follow the content, so different posts differ; carousel slides share one look."""
+    if design.format == "carousel":
+        return f"carousel|{design.slide[1] if design.slide else ''}"
+    texts = [design.headline, design.subheadline, design.stat, *design.steps]
+    return "|".join([design.format, *(text or "" for text in texts)])
+
+
+def _recorded_design(design: DesignChoice, look: DesignLook) -> dict[str, str | bool]:
     values = {
+        "format": design.format,
         "kind": design.kind,
         "layout": design.layout,
-        "pose": design.pose,
         "highlight": ", ".join(design.highlight),
         "subheadline": design.subheadline,
         "subHighlight": design.sub_highlight,
@@ -208,8 +262,12 @@ def _recorded_design(design: DesignChoice) -> dict[str, str | bool]:
         "ctaIcon": design.cta_icon,
         "icons": ", ".join(design.icons),
         "visual": design.visual,
+        "stat": design.stat,
+        "source": design.source,
+        "steps": " | ".join(design.steps),
         "slide": "/".join(str(part) for part in design.slide) if design.slide else None,
         "slideRole": design.slide_role,
+        **look.ids(),
     }
     return {name: value for name, value in values.items() if value}
 
@@ -225,22 +283,42 @@ def prepare_workflow(
     capabilities: ProviderCapabilities = get_provider(
         settings.image_provider, settings
     ).capabilities
-    recorded: dict[str, str | bool] = {"scenePrompt": inputs.prompt.strip()}
+    scene_prompt = inputs.prompt.strip()
+    recorded: dict[str, str | bool] = {"scenePrompt": scene_prompt} if scene_prompt else {}
     service = (inputs.service or "").strip() or None
     if service:
         recorded["service"] = service
 
     system: DesignSystem | None = None
     design: DesignChoice | None = None
+    look = DesignLook()
+    history: list[DesignPicks] = []
+    seed = ""
     identity_set = inputs.identity_set
     aspect: str = inputs.aspect_ratio or spec.default_aspect
     if spec.designed:
         system = load_design_system(settings.design_system_file)
-        variant = inputs.variant or spec.default_variant or "post"
-        design = resolve_design(inputs, system, kind=inputs.kind or KIND_BY_VARIANT[variant])
+        kind = inputs.kind or (KIND_BY_VARIANT[inputs.variant] if inputs.variant else None)
+        design = resolve_design(inputs, system, kind=kind)
+        _check_source(design, settings)
         identity_set = _design_identity_set(design, inputs, settings)
         aspect = _design_aspect(design, system, inputs.aspect_ratio)
-        recorded.update(_recorded_design(design))
+        if inputs.history is not None:
+            history = inputs.history
+        else:
+            history = flatten(recent_packages(settings.packages_dir))
+        seed = _variety_seed(design)
+        look = choose_look(
+            design,
+            system,
+            # Without --scene, a given --prompt is the scene (as before the pools existed).
+            scene=inputs.scene or scene_prompt or None,
+            wardrobe=inputs.wardrobe,
+            props=inputs.props,
+            history=history,
+            seed=seed,
+        )
+        recorded.update(_recorded_design(design, look))
     want_logo = inputs.logo or spec.designed
 
     identity: list[ReferenceImage] = []
@@ -250,40 +328,66 @@ def prepare_workflow(
         identity = _identity_refs(identity_set, identity_max, design, settings)
         recorded["identitySet"] = load_set(identity_set, root).set_id
 
-    # Room left when the provider caps all reference images together (logo counted first).
-    total_left = (
-        capabilities.max_total_refs - len(identity) - (1 if want_logo else 0)
-        if capabilities.max_total_refs is not None
-        else None
-    )
+    # All reference images together must fit the model's limit (14). Identity photos and
+    # the logo always stay; when it gets too many, style images are dropped first.
+    limit = min(capabilities.max_total_refs or MAX_REFERENCE_IMAGES, MAX_REFERENCE_IMAGES)
+    total_left = limit - len(identity) - (1 if want_logo else 0)
+    if total_left < 0:
+        raise WorkflowError(
+            f"{len(identity)} identity photos plus the logo are more than the {limit} "
+            "reference images the model accepts; lower IMAGE_IDENTITY_REFS_MAX."
+        )
     brand = _load_brand_if_present(settings)
     style: list[ReferenceImage] = []
-    style_set = inputs.style_set or spec.default_style_set
-    if style_set and "style" in spec.ref_categories:
-        wanted = min(inputs.style_count or DEFAULT_STYLE_COUNT, capabilities.max_style_refs)
-        if total_left is not None:
-            wanted = min(wanted, total_left)
-        if wanted > 0:
-            style = select_style_refs(style_set, wanted, root)
-            recorded["styleSet"] = load_set(style_set, root).set_id
+    style_sets: list[str] = []
+    if design is not None and system is not None:
+        # Up to 3 style images that fit the format, rotated between packages.
+        fits = system.formats[design.format]
+        wanted = min(
+            inputs.style_count or fits.style_refs,
+            fits.style_refs,
+            capabilities.max_style_refs,
+            total_left,
+        )
+        names = [inputs.style_set] if inputs.style_set else fits.style_sets
+        style, style_sets = select_rotating_style_refs(
+            names,
+            wanted,
+            root,
+            avoid=[asset_id for picks in history for asset_id in picks.style_refs],
+            seed=f"{seed}|style",
+            strict=bool(inputs.style_set),
+        )
+    else:
+        style_set = inputs.style_set or spec.default_style_set
+        if style_set and "style" in spec.ref_categories:
+            wanted = min(
+                inputs.style_count or DEFAULT_STYLE_COUNT, capabilities.max_style_refs, total_left
+            )
+            if wanted > 0:
+                style = select_style_refs(style_set, wanted, root)
+                style_sets = [load_set(style_set, root).set_id]
 
     logo: list[ReferenceImage] = []
     if want_logo:
         logo = [select_logo_ref(root, preferred=brand.logo_file if brand else None)]
         recorded["logo"] = True
-    object_budget = capabilities.max_object_refs - len(logo)
+    object_budget = min(capabilities.max_object_refs - len(logo), total_left)
     if capabilities.max_object_and_style_refs is not None:
         object_budget = min(
             object_budget, capabilities.max_object_and_style_refs - len(style) - len(logo)
         )
-    if total_left is not None:
-        object_budget = min(object_budget, total_left - len(style))
     product: list[ReferenceImage] = []
     if inputs.product_set:
         if object_budget < 1:
             raise WorkflowError("No room for product images; lower --style-count.")
         product = select_set_refs(inputs.product_set, object_budget, root, ref_type="product")
         recorded["productSet"] = load_set(inputs.product_set, root).set_id
+    over = len(identity) + len(logo) + len(product) + len(style) - limit
+    if over > 0:
+        style = style[: len(style) - over]
+    if style:
+        recorded["styleSet"] = ", ".join(style_sets)
 
     if inputs.variant:
         recorded["variant"] = inputs.variant
@@ -294,10 +398,19 @@ def prepare_workflow(
         identity=len(identity), product=len(product), logo=len(logo), style=len(style)
     )
     company = load_company(settings.company_file)
+    picks: DesignPicks | None = None
     if design is not None and system is not None:
         prompt = build_design_prompt(
-            design, system, inputs.prompt, counts, brand, aspect_ratio=aspect, company=company
+            design,
+            look,
+            system,
+            counts,
+            brand,
+            aspect_ratio=aspect,
+            details=scene_prompt if inputs.scene else None,
+            company=company,
         )
+        picks = DesignPicks.from_recorded(recorded, [ref.asset_id for ref in style])
     else:
         prompt = build_prompt(
             spec, inputs.prompt, counts, brand, service=service, company=company
@@ -312,7 +425,12 @@ def prepare_workflow(
         style_refs=style,
     )
     return PreparedWorkflow(
-        spec=spec, request=request, product_refs=product, brand_refs=logo, inputs=recorded
+        spec=spec,
+        request=request,
+        product_refs=product,
+        brand_refs=logo,
+        inputs=recorded,
+        picks=picks,
     )
 
 
@@ -324,7 +442,9 @@ def run_workflow(workflow_id: str, inputs: WorkflowInputs, settings: Settings) -
         settings,
         workflow_id=prepared.spec.workflow_id,
         workflow_version=prepared.spec.version,
-        user_request=inputs.request or inputs.prompt.strip(),
+        user_request=(
+            inputs.request or inputs.prompt.strip() or inputs.headline or inputs.stat or None
+        ),
         product_asset_ids=prepared.product_asset_ids,
         brand_asset_ids=prepared.brand_asset_ids,
         inputs=prepared.inputs,

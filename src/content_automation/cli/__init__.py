@@ -31,14 +31,14 @@ from content_automation.references import (
 )
 from content_automation.research.collectors import CollectorError
 from content_automation.research.models import SourcesError
-from content_automation.research.run import collect as collect_research
-from content_automation.research.run import digest as research_digest_articles
 from content_automation.research.run import (
     DEFAULT_TOPIC_LIMIT,
     digest_lines,
     topic_digest,
     topic_note,
 )
+from content_automation.research.run import collect as collect_research
+from content_automation.research.run import digest as research_digest_articles
 from content_automation.workflows.dry_run import dry_run_lines
 from content_automation.workflows.image_job import run_image_job
 from content_automation.workflows.image_workflows import (
@@ -110,8 +110,11 @@ def hello() -> None:
 @app.command()
 def image(
     prompt: Annotated[
-        str, typer.Option(help="Scene description (or the full prompt in raw mode).")
-    ],
+        str,
+        typer.Option(
+            help="Scene description (raw mode: the full prompt). Optional for social_creative."
+        ),
+    ] = "",
     workflow: Annotated[
         str | None,
         typer.Option(
@@ -138,6 +141,14 @@ def image(
     variant: Annotated[
         str | None, typer.Option(help="Old name of --kind: post (= organic), ad, carousel_slide.")
     ] = None,
+    format_: Annotated[
+        str | None,
+        typer.Option(
+            "--format",
+            help="social_creative: ad (default), statement, stat, news, carousel, person_photo "
+            "or checklist.",
+        ),
+    ] = None,
     kind: Annotated[
         str | None,
         typer.Option(help="social_creative: organic (default), ad, story or carousel_slide."),
@@ -151,10 +162,30 @@ def image(
     ] = None,
     pose: Annotated[
         str | None,
-        typer.Option(
-            help="Layouts B/C: arms_crossed, laptop, profile, leaning_back or stressed "
-            "(config/design_system.json)."
-        ),
+        typer.Option(help="A pose from the pools in config/design_system.json (default: picked)."),
+    ] = None,
+    scene: Annotated[
+        str | None,
+        typer.Option(help="A scene from the pools, or your own words (default: picked)."),
+    ] = None,
+    wardrobe: Annotated[
+        str | None,
+        typer.Option(help="A wardrobe from the pools, or your own words (default: picked)."),
+    ] = None,
+    props: Annotated[
+        str | None,
+        typer.Option(help="Props from the pools, or your own words (default: picked)."),
+    ] = None,
+    stat: Annotated[
+        str | None, typer.Option(help='Format stat: the one big number, e.g. "73%".')
+    ] = None,
+    source: Annotated[
+        str | None,
+        typer.Option(help="Format stat/news: ID of the research article it comes from."),
+    ] = None,
+    steps: Annotated[
+        str | None,
+        typer.Option(help='Format checklist: 3-5 short steps separated by "|".'),
     ] = None,
     headline: Annotated[
         str | None, typer.Option(help="Headline, shown exactly as written in capitals.")
@@ -231,9 +262,16 @@ def image(
         count=count,
         request=request,
         service=service,
+        format=format_,
         kind=kind,
         layout=layout,
         pose=pose,
+        scene=scene,
+        wardrobe=wardrobe,
+        props=props,
+        stat=stat,
+        source=source,
+        steps=steps,
         highlight=highlight,
         subheadline=subheadline,
         sub_highlight=sub_highlight,
@@ -274,13 +312,18 @@ def _dry_run(workflow: str | None, inputs: WorkflowInputs, settings: Settings) -
     if workflow is None:
         return dry_run_lines(_raw_request(inputs), settings, workflow="raw (prompt as written)")
     prepared = prepare_workflow(workflow, inputs, settings)
-    return dry_run_lines(
+    lines = dry_run_lines(
         prepared.request,
         settings,
         workflow=f"{prepared.spec.workflow_id} (v{prepared.spec.version})",
         product_refs=prepared.product_refs,
         brand_refs=prepared.brand_refs,
     )
+    if prepared.picks is not None:  # what the design takes from the pools (saved with the job)
+        picks = prepared.picks.model_dump(exclude={"style_refs"}, exclude_none=True)
+        chosen = ", ".join(f"{name} {value}" for name, value in picks.items())
+        lines.insert(lines.index("References:"), f"Design: {chosen}")
+    return lines
 
 
 def _raw_request(inputs: WorkflowInputs) -> ImageRequest:
@@ -289,6 +332,8 @@ def _raw_request(inputs: WorkflowInputs) -> ImageRequest:
         raise WorkflowError(
             "Options other than --prompt, --aspect, --count and --request need --workflow."
         )
+    if not inputs.prompt.strip():
+        raise WorkflowError("--prompt cannot be empty (or pick a --workflow).")
     try:
         return ImageRequest(
             prompt=inputs.prompt,

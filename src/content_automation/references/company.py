@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-_LABEL = re.compile(r"^([A-Z][A-Za-z ]{1,30}):\s*(.*)$")
+_LABEL = re.compile(r"^([A-Za-z][A-Za-z ]{1,30}):(?:\s+(.*))?$")
 _SERVICE = re.compile(r"^\d+\.\s+(.+)$")
 
 
@@ -51,7 +51,8 @@ def load_company(path: Path) -> CompanyProfile | None:
             services.append(match.group(1))
         elif match := _LABEL.match(line):
             if match.group(2):
-                fields[match.group(1)] = match.group(2)
+                # "website: ..." and "Website: ..." are the same label.
+                fields[match.group(1).strip().capitalize()] = match.group(2)
         elif not line.startswith("#") and not summary:
             summary = line
     return CompanyProfile(name=name, summary=summary, fields=fields, services=services)

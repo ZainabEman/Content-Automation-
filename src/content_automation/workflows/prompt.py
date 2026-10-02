@@ -1,8 +1,10 @@
 """Build the final prompt.
 
 Photo workflows: scene + reference roles + brand rules. Designed graphics (social_creative)
-are built from the design system in a fixed order: format and safe zones, layout, design
-system, brand (colours, fonts, logo from brand.json), identity, text, reference roles.
+are built from the design system in a fixed order: format and safe zones, layout, design,
+brand (colours, fonts, logo from brand.json), identity, text, reference roles. The brand,
+identity and text sections are the fixed core; the rest varies with the format and the
+picks from the pools.
 
 Reference images are numbered in the order adapters attach them:
 identity, then objects (products, then logo), then style.
@@ -22,8 +24,10 @@ from content_automation.workflows.design_system import (
     ColorRole,
     DesignChoice,
     DesignSystem,
+    TextField,
 )
 from content_automation.workflows.registry import WorkflowSpec
+from content_automation.workflows.variety import DesignLook
 
 DEFAULT_TEXT_LANGUAGE = "English"
 _LANGUAGE_NAMES = {"en": "English"}
@@ -57,13 +61,6 @@ _ROLES = {
         "do not copy their products, text or subject matter."
     ),
 }
-# The photos define the face: prompts never describe his facial features in words.
-_IDENTITY_RULE = (
-    "The man is the exact person in {images}: same face, facial structure, hairline and "
-    "hair, skin tone and age. Do not beautify, idealize or change him. Do not add glasses, "
-    "a beard or accessories that are not in the references. His face comes only from these "
-    "photos, never from the style reference images."
-)
 _ROLE_LABELS: dict[ColorRole, str] = {
     "background": "Background colour",
     "accent": "Accent / glow colour",
@@ -175,7 +172,7 @@ def role_colors(brand: BrandProfile, system: DesignSystem) -> dict[ColorRole, Br
     """
     found: dict[ColorRole, BrandColor] = {}
     for role in COLOR_ROLES:
-        words = [word.lower() for word in system.color_roles[role].usage]
+        words = [word.lower() for word in system.core.color_roles[role].usage]
         for color in brand.colors:
             if any(word in color.usage.lower() for word in words):
                 found[role] = color
@@ -187,20 +184,31 @@ def role_colors(brand: BrandProfile, system: DesignSystem) -> dict[ColorRole, Br
     return found
 
 
+def _sentence(text: str) -> str:
+    """A pool description as a sentence: capital first letter, one full stop."""
+    text = text.strip().rstrip(".")
+    return f"{text[:1].upper()}{text[1:]}."
+
+
 def _format_section(design: DesignChoice, system: DesignSystem, aspect_ratio: str) -> str:
-    spec = system.formats[design.kind]
-    text = f"Create {spec.description}. Format: {aspect_ratio}."
+    kind = system.kinds[design.kind]
+    text = f"Create {kind.description}. Format: {aspect_ratio}."
     if design.slide is not None:
         text += f" This is slide {design.slide[0]} of {design.slide[1]}."
-    if spec.safe_zone:
-        text += f" Safe zones: {spec.safe_zone}"
+    if kind.safe_zone:
+        text += f" Safe zones: {kind.safe_zone}"
     return text
 
 
 def _layout_section(
-    design: DesignChoice, system: DesignSystem, scene: str, counts: RefCounts
+    design: DesignChoice,
+    look: DesignLook,
+    system: DesignSystem,
+    counts: RefCounts,
+    details: str | None,
 ) -> str:
-    lines = []
+    spec = system.formats[design.format]
+    lines = [f"Post format ({design.format}): {spec.composition}"]
     if design.slide_role is not None:
         slide = system.carousel.slides[design.slide_role]
         lines.append(f"Carousel {design.slide_role} slide: {slide}")
@@ -209,38 +217,76 @@ def _layout_section(
         layout = system.layouts[design.layout]
         lines.append(f"Layout {design.layout} ({layout.use}): {layout.description}")
         if layout.split_poses:
-            left, right = (system.poses[pose] for pose in layout.split_poses)
+            left, right = (system.pools.poses[pose].description for pose in layout.split_poses)
             lines.append(f"Poses: left half: {left}; right half: {right}.")
-        elif design.pose:
-            lines.append(f"Pose: {system.poses[design.pose]}.")
+    if look.pose is not None:
+        lines.append(f"Pose: {_sentence(look.pose.text)}")
+    if look.scene is not None:
+        lines.append(f"Scene: {_sentence(look.scene.text)}")
+    if details and details.strip():
+        lines.append(f"Scene details: {details.strip()}")
     if design.visual:
-        lines.append(f"System visual: {design.visual}")
-    elif not design.person and design.slide_role is None:
-        lines.append("System visual: the hologram cluster described in the design system.")
+        name = "Tip icon" if design.slide_role == "tip" else "System visual"
+        lines.append(f"{name}: {design.visual}")
+    elif look.holograms is not None and not design.person:
+        lines.append("System visual: the holograms described in the design.")
     if counts.product:
         lines.append("Product: feature the product shown in the product reference images.")
-    lines.append(f"Scene details: {scene.strip()}")
     return "\n".join(lines)
 
 
-def _design_section(design: DesignChoice, system: DesignSystem, counts: RefCounts) -> str:
-    lines = [f"- Style: {system.style}", f"- Text panel: {system.text_panel}"]
+def _typography(design: DesignChoice, system: DesignSystem) -> list[str]:
+    spec = system.formats[design.format]
+    defaults = system.typography
+    lines = []
     if design.headline:
-        lines.append(f"- Headline typography: {system.typography.headline}")
+        rule = spec.typography.get("headline", defaults.headline)
+        if design.highlight:
+            rule += f" {defaults.headline_highlight}"
+        lines.append(f"- {_label(design, system, 'headline')} typography: {rule}")
+    if design.stat:
+        rule = spec.typography.get("stat", defaults.stat)
+        lines.append(f"- {_label(design, system, 'stat')} typography: {rule}")
     if design.subheadline:
-        lines.append(f"- Subheadline typography: {system.typography.subheadline}")
+        rule = spec.typography.get("subheadline", defaults.subheadline)
+        if design.sub_highlight:
+            rule += f" {defaults.subheadline_highlight}"
+        lines.append(f"- {_label(design, system, 'subheadline')} typography: {rule}")
+    if design.steps:
+        rule = spec.typography.get("steps", defaults.steps)
+        lines.append(f"- {_label(design, system, 'steps')} typography: {rule}")
+    return lines
+
+
+def _design_section(
+    design: DesignChoice, look: DesignLook, system: DesignSystem, counts: RefCounts
+) -> str:
+    """Only what this format shows: the panel, holograms, decor and props are optional."""
+    spec = system.formats[design.format]
+    elements = system.elements
+    lines = []
+    if "textPanel" in spec.elements:
+        lines.append(f"- Text panel: {elements.text_panel}")
+    lines += _typography(design, system)
     if design.cta and design.cta_icon:
-        button = system.cta_button
+        button = elements.cta_button
         icon = button.icons[design.cta_icon].icon
         cta = f"- CTA button: {button.description} Icon: {icon}. {button.pointer}"
         lines.append(cta.rstrip())
-    lines.append(f"- Holograms: {system.holograms}")
+    if look.holograms is not None:
+        holograms = f"- Holograms: {_sentence(look.holograms.text)}"
+        if design.person and elements.holograms_person:
+            holograms += f" {elements.holograms_person}"
+        lines.append(holograms)
     if design.icons:
-        lines.append(f"- Icon row: {system.icon_row}")
-    lines += [f"- Decor: {system.decor}", f"- Props: {system.props}"]
+        lines.append(f"- Icon row: {elements.icon_row}")
+    if look.decor is not None:
+        lines.append(f"- Decor: {_sentence(look.decor.text)}")
+    if look.props is not None:
+        lines.append(f"- Props: {_sentence(look.props.text)}")
     if counts.logo:
-        lines.append(f"- Logo: {system.logo}")
-    return "Design system (follow it closely):\n" + "\n".join(lines)
+        lines.append(f"- Logo: {system.core.logo}")
+    return "Design (follow it closely):\n" + "\n".join(lines)
 
 
 def _brand_section(
@@ -258,7 +304,7 @@ def _brand_section(
                 color = colors[role]
                 lines.append(
                     f"- {_ROLE_LABELS[role]}: {color.name} {color.hex}, for "
-                    f"{system.color_roles[role].use}"
+                    f"{system.core.color_roles[role].use}"
                 )
         others = [c for c in brand.colors if all(c is not used for used in colors.values())]
         if others:
@@ -268,7 +314,7 @@ def _brand_section(
             )
         if brand.fonts:
             fonts = [f"{f.name} ({f.usage})" if f.usage else f.name for f in brand.fonts]
-            lines.append("- Fonts: " + "; ".join(fonts))
+            lines.append(f"- Fonts: {'; '.join(fonts)}. {system.core.fonts}")
         if brand.logo_rules:
             lines.append(f"- Logo: {brand.logo_rules[0]}")
         if brand.dont:
@@ -279,13 +325,23 @@ def _brand_section(
     return f"Brand{name}: use only these colours and fonts.\n" + "\n".join(lines)
 
 
-def _identity_section(design: DesignChoice, system: DesignSystem, count: int) -> str:
+def _is_split(design: DesignChoice, system: DesignSystem) -> bool:
+    return design.layout is not None and bool(system.layouts[design.layout].split_poses)
+
+
+def _identity_section(
+    design: DesignChoice, look: DesignLook, system: DesignSystem, count: int
+) -> str:
+    """The face comes from the photos only; nothing here describes his features."""
+    identity = system.core.identity
     images = (
         "identity reference image 1" if count == 1 else f"identity reference images 1–{count}"
     )
-    text = f"Person: {_IDENTITY_RULE.format(images=images)} Wardrobe: {system.person.wardrobe}."
-    if design.layout is not None and system.layouts[design.layout].split_poses:
-        text += " Both halves of the split show this same person."
+    text = "Person: " + " ".join(identity.rules).replace("{images}", images)
+    if look.wardrobe is not None:
+        text += f" Wardrobe: {_sentence(look.wardrobe.text)}"
+    if _is_split(design, system):
+        text += f" {identity.split}"
     return text
 
 
@@ -293,52 +349,71 @@ def _quoted(items: Iterable[str]) -> str:
     return ", ".join(f'"{item}"' for item in items)
 
 
+_TEXT_LABELS: dict[TextField, str] = {
+    "headline": "Headline",
+    "subheadline": "Subheadline",
+    "cta": "CTA button label",
+    "icons": "Icon row labels, one under each icon",
+    "stat": "Big number",
+    "steps": "Step",
+}
+
+
+def _label(design: DesignChoice, system: DesignSystem, field: TextField) -> str:
+    return system.formats[design.format].labels.get(field) or _TEXT_LABELS[field]
+
+
 def _text_section(
     design: DesignChoice,
+    look: DesignLook,
     system: DesignSystem,
     counts: RefCounts,
     brand: BrandProfile | None,
     company: CompanyProfile | None,
 ) -> str:
-    language = text_language(brand)
+    spec = system.formats[design.format]
+    rules = system.core.text
     items = []
     if design.headline:
-        line = f'- Headline: "{design.headline.upper()}"'
+        caps = spec.headline_caps
+        line = f'- {_label(design, system, "headline")}: '
+        line += f'"{design.headline.upper() if caps else design.headline}"'
         if design.highlight:
-            words = _quoted(word.upper() for word in design.highlight)
+            words = _quoted(word.upper() if caps else word for word in design.highlight)
             line += f" (in the highlight colour: {words})"
         items.append(line)
+    if design.stat:
+        items.append(f'- {_label(design, system, "stat")}: "{design.stat}"')
     if design.subheadline:
-        line = f'- Subheadline: "{design.subheadline}"'
+        items += [f'- {name}: "{fixed}"' for name, fixed in spec.fixed_texts.items()]
+        line = f'- {_label(design, system, "subheadline")}: "{design.subheadline}"'
         if design.sub_highlight:
             line += f' (in the highlight colour: "{design.sub_highlight}")'
         items.append(line)
+    for number, step in enumerate(design.steps, start=1):
+        items.append(f'- {_label(design, system, "steps")} {number}, numbered {number}: "{step}"')
     if design.cta:
-        items.append(f'- CTA button label: "{design.cta}"')
+        items.append(f'- {_label(design, system, "cta")}: "{design.cta}"')
     if design.icons:
-        items.append(f"- Icon row labels, one under each icon: {_quoted(design.icons)}")
+        items.append(f"- {_label(design, system, 'icons')}: {_quoted(design.icons)}")
     if design.slide is not None:
         number, total = design.slide
         items.append(f'- Slide number, next to the slide dots: "{number}/{total}"')
-    if design.layout is not None and system.layouts[design.layout].split_poses:
+    if _is_split(design, system):
         items.append('- Symbol on the split button: "»"')
 
     if items:
-        text = (
-            "Text: render ONLY the texts listed here, exactly as written, sharp and correctly "
-            f"spelled, in {language}, and nothing else:\n" + "\n".join(items) + "\n"
-            "Do not add any other words, letters, numbers, labels, buttons, captions or "
-            "watermarks."
-        )
+        only = rules.only.replace("{language}", text_language(brand))
+        text = f"Text: {only}\n" + "\n".join(items) + f"\n{rules.nothing_else}"
     else:
-        text = "Text: do not render any words, labels, buttons, captions or watermarks."
+        text = f"Text: {rules.none}"
     if not design.cta:
-        text += " Do not draw a CTA button."
-    lettering = (["the logo"] if counts.logo else []) + ['"AI" on the central chip']
-    text += (
-        f" The only other lettering allowed is {' and '.join(lettering)}; screens, holograms "
-        "and props show icons and abstract shapes, never words."
-    )
+        text += f" {rules.no_button}"
+    lettering = ["the logo"] if counts.logo else []
+    if look.holograms is not None:
+        lettering.append('"AI" on the hologram chip or core')
+    if lettering:
+        text += " " + rules.lettering.replace("{lettering}", " and ".join(lettering))
     if company is not None and company.content_rules:
         text += f" Content rules: {company.content_rules}"
     return text
@@ -346,22 +421,25 @@ def _text_section(
 
 def build_design_prompt(
     design: DesignChoice,
+    look: DesignLook,
     system: DesignSystem,
-    scene: str,
     counts: RefCounts,
     brand: BrandProfile | None,
     *,
     aspect_ratio: str,
+    details: str | None = None,
     company: CompanyProfile | None = None,
 ) -> str:
-    """Designed graphics (social_creative), from the design system and brand.json."""
+    """Designed graphics (social_creative): the format, the picked look and the fixed core."""
     sections = [
         _format_section(design, system, aspect_ratio),
-        _layout_section(design, system, scene, counts),
-        _design_section(design, system, counts),
+        _layout_section(design, look, system, counts, details),
+        _design_section(design, look, system, counts),
         _brand_section(brand, system, company),
-        _identity_section(design, system, counts.identity) if design.person else None,
-        _text_section(design, system, counts, brand, company),
+        _identity_section(design, look, system, counts.identity) if design.person else None,
+        _text_section(design, look, system, counts, brand, company),
         _reference_section(counts),
     ]
     return "\n\n".join(section for section in sections if section)
+
+

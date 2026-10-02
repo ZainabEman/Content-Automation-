@@ -1,51 +1,215 @@
 {
-  "style": "Premium dark-tech social graphic: a modern office at night with soft bokeh lights, photorealistic, cinematic cool rim lighting, high contrast, and a rich composition with no large empty areas.",
-  "colorRoles": {
-    "background": {
-      "usage": ["dark background", "main brand", "primary"],
-      "use": "the background, the glass panel and dark fills, as a deep, near-black night shade of it"
+  "core": {
+    "colorRoles": {
+      "background": {
+        "usage": ["dark background", "main brand", "primary"],
+        "use": "backgrounds, panels and dark fills, as a deep, dark shade of it"
+      },
+      "accent": {
+        "usage": ["accent", "glow"],
+        "use": "glows, outlines, rim light, icons and connecting lines"
+      },
+      "highlight": {
+        "usage": ["highlight"],
+        "use": "the highlight words and big numbers"
+      },
+      "text": {
+        "usage": ["text"],
+        "use": "all other text, the CTA label, arrows and chevrons"
+      }
     },
-    "accent": {
-      "usage": ["accent", "glow"],
-      "use": "glows, outlines, rim light, holograms and connecting lines"
-    },
-    "highlight": {
-      "usage": ["highlight"],
-      "use": "the highlight words in the headline and subheadline"
+    "fonts": "Use the heading font for headlines, statements and big numbers and the sub-heading font for all other text.",
+    "logo": "Always at the top right: the brand logo from the logo reference image, once and unaltered.",
+    "identity": {
+      "rules": [
+        "The man is the exact person in {images}: same face, facial structure, hairline and hair, skin tone and age.",
+        "Do not beautify, idealize or change him.",
+        "Do not add glasses, a beard or accessories that are not in the references.",
+        "His face comes only from these photos, never from the style reference images."
+      ],
+      "split": "Both halves of the split show this same person."
     },
     "text": {
-      "usage": ["text"],
-      "use": "all other text, the CTA label, arrows and chevrons"
+      "only": "Render ONLY the texts listed here, exactly as written, sharp and correctly spelled, in {language}, and nothing else:",
+      "nothingElse": "Do not add any other words, letters, numbers, labels, buttons, captions or watermarks.",
+      "none": "Do not render any words, labels, buttons, captions or watermarks.",
+      "noButton": "Do not draw a CTA button.",
+      "lettering": "The only other lettering allowed is {lettering}; screens, holograms and props show icons and abstract shapes, never words."
     }
   },
-  "textPanel": "A dark translucent glass panel with rounded corners, a thin glowing outline in the accent colour and a slanted inner edge. It holds all text.",
   "typography": {
-    "headline": "ALL CAPS, extra-bold, left-aligned, 3-4 short lines, with 1-2 highlight words in the highlight colour.",
-    "subheadline": "Regular weight, sentence case, 2-3 lines, with one highlight word in the highlight colour."
+    "headline": "ALL CAPS, extra-bold, left-aligned, 3-4 short lines.",
+    "headlineHighlight": "The highlight words are set in the highlight colour.",
+    "subheadline": "Regular weight, sentence case, 2-3 lines.",
+    "subheadlineHighlight": "The one highlight word is set in the highlight colour.",
+    "stat": "Huge and extra-bold, in the highlight colour.",
+    "steps": "Medium weight, sentence case, one line per step."
   },
-  "ctaButton": {
-    "description": "A rounded rectangle at the bottom right with a dark fill, a glowing border in the accent colour and its label in the text colour, with a small icon beside the label.",
-    "pointer": "Optionally a small arrow or a row of chevrons in the text colour points at the button.",
-    "icons": {
-      "arrow": {
-        "icon": "an arrow inside a circle",
-        "actions": ["learn", "read", "try", "analyze", "analyse", "analysis", "swipe"]
+  "elements": {
+    "textPanel": "A dark translucent glass panel with rounded corners, a thin glowing outline in the accent colour and a slanted inner edge. It holds all text.",
+    "ctaButton": {
+      "description": "A rounded rectangle at the bottom right with a dark fill, a glowing border in the accent colour and its label in the text colour, with a small icon beside the label.",
+      "pointer": "Optionally a small arrow or a row of chevrons in the text colour points at the button.",
+      "icons": {
+        "arrow": {
+          "icon": "an arrow inside a circle",
+          "actions": ["learn", "read", "try", "analyze", "analyse", "analysis", "swipe"]
+        },
+        "calendar": {
+          "icon": "a calendar",
+          "actions": ["book", "schedule"]
+        },
+        "play": {
+          "icon": "a play triangle",
+          "actions": ["demo", "watch"]
+        }
+      }
+    },
+    "iconRow": "A row of 3-4 outlined, glowing circle icons, each with its 1-2 word label underneath.",
+    "hologramsPerson": "Where his pose allows, the man looks at or gestures towards the holograms."
+  },
+  "pools": {
+    "scenes": {
+      "office_night": {
+        "description": "a modern office at night: soft bokeh city lights behind glass and cinematic cool rim lighting, high contrast"
       },
-      "calendar": {
-        "icon": "a calendar",
-        "actions": ["book", "schedule"]
+      "office_day": {
+        "description": "a bright modern office in daylight: large windows, soft natural light, clean and airy"
       },
-      "play": {
-        "icon": "a play triangle",
-        "actions": ["demo", "watch"]
+      "studio": {
+        "description": "a clean photo studio: a seamless dark backdrop, a soft key light and a cool rim light"
+      },
+      "cafe": {
+        "description": "a stylish cafe: warm ambient light, a softly blurred background and a window seat"
+      },
+      "city_street": {
+        "description": "a modern city street at golden hour: glass buildings softly blurred behind"
+      },
+      "home_desk": {
+        "description": "a tidy home-office desk by a window: soft morning light and a few plants"
+      },
+      "conference_stage": {
+        "description": "a conference stage: a large softly blurred screen, stage lights and the audience in soft focus"
+      },
+      "coworking": {
+        "description": "a lively co-working space: warm pendant lights and people softly blurred in the background"
+      },
+      "abstract_gradient": {
+        "description": "no photo scene: an abstract gradient background built from the background and accent colours, with soft light blooms",
+        "photo": false
+      },
+      "abstract_wave": {
+        "description": "no photo scene: a deep dark background with a glowing particle-dot wave and a faint grid",
+        "photo": false
+      }
+    },
+    "wardrobe": {
+      "navy_suit": {
+        "description": "navy suit jacket, crisp white open-collar shirt, no tie"
+      },
+      "full_suit": {
+        "description": "dark tailored suit, white shirt and a plain dark tie"
+      },
+      "blazer_tee": {
+        "description": "charcoal unstructured blazer over a plain dark crew-neck T-shirt"
+      },
+      "oxford_shirt": {
+        "description": "light blue Oxford shirt with rolled sleeves, no jacket"
+      },
+      "knit_polo": {
+        "description": "dark knit polo shirt with smart trousers"
+      },
+      "fine_knit": {
+        "description": "fine-knit dark sweater over a white collared shirt"
+      }
+    },
+    "props": {
+      "desk_full": {
+        "description": "a laptop, a black coffee mug, a notebook with a pen and a small plant",
+        "scenes": ["office_night", "office_day", "home_desk", "coworking"]
+      },
+      "laptop_coffee": {
+        "description": "a laptop and a black coffee mug",
+        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking"]
+      },
+      "notebook_plant": {
+        "description": "an open notebook with a pen and a small plant",
+        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking"]
+      },
+      "tablet_phone": {
+        "description": "a tablet and a smartphone",
+        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking", "studio"]
+      },
+      "robot_mascot": {
+        "description": "a friendly white robot mascot beside a laptop",
+        "scenes": ["office_night", "office_day", "home_desk", "coworking", "studio"]
+      }
+    },
+    "decor": {
+      "stripes_wave": {
+        "description": "two glossy diagonal stripes at the top centre, a particle-dot wave at the bottom left and small dot grids"
+      },
+      "light_streaks": {
+        "description": "soft diagonal light streaks across one corner and a small dot grid in the opposite corner"
+      },
+      "line_frames": {
+        "description": "thin geometric line frames and small plus signs near the corners"
+      },
+      "particle_dust": {
+        "description": "fine glowing particle dust and a soft radial glow behind the main subject"
+      },
+      "arc_lines": {
+        "description": "large thin arc lines sweeping through two corners and small dot grids"
+      },
+      "hex_grid": {
+        "description": "a faint hexagon grid fading out from one corner with a few glowing nodes"
+      }
+    },
+    "holograms": {
+      "glass_tiles": {
+        "description": "glowing hologram icons (chat, calendar, people, mail, chart, gear, checklist, clock) inside glass tiles (rounded square, hexagon or circle), linked by thin glowing lines and orbiting a central \"AI\" chip or brain"
+      },
+      "dashboard": {
+        "description": "a floating translucent dashboard with simple charts, chat bubbles and a lead pipeline, linked by thin glowing lines to a small \"AI\" chip"
+      },
+      "orbit_rings": {
+        "description": "glowing outlined icons riding on thin orbit rings around a bright \"AI\" core"
+      },
+      "node_network": {
+        "description": "a network of glowing nodes and lines that forms a workflow, with a small outlined icon at each node and an \"AI\" chip at the centre"
+      }
+    },
+    "poses": {
+      "arms_crossed": {
+        "description": "standing with arms crossed, looking up and slightly off-camera"
+      },
+      "laptop": {
+        "description": "seated at a laptop, hands clasped",
+        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking"]
+      },
+      "profile": {
+        "description": "side profile, hand on chin, studying what is in front of him"
+      },
+      "leaning_back": {
+        "description": "leaning back in a chair, hands behind the head, smiling",
+        "scenes": ["office_night", "office_day", "home_desk", "coworking"]
+      },
+      "presenting": {
+        "description": "standing, gesturing with one open hand as if explaining something"
+      },
+      "relaxed": {
+        "description": "standing relaxed with one hand in a pocket, looking at the camera"
+      },
+      "walking": {
+        "description": "walking towards the camera mid-stride, relaxed and confident",
+        "scenes": ["office_day", "city_street", "coworking", "conference_stage"]
+      },
+      "stressed": {
+        "description": "stressed, hands on the head",
+        "auto": false
       }
     }
   },
-  "holograms": "Glowing hologram icons (chat, calendar, people, mail, chart, gear, checklist, clock) inside glass tiles (rounded square, hexagon or circle), linked by thin glowing lines and orbiting a central \"AI\" chip or brain.",
-  "iconRow": "A row of 3-4 outlined, glowing circle icons, each with its 1-2 word label underneath.",
-  "decor": "Two glossy diagonal stripes at the top centre, a particle-dot wave at the bottom left, and small dot grids.",
-  "props": "A laptop, a black coffee mug, a notebook with a pen and a small plant; optionally a friendly white robot mascot.",
-  "logo": "Always at the top right: the brand logo from the logo reference image, once and unaltered.",
   "layouts": {
     "A": {
       "use": "product / feature",
@@ -55,40 +219,110 @@
     "B": {
       "use": "trust / authority",
       "description": "Text panel on the left, the man on the right.",
-      "person": true,
-      "defaultPose": "arms_crossed"
+      "person": true
     },
     "C": {
-      "use": "trust / authority, for variety (alternate with B)",
+      "use": "trust / authority; alternate with B for variety",
       "description": "The man on the left, text panel on the right.",
-      "person": true,
-      "defaultPose": "profile"
+      "person": true
     },
     "D": {
-      "use": "pain vs gain (before / after)",
+      "use": "pain vs gain, before / after",
       "description": "Before/after diagonal split: on the left the man stressed at a dark, cluttered desk; on the right the same man relaxed in a bright office; a round \"»\" button sits in the middle of the split. The text panel sits in the lower part and covers neither face.",
       "person": true,
       "splitPoses": ["stressed", "leaning_back"]
     }
   },
-  "poses": {
-    "arms_crossed": "standing with arms crossed, looking up at the holograms",
-    "laptop": "seated at the laptop, hands clasped",
-    "profile": "side profile, hand on chin, studying a hologram dashboard",
-    "leaning_back": "leaning back in the chair, hands behind the head, smiling",
-    "stressed": "stressed, hands on the head"
-  },
-  "headlineFormulas": {
-    "contrast": "Less Busywork. More Qualified Leads.",
-    "pair": "AI Content. Human Strategy.",
-    "principle": "Automate The Routine, Keep The Strategy",
-    "question": "Still Answering Every Lead Manually?",
-    "idiom twist": "Work Smarter, Not Longer",
-    "promise": "Your Marketing, Running On Autopilot"
-  },
   "formats": {
+    "ad": {
+      "use": "an offer or service message with a call to action: headline, subheadline and CTA button, usually with the man",
+      "composition": "A premium tech-style graphic with a rich composition and no large empty areas. All text sits in the text panel; the layout decides where the man or the system visual stands.",
+      "required": ["headline", "subheadline", "cta"],
+      "optional": ["icons", "visual"],
+      "layouts": ["A", "B", "C", "D"],
+      "defaultLayout": "A",
+      "person": "layout",
+      "elements": ["textPanel", "holograms", "decor", "props"],
+      "headlineMaxWords": 6,
+      "styleSets": ["creative/facebook_ads"],
+      "styleRefs": 3
+    },
+    "statement": {
+      "use": "one bold sentence: an opinion or insight that stands on its own",
+      "composition": "A bold statement graphic: the one sentence is set very large and is the only focal point, directly on the background with strong contrast and generous margins; the scene is only a soft, darkened, out-of-focus backdrop. No text panel, no person, no subheadline, no button.",
+      "required": ["headline"],
+      "person": "never",
+      "elements": ["decor"],
+      "headlineMaxWords": 12,
+      "labels": {"headline": "Statement"},
+      "typography": {"headline": "ALL CAPS, extra-bold, very large, 3-5 short lines that fill most of the frame."},
+      "styleSets": ["creative/carousels"],
+      "styleRefs": 3
+    },
+    "stat": {
+      "use": "one big number from the research plus one context line",
+      "composition": "A data graphic: one very large number is the focal point with one context line directly below it, set on the background with strong contrast; the scene is only a soft, darkened, out-of-focus backdrop. No text panel, no person, no button, no charts or extra figures.",
+      "required": ["stat", "subheadline"],
+      "person": "never",
+      "elements": ["decor"],
+      "labels": {"stat": "Big number", "subheadline": "Context line"},
+      "typography": {"subheadline": "Regular weight, sentence case, 1-2 lines, directly below the number."},
+      "styleSets": ["creative/carousels"],
+      "styleRefs": 3
+    },
+    "news": {
+      "use": "a news item from the research in one line, plus what it means for the audience",
+      "composition": "A news graphic: the text panel shows the news in one bold line, then a small label and the line that says what it means for the reader. Without the man, the scene is only a soft, darkened backdrop behind the panel. No button.",
+      "required": ["headline", "subheadline"],
+      "layouts": ["B", "C"],
+      "person": "layout",
+      "elements": ["textPanel", "decor"],
+      "headlineMaxWords": 14,
+      "headlineCaps": false,
+      "labels": {"headline": "News line", "subheadline": "Meaning line"},
+      "fixedTexts": {"Small label above the meaning line": "What it means"},
+      "typography": {"headline": "Bold, sentence case, 2-3 lines."},
+      "styleSets": ["creative/carousels"],
+      "styleRefs": 3
+    },
+    "carousel": {
+      "use": "a topic taught in slides: a hook slide with the man, tip slides, and a last slide with the call to action",
+      "composition": "One slide of a carousel; every slide shares the same background, text panel and decor so the series looks consistent.",
+      "required": ["headline"],
+      "optional": ["subheadline", "visual", "cta"],
+      "layouts": ["B", "C"],
+      "defaultLayout": "B",
+      "person": "layout",
+      "elements": ["textPanel", "decor"],
+      "headlineMaxWords": 8,
+      "styleSets": ["creative/carousels"],
+      "styleRefs": 3
+    },
+    "person_photo": {
+      "use": "a human or behind-the-scenes moment: the man in a scene with almost no text",
+      "composition": "A photorealistic photo of the man in the scene, like a professional portrait or lifestyle shot with natural depth of field. No text panel and no graphics over the photo: only the logo, plus the small caption if one is listed below.",
+      "optional": ["headline"],
+      "person": "always",
+      "elements": ["props"],
+      "headlineMaxWords": 3,
+      "labels": {"headline": "Small caption"},
+      "typography": {"headline": "Small, bold, ALL CAPS, one line in a lower corner."},
+      "styleRefs": 0
+    },
+    "checklist": {
+      "use": "a how-to in 3-5 short steps with icons",
+      "composition": "A checklist graphic: a short title, then the steps as a numbered vertical list in the text panel, each step with a small outlined glowing icon that illustrates it; the scene is only a soft, darkened backdrop behind the panel. No person, no button.",
+      "required": ["headline", "steps"],
+      "person": "never",
+      "elements": ["textPanel", "decor"],
+      "labels": {"headline": "Title"},
+      "styleSets": ["creative/carousels"],
+      "styleRefs": 3
+    }
+  },
+  "kinds": {
     "organic": {
-      "description": "an organic social media post graphic: educational, one clear idea, with a soft call to action",
+      "description": "an organic social media post graphic: educational, with one clear idea",
       "aspects": ["4:5", "1:1"]
     },
     "ad": {
@@ -101,25 +335,30 @@
       "safeZone": "Keep the top 13% and the bottom 13% of the frame free of text, logo and buttons; only background and decor continue there. Place the logo at the top right just below the top safe zone."
     },
     "carousel_slide": {
-      "description": "one slide of a social media carousel; every slide shares the same design so the series looks consistent",
+      "description": "one slide of a social media carousel",
       "aspects": ["4:5", "1:1"]
     }
   },
   "carousel": {
     "slides": {
-      "hook": "Slide 1, the hook: the man with the headline that stops the scroll.",
-      "tip": "A tip slide: exactly one tip (the headline) with one large glowing icon that illustrates it. No person.",
+      "hook": "Slide 1, the hook: the man with the headline that stops the scroll. No button.",
+      "tip": "A tip slide: exactly one tip (the headline) with one large glowing icon that illustrates it. No person, no button.",
       "cta": "The last slide: the call to action is the focal point, with the CTA button and the logo clearly visible. No person."
     },
     "navigation": "Swipe chevrons at the top left and slide dots at the bottom left (one dot per slide, the current slide's dot lit in the accent colour)."
   },
-  "person": {
-    "wardrobe": "navy suit jacket, crisp white open-collar shirt, no tie"
+  "headlineFormulas": {
+    "contrast": "Less Busywork. More Qualified Leads.",
+    "pair": "AI Content. Human Strategy.",
+    "principle": "Automate The Routine, Keep The Strategy",
+    "question": "Still Answering Every Lead Manually?",
+    "idiom twist": "Work Smarter, Not Longer",
+    "promise": "Your Marketing, Running On Autopilot"
   },
   "rules": {
     "organic": [
       "Educational: teach one idea.",
-      "Soft CTA, such as \"Learn more\", \"Read now\" or \"Swipe →\"."
+      "Soft CTA where the format has one, such as \"Learn more\", \"Read now\" or \"Swipe →\"."
     ],
     "ad": [
       "One message, one offer, one CTA.",

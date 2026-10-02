@@ -6,8 +6,11 @@ copies in each set's _resized/ folder.
 
 import hashlib
 import os
+import random
 import re
+import zlib
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -431,6 +434,77 @@ def select_style_refs(
         for index in spread_indices(len(open_queues), max_n - len(picked)):
             picked.append(open_queues[index].pop(0))
     return [_as_reference(ref_set, asset) for asset in picked]
+
+
+def creative_sets(
+    names: Sequence[str], root: Path | None = None, *, strict: bool = False
+) -> list[ReferenceSet]:
+    """Creative sets named by set ID or by a folder of sets (creative/carousels).
+
+    strict: a name that matches nothing is looked up like any set name and fails clearly.
+    """
+    sets = list_sets("creative", root)
+    found: dict[str, ReferenceSet] = {}
+    for name in names:
+        wanted = name.strip("/")
+        matches = [s for s in sets if s.set_id == wanted or s.set_id.startswith(f"{wanted}/")]
+        if not matches and strict:
+            match = load_set(wanted, root)
+            if match.type != "creative":
+                raise ReferenceLibraryError(
+                    f"{match.set_id} is a {match.type} set; a creative set is needed for style."
+                )
+            matches = [match]
+        for match in matches:
+            found[match.set_id] = match
+    return list(found.values())
+
+
+def select_rotating_style_refs(
+    names: Sequence[str],
+    max_n: int,
+    root: Path | None = None,
+    *,
+    avoid: Sequence[str] = (),
+    seed: str = "",
+    strict: bool = False,
+) -> tuple[list[ReferenceImage], list[str]]:
+    """Up to max_n style images from the named creative sets, and the set IDs they came from.
+
+    One image per video/file. Asset IDs in ``avoid`` (newest first) are used only when too
+    few others remain, the one used longest ago first. The rest is shuffled by ``seed`` and
+    taken from different sets where possible, so the same inputs give the same images.
+    """
+    if max_n <= 0:
+        return [], []
+    candidates: list[tuple[ReferenceSet, RefAsset]] = []
+    for ref_set in creative_sets(names, root, strict=strict):
+        groups: dict[str, list[RefAsset]] = {}
+        for asset in sorted(ref_set.ok_assets, key=lambda a: natural_key(a.file)):
+            groups.setdefault(_source_key(asset.file), []).append(asset)
+        for items in groups.values():
+            best = min(items, key=lambda a: (_frame_preference(a.file), natural_key(a.file)))
+            candidates.append((ref_set, best))
+    last_used: dict[str, int] = {}
+    for position, asset_id in enumerate(avoid):
+        last_used.setdefault(asset_id, position)
+    fresh = [item for item in candidates if item[1].asset_id not in last_used]
+    random.Random(zlib.crc32(seed.encode("utf-8"))).shuffle(fresh)
+    stale = sorted(
+        (item for item in candidates if item[1].asset_id in last_used),
+        key=lambda item: -last_used[item[1].asset_id],
+    )
+    picked: list[tuple[ReferenceSet, RefAsset]] = []
+    for pool, one_per_set in ((fresh, True), (fresh, False), (stale, False)):
+        for ref_set, asset in pool:
+            if len(picked) >= max_n:
+                break
+            taken = any(asset.asset_id == other.asset_id for _, other in picked)
+            same_set = any(ref_set.set_id == other.set_id for other, _ in picked)
+            if not taken and not (one_per_set and same_set):
+                picked.append((ref_set, asset))
+    refs = [_as_reference(ref_set, asset) for ref_set, asset in picked]
+    return refs, sorted({ref_set.set_id for ref_set, _ in picked})
 
 
 def select_logo_ref(

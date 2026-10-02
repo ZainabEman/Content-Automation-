@@ -48,19 +48,31 @@ photos of people who have agreed to this use.
 - **Three workflows** that turn a short scene description into a full prompt: they add the
   right reference photos, say what each photo is for (the person, the logo, or style only),
   and add the brand rules from `brand.json` automatically. Any text in an image is in English.
-- **Design system** (`config/design_system.json`): the look of our real ads, written down once:
-  dark-tech office at night, a glass text panel, capital headlines with highlight words, a CTA
-  button, hologram icons, decor, props, four layouts (A–D), five poses, headline formulas, and the
-  rules for organic posts, ads, stories and carousels. Every designed graphic (`social_creative`)
-  is built from it. It names colours only by role (background, accent/glow, highlight, text);
-  the actual colours, the fonts and the logo always come from `brand.json`.
-- **Consistent person**: every design that shows the man (layouts B, C, D and carousel hook
-  slides) always gets his reference photos (`DEFAULT_IDENTITY_SET`), and the prompt tells the model
+- **Design system** (`config/design_system.json`), in three parts:
+  - a fixed **core** that is always on: the brand colours (named by role: background,
+    accent/glow, highlight, text; the actual colours come from `brand.json`), the fonts, the logo
+    rule, the identity rules and the text-accuracy rules;
+  - **pools** of things that vary: 10 scenes (office by day or night, studio, cafe, city street,
+    home desk, conference stage, co-working space, two abstract backgrounds without a photo
+    scene), 6 wardrobes (smart-casual to suit), props, decor, hologram styles and poses;
+  - seven post **formats** (see "Designed graphics"). The glass text panel, holograms, decor and
+    props are optional parts: each format shows only the ones it lists.
+- **Variety**: what you do not set (scene, wardrobe, props, decor, pose) is picked from the pools
+  and avoids what the last 5 content packages used. The same request always gets the same picks,
+  so a dry run shows what the real run will use. The picks are saved in `details.json`
+  (`inputs`) and, for packages, in `package.json` (`picks`). The style examples rotate too: up to
+  3 that fit the format (ads: `creative/facebook_ads`; text formats: the carousel sets), and none
+  for a person photo.
+- **Consistent person**: every design that shows the man (layouts B, C, D, carousel hook
+  slides, person photos) always gets his reference photos (`DEFAULT_IDENTITY_SET`), and the prompt tells the model
   to keep exactly that face, hair, skin tone and age, without beautifying him or adding glasses, a
   beard or accessories. His face is never described in words; the photos define it. Style
   examples are used for layout and look only, never for a person.
 - **Exact text only**: the image shows only the texts you give (headline, subheadline, CTA label,
-  icon labels, slide number), exactly as written and in the language of `brand.json`.
+  big number, steps, icon labels, slide number), exactly as written and in the language of
+  `brand.json`.
+- **Real numbers only**: a `stat` post is refused unless its number is written in the saved
+  research article you name as its source.
 - **Services, not products**: `person_service` shows the person delivering one of the
   company's services, described in words (no product photos needed).
 - **Company profile** (`docs/company/services.md`): who Branded Genius is, its 7 services, core
@@ -155,27 +167,44 @@ The three workflows:
 |---|---|---|
 | `person_lifestyle` | The person in a real-life scene | `--set` (the person); style set optional |
 | `person_service` | The person delivering or presenting one of the company's services | `--set` and `--service "…"` (the service in words) |
-| `social_creative` | A designed post, ad, story or carousel slide in our ad style | `--kind`, `--layout` and the texts (see "Designed graphics" below); the logo and, where the man is shown, his photos are added automatically |
+| `social_creative` | A designed post in one of seven formats | `--format` and its texts (see "Designed graphics" below); the logo and, where the man is shown, his photos are added automatically |
 
 If Codex doesn't specify them, the shape is 4:5 (Instagram feed) and it makes 3 versions. Brand colours,
 tone and "don't" rules are added automatically, so you don't need to repeat them.
 
 ### Designed graphics (how Codex chooses)
 
+First the **format** (`--format`, default `ad`). Each format takes only its own texts; anything
+else is refused with a message that names what to change.
+
+| Format | What it shows | Texts | Person | CTA button |
+|---|---|---|---|---|
+| `ad` | Headline, subheadline and button in the glass panel, with holograms | `--headline` (max 6 words), `--subheadline`, `--cta`; optional `--icons`, `--visual` | With layout B, C or D | Yes |
+| `statement` | One bold sentence, large, on the background | `--headline` (the sentence, max 12 words) | No | No |
+| `stat` | One big number and one context line | `--stat "58%"`, `--subheadline` (context), `--source <articleId>` | No | No |
+| `news` | The news in one line, then "What it means" | `--headline` (max 14 words), `--subheadline`; optional `--source` | Only with `--layout B` or `C` | No |
+| `carousel` | One slide: hook (slide 1), tips, call to action (last slide) | `--slide N/TOTAL`, `--headline`; optional `--subheadline`, `--visual` (tip icon); `--cta` on the last slide only | Slide 1 only | Last slide only |
+| `person_photo` | The man in a scene, no panel, logo only | Optional `--headline` of 0–3 words | Yes | No |
+| `checklist` | A title and 3–5 numbered steps with icons | `--headline` (title), `--steps "One\|Two\|Three"` | No | No |
+
+A `stat` number must be written in the research article given as `--source` (the IDs are in a
+package's `research.md` or in `uv run ca research digest`); otherwise the request is refused.
+
+Then the details:
+
 | Choice | Options | How to pick |
 |---|---|---|
-| `--kind` | `organic`, `ad`, `story`, `carousel_slide` | **Organic** = educational, with a soft CTA ("Learn more", "Read now", "Swipe →"). **Ad** = one message, one offer, one CTA; offer words (free, analysis, demo, in 15 minutes); at most one proof number and only if it is real (from `docs/company/services.md`); short text; 3 variants. **Story** = 9:16 with the top and bottom 13% kept free of text and logo. |
-| `--layout` | `A`, `B`, `C`, `D` | **A** text left + system visual right, no person (product or feature). **B** text left + person right, **C** person left + text right (trust and authority; alternate B and C between posts). **D** before/after split: the same person stressed on the left, relaxed on the right (pain vs gain). |
-| `--pose` (B, C) | `arms_crossed`, `laptop`, `profile`, `leaning_back`, `stressed` | Vary it between posts. Default: B `arms_crossed`, C `profile`. |
-| `--headline` + `--highlight` | at most 6 words; 1–2 highlight words | Use one formula: contrast, pair, principle, question, idiom twist or promise (examples in `config/design_system.json`). Shown in capitals. |
-| `--subheadline` + `--sub-highlight` | one short sentence; one highlight word | Always fill it: no empty designs. |
-| `--cta` + `--cta-icon` | button label; `arrow`, `calendar`, `play` | Always fill the label. The icon follows the action: arrow (learn/try/analyze), calendar (book), play (demo); it is chosen from the label unless you set it. |
-| `--icons` | 3–4 labels of 1–2 words | Optional icon row, e.g. `"Chatbots,CRM,Email"`. |
-| `--visual` (A) | free text | What the system visual on the right shows. |
-| `--slide`, `--slide-role` | `N/TOTAL`; `hook`, `tip`, `cta` | Carousel: slide 1 is the hook with the person, slides 2–4 show one tip + icon each, the last slide is the CTA + logo. |
+| `--kind` | `organic` (default), `ad`, `story` | **Organic** = educational; a soft CTA where the format has one ("Learn more", "Read now"). **Ad** (only with format `ad`) = one message, one offer, one CTA; offer words (free, analysis, demo, in 15 minutes); at most one proof number and only if it is real (from `docs/company/services.md`); short text; 3 variants. **Story** = 9:16 with the top and bottom 13% kept free of text and logo. |
+| `--layout` (format `ad`) | `A`, `B`, `C`, `D` | **A** text left + system visual right, no person (product or feature). **B** text left + person right, **C** person left + text right (trust and authority; alternate B and C between posts). **D** before/after split: the same person stressed on the left, relaxed on the right (pain vs gain). |
+| `--headline` + `--highlight` | 1–2 highlight words from the headline | Format `ad`: use one formula: contrast, pair, principle, question, idiom twist or promise (examples in `config/design_system.json`). Shown in capitals (not in `news`). |
+| `--subheadline` + `--sub-highlight` | one short sentence; one highlight word | Format `ad`: always fill it. |
+| `--cta` + `--cta-icon` | button label; `arrow`, `calendar`, `play` | The icon follows the action: arrow (learn/try/analyze), calendar (book), play (demo); it is chosen from the label unless you set it. |
+| `--icons` (format `ad`) | 3–4 labels of 1–2 words | Optional icon row, e.g. `"Chatbots,CRM,Email"`. |
+| `--visual` | free text | Layout A: what the system visual shows. Carousel tip slide: what the icon shows. |
+| `--scene`, `--wardrobe`, `--props`, `--pose` | an ID from the pools in `config/design_system.json`, or your own words | Usually leave them out: they are picked for variety. Set one only when you want something specific. |
 
 Shapes: organic 4:5 (or 1:1), ads 1:1 or 4:5, stories 9:16. Designed graphics are made at 2K.
-The logo is always placed at the top right. Never describe the man's face in `--prompt`.
+The logo is always placed at the top right. Never describe the man's face.
 
 ### Example Codex requests
 
@@ -193,31 +222,48 @@ The logo is always placed at the top right. Never describe the man's face in `--
    ```
 4. "A Facebook ad saying 'Grow faster with AI', with me in it" (3 variants by default)
    ```
-   uv run ca image --workflow social_creative --kind ad --layout B --pose arms_crossed --headline "Grow Faster With AI" --highlight "AI" --subheadline "One AI marketing system for content, leads and follow-ups." --sub-highlight "system" --cta "Book a demo" --aspect 4:5 --prompt "Modern office at night, city lights in soft focus behind glass, cool rim light, 35mm" --request "A Facebook ad saying 'Grow faster with AI', with me in it"
+   uv run ca image --workflow social_creative --format ad --kind ad --layout B --headline "Grow Faster With AI" --highlight "AI" --subheadline "One AI marketing system for content, leads and follow-ups." --sub-highlight "system" --cta "Book a demo" --aspect 4:5 --request "A Facebook ad saying 'Grow faster with AI', with me in it"
    ```
-5. "An Instagram post about our AI chatbots, no person"
+5. "A bold statement post: AI does not replace your team, it frees it"
    ```
-   uv run ca image --workflow social_creative --kind organic --layout A --headline "Still Answering Every Lead Manually?" --highlight "Manually" --subheadline "An AI chatbot answers questions and captures leads around the clock." --sub-highlight "chatbot" --cta "Learn more" --icons "Chatbots,CRM,Follow-ups" --visual "A floating chat window connected by glowing lines to a CRM dashboard" --count 3 --prompt "Desk in a modern office at night, soft bokeh, cool rim light" --request "An Instagram post about our AI chatbots, no person"
+   uv run ca image --workflow social_creative --format statement --headline "AI does not replace your team. It frees it." --highlight "frees" --count 3 --request "A bold statement post: AI does not replace your team, it frees it"
    ```
-6. "The first slide of a 5-slide carousel: '3 AI tools every marketer needs'"
+6. "A stat post with the 58% from the AEO article"
    ```
-   uv run ca image --workflow social_creative --kind carousel_slide --slide 1/5 --headline "3 AI Tools Every Marketer Needs" --highlight "AI Tools" --subheadline "Swipe to see where to start." --cta "Swipe →" --count 1 --prompt "Modern office at night, soft bokeh, cool rim light" --request "The first slide of a 5-slide carousel: '3 AI tools every marketer needs'"
+   uv run ca image --workflow social_creative --format stat --stat "58%" --source <articleId> --subheadline "<what the article says the 58% measures>" --count 3 --request "A stat post with the 58% from the AEO article"
+   ```
+7. "A checklist post: how to set up lead follow-up"
+   ```
+   uv run ca image --workflow social_creative --format checklist --headline "Set Up Lead Follow-Up" --steps "Capture every inquiry in one place|Answer the first question with a chatbot|Send a follow-up within one day" --count 3 --request "A checklist post: how to set up lead follow-up"
+   ```
+8. "A photo of me in a cafe for Instagram, no text"
+   ```
+   uv run ca image --workflow social_creative --format person_photo --scene cafe --count 3 --request "A photo of me in a cafe for Instagram, no text"
+   ```
+9. "The first slide of a 5-slide carousel: '3 AI tools every marketer needs'" (run it again with
+   `--slide 2/5` … `5/5`; all slides of one carousel get the same scene, decor and style examples)
+   ```
+   uv run ca image --workflow social_creative --format carousel --slide 1/5 --headline "3 AI Tools Every Marketer Needs" --highlight "AI Tools" --subheadline "Swipe to see where to start." --request "The first slide of a 5-slide carousel: '3 AI tools every marketer needs'"
    ```
 
 ### Running a command yourself
 
 - `--workflow`: one of the three workflows above. Leave it out for "raw" mode: the prompt is
   sent exactly as written, with no photos or brand rules.
-- `--prompt`: what the picture should show (required).
+- `--prompt`: what the picture should show (required for photos and raw mode; not needed for
+  `social_creative`, where it is taken as the scene if you give one).
 - `--set`, `--style`: which reference sets to use (see `uv run ca refs list`).
 - `--service`: for `person_service`, the service shown, in words.
 - `--product`: for `social_creative` only, a product photo set (if you ever add one).
-- `--kind`, `--layout`, `--pose`, `--headline`, `--highlight`, `--subheadline`,
-  `--sub-highlight`, `--cta`, `--cta-icon`, `--icons`, `--visual`, `--slide`, `--slide-role`:
-  for `social_creative` only (see "Designed graphics" above). `--variant` is the old name of
-  `--kind` (`post` = `organic`); `--logo` is no longer needed there.
+- `--format`, `--kind`, `--layout`, `--pose`, `--scene`, `--wardrobe`, `--props`, `--headline`,
+  `--highlight`, `--subheadline`, `--sub-highlight`, `--cta`, `--cta-icon`, `--icons`,
+  `--visual`, `--stat`, `--source`, `--steps`, `--slide`, `--slide-role`: for `social_creative`
+  only (see "Designed graphics" above). `--variant` is the old name of `--kind` (`post` =
+  `organic`); `--logo` is no longer needed there.
 - `--set` with `social_creative`: only to show a different person than `DEFAULT_IDENTITY_SET`.
-  Layout A has no person and takes no `--set`.
+  Designs without a person take no `--set`.
+- `--style` with `social_creative`: only to force one style set; normally the style examples
+  are chosen per format and rotate.
 - `--aspect`: `1:1` square, `4:5` Instagram portrait, `9:16` story/reel, `16:9` wide (photos
   only). Designs allow: organic and carousel 4:5 or 1:1, ads 1:1 or 4:5, stories 9:16.
 - `--count`: how many versions, 1 to 4. Default 1, ads 3 (Codex uses 3).
@@ -236,7 +282,7 @@ job or contacting any provider.
 |---|---|
 | `uv run ca hello` | Shows your settings (keys are hidden). |
 | `uv run ca image --workflow <id> --set … --prompt "…" [--service "…"] [--style …] [--aspect 4:5] [--count N] [--request "…"]` | Makes photos with a workflow and prints the output folder. |
-| `uv run ca image --workflow social_creative --kind … --layout … [--pose …] --headline "…" [--highlight "…"] --subheadline "…" [--sub-highlight "…"] --cta "…" [--cta-icon …] [--icons "…"] [--visual "…"] [--slide N/TOTAL] [--slide-role …] --prompt "…"` | Makes a designed graphic from the design system. |
+| `uv run ca image --workflow social_creative --format … [--kind …] [--layout …] [--headline "…"] [--highlight "…"] [--subheadline "…"] [--sub-highlight "…"] [--cta "…"] [--icons "…"] [--visual "…"] [--stat "…" --source <id>] [--steps "…\|…\|…"] [--slide N/TOTAL] [--scene …] [--wardrobe …] [--props …] [--pose …]` | Makes a designed graphic in one of the seven formats. |
 | `uv run ca image --prompt "…" [--aspect 4:5] [--count N]` | Raw mode: sends the prompt as written. |
 | `uv run ca image … --dry-run` | Shows prompt, references, calls and estimated cost; makes nothing. |
 | `uv run ca refs frames` | Saves 3 still frames of each reference video into `_frames/`. |
@@ -251,8 +297,9 @@ Each request creates: `outputs/jobs/YYYY-MM-DD/HHmm_<short-name>/`
 
 - `image-1.png`, `image-2.png`, …: the images.
 - `details.json`: the record. Key fields: `status`, `workflowId` and `workflowVersion`,
-  `request` (your words), `prompt` (the full text sent), `inputs` (scene, sets, service, and for
-  designs: kind, layout, pose, headline, highlight, subheadline, CTA, icons, slide),
+  `request` (your words), `prompt` (the full text sent), `inputs` (sets, service, and for
+  designs: format, kind, layout, the texts, the stat source, and the picks: scene, wardrobe,
+  props, decor, holograms, pose),
   `identityAssetIds` / `productAssetIds` / `brandAssetIds` / `styleAssetIds` (exactly which
   reference photos were sent), `provider`, `model`, `params` (shape, size, count), `outputs`
   (file names), `error` (why it failed, if it did), `estCostUsd` (estimate), `actualCostUsd`
@@ -304,8 +351,9 @@ Set these in `.env`:
   2 minutes and was stopped by the time limit (it was not charged). If that happens often, set
   `IMAGE_TIMEOUT_MS=300000` (5 minutes).
 - Up to 4 images per request; shapes 1:1, 4:5, 9:16, 16:9.
-- Reference photos per request: up to **14 in total**; photos of the person up to
-  `IMAGE_IDENTITY_REFS_MAX` (default 4). Requests over this are refused before anything is sent.
+- Reference photos per request: **14 in total at most** (the model's limit); photos of the
+  person up to `IMAGE_IDENTITY_REFS_MAX` (default 4). If it would be more than 14, style
+  examples are left out first; the person's photos and the logo are never dropped.
 - The daily limit (`IMAGE_DAILY_LIMIT`) counts real images that were actually made today; when
   it is reached, requests are refused before any provider call.
 - Temporary errors (rate limit, server busy) are retried per image; images already made are
@@ -326,14 +374,19 @@ Set these in `.env`:
 | `OpenRouter returned no image` | Often a safety block: reword the prompt or use other reference photos. |
 | Extra text you did not ask for (for example a German button like "Mehr erfahren") | The style examples can bring in their own text. Check every post before use; pick the other version or run it again. |
 | `… did not respond within … seconds` / `did not respond in time` | The image took too long (more likely with many photos of the person). Try again, or raise `IMAGE_TIMEOUT_MS` (e.g. `300000`). |
-| `… reference images in total (max 14)` | Lower `IMAGE_IDENTITY_REFS_MAX` or `--style-count`. |
+| `… identity photos plus the logo are more than the 14 reference images the model accepts` | Lower `IMAGE_IDENTITY_REFS_MAX`. |
 | `Invalid image request: aspect_ratio` | Use one of 1:1, 4:5, 9:16, 16:9. |
 | `Failed: …` and exit code 1 | Open the printed folder's `details.json` and read `error`. |
 | `rejected x.jpg: too small` | Use a larger photo (512 px short side; logos 256 px). |
 | `rejected x.svg` / `x.pdf` | Export it as PNG or JPG and put the image in the set folder. |
 | `skipped …: no JPG/PNG/WebP images` | The folder only has PDFs or other files; add images. If it has videos, run `uv run ca refs frames`. |
 | `Layout B shows the person, so identity photos are required, but: …` | The person's photos are missing or not scanned. Add them to `assets/reference/identity/person_01/`, run `uv run ca refs scan`, or point `DEFAULT_IDENTITY_SET` / `--set` to the right set. |
-| `Layout A shows no person: remove --set …` | Layout A has no person. Drop `--set`, or use layout B, C or D. |
+| `Layout A shows no person: remove --set …` (or `Format … shows no person`) | That design has no person. Drop `--set` (or `--wardrobe`), or pick a layout or format that shows him. |
+| `--format … does not use --…` / `--format … needs --…` | Each format takes only its own texts (see the format table). Remove or add the named option. |
+| `Refused: the number "…" is not in research article …` | A stat must be written in the article you name. Use the number exactly as the article has it, or choose another format. |
+| `--source … is not a saved research article` | Use an article ID from `research.md` or `uv run ca research digest`. |
+| `Only the last carousel slide has a CTA button` / `The last carousel slide needs --cta` | The button belongs on the last slide only. |
+| `--headline has more than N words` | Shorten it; each format has its own limit (ad 6, statement 12, news 14, person photo 3). |
 | `--aspect for --kind … must be one of: …` | That kind of design has fixed shapes (organic 4:5/1:1, ad 1:1/4:5, story 9:16). |
 | `--highlight takes 1-2 words from --headline` / `--sub-highlight must be a word from --subheadline` | The highlight words must appear in the text they belong to. |
 | `--icons takes 3-4 labels of 1-2 words each` | Shorten or regroup the icon labels. |

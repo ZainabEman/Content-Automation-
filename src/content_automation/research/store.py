@@ -1,6 +1,7 @@
 """Article files and run reports under RESEARCH_DIR."""
 
 import hashlib
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -14,6 +15,8 @@ ARTICLES_DIR = "articles"
 RUNS_DIR = "runs"
 _TRACKING_PREFIXES = ("utm_", "hsa_", "_hs")
 _TRACKING_NAMES = frozenset({"fbclid", "gclid", "mc_cid", "mc_eid", "ref"})
+_ARTICLE_ID = re.compile(r"[0-9a-f]{16}")
+_NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
 
 
 def clean_url(url: str) -> str:
@@ -35,6 +38,29 @@ def article_id(url: str) -> str:
 
 def known_article_ids(research_dir: Path) -> set[str]:
     return {path.stem for path in research_dir.glob(f"{ARTICLES_DIR}/*/*.json")}
+
+
+def find_article(research_dir: Path, wanted_id: str) -> SourceArticle | None:
+    """The saved article with this ID, or None."""
+    if not _ARTICLE_ID.fullmatch(wanted_id):
+        return None
+    for path in research_dir.glob(f"{ARTICLES_DIR}/*/{wanted_id}.json"):
+        try:
+            return SourceArticle.model_validate_json(path.read_text(encoding="utf-8"))
+        except (OSError, ValidationError):
+            continue
+    return None
+
+
+def number_in_article(text: str, article: SourceArticle) -> bool:
+    """True when every number in ``text`` (e.g. "73%") is written in the article."""
+    wanted = _numbers(text)
+    found = _numbers(f"{article.title}\n{article.summary}\n{article.content}")
+    return bool(wanted) and wanted <= found
+
+
+def _numbers(text: str) -> set[str]:
+    return {match.replace(",", "") for match in _NUMBER.findall(text)}
 
 
 def save_article(research_dir: Path, article: SourceArticle) -> Path:

@@ -25,6 +25,8 @@ BRAND = {
     "imageStyle": "Bright natural light",
     "dont": ["Don't stretch the logo"],
 }
+# The texts the "ad" format (the default design) requires.
+AD_SUB, AD_CTA = "One system for content and leads.", "Learn more"
 
 
 def _image(path: Path, index: int, size: tuple[int, int] = (600, 800)) -> None:
@@ -116,6 +118,7 @@ def test_social_creative_ad_with_logo_headline_and_default_style(settings: Setti
         WorkflowInputs(
             prompt="Launch announcement", variant="ad", headline="Grow faster with AI",
             logo=True, product_set="mug", aspect_ratio="1:1",
+            subheadline=AD_SUB, cta=AD_CTA,
         ),
         settings,
     )
@@ -166,7 +169,10 @@ def test_wrong_set_type_is_rejected(settings: Settings) -> None:
     with pytest.raises(ValueError, match="product set is needed"):
         prepare_workflow(
             "social_creative",
-            WorkflowInputs(prompt="x", product_set="person_01"),
+            WorkflowInputs(
+                prompt="x", product_set="person_01", headline="x", subheadline=AD_SUB,
+                cta=AD_CTA,
+            ),
             settings,
         )
 
@@ -207,7 +213,9 @@ def test_cli_workflow_mode_and_errors(settings: Settings) -> None:
 def test_logo_file_from_brand_json_is_preferred(settings: Settings, library: Path) -> None:
     brand_file = library / "brand" / "brand.json"
     brand_file.write_text(json.dumps({**BRAND, "logoFile": "a-mark.jpg"}), encoding="utf-8")
-    inputs = WorkflowInputs(prompt="x", logo=True)
+    inputs = WorkflowInputs(
+        prompt="x", logo=True, headline="x", subheadline=AD_SUB, cta=AD_CTA
+    )
 
     prepared = prepare_workflow("social_creative", inputs, settings)
     assert prepared.brand_asset_ids == [_ids(settings, "brand/logo")["a-mark.jpg"]]

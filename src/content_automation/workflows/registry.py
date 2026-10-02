@@ -8,7 +8,8 @@ from content_automation.ai.image import AspectRatio
 InputName = Literal[
     "identity_set", "product_set", "style_set", "variant", "headline", "logo", "service",
     "kind", "layout", "pose", "highlight", "subheadline", "sub_highlight", "cta", "cta_icon",
-    "icons", "visual", "slide", "slide_role",
+    "icons", "visual", "slide", "slide_role", "format", "scene", "wardrobe", "props", "stat",
+    "source", "steps",
 ]
 RefCategory = Literal["identity", "product", "brand", "style"]
 DEFAULT_STYLE_COUNT = 3
@@ -34,6 +35,13 @@ INPUT_FLAGS: dict[InputName, str] = {
     "visual": "--visual",
     "slide": "--slide",
     "slide_role": "--slide-role",
+    "format": "--format",
+    "scene": "--scene",
+    "wardrobe": "--wardrobe",
+    "props": "--props",
+    "stat": "--stat",
+    "source": "--source",
+    "steps": "--steps",
 }
 
 
@@ -79,13 +87,14 @@ WORKFLOWS: dict[str, WorkflowSpec] = {
         ),
         WorkflowSpec(
             workflow_id="social_creative",
-            version="2",
-            description="Designed post, ad, story or carousel slide from the design system.",
+            version="3",
+            description="Designed post in one of the design system's formats.",
             required_inputs=(),
             optional_inputs=(
                 "identity_set", "product_set", "style_set", "variant", "headline", "logo",
                 "kind", "layout", "pose", "highlight", "subheadline", "sub_highlight", "cta",
-                "cta_icon", "icons", "visual", "slide", "slide_role",
+                "cta_icon", "icons", "visual", "slide", "slide_role", "format", "scene",
+                "wardrobe", "props", "stat", "source", "steps",
             ),
             default_aspect="4:5",
             ref_categories=("identity", "product", "brand", "style"),

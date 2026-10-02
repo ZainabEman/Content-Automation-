@@ -13,6 +13,7 @@ AvatarProvider = Literal["mock", "heygen-mcp"]
 VoiceProvider = Literal["none", "mock", "elevenlabs"]
 # "free" (default): our own scraper (RSS + article pages); no paid API, no account.
 ScraperProvider = Literal["free", "mock"]
+DesignSize = Literal["1K", "2K", "4K"]
 
 
 class ConfigurationError(ValueError):
@@ -43,6 +44,9 @@ class Settings(BaseSettings):
     image_timeout_ms: int = Field(default=120_000, gt=0)
     image_max_retries: int = Field(default=1, ge=0, le=5)
     image_identity_refs_max: int = Field(default=4, ge=1, le=14)
+    image_design_size: DesignSize = "2K"  # designed graphics (social_creative); photos stay 1K
+    design_system_file: Path = Path("config/design_system.json")
+    default_identity_set: str = Field(default="identity/person_01", min_length=1)
     openrouter_api_key: SecretStr | None = None
 
     video_provider: VideoProvider = "mock"

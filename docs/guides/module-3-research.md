@@ -89,17 +89,25 @@ For "make a post / ad / reel about X", Codex runs two commands and writes one fi
    `outputs/content/YYYY-MM-DD_<topic>/` with:
    - `research.md`: the best-matching articles with links;
    - `brief.template.json`: a pre-filled brief (topic, platform, formats, the company's
-     services, brand rules, and empty slots for the post, ad and reel);
+     services, brand rules, the design choices, and empty slots for the post, ad and reel);
    - `package.json`: the package record.
 2. Codex writes `brief.json` from the template (English; one of the services; no invented
-   results, statistics, prices or client names; headlines of at most 6 words).
+   results, statistics, prices or client names; headlines of at most 6 words). For the post
+   and the ad it picks the design: `layout` (A product/feature, B or C trust, D pain vs gain),
+   `pose`, `headline` with `highlight` words, `subheadline`, `cta` (always filled) and the
+   `scene`; see "Designed graphics" in the [Images guide](module-1-images.md). The caption has
+   a fixed shape: `hook` (line 1), 2–3 short `lines` (problem → solution), one `question` to
+   get comments, the `cta` with the `link`, and 3–5 English hashtags including `#BrandedGenius`.
+   To pre-fill the link, add a line `Website: https://…` to `docs/company/services.md`.
 3. `uv run ca content build "<folder>" --dry-run` checks `brief.json` (every problem is listed)
    and shows the cost. Codex waits for your OK.
 4. `uv run ca content build "<folder>"` makes:
-   - **post**: 2 image options (designed post with the headline, logo and brand style);
-   - **ad**: 1 ad image;
+   - **post**: 2 image options (designed post with headline, subheadline, CTA button and logo);
+   - **ad**: 3 ad variants (one message, one offer, one CTA; same branding);
    - **reel**: a 9:16 video whose first frame is the first post image;
-   - `post.md` (caption, call to action, hashtags, source links) and an updated `package.json`.
+   - `post.md` (the caption ready to paste, source links) and an updated `package.json`.
+
+   Designed images are made at 2K: 5 images cost about $0.51 with OpenRouter.
 
    Each part is saved as soon as it is done. If one part fails or waits (for example the video,
    while Higgsfield is not connected), the others still finish and the status says, for example,
@@ -124,7 +132,7 @@ For "make a post / ad / reel about X", Codex runs two commands and writes one fi
 
 Content packages are saved in `outputs/content/YYYY-MM-DD_<topic>/` (`PACKAGES_DIR`):
 `research.md`, `brief.template.json`, `brief.json`, `images/` (`post-1.png`, `post-2.png`,
-`ad-1.png`), `video/` (`plan.json`, `final.mp4`, `captions.srt`), `post.md` and `package.json`
+`ad-1.png` to `ad-3.png`), `video/` (`plan.json`, `final.mp4`, `captions.srt`), `post.md` and `package.json`
 (status, the job behind each part, costs, sources; `reviewer` and `note` for your review).
 The single jobs behind them are in `outputs/jobs/`.
 
@@ -164,6 +172,8 @@ Articles are saved in the `research/` folder (`RESEARCH_DIR`):
 | `no article text found on the page` | The link was not a normal article (for example a topic page). Nothing to do. |
 | Many "too old" | Normal for sites that post rarely; raise `RESEARCH_LOOKBACK_DAYS` if needed. |
 | `No articles from the last N days` | Run `uv run ca research collect` first, or use a larger `--days`. |
+| `brief.json has N problem(s)` with `withPerson: unknown field`, `subheadline: missing` or `caption: …` | The brief was written before the design system. Rewrite `post`, `ad`, `caption`, `link` and `hashtags` as in a new `brief.template.json`. |
+| `post images: cannot be made yet: …` (dry run) | A design choice in `brief.json` does not fit (for example a highlight word that is not in the headline); fix the named field. |
 
 ## Switching providers
 

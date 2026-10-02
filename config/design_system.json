@@ -1,0 +1,132 @@
+{
+  "style": "Premium dark-tech social graphic: a modern office at night with soft bokeh lights, photorealistic, cinematic cool rim lighting, high contrast, and a rich composition with no large empty areas.",
+  "colorRoles": {
+    "background": {
+      "usage": ["dark background", "main brand", "primary"],
+      "use": "the background, the glass panel and dark fills, as a deep, near-black night shade of it"
+    },
+    "accent": {
+      "usage": ["accent", "glow"],
+      "use": "glows, outlines, rim light, holograms and connecting lines"
+    },
+    "highlight": {
+      "usage": ["highlight"],
+      "use": "the highlight words in the headline and subheadline"
+    },
+    "text": {
+      "usage": ["text"],
+      "use": "all other text, the CTA label, arrows and chevrons"
+    }
+  },
+  "textPanel": "A dark translucent glass panel with rounded corners, a thin glowing outline in the accent colour and a slanted inner edge. It holds all text.",
+  "typography": {
+    "headline": "ALL CAPS, extra-bold, left-aligned, 3-4 short lines, with 1-2 highlight words in the highlight colour.",
+    "subheadline": "Regular weight, sentence case, 2-3 lines, with one highlight word in the highlight colour."
+  },
+  "ctaButton": {
+    "description": "A rounded rectangle at the bottom right with a dark fill, a glowing border in the accent colour and its label in the text colour, with a small icon beside the label.",
+    "pointer": "Optionally a small arrow or a row of chevrons in the text colour points at the button.",
+    "icons": {
+      "arrow": {
+        "icon": "an arrow inside a circle",
+        "actions": ["learn", "read", "try", "analyze", "analyse", "analysis", "swipe"]
+      },
+      "calendar": {
+        "icon": "a calendar",
+        "actions": ["book", "schedule"]
+      },
+      "play": {
+        "icon": "a play triangle",
+        "actions": ["demo", "watch"]
+      }
+    }
+  },
+  "holograms": "Glowing hologram icons (chat, calendar, people, mail, chart, gear, checklist, clock) inside glass tiles (rounded square, hexagon or circle), linked by thin glowing lines and orbiting a central \"AI\" chip or brain.",
+  "iconRow": "A row of 3-4 outlined, glowing circle icons, each with its 1-2 word label underneath.",
+  "decor": "Two glossy diagonal stripes at the top centre, a particle-dot wave at the bottom left, and small dot grids.",
+  "props": "A laptop, a black coffee mug, a notebook with a pen and a small plant; optionally a friendly white robot mascot.",
+  "logo": "Always at the top right: the brand logo from the logo reference image, once and unaltered.",
+  "layouts": {
+    "A": {
+      "use": "product / feature",
+      "description": "Text panel on the left, the system visual on the right. No person in the image.",
+      "person": false
+    },
+    "B": {
+      "use": "trust / authority",
+      "description": "Text panel on the left, the man on the right.",
+      "person": true,
+      "defaultPose": "arms_crossed"
+    },
+    "C": {
+      "use": "trust / authority, for variety (alternate with B)",
+      "description": "The man on the left, text panel on the right.",
+      "person": true,
+      "defaultPose": "profile"
+    },
+    "D": {
+      "use": "pain vs gain (before / after)",
+      "description": "Before/after diagonal split: on the left the man stressed at a dark, cluttered desk; on the right the same man relaxed in a bright office; a round \"»\" button sits in the middle of the split. The text panel sits in the lower part and covers neither face.",
+      "person": true,
+      "splitPoses": ["stressed", "leaning_back"]
+    }
+  },
+  "poses": {
+    "arms_crossed": "standing with arms crossed, looking up at the holograms",
+    "laptop": "seated at the laptop, hands clasped",
+    "profile": "side profile, hand on chin, studying a hologram dashboard",
+    "leaning_back": "leaning back in the chair, hands behind the head, smiling",
+    "stressed": "stressed, hands on the head"
+  },
+  "headlineFormulas": {
+    "contrast": "Less Busywork. More Qualified Leads.",
+    "pair": "AI Content. Human Strategy.",
+    "principle": "Automate The Routine, Keep The Strategy",
+    "question": "Still Answering Every Lead Manually?",
+    "idiom twist": "Work Smarter, Not Longer",
+    "promise": "Your Marketing, Running On Autopilot"
+  },
+  "formats": {
+    "organic": {
+      "description": "an organic social media post graphic: educational, one clear idea, with a soft call to action",
+      "aspects": ["4:5", "1:1"]
+    },
+    "ad": {
+      "description": "a social media advertisement graphic: one message, one offer and one call to action, with short text",
+      "aspects": ["1:1", "4:5"]
+    },
+    "story": {
+      "description": "a vertical story / reel graphic",
+      "aspects": ["9:16"],
+      "safeZone": "Keep the top 13% and the bottom 13% of the frame free of text, logo and buttons; only background and decor continue there. Place the logo at the top right just below the top safe zone."
+    },
+    "carousel_slide": {
+      "description": "one slide of a social media carousel; every slide shares the same design so the series looks consistent",
+      "aspects": ["4:5", "1:1"]
+    }
+  },
+  "carousel": {
+    "slides": {
+      "hook": "Slide 1, the hook: the man with the headline that stops the scroll.",
+      "tip": "A tip slide: exactly one tip (the headline) with one large glowing icon that illustrates it. No person.",
+      "cta": "The last slide: the call to action is the focal point, with the CTA button and the logo clearly visible. No person."
+    },
+    "navigation": "Swipe chevrons at the top left and slide dots at the bottom left (one dot per slide, the current slide's dot lit in the accent colour)."
+  },
+  "person": {
+    "wardrobe": "navy suit jacket, crisp white open-collar shirt, no tie"
+  },
+  "rules": {
+    "organic": [
+      "Educational: teach one idea.",
+      "Soft CTA, such as \"Learn more\", \"Read now\" or \"Swipe →\"."
+    ],
+    "ad": [
+      "One message, one offer, one CTA.",
+      "Use offer words: free, analysis, demo, in 15 minutes.",
+      "At most one proof number, and only if it is real (from docs/company/services.md).",
+      "Short text.",
+      "3 variants: a different headline or visual, the same branding."
+    ]
+  }
+}

@@ -6,7 +6,9 @@ from typing import Literal
 from content_automation.ai.image import AspectRatio
 
 InputName = Literal[
-    "identity_set", "product_set", "style_set", "variant", "headline", "logo", "service"
+    "identity_set", "product_set", "style_set", "variant", "headline", "logo", "service",
+    "kind", "layout", "pose", "highlight", "subheadline", "sub_highlight", "cta", "cta_icon",
+    "icons", "visual", "slide", "slide_role",
 ]
 RefCategory = Literal["identity", "product", "brand", "style"]
 DEFAULT_STYLE_COUNT = 3
@@ -20,6 +22,18 @@ INPUT_FLAGS: dict[InputName, str] = {
     "headline": "--headline",
     "logo": "--logo",
     "service": "--service",
+    "kind": "--kind",
+    "layout": "--layout",
+    "pose": "--pose",
+    "highlight": "--highlight",
+    "subheadline": "--subheadline",
+    "sub_highlight": "--sub-highlight",
+    "cta": "--cta",
+    "cta_icon": "--cta-icon",
+    "icons": "--icons",
+    "visual": "--visual",
+    "slide": "--slide",
+    "slide_role": "--slide-role",
 }
 
 
@@ -39,6 +53,7 @@ class WorkflowSpec:
     variants: tuple[str, ...] = ()
     default_variant: str | None = None
     default_style_set: str | None = None
+    designed: bool = False  # built from config/design_system.json; the logo is always added
 
 
 WORKFLOWS: dict[str, WorkflowSpec] = {
@@ -64,17 +79,20 @@ WORKFLOWS: dict[str, WorkflowSpec] = {
         ),
         WorkflowSpec(
             workflow_id="social_creative",
-            version="1",
-            description="Designed social post, ad or carousel slide in the brand style.",
+            version="2",
+            description="Designed post, ad, story or carousel slide from the design system.",
             required_inputs=(),
             optional_inputs=(
                 "identity_set", "product_set", "style_set", "variant", "headline", "logo",
+                "kind", "layout", "pose", "highlight", "subheadline", "sub_highlight", "cta",
+                "cta_icon", "icons", "visual", "slide", "slide_role",
             ),
             default_aspect="4:5",
             ref_categories=("identity", "product", "brand", "style"),
             variants=("post", "ad", "carousel_slide"),
             default_variant="post",
             default_style_set="creative/facebook_ads",
+            designed=True,
         ),
     )
 }

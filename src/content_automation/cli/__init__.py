@@ -42,6 +42,7 @@ from content_automation.research.run import (
 from content_automation.workflows.dry_run import dry_run_lines
 from content_automation.workflows.image_job import run_image_job
 from content_automation.workflows.image_workflows import (
+    AD_VARIANTS,
     WorkflowInputs,
     prepare_workflow,
     run_workflow,
@@ -135,17 +136,71 @@ def image(
         typer.Option(help=f"Style images to send (default {DEFAULT_STYLE_COUNT}).", min=1),
     ] = None,
     variant: Annotated[
-        str | None, typer.Option(help="social_creative: post, ad or carousel_slide.")
+        str | None, typer.Option(help="Old name of --kind: post (= organic), ad, carousel_slide.")
     ] = None,
-    headline: Annotated[str | None, typer.Option(help="Exact text to show in the image.")] = None,
-    logo: Annotated[bool, typer.Option("--logo", help="Add the brand logo.")] = False,
+    kind: Annotated[
+        str | None,
+        typer.Option(help="social_creative: organic (default), ad, story or carousel_slide."),
+    ] = None,
+    layout: Annotated[
+        str | None,
+        typer.Option(
+            help="A text + system visual (no person), B text + person, C person + text, "
+            "D before/after split."
+        ),
+    ] = None,
+    pose: Annotated[
+        str | None,
+        typer.Option(
+            help="Layouts B/C: arms_crossed, laptop, profile, leaning_back or stressed "
+            "(config/design_system.json)."
+        ),
+    ] = None,
+    headline: Annotated[
+        str | None, typer.Option(help="Headline, shown exactly as written in capitals.")
+    ] = None,
+    highlight: Annotated[
+        str | None,
+        typer.Option(help="1-2 headline words in the highlight colour, comma-separated."),
+    ] = None,
+    subheadline: Annotated[
+        str | None, typer.Option(help="Subheadline, shown exactly as written.")
+    ] = None,
+    sub_highlight: Annotated[
+        str | None, typer.Option(help="One subheadline word in the highlight colour.")
+    ] = None,
+    cta: Annotated[str | None, typer.Option(help='CTA button label, e.g. "Learn more".')] = None,
+    cta_icon: Annotated[
+        str | None,
+        typer.Option(help="arrow, calendar or play (default: chosen from the CTA label)."),
+    ] = None,
+    icons: Annotated[
+        str | None,
+        typer.Option(help='Icon row: 3-4 labels of 1-2 words, e.g. "Chatbots,CRM,Email".'),
+    ] = None,
+    visual: Annotated[
+        str | None, typer.Option(help="Layout A: the system visual shown on the right.")
+    ] = None,
+    slide: Annotated[
+        str | None, typer.Option(help="carousel_slide: slide number as N/TOTAL, e.g. 2/5.")
+    ] = None,
+    slide_role: Annotated[
+        str | None,
+        typer.Option(help="carousel_slide: hook, tip or cta (default: from --slide)."),
+    ] = None,
+    logo: Annotated[
+        bool, typer.Option("--logo", help="Add the brand logo (social_creative always does).")
+    ] = False,
     aspect: Annotated[
         str | None,
         typer.Option(
             help=f"Aspect ratio: {', '.join(ASPECT_RATIOS)} (default: workflow's; raw mode 1:1)."
         ),
     ] = None,
-    count: Annotated[int, typer.Option(min=1, max=4, help="Number of variations (1-4).")] = 1,
+    count: Annotated[
+        int | None,
+        typer.Option(min=1, max=4, help="Number of variations (1-4; default 1, ads 3)."),
+    ] = None,
     request: Annotated[
         str | None, typer.Option(help="The original plain-English request, for the record.")
     ] = None,
@@ -157,9 +212,12 @@ def image(
     ] = False,
 ) -> None:
     """Generate images and save them with a details.json record."""
+    _utf8_output()
     settings = _settings(dry_run=dry_run)
     if not dry_run:
         configure_logging(settings)
+    if count is None:
+        count = AD_VARIANTS if (kind or variant) == "ad" else 1
     inputs = WorkflowInputs(
         prompt=prompt,
         identity_set=identity_set,
@@ -173,6 +231,18 @@ def image(
         count=count,
         request=request,
         service=service,
+        kind=kind,
+        layout=layout,
+        pose=pose,
+        highlight=highlight,
+        subheadline=subheadline,
+        sub_highlight=sub_highlight,
+        cta=cta,
+        cta_icon=cta_icon,
+        icons=icons,
+        visual=visual,
+        slide=slide,
+        slide_role=slide_role,
     )
     try:
         if dry_run:
@@ -217,8 +287,7 @@ def _raw_request(inputs: WorkflowInputs) -> ImageRequest:
     """Raw mode: the prompt is sent as written, without references or brand rules."""
     if inputs.provided() or inputs.style_count is not None:
         raise WorkflowError(
-            "--set, --service, --product, --style, --style-count, --variant, --headline and "
-            "--logo need --workflow."
+            "Options other than --prompt, --aspect, --count and --request need --workflow."
         )
     try:
         return ImageRequest(

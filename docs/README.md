@@ -16,10 +16,11 @@ Ask Codex for a post, ad or reel about a topic. Codex follows `AGENTS.md`:
 
 1. `uv run ca content start --topic "…"` collects fresh news and creates a package folder in
    `outputs/content/YYYY-MM-DD_<topic>/` with `research.md` and `brief.template.json`.
-2. Codex writes `brief.json` (headline, scenes, reel, caption) from the research, the company
-   profile (`docs/company/services.md`) and the brand rules.
+2. Codex writes `brief.json` (designs, reel, caption) from the research, the company
+   profile (`docs/company/services.md`), the brand rules and the design system
+   (`config/design_system.json`).
 3. `uv run ca content build "<folder>" --dry-run` shows the cost; Codex waits for your OK.
-4. `uv run ca content build "<folder>"` makes 2 post images, 1 ad image and the reel, plus
+4. `uv run ca content build "<folder>"` makes 2 post images, 3 ad variants and the reel, plus
    `post.md` (caption, hashtags, call to action, source links) and `package.json`.
    If the video needs Higgsfield/HeyGen, the package says "draft — video pending" until Codex
    has made the clips; running the build again finishes only what is missing.
@@ -51,6 +52,7 @@ You can also ask for single images, videos or research (see the guides).
 | `research/` | Collected articles and run reports (`RESEARCH_DIR`). |
 | `assets/reference/` | Your photos, logo, style examples and `brand.json`. |
 | `config/sources.json` | The news sites to read. |
+| `config/design_system.json` | The look of designed graphics: layouts, poses, text rules. |
 | `docs/company/services.md` | Company profile: services, message, content rules. |
 
 ## Guides
@@ -85,7 +87,8 @@ All choices are lines in `.env`; nothing else changes.
 ## Glossary
 
 - **Package**: one folder with everything for one topic (images, video, post text, sources).
-- **Brief** (`brief.json`): Codex's plan for a package: headline, scenes, reel, caption.
+- **Brief** (`brief.json`): Codex's plan for a package: designs (layout, texts), reel, caption.
+- **Design system**: the fixed look of our graphics; colours, fonts and logo come from `brand.json`.
 - **Job**: one image or video request, with its record `details.json`.
 - **Mock**: a free stand-in that makes placeholders, for trying things out.
 - **MCP**: a connection that lets Codex use an outside service (Higgsfield, HeyGen) with your account.

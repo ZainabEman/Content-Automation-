@@ -2,10 +2,10 @@
 
 start: collect news, rank articles for the topic, then create PACKAGES_DIR/YYYY-MM-DD_<slug>/
 with research.md, brief.template.json and package.json. Codex then writes brief.json.
-build: check brief.json, then make the post images (2), the ad image (1) and the reel (first
-frame = post-1) into images/, video/, post.md and package.json. Each part is saved as soon as
-it is done; a failed or pending part never blocks the others, and running build again redoes
-only what is missing.
+build: check brief.json, then make the post images (2), the ad images (3 variants) and the
+reel (first frame = post-1) into images/, video/, post.md and package.json. Each part is saved
+as soon as it is done; a failed or pending part never blocks the others, and running build
+again redoes only what is missing.
 """
 
 import json
@@ -22,11 +22,15 @@ from content_automation.ai.image import ImageError, estimate_cost_usd
 from content_automation.ai.video import VideoError
 from content_automation.content.brief import (
     ASPECT_BY_PLATFORM,
-    DEFAULT_IDENTITY_SET,
+    MAX_HASHTAGS,
+    MIN_HASHTAGS,
+    STORY_ASPECT,
     BriefError,
     ContentBrief,
     ImageSlot,
+    brand_hashtag,
     load_brief,
+    slot_kind,
 )
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
@@ -44,7 +48,9 @@ from content_automation.research.collectors import CollectorError
 from content_automation.research.models import SourceArticle, SourcesError
 from content_automation.research.run import collect, topic_digest, topic_note
 from content_automation.research.store import known_article_ids, load_articles
+from content_automation.workflows.design_system import DesignSystem, load_design_system
 from content_automation.workflows.image_workflows import (
+    AD_VARIANTS,
     WorkflowInputs,
     prepare_workflow,
     run_workflow,
@@ -66,8 +72,8 @@ IMAGES_DIR = "images"
 VIDEO_DIR = "video"
 TOPIC_DAYS = 14
 TOPIC_LIMIT = 10
-IMAGE_COUNTS = {"post": 2, "ad": 1}
-LABELS = {"post": "post images", "ad": "ad image", "reel": "video"}
+IMAGE_COUNTS = {"post": 2, "ad": AD_VARIANTS}
+LABELS = {"post": "post images", "ad": "ad images", "reel": "video"}
 _IMAGE_ERRORS = (
     WorkflowError,
     ReferenceLibraryError,
@@ -139,8 +145,15 @@ def start_package(
     folder = _new_folder(settings.packages_dir, f"{date.today():%Y-%m-%d}_{slugify(topic)}")
     brand = _brand(settings)
     company = load_company(settings.company_file)
+    try:
+        system: DesignSystem | None = load_design_system(settings.design_system_file)
+    except WorkflowError as error:
+        system = None
+        lines.append(f"Design help left out of the template: {error}")
     atomic_write_text(folder / RESEARCH_FILE, _research_markdown(topic, articles, note))
-    template = _brief_template(topic, platform, formats, articles, brand, company)
+    template = _brief_template(
+        topic, platform, formats, articles, brand, company, system, settings.default_identity_set
+    )
     atomic_write_text(
         folder / TEMPLATE_FILE, json.dumps(template, indent=2, ensure_ascii=False) + "\n"
     )
@@ -156,8 +169,9 @@ def start_package(
         f"Package folder: {folder}",
         f"Next (Codex): read {RESEARCH_FILE}, then write {BRIEF_FILE} in this folder: start "
         f"from {TEMPLATE_FILE} and replace every <...> (English; use docs/company/services.md "
-        "and the brand rules in _help; no invented results, statistics, prices or client "
-        "names; headlines at most 6 words).",
+        "and the brand and design rules in _help; no invented results, statistics, prices or "
+        "client names; headlines at most 6 words; every image needs a layout, subheadline "
+        "and cta).",
         f'Then run: uv run ca content build "{folder}" --dry-run',
     ]
     return PackageResult(folder, lines, package)
@@ -220,6 +234,52 @@ def _research_markdown(topic: str, articles: list[SourceArticle], note: str | No
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _design_help(system: DesignSystem) -> dict[str, Any]:
+    """The design system's choices, for the "_help" block of the brief template."""
+    return {
+        "choose": (
+            "Layout: A for a product or feature; B or C for trust (alternate B and C between "
+            "posts); D for pain vs gain. Pose (layouts B and C): one key from poses. Headline: "
+            "one formula from headlineFormulas. Always fill subheadline and cta. Never "
+            "describe the man's face in the scene; his photos define it."
+        ),
+        "layouts": {
+            key: f"{layout.use}: {layout.description}" for key, layout in system.layouts.items()
+        },
+        "poses": system.poses,
+        "headlineFormulas": system.headline_formulas,
+        "ctaIcons": {
+            key: ", ".join(icon.actions) for key, icon in system.cta_button.icons.items()
+        },
+        "rules": {"post": system.rules.organic, "ad": system.rules.ad},
+        "optional": (
+            'Per image you may add "ctaIcon" (arrow, calendar or play; default: chosen from the '
+            'cta label), "icons" (an icon row: 3-4 labels of 1-2 words), and in post "kind" '
+            '(story or carousel_slide; default organic) with "slide" ("2/5") and "slideRole" '
+            "(hook, tip, cta) for a carousel slide."
+        ),
+    }
+
+
+def _slot_template(name: str) -> dict[str, Any]:
+    cta = (
+        "<button label naming the one offer (see _help.design.rules.ad)>"
+        if name == "ad"
+        else "<soft button label (see _help.design.rules.post)>"
+    )
+    return {
+        "layout": "<A, B, C or D (see _help.design.layouts)>",
+        "pose": "<layouts B and C: a key from _help.design.poses; otherwise delete this line>",
+        "headline": "<at most 6 words, built from a formula in _help.design.headlineFormulas>",
+        "highlight": ["<1-2 words from the headline>"],
+        "subheadline": "<one short sentence>",
+        "subHighlight": "<one word from the subheadline>",
+        "cta": cta,
+        "visual": "<layout A: the system visual on the right; otherwise delete this line>",
+        "scene": "<scene details: setting, light, camera/lens, mood; never the man's face>",
+    }
+
+
 def _brief_template(
     topic: str,
     platform: str,
@@ -227,14 +287,17 @@ def _brief_template(
     articles: list[SourceArticle],
     brand: BrandProfile | None,
     company: CompanyProfile | None,
+    system: DesignSystem | None,
+    identity_set: str,
 ) -> dict[str, Any]:
+    brand_tag = brand_hashtag(brand.brand_name) if brand else "<#BrandName>"
     template: dict[str, Any] = {
         "_help": {
             "howTo": (
                 f"Save a copy as {BRIEF_FILE} in this folder and replace every <...>. English "
-                "only. Use docs/company/services.md and the brand rules below. Never invent "
-                "results, statistics, prices or client names. Headlines: at most 6 words. "
-                "This _help block is ignored."
+                "only. Use docs/company/services.md and the brand and design rules below. "
+                "Never invent results, statistics, prices or client names. Headlines: at most "
+                "6 words. This _help block is ignored."
             ),
             "services": service_names(brand, company),
             "brandRules": {
@@ -243,14 +306,20 @@ def _brief_template(
                 "avoid": brand.dont if brand else [],
                 "contentRules": company.content_rules if company else "",
             },
+            "design": _design_help(system) if system else {},
             "formats": {
-                "post": "2 image options: social_creative post with headline, logo, brand style",
-                "ad": "1 ad image: social_creative ad with the headline and logo",
+                "post": "2 image options of one designed post (headline, subheadline, CTA, logo)",
+                "ad": f"{AD_VARIANTS} variants of one ad: one message, one offer, one CTA",
                 "reel": (
                     "9:16 video; each scene at most 15 s, all scenes at most 90 s; scene 1 "
                     'starts from firstFrame; a scene with "image": "post-1" shows that picture'
                 ),
             },
+            "caption": (
+                "hook = line 1; lines = 2-3 short lines, the problem then the solution; "
+                "question = one question that invites comments; cta and link close the "
+                f"caption; {MIN_HASHTAGS}-{MAX_HASHTAGS} English hashtags including {brand_tag}."
+            ),
             "topArticles": [f"{a.article_id} | {a.source} | {a.title}" for a in articles],
         },
         "topic": topic,
@@ -260,13 +329,12 @@ def _brief_template(
         "audience": brand.audience if brand and brand.audience else "<who this is for>",
         "objective": "<what this content should achieve>",
         "keyPoints": ["<key point 1>", "<key point 2>", "<key point 3>"],
-        "identitySet": DEFAULT_IDENTITY_SET,
+        "identitySet": identity_set,
         "sourceArticleIds": [a.article_id for a in articles[:3]],
     }
-    scene = "<rich scene: action, setting, light, camera/lens, mood; clean space for the headline>"
     for kind in ("post", "ad"):
         if kind in formats:
-            template[kind] = {"headline": "<at most 6 words>", "scene": scene, "withPerson": True}
+            template[kind] = _slot_template(kind)
     if "reel" in formats:
         reel: dict[str, Any] = {
             "hook": "<the first sentence that stops the scroll>",
@@ -284,9 +352,18 @@ def _brief_template(
             {"prompt": "<shot 2>", "durationSec": 5, "onScreenText": "<short call to action>"},
         ]
         template["reel"] = reel
-    template["caption"] = "<post text: 2-4 short paragraphs>"
-    template["hashtags"] = ["#AIMarketing", "#MarketingAutomation"]
+    template["caption"] = {
+        "hook": "<line 1: the hook>",
+        "lines": ["<short line: the problem>", "<short line: the solution>"],
+        "question": "<one question that invites comments?>",
+    }
     template["cta"] = "<one clear call to action>"
+    website = company.website if company else ""
+    template["link"] = website or (
+        "<https://... the page to open; ask the user, never guess (to pre-fill it, add a "
+        '"Website: https://..." line to docs/company/services.md)>'
+    )
+    template["hashtags"] = [brand_tag, "<#TopicTag>", "<#TopicTag>"]
     return template
 
 
@@ -299,7 +376,10 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
     company = load_company(settings.company_file)
     known = known_article_ids(settings.research_dir)
     brief = load_brief(
-        folder / BRIEF_FILE, services=service_names(brand, company), known_article_ids=known
+        folder / BRIEF_FILE,
+        services=service_names(brand, company),
+        known_article_ids=known,
+        brand_tag=brand_hashtag(brand.brand_name) if brand else None,
     )
     package = _load(folder, brief)
     if dry_run:
@@ -332,13 +412,27 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
 def _image_inputs(
     kind: str, slot: ImageSlot, brief: ContentBrief, folder: Path
 ) -> WorkflowInputs:
+    design_kind = slot_kind(kind, slot)
+    aspect = STORY_ASPECT if design_kind == "story" else ASPECT_BY_PLATFORM[brief.platform]
     return WorkflowInputs(
         prompt=slot.scene,
-        identity_set=brief.identity_set if slot.with_person else None,
-        variant=kind,
+        # Used only by designs that show the person (layouts B, C, D and carousel hooks).
+        fallback_identity_set=brief.identity_set,
+        kind=design_kind,
+        layout=slot.layout,
+        pose=slot.pose,
         headline=slot.headline,
+        highlight=", ".join(slot.highlight) or None,
+        subheadline=slot.subheadline,
+        sub_highlight=slot.sub_highlight,
+        cta=slot.cta,
+        cta_icon=slot.cta_icon,
+        icons=", ".join(slot.icons) or None,
+        visual=slot.visual,
+        slide=slot.slide,
+        slide_role=slot.slide_role,
         logo=True,
-        aspect_ratio=ASPECT_BY_PLATFORM[brief.platform],
+        aspect_ratio=aspect,
         count=IMAGE_COUNTS[kind],
         request=f"{brief.topic}: {kind} for {brief.platform} (package {folder.name})",
     )
@@ -542,9 +636,12 @@ def _dry_run_lines(
             lines.append(f"{LABELS[kind]}: cannot be made yet: {error}")
             continue
         total += cost
+        request = prepared.request
+        design = f"{slot_kind(kind, slot)}, layout {slot.layout or '-'}"
         lines.append(
-            f"{LABELS[kind]}: {IMAGE_COUNTS[kind]} x {ASPECT_BY_PLATFORM[brief.platform]}, "
-            f'headline "{slot.headline}", via {settings.image_provider}: about ${cost:.3f}'
+            f"{LABELS[kind]}: {request.count} x {request.aspect_ratio} {request.image_size} "
+            f'({design}), headline "{slot.headline}", {len(request.identity_refs)} identity '
+            f"photos, via {settings.image_provider}: about ${cost:.3f}"
         )
     if brief.reel is not None:
         item = package.items.get("reel")
@@ -579,15 +676,15 @@ def _post_markdown(
         "",
         "## Caption",
         "",
-        brief.caption.strip(),
+        brief.caption.hook.strip(),
         "",
-        "## Call to action",
+        *(line.strip() for line in brief.caption.lines),
         "",
-        brief.cta.strip(),
+        brief.caption.question.strip(),
         "",
-        "## Hashtags",
+        f"{brief.cta.strip()} {brief.link}",
         "",
-        " ".join(brief.hashtags) or "-",
+        " ".join(brief.hashtags),
         "",
         "## Files",
         "",

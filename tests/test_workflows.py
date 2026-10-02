@@ -130,7 +130,7 @@ def test_social_creative_ad_with_logo_headline_and_default_style(settings: Setti
     assert data["inputs"]["variant"] == "ad"
     prompt = data["prompt"]
     assert "advertisement" in prompt
-    assert '"Grow faster with AI"' in prompt
+    assert '"GROW FASTER WITH AI"' in prompt  # headlines are rendered in capitals
     assert "Images 1-6 - PRODUCT" in prompt
     assert "Image 7 - BRAND LOGO" in prompt
     assert "Images 8-10 - STYLE" in prompt

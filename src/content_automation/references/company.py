@@ -28,6 +28,11 @@ class CompanyProfile:
     def content_rules(self) -> str:
         return self.fields.get("Content rules", "")
 
+    @property
+    def website(self) -> str:
+        """Optional "Website: https://..." line; pre-fills the caption link of a brief."""
+        return self.fields.get("Website", "")
+
 
 def load_company(path: Path) -> CompanyProfile | None:
     """Parse the company file; None when it does not exist."""

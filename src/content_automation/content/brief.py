@@ -1,4 +1,4 @@
-"""brief.json: what Codex decides for one content package (headlines, scenes, reel, caption).
+"""brief.json: what Codex decides for one content package (designs, reel, caption).
 
 Keys starting with "_" (like the "_help" block in brief.template.json) are ignored.
 """
@@ -11,17 +11,23 @@ from typing import Any, Literal
 from pydantic import ConfigDict, Field, ValidationError
 
 from content_automation.core.files import CamelModel
+from content_automation.workflows.design_system import CtaIconId, Kind, LayoutId, SlideRole
 
 Platform = Literal["instagram", "facebook", "linkedin"]
 Format = Literal["post", "ad", "reel"]
-ImageRef = Literal["post-1", "post-2", "ad-1"]
+ImageRef = Literal["post-1", "post-2", "ad-1", "ad-2", "ad-3"]
 PLATFORMS: tuple[Platform, ...] = ("instagram", "facebook", "linkedin")
 FORMATS: tuple[Format, ...] = ("post", "ad", "reel")
 ASPECT_BY_PLATFORM = {"instagram": "4:5", "facebook": "4:5", "linkedin": "1:1"}
+STORY_ASPECT = "9:16"
+# The design kind of each image slot: the default first, then the others it may use.
+SLOT_KINDS: dict[str, tuple[Kind, ...]] = {
+    "post": ("organic", "story", "carousel_slide"),
+    "ad": ("ad",),
+}
 MAX_HEADLINE_WORDS = 6
 MAX_REEL_SEC = 90
-MAX_HASHTAGS = 10
-DEFAULT_IDENTITY_SET = "identity/person_01"
+MIN_HASHTAGS, MAX_HASHTAGS = 3, 5
 _PLACEHOLDER = re.compile(r"<[^<>]{2,}>")
 
 
@@ -39,11 +45,34 @@ class _BriefModel(CamelModel):
 
 
 class ImageSlot(_BriefModel):
-    """A post or ad image: social_creative with the headline, logo and brand style."""
+    """A post or ad image: a designed graphic (social_creative) from the design system.
 
+    The fields match the `ca image` flags; subheadline and cta are required so that no
+    design is left empty.
+    """
+
+    kind: Kind | None = None  # default: post -> organic, ad -> ad
+    layout: LayoutId | None = None  # required, except for carousel slides
+    pose: str | None = None  # layouts B and C: a pose key of the design system
     headline: str = Field(min_length=1)
-    scene: str = Field(min_length=1)  # action, setting, light, camera, mood
-    with_person: bool = True
+    highlight: list[str] = Field(default_factory=list, max_length=2)  # headline words
+    subheadline: str = Field(min_length=1)
+    sub_highlight: str | None = None  # one subheadline word
+    cta: str = Field(min_length=1)  # the button label
+    cta_icon: CtaIconId | None = None  # default: chosen from the cta label
+    icons: list[str] = Field(default_factory=list, max_length=4)  # icon row labels
+    visual: str | None = None  # layout A: the system visual
+    slide: str | None = None  # carousel slides: "N/TOTAL"
+    slide_role: SlideRole | None = None
+    scene: str = Field(min_length=1)  # scene details: setting, light, camera, mood
+
+
+class Caption(_BriefModel):
+    """The post text, in this order; the cta with the link and the hashtags follow it."""
+
+    hook: str = Field(min_length=1)  # line 1
+    lines: list[str] = Field(min_length=2, max_length=3)  # short: problem -> solution
+    question: str = Field(min_length=1)  # one question that invites comments
 
 
 class ReelScene(_BriefModel):
@@ -68,18 +97,28 @@ class ContentBrief(_BriefModel):
     audience: str = Field(min_length=1)
     objective: str = Field(min_length=1)
     key_points: list[str] = Field(min_length=1)
-    identity_set: str = DEFAULT_IDENTITY_SET
+    identity_set: str | None = None  # default: DEFAULT_IDENTITY_SET
     source_article_ids: list[str] = Field(default_factory=list)
     post: ImageSlot | None = None
     ad: ImageSlot | None = None
     reel: ReelSlot | None = None
-    caption: str = Field(min_length=1)
-    hashtags: list[str] = Field(default_factory=list)
+    caption: Caption
+    hashtags: list[str] = Field(min_length=MIN_HASHTAGS, max_length=MAX_HASHTAGS)
     cta: str = Field(min_length=1)
+    link: str = Field(pattern=r"^https?://\S+$")  # closes the caption, after the cta
+
+
+def brand_hashtag(brand_name: str) -> str:
+    """The hashtag every post carries, e.g. "Branded Genius" -> "#BrandedGenius"."""
+    return "#" + re.sub(r"\W", "", brand_name)
+
+
+def slot_kind(name: str, slot: ImageSlot) -> Kind:
+    return slot.kind or SLOT_KINDS[name][0]
 
 
 def load_brief(
-    path: Path, *, services: list[str], known_article_ids: set[str]
+    path: Path, *, services: list[str], known_article_ids: set[str], brand_tag: str | None = None
 ) -> ContentBrief:
     """Read and check brief.json; raise BriefError listing every problem."""
     try:
@@ -96,7 +135,9 @@ def load_brief(
         brief = ContentBrief.model_validate(data)
     except ValidationError as error:
         raise BriefError([_describe(issue) for issue in error.errors(include_url=False)]) from None
-    problems = brief_problems(brief, services=services, known_article_ids=known_article_ids)
+    problems = brief_problems(
+        brief, services=services, known_article_ids=known_article_ids, brand_tag=brand_tag
+    )
     placeholders = sorted(set(_PLACEHOLDER.findall(json.dumps(data, ensure_ascii=False))))
     if placeholders:
         problems.append(f"replace the template placeholders: {', '.join(placeholders[:5])}")
@@ -106,7 +147,11 @@ def load_brief(
 
 
 def brief_problems(
-    brief: ContentBrief, *, services: list[str], known_article_ids: set[str]
+    brief: ContentBrief,
+    *,
+    services: list[str],
+    known_article_ids: set[str],
+    brand_tag: str | None = None,
 ) -> list[str]:
     problems: list[str] = []
     for kind in FORMATS:
@@ -115,17 +160,25 @@ def brief_problems(
             problems.append(f'"{kind}" is in formats, so fill in "{kind}"')
         if kind not in brief.formats and slot is not None:
             problems.append(f'"{kind}" is filled in but not in formats; remove it or add it')
-    for kind in ("post", "ad"):
-        slot = getattr(brief, kind)
-        if slot is not None and len(slot.headline.split()) > MAX_HEADLINE_WORDS:
-            problems.append(f"{kind}.headline has more than {MAX_HEADLINE_WORDS} words")
+    for name, kinds in SLOT_KINDS.items():
+        image: ImageSlot | None = getattr(brief, name)
+        if image is None:
+            continue
+        if len(image.headline.split()) > MAX_HEADLINE_WORDS:
+            problems.append(f"{name}.headline has more than {MAX_HEADLINE_WORDS} words")
+        if slot_kind(name, image) not in kinds:
+            problems.append(f"{name}.kind must be one of: {', '.join(kinds)}")
+        elif image.layout is None and slot_kind(name, image) != "carousel_slide":
+            problems.append(f"{name}.layout: choose A, B, C or D")
     if services and brief.service not in services:
         problems.append(f"service must be one of: {'; '.join(services)}")
     for tag in brief.hashtags:
         if not re.fullmatch(r"#\w+", tag):
             problems.append(f'hashtag "{tag}" must look like #OneWord')
-    if len(brief.hashtags) > MAX_HASHTAGS:
-        problems.append(f"at most {MAX_HASHTAGS} hashtags")
+    if brand_tag and brand_tag.lower() not in {tag.lower() for tag in brief.hashtags}:
+        problems.append(f"hashtags must include {brand_tag}")
+    if not brief.caption.question.rstrip().endswith("?"):
+        problems.append("caption.question must be one question ending with ?")
     unknown = [aid for aid in brief.source_article_ids if aid not in known_article_ids]
     if unknown:
         problems.append(f"unknown sourceArticleIds (see research.md): {', '.join(unknown)}")

@@ -24,7 +24,10 @@ CtaIconId = Literal["arrow", "calendar", "play"]
 SlideRole = Literal["hook", "tip", "cta"]
 ColorRole = Literal["background", "accent", "highlight", "text"]
 ElementId = Literal["textPanel", "holograms", "decor", "props"]
-TextField = Literal["headline", "subheadline", "cta", "icons", "visual", "stat", "steps"]
+TextField = Literal[
+    "headline", "subheadline", "cta", "icons", "visual", "stat", "steps", "audience_line", "chat",
+    "diagram",
+]
 PersonRule = Literal["never", "layout", "always"]
 KINDS: tuple[Kind, ...] = ("organic", "ad", "story", "carousel_slide")
 FORMATS: tuple[FormatId, ...] = (
@@ -35,7 +38,8 @@ CTA_ICONS: tuple[CtaIconId, ...] = ("arrow", "calendar", "play")
 SLIDE_ROLES: tuple[SlideRole, ...] = ("hook", "tip", "cta")
 COLOR_ROLES: tuple[ColorRole, ...] = ("background", "accent", "highlight", "text")
 TEXT_FIELDS: tuple[TextField, ...] = (
-    "headline", "subheadline", "cta", "icons", "visual", "stat", "steps",
+    "headline", "subheadline", "cta", "icons", "visual", "stat", "steps", "audience_line", "chat",
+    "diagram",
 )
 DEFAULT_FORMAT: FormatId = "ad"  # designs without a format keep the headline + CTA design
 MAX_HIGHLIGHT_WORDS = 2
@@ -44,6 +48,10 @@ MAX_ICON_LABEL_WORDS = 2
 STEPS_MIN, STEPS_MAX = 3, 5
 MAX_STEP_WORDS = 8
 MAX_STAT_CHARS = 12
+MAX_AUDIENCE_WORDS = 6
+CHAT_MIN, CHAT_MAX, MAX_BUBBLE_WORDS = 2, 3, 14
+DIAGRAM_MIN, DIAGRAM_MAX, MAX_DIAGRAM_WORDS = 3, 4, 4
+SPEAKERS = ("customer", "bot")
 STEP_SEPARATOR = "|"
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _SLIDE = re.compile(r"(\d{1,2})\s*/\s*(\d{1,2})")
@@ -80,6 +88,10 @@ class Core(_DesignModel):
 
     color_roles: dict[ColorRole, ColorRoleSpec]
     fonts: str = Field(min_length=1)
+    heading_font: str = Field(min_length=1)  # "{font}" is the brand heading font
+    layout: str = Field(min_length=1)  # fill the canvas, phone-readable text
+    footer: str = Field(min_length=1)  # where the handle or website goes
+    audience_line: str = Field(min_length=1)  # how the "FOR ..." line looks
     logo: str = Field(min_length=1)
     identity: IdentityRules
     no_person: str = Field(min_length=1)  # said by every design that does not show him
@@ -118,6 +130,7 @@ class PoolEntry(_DesignModel):
     auto: bool = True  # may be picked when nothing is given
     photo: bool = True  # scenes: a real place, where the man and props can be shown
     scenes: list[str] = Field(default_factory=list)  # props and poses: scenes they fit; [] = all
+    tags: list[str] = Field(default_factory=list)  # scenes: topics and audiences it suits
 
 
 class Pools(_DesignModel):
@@ -165,8 +178,18 @@ class KindSpec(_DesignModel):
 
 class CarouselSpec(_DesignModel):
     slides: dict[SlideRole, str]
+    chat: str = Field(min_length=1)  # how a tip slide shows a chat example
+    diagram: str = Field(min_length=1)  # how a tip slide shows a workflow diagram
     navigation: str = Field(min_length=1)
     demos: dict[str, str] = Field(default_factory=dict)  # where the examples are, their structure
+
+
+class CtaRule(_DesignModel):
+    """What a carousel's last-slide CTA must (and must not) ask for on one platform."""
+
+    use: str = Field(min_length=1)
+    require: list[str] = Field(min_length=1)  # one of these words or phrases
+    avoid: list[str] = Field(default_factory=list)
 
 
 class DesignRules(_DesignModel):
@@ -183,6 +206,7 @@ class DesignSystem(_DesignModel):
     formats: dict[FormatId, FormatSpec]
     kinds: dict[Kind, KindSpec]
     carousel: CarouselSpec
+    cta_rules: dict[str, CtaRule] = Field(default_factory=dict)  # platform -> rule
     headline_formulas: dict[str, str] = Field(default_factory=dict)  # name -> example
     rules: DesignRules
 
@@ -213,6 +237,7 @@ class DesignSystem(_DesignModel):
             (" ".join(self.core.identity.rules), "{images}", "core.identity.rules"),
             (self.core.text.only, "{language}", "core.text.only"),
             (self.core.text.lettering, "{lettering}", "core.text.lettering"),
+            (self.core.heading_font, "{font}", "core.headingFont"),
         ):
             if placeholder not in text:
                 missing.append(f"{placeholder} in {where}")
@@ -266,6 +291,9 @@ class DesignFields(Protocol):
     stat: str | None
     source: str | None
     steps: str | None
+    audience_line: str | None
+    chat: str | None
+    diagram: str | None
     slide: str | None
     slide_role: str | None
 
@@ -290,6 +318,9 @@ class DesignChoice:
     stat: str | None = None
     source: str | None = None  # research article ID behind a stat or a news line
     steps: tuple[str, ...] = ()
+    audience_line: str | None = None  # "FOR DENTAL PRACTICES"
+    chat: tuple[tuple[str, str], ...] = ()  # (speaker, text): a tip slide's chat example
+    diagram: tuple[str, ...] = ()  # a tip slide's workflow steps
     slide: tuple[int, int] | None = None  # (number, total)
     slide_role: SlideRole | None = None
 
@@ -327,6 +358,20 @@ def _parse_slide(value: str | None) -> tuple[int, int] | None:
     if total < 2 or not 1 <= number <= total:
         raise WorkflowError("--slide must look like N/TOTAL, e.g. 2/5.")
     return number, total
+
+
+def parse_chat(value: str | None) -> tuple[tuple[str, str], ...]:
+    """Chat bubbles: "Customer: Can I book Friday?|Bot: Yes, at 10?" -> (speaker, text) pairs."""
+    bubbles = []
+    for part in split_list(value, STEP_SEPARATOR):
+        speaker, colon, text = part.partition(":")
+        if not colon or speaker.strip().lower() not in SPEAKERS or not text.strip():
+            raise WorkflowError(
+                '--chat takes 2-3 bubbles like "Customer: Can I book for Friday?|Bot: Yes, at 10 '
+                'or 14 h. Which suits you?" (speakers: customer, bot).'
+            )
+        bubbles.append((speaker.strip().lower(), text.strip()))
+    return tuple(bubbles)
 
 
 def _contains(text: str, part: str) -> bool:
@@ -418,6 +463,9 @@ def resolve_design(
     visual = _clean(fields.visual)
     stat = _clean(fields.stat)
     steps = split_list(fields.steps, STEP_SEPARATOR)
+    audience_line = _clean(fields.audience_line)
+    chat = parse_chat(fields.chat)
+    diagram = split_list(fields.diagram, STEP_SEPARATOR)
     given: dict[TextField, bool] = {
         "headline": headline is not None,
         "subheadline": subheadline is not None,
@@ -426,6 +474,9 @@ def resolve_design(
         "visual": visual is not None,
         "stat": stat is not None,
         "steps": bool(steps),
+        "audience_line": audience_line is not None,
+        "chat": bool(chat),
+        "diagram": bool(diagram),
     }
     allowed = {*spec.required, *spec.optional}
     unused = [name for name in TEXT_FIELDS if given[name] and name not in allowed]
@@ -440,6 +491,35 @@ def resolve_design(
             if role == "cta"
             else "Only the last carousel slide has a CTA button; remove --cta."
         )
+    if role is not None:
+        if role == "hook" and audience_line is None:
+            raise WorkflowError(
+                "The hook slide names the audience: add --audience-line, e.g. "
+                '"FOR DENTAL PRACTICES".'
+            )
+        if role != "hook" and audience_line is not None:
+            raise WorkflowError("Only the hook slide has --audience-line.")
+        if role != "tip" and (chat or diagram or visual):
+            raise WorkflowError(
+                "--visual, --chat and --diagram belong on tip slides; the hook and the last "
+                "slide carry no tip content."
+            )
+    if sum(bool(item) for item in (visual, chat, diagram)) > 1:
+        raise WorkflowError("Give one tip visual: --chat, --diagram or --visual.")
+    if chat and not CHAT_MIN <= len(chat) <= CHAT_MAX:
+        raise WorkflowError(f"--chat takes {CHAT_MIN}-{CHAT_MAX} bubbles.")
+    if any(len(text.split()) > MAX_BUBBLE_WORDS for _, text in chat):
+        raise WorkflowError(f"Each chat bubble has at most {MAX_BUBBLE_WORDS} words.")
+    if diagram and (
+        not DIAGRAM_MIN <= len(diagram) <= DIAGRAM_MAX
+        or any(len(step.split()) > MAX_DIAGRAM_WORDS for step in diagram)
+    ):
+        raise WorkflowError(
+            f"--diagram takes {DIAGRAM_MIN}-{DIAGRAM_MAX} steps of at most {MAX_DIAGRAM_WORDS} "
+            'words, separated by "|", e.g. "Visitor asks|Chatbot answers|Lead in CRM".'
+        )
+    if audience_line is not None and len(audience_line.split()) > MAX_AUDIENCE_WORDS:
+        raise WorkflowError(f"--audience-line has at most {MAX_AUDIENCE_WORDS} words.")
     if headline is not None and len(headline.split()) > spec.headline_max_words:
         raise WorkflowError(
             f"--headline has more than {spec.headline_max_words} words "
@@ -529,6 +609,9 @@ def resolve_design(
         stat=stat,
         source=source,
         steps=steps,
+        audience_line=audience_line,
+        chat=chat,
+        diagram=diagram,
         slide=slide,
         slide_role=role,
     )

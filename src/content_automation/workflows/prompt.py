@@ -244,18 +244,45 @@ def _layout_section(
     return "\n".join(lines)
 
 
-def _typography(design: DesignChoice, system: DesignSystem) -> list[str]:
+def heading_font(brand: BrandProfile | None) -> str:
+    """The brand.json font used for headings (not the sub-heading or logo font)."""
+    for font in brand.fonts if brand else []:
+        usage = font.usage.lower()
+        if "heading" in usage and "sub" not in usage:
+            return font.name
+    return "the brand heading font"
+
+
+def footer_text(company: CompanyProfile | None) -> str | None:
+    """The handle, else the website without https:// (from services.md), for the footer."""
+    if company is None:
+        return None
+    handle = company.fields.get("Handle", "").strip()
+    if handle:
+        return handle
+    website = company.website.strip()
+    for prefix in ("https://", "http://", "www."):
+        website = website.removeprefix(prefix)
+    return website.rstrip("/") or None
+
+
+def _typography(
+    design: DesignChoice, system: DesignSystem, brand: BrandProfile | None
+) -> list[str]:
     spec = system.formats[design.format]
     defaults = system.typography
+    font = system.core.heading_font.replace("{font}", heading_font(brand))
     lines = []
+    if design.audience_line:
+        lines.append(f"- Audience line typography: {system.core.audience_line}")
     if design.headline:
         rule = spec.typography.get("headline", defaults.headline)
         if design.highlight:
             rule += f" {defaults.headline_highlight}"
-        lines.append(f"- {_label(design, system, 'headline')} typography: {rule}")
+        lines.append(f"- {_label(design, system, 'headline')} typography: {rule} {font}")
     if design.stat:
         rule = spec.typography.get("stat", defaults.stat)
-        lines.append(f"- {_label(design, system, 'stat')} typography: {rule}")
+        lines.append(f"- {_label(design, system, 'stat')} typography: {rule} {font}")
     if design.subheadline:
         rule = spec.typography.get("subheadline", defaults.subheadline)
         if design.sub_highlight:
@@ -268,15 +295,24 @@ def _typography(design: DesignChoice, system: DesignSystem) -> list[str]:
 
 
 def _design_section(
-    design: DesignChoice, look: DesignLook, system: DesignSystem, counts: RefCounts
+    design: DesignChoice,
+    look: DesignLook,
+    system: DesignSystem,
+    counts: RefCounts,
+    brand: BrandProfile | None,
+    footer: str | None,
 ) -> str:
     """Only what this format shows: the panel, holograms, decor and props are optional."""
     spec = system.formats[design.format]
     elements = system.elements
-    lines = []
+    lines = [f"- Canvas: {system.core.layout}"]
     if "textPanel" in spec.elements:
         lines.append(f"- Text panel: {elements.text_panel}")
-    lines += _typography(design, system)
+    lines += _typography(design, system, brand)
+    if design.chat:
+        lines.append(f"- Chat example: {system.carousel.chat}")
+    if design.diagram:
+        lines.append(f"- Workflow diagram: {system.carousel.diagram}")
     if design.cta and design.cta_icon:
         button = elements.cta_button
         icon = button.icons[design.cta_icon].icon
@@ -295,6 +331,10 @@ def _design_section(
         lines.append(f"- Props: {_sentence(look.props.text)}")
     if counts.logo:
         lines.append(f"- Logo: {system.core.logo}")
+    if footer:
+        story = bool(system.kinds[design.kind].safe_zone)
+        safe = " Keep it just above the bottom safe zone." if story else ""
+        lines.append(f"- Footer: {system.core.footer}{safe}")
     return "Design (follow it closely):\n" + "\n".join(lines)
 
 
@@ -383,6 +423,8 @@ def _text_section(
     spec = system.formats[design.format]
     rules = system.core.text
     items = []
+    if design.audience_line:
+        items.append(f'- Audience line: "{design.audience_line.upper()}"')
     if design.headline:
         caps = spec.headline_caps
         line = f'- {_label(design, system, "headline")}: '
@@ -401,6 +443,10 @@ def _text_section(
         items.append(line)
     for number, step in enumerate(design.steps, start=1):
         items.append(f'- {_label(design, system, "steps")} {number}, numbered {number}: "{step}"')
+    for number, (speaker, bubble) in enumerate(design.chat, start=1):
+        items.append(f'- Chat bubble {number} ({speaker}): "{bubble}"')
+    for number, step in enumerate(design.diagram, start=1):
+        items.append(f'- Diagram step {number}: "{step}"')
     if design.cta:
         items.append(f'- {_label(design, system, "cta")}: "{design.cta}"')
     if design.icons:
@@ -410,6 +456,9 @@ def _text_section(
         items.append(f'- Slide counter in the pill: "{number:02d}/{total:02d}"')
     if _is_split(design, system):
         items.append('- Symbol on the split button: "»"')
+    footer = footer_text(company)
+    if footer:
+        items.append(f'- Footer: "{footer}"')
 
     if items:
         only = rules.only.replace("{language}", text_language(brand))
@@ -423,6 +472,8 @@ def _text_section(
         lettering.append('"AI" on the hologram chip or core')
     if lettering:
         text += " " + rules.lettering.replace("{lettering}", " and ".join(lettering))
+    if design.chat or design.diagram:
+        text += " The chat or diagram shows only its listed texts."
     if company is not None and company.content_rules:
         text += f" Content rules: {company.content_rules}"
     return text
@@ -443,7 +494,7 @@ def build_design_prompt(
     sections = [
         _format_section(design, system, aspect_ratio),
         _layout_section(design, look, system, counts, details),
-        _design_section(design, look, system, counts),
+        _design_section(design, look, system, counts, brand, footer_text(company)),
         _brand_section(brand, system, company),
         _identity_section(design, look, system, counts.identity) if design.person else None,
         _text_section(design, look, system, counts, brand, company),

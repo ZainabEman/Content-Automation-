@@ -86,6 +86,9 @@ class WorkflowInputs:
     stat: str | None = None
     source: str | None = None  # research article ID behind a stat or news line
     steps: str | None = None  # "|"-separated
+    audience_line: str | None = None  # "FOR DENTAL PRACTICES"
+    chat: str | None = None  # tip slides: "Customer: ...|Bot: ..."
+    diagram: str | None = None  # tip slides: "Step one|Step two|Step three"
     slide: str | None = None  # "N/TOTAL"
     slide_role: str | None = None
     # Variable parts: a pool ID from the design system or own words; picked when left out.
@@ -97,6 +100,8 @@ class WorkflowInputs:
     fallback_identity_set: str | None = None
     # Carousel slides 2+: slide 1's image ("<jobId>/image-1.png"), attached as a style image.
     first_slide: str | None = None
+    # Topic and audience, to pick a relevant scene (default: the request and the texts).
+    context: str | None = None
     # Picks to avoid, newest first (from a brief's package); default: the newest packages.
     history: list[DesignPicks] | None = None
 
@@ -129,6 +134,9 @@ class WorkflowInputs:
             "wardrobe": self.wardrobe,
             "props": self.props,
             "first_slide": self.first_slide,
+            "audience_line": self.audience_line,
+            "chat": self.chat,
+            "diagram": self.diagram,
         }
         return {name for name, value in values.items() if value not in (None, "", False)}
 
@@ -261,6 +269,14 @@ def _first_slide_ref(design: DesignChoice, inputs: WorkflowInputs, settings: Set
     return ReferenceImage(asset_id=found.asset_id, path=found.path, source=found.source)
 
 
+def _context(inputs: WorkflowInputs) -> str:
+    """What the post is about, for picking a relevant scene."""
+    parts = [
+        inputs.request, inputs.audience_line, inputs.headline, inputs.subheadline, inputs.prompt
+    ]
+    return " ".join(part for part in parts if part)
+
+
 def _variety_seed(design: DesignChoice) -> str:
     """Picks follow the content, so different posts differ; carousel slides share one look."""
     if design.format == "carousel":
@@ -284,6 +300,9 @@ def _recorded_design(design: DesignChoice, look: DesignLook) -> dict[str, str | 
         "stat": design.stat,
         "source": design.source,
         "steps": " | ".join(design.steps),
+        "audienceLine": design.audience_line,
+        "chat": " | ".join(f"{speaker}: {text}" for speaker, text in design.chat),
+        "diagram": " | ".join(design.diagram),
         "slide": "/".join(str(part) for part in design.slide) if design.slide else None,
         "slideRole": design.slide_role,
         **look.ids(),
@@ -336,6 +355,7 @@ def prepare_workflow(
             props=inputs.props,
             history=history,
             seed=seed,
+            context=inputs.context or _context(inputs),
         )
         recorded.update(_recorded_design(design, look))
         recorded["personShown"] = design.person

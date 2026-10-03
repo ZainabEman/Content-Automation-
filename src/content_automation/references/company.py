@@ -29,6 +29,11 @@ class CompanyProfile:
         return self.fields.get("Content rules", "")
 
     @property
+    def offer(self) -> str:
+        """Optional "Offer: ..." line: what a call to action offers (never invented)."""
+        return self.fields.get("Offer", "")
+
+    @property
     def website(self) -> str:
         """Optional "Website: https://..." line; pre-fills the caption link of a brief."""
         return self.fields.get("Website", "")

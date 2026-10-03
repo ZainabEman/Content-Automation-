@@ -8,6 +8,7 @@ run will use.
 
 import json
 import random
+import re
 import zlib
 from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
@@ -138,6 +139,12 @@ def suggest_format(
     return next((name for name in choices if name not in recent), choices[0])
 
 
+def mentions(context: str, tags: list[str]) -> bool:
+    """True when the context names one of the tags (singular or plural)."""
+    text = context.lower()
+    return any(re.search(rf"\b{re.escape(tag.lower())}(?:s|es)?\b", text) for tag in tags)
+
+
 def _rng(seed: str) -> random.Random:
     return random.Random(zlib.crc32(seed.encode("utf-8")))
 
@@ -149,9 +156,13 @@ def _pick(
     used: list[str],
     seed: str,
     fits: Callable[[PoolEntry], bool] = lambda entry: True,
+    relevant: Callable[[PoolEntry], bool] = lambda entry: False,
 ) -> Pick | None:
     """The given pool entry (or the user's own words); else a fitting entry that ``used``
-    (newest first) does not hold, else the fitting entry that was used longest ago."""
+    (newest first) does not hold, else the fitting entry that was used longest ago.
+
+    Entries that are ``relevant`` (to the topic) come first: the rotation then runs among them.
+    """
     wanted = (given or "").strip()
     if wanted:
         entry = pool.get(wanted)
@@ -159,6 +170,7 @@ def _pick(
     options = [key for key, entry in pool.items() if entry.auto and fits(entry)]
     if not options:
         return None
+    options = [key for key in options if relevant(pool[key])] or options
     fresh = [key for key in options if key not in used]
     key = _rng(seed).choice(fresh) if fresh else max(options, key=used.index)
     return Pick(key, pool[key].description)
@@ -175,8 +187,12 @@ def choose_look(
     holograms: str | None = None,
     history: list[DesignPicks],
     seed: str,
+    context: str = "",
 ) -> DesignLook:
-    """Pick the variable parts this design shows; what is given is used as it is."""
+    """Pick the variable parts this design shows; what is given is used as it is.
+
+    context: the topic and audience; scenes whose tags it mentions are preferred.
+    """
     spec = system.formats[design.format]
     pools = system.pools
     layout = system.layouts[design.layout] if design.layout is not None else None
@@ -196,6 +212,7 @@ def choose_look(
         scene_pick = _pick(
             pools.scenes, scene, used=used("scene"), seed=f"{seed}|scene",
             fits=lambda entry: entry.photo or not needs_place,
+            relevant=lambda entry: mentions(context, entry.tags),
         )
         if scene_pick is None:
             raise DesignSystemError("design_system.json has no scene that can be picked.")

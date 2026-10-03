@@ -76,6 +76,7 @@ photos of people who have agreed to this use.
 - **Exact text only**: the image shows only the texts you give (headline, subheadline, CTA label,
   big number, steps, icon labels, slide number), exactly as written and in the language of
   `brand.json`.
+- **Readable, on-brand, for someone**: every design fills the canvas with text sized for a phone, sets headlines in the brand heading font from `brand.json` (never condensed), and shows the website from `services.md` as a small footer. Statement, stat and checklist posts and the carousel hook carry a small audience line (`--audience-line "For dental practices"`). Carousel tip slides can show the automation: `--chat "Customer: ...|Bot: ..."` (2-3 bubbles) or `--diagram "Visitor asks|Chatbot answers|Lead in CRM"`. The scene is picked by relevance to the topic first (reception desk, clinic, shop, office, ...), then rotated.
 - **Real numbers only**: a `stat` post is refused unless its number is written in the saved
   research article you name as its source.
 - **Services, not products**: `person_service` shows the person delivering one of the

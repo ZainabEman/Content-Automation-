@@ -19,6 +19,10 @@
       }
     },
     "fonts": "Use the heading font for headlines, statements and big numbers and the sub-heading font for all other text.",
+    "headingFont": "Set in {font}, the brand heading font: a geometric sans of normal width, never condensed, narrow or compressed.",
+    "layout": "Fill the whole canvas: no large empty areas. Size every text to read easily on a phone: the headline large, other text never tiny.",
+    "footer": "Small, in the text colour, centred at the bottom edge on its own: the handle or website.",
+    "audienceLine": "A small ALL-CAPS line in the accent colour just above the headline: who this is for.",
     "logo": "Always at the top right: the brand logo from the logo reference image, once and unaltered.",
     "identity": {
       "rules": [
@@ -73,36 +77,58 @@
   "pools": {
     "scenes": {
       "office_night": {
-        "description": "a modern office at night: soft bokeh city lights behind glass and cinematic cool rim lighting, high contrast"
+        "description": "a modern office at night: soft bokeh city lights behind glass and cinematic cool rim lighting, high contrast",
+        "tags": ["office", "agency", "consulting", "b2b", "team", "marketing", "startup"]
       },
       "office_day": {
-        "description": "a bright modern office in daylight: large windows, soft natural light, clean and airy"
+        "description": "a bright modern office in daylight: large windows, soft natural light, clean and airy",
+        "tags": ["office", "agency", "consulting", "b2b", "team", "marketing", "startup", "sme"]
       },
       "studio": {
-        "description": "a clean photo studio: a seamless dark backdrop, a soft key light and a cool rim light"
+        "description": "a clean photo studio: a seamless dark backdrop, a soft key light and a cool rim light",
+        "tags": ["video", "photo", "content", "creative", "studio"]
       },
       "cafe": {
-        "description": "a stylish cafe: warm ambient light, a softly blurred background and a window seat"
+        "description": "a stylish cafe: warm ambient light, a softly blurred background and a window seat",
+        "tags": ["cafe", "restaurant", "hospitality", "local business", "coffee"]
       },
       "city_street": {
-        "description": "a modern city street at golden hour: glass buildings softly blurred behind"
+        "description": "a modern city street at golden hour: glass buildings softly blurred behind",
+        "tags": ["local business", "retail", "city", "store", "shop"]
       },
       "home_desk": {
-        "description": "a tidy home-office desk by a window: soft morning light and a few plants"
+        "description": "a tidy home-office desk by a window: soft morning light and a few plants",
+        "tags": ["freelancer", "solo", "home office", "remote", "small business"]
       },
       "conference_stage": {
-        "description": "an empty conference stage: a large softly blurred screen, stage lights and empty seats in soft focus"
+        "description": "an empty conference stage: a large softly blurred screen, stage lights and empty seats in soft focus",
+        "tags": ["event", "conference", "talk", "speaker", "keynote"]
       },
       "coworking": {
-        "description": "a quiet co-working space: warm pendant lights and empty desks softly blurred in the background"
+        "description": "a quiet co-working space: warm pendant lights and empty desks softly blurred in the background",
+        "tags": ["startup", "freelancer", "team", "agency"]
+      },
+      "reception_desk": {
+        "description": "a modern reception desk in a bright practice or office: a tablet for check-in, a phone, a small plant and a waiting area softly blurred behind, no other people",
+        "tags": ["reception", "front desk", "appointment", "booking", "bookings", "dental", "dentist", "practice", "clinic", "salon", "hotel", "patients", "calls"]
+      },
+      "clinic": {
+        "description": "a bright, modern clinic or practice room: clean surfaces, soft daylight and calm colours, softly blurred, no other people",
+        "tags": ["clinic", "dental", "dentist", "doctor", "medical", "practice", "physio", "therapy", "patients", "health"]
+      },
+      "shop": {
+        "description": "a modern small shop: neatly lit shelves, a counter with a card terminal and a warm window display, no other people",
+        "tags": ["shop", "store", "retail", "boutique", "e-commerce", "ecommerce", "local business", "customers", "products"]
       },
       "abstract_gradient": {
         "description": "no photo scene: an abstract gradient background built from the background and accent colours, with soft light blooms",
-        "photo": false
+        "photo": false,
+        "tags": ["ai", "automation", "technology", "software", "chatbot"]
       },
       "abstract_wave": {
         "description": "no photo scene: a deep dark background with a glowing particle-dot wave and a faint grid",
-        "photo": false
+        "photo": false,
+        "tags": ["ai", "automation", "data", "technology", "chatbot"]
       }
     },
     "wardrobe": {
@@ -132,7 +158,7 @@
       },
       "laptop_coffee": {
         "description": "a laptop and a black coffee mug",
-        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking"]
+        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking", "reception_desk"]
       },
       "notebook_plant": {
         "description": "an open notebook with a pen and a small plant",
@@ -140,7 +166,7 @@
       },
       "tablet_phone": {
         "description": "a tablet and a smartphone",
-        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking", "studio"]
+        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking", "studio", "reception_desk", "shop", "clinic"]
       },
       "robot_mascot": {
         "description": "a friendly white robot mascot beside a laptop",
@@ -187,7 +213,7 @@
       },
       "laptop": {
         "description": "seated at a laptop, hands clasped",
-        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking"]
+        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking", "reception_desk"]
       },
       "profile": {
         "description": "side profile, hand on chin, studying what is in front of him"
@@ -204,7 +230,7 @@
       },
       "walking": {
         "description": "walking towards the camera mid-stride, relaxed and confident",
-        "scenes": ["office_day", "city_street", "coworking", "conference_stage"]
+        "scenes": ["office_day", "city_street", "coworking", "conference_stage", "shop", "clinic"]
       },
       "stressed": {
         "description": "stressed, hands on the head",
@@ -251,8 +277,8 @@
     },
     "statement": {
       "use": "one bold sentence: an opinion or insight that stands on its own",
-      "composition": "A bold statement graphic: the one sentence is set very large and is the only focal point, directly on the background with strong contrast and generous margins; the scene is only a soft, darkened, out-of-focus backdrop. No text panel, no person, no subheadline, no button.",
-      "required": ["headline"],
+      "composition": "A bold statement graphic: the one sentence is set very large and is the only focal point, directly on the background with strong contrast, filling most of the frame; the scene is only a soft, darkened, out-of-focus backdrop. No text panel, no person, no subheadline, no button.",
+      "required": ["headline", "audience_line"],
       "person": "never",
       "elements": ["decor"],
       "headlineMaxWords": 12,
@@ -264,7 +290,7 @@
     "stat": {
       "use": "one big number from the research plus one context line",
       "composition": "A data graphic: one very large number is the focal point with one context line directly below it, set on the background with strong contrast; the scene is only a soft, darkened, out-of-focus backdrop. No text panel, no person, no button, no charts or extra figures.",
-      "required": ["stat", "subheadline"],
+      "required": ["stat", "subheadline", "audience_line"],
       "person": "never",
       "elements": ["decor"],
       "labels": {"stat": "Big number", "subheadline": "Context line"},
@@ -291,7 +317,7 @@
       "use": "a topic taught in slides: a hook slide with the man, tip slides, and a last slide with the call to action",
       "composition": "One slide of a carousel; every slide shares the same background, text panel and decor so the series looks consistent.",
       "required": ["headline"],
-      "optional": ["subheadline", "visual", "cta"],
+      "optional": ["subheadline", "visual", "chat", "diagram", "cta", "audience_line"],
       "layouts": ["B", "C"],
       "defaultLayout": "B",
       "person": "layout",
@@ -315,7 +341,7 @@
     "checklist": {
       "use": "a how-to in 3-5 short steps with icons",
       "composition": "A checklist graphic: a short title, then the steps as a numbered vertical list in the text panel, each step with a small outlined glowing icon that illustrates it; the scene is only a soft, darkened backdrop behind the panel. No person, no button.",
-      "required": ["headline", "steps"],
+      "required": ["headline", "steps", "audience_line"],
       "person": "never",
       "elements": ["textPanel", "decor"],
       "labels": {"headline": "Title"},
@@ -344,14 +370,28 @@
   },
   "carousel": {
     "slides": {
-      "hook": "Slide 1, the hook: a big ALL-CAPS statement or question (2-4 short lines, 1-2 highlight words) next to the man, with an optional short line below it. No button.",
-      "tip": "A tip slide: exactly one tip as a bold sentence-case headline (2-3 lines) with highlight words, a short accent-coloured underline, an optional 2-3 line explanation, and one large glowing visual on the right that illustrates the tip. No button.",
-      "cta": "The last slide: a question or call to action as the headline, the CTA button as the focal point and the logo clearly visible; optionally a row of three outlined icons (heart, paper plane, bookmark) without words."
+      "hook": "Slide 1, the hook: the audience line, then a big ALL-CAPS headline that names the problem or the promise (2-4 short lines, 1-2 highlight words), next to the man, with an optional short line below. No tip on this slide and no button.",
+      "tip": "A tip slide: exactly one tip as a bold sentence-case headline (2-3 lines) with highlight words, a short accent-coloured underline, the concrete how in 2-3 lines, and one large visual that shows the automation: a chat example or a workflow diagram when listed below, otherwise one glowing visual. No button.",
+      "cta": "The last slide: the call to action as the headline and the CTA button as the focal point, with the logo clearly visible; optionally a row of three outlined icons (heart, paper plane, bookmark) without words."
     },
+    "chat": "A phone-style chat on the right: the listed bubbles in order, customer bubbles on the left in a dark grey, business or chatbot bubbles on the right in the accent colour, each with its text exactly as listed.",
+    "diagram": "A simple workflow diagram on the right: the listed steps as 3-4 rounded glass boxes connected by glowing arrows in order, each box with a small icon and its label exactly as listed.",
     "navigation": "A small rounded pill with the slide counter at the top left (the logo keeps the top right) and a small row of swipe chevrons at the bottom right on every slide except the last.",
     "demos": {
       "source": "assets/reference/creative/carousels: 13 demo carousels of 8 slides each (video frames in _frames/). Slide 1 is used as a hook example, the last slide as a call-to-action example and the slides between as tip examples.",
       "structure": "Dark background with a glowing particle-dot wave, faint hexagon lines and small dot grids; text left or centred, the visual on the right. Hook: a large statement headline. Tips: a headline with highlight words, a short underline, a short explanation and often a small hexagon icon with a one-line takeaway. Last slide: a question that invites comments, an engagement icon row and the logo. A counter pill like 02/07 marks the slide; there is no visible swipe text."
+    }
+  },
+  "ctaRules": {
+    "instagram": {
+      "use": "Ask for a comment with one keyword, a save, or a DM; never a \"Learn more\" button. Use the offer from docs/company/services.md.",
+      "require": ["comment", "save", "dm", "direct message", "message us"],
+      "avoid": ["learn more", "read more", "click", "visit", "link in bio", "website"]
+    },
+    "facebook": {
+      "use": "Point to the link in the caption. Use the offer from docs/company/services.md.",
+      "require": ["link", "caption", "below"],
+      "avoid": ["link in bio", "dm", "direct message"]
     }
   },
   "headlineFormulas": {
@@ -370,7 +410,7 @@
     "ad": [
       "One message, one offer, one CTA.",
       "Use offer words: free, analysis, demo, in 15 minutes.",
-      "At most one proof number, and only if it is real (from docs/company/services.md).",
+      "At most one proof number, and only from docs/company/proof.md; without proof there, use a concrete scenario instead of a number.",
       "Short text.",
       "3 variants: a different headline or visual, the same branding."
     ]

@@ -43,6 +43,7 @@ from content_automation.content.deliverables import (
     DeliverableError,
     load_deliverables,
 )
+from content_automation.content.quality import carousel_problems, proof_problems
 from content_automation.content.research_input import ResearchIdea, save_sources
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
@@ -106,6 +107,7 @@ IMAGE_SLOTS = ("post", "carousel", "ad")
 IMAGE_COUNTS = {"post": 2, "carousel": 1, "ad": AD_VARIANTS}
 LABELS = {"post": "post images", "carousel": "carousel slides", "ad": "ad images", "reel": "video"}
 CONTENT_FILE = "content.md"  # stage 1: angle, key message, key points, draft caption
+PROOF_FILE = "proof.md"  # next to the company file: the only results content may cite
 MIN_RELEVANT = 3  # fewer matching articles: Codex adds sources with web search
 _IMAGE_ERRORS = (
     WorkflowError,
@@ -420,23 +422,36 @@ def _design_help(system: DesignSystem, suggested: FormatId | None) -> dict[str, 
     }
 
 
-def _carousel_slides(count: int) -> list[dict[str, Any]]:
+def _carousel_slides(count: int, cta: str) -> list[dict[str, Any]]:
     """Slide 1 the hook (with the man), then tips, the last slide with the call to action."""
-    line = "<one short line>"
+    how = "<the concrete how or an example, 1-2 short lines>"
+    shows: list[dict[str, Any]] = [
+        {"chat": [
+            {"from": "customer", "text": "<a short customer question>"},
+            {"from": "bot", "text": "<the automated answer>"},
+        ]},
+        {"diagram": ["<step 1>", "<step 2>", "<step 3>"]},
+        {"visual": "<what its icon shows, or replace with chat/diagram>"},
+    ]
     tips = [
-        {"headline": f"<tip {number}>", "subheadline": line, "visual": "<what its icon shows>"}
+        {"headline": f"<tip {number}: its own idea>", "subheadline": how,
+         **shows[(number - 1) % len(shows)]}
         for number in range(1, count - 1)
     ]
     return [
-        {"headline": "<the hook, at most 8 words>", "subheadline": line},
+        {"headline": "<the problem or the promise for this audience, at most 8 words>",
+         "subheadline": "<one short line>"},
         *tips,
-        {"headline": "<the call to action>", "cta": "<button label>"},
+        {"headline": "<the call to action>", "cta": cta},
     ]
 
 
-def _slot_template(name: str, format_id: FormatId, slides: int = 4) -> dict[str, Any]:
+def _slot_template(
+    name: str, format_id: FormatId, slides: int = 4, last_cta: str = "<button label>"
+) -> dict[str, Any]:
     """The fields the format needs, as placeholders."""
     highlight = ["<1-2 words from the headline>"]
+    audience = "<FOR WHOM, from the topic, e.g. FOR DENTAL PRACTICES>"
     cta = (
         "<button label naming the one offer (see _help.design.rules.ad)>"
         if name == "ad"
@@ -453,10 +468,12 @@ def _slot_template(name: str, format_id: FormatId, slides: int = 4) -> dict[str,
             "visual": "<layout A: the system visual on the right; otherwise delete this line>",
         },
         "statement": {
+            "audienceLine": audience,
             "headline": "<one bold sentence, at most 12 words>",
             "highlight": highlight,
         },
         "stat": {
+            "audienceLine": audience,
             "stat": "<the one big number, exactly as the article writes it, e.g. 73%>",
             "source": "<the ID of that article (research.md); list it in sourceArticleIds too>",
             "subheadline": "<one context line: what the number measures>",
@@ -467,14 +484,27 @@ def _slot_template(name: str, format_id: FormatId, slides: int = 4) -> dict[str,
             "source": "<the ID of the article (research.md)>",
             "layout": "<B or C to show the man; otherwise delete this line>",
         },
-        "carousel": {"slides": _carousel_slides(slides)},
+        "carousel": {"audienceLine": audience, "slides": _carousel_slides(slides, last_cta)},
         "person_photo": {"headline": "<0-3 words, or delete this line>"},
         "checklist": {
+            "audienceLine": audience,
             "headline": "<short title, at most 6 words>",
             "steps": ["<step 1>", "<step 2>", "<step 3>"],
         },
     }
     return {"format": format_id, **fields[format_id]}
+
+
+def _platform_cta(
+    system: DesignSystem | None, platform: str | None, company: CompanyProfile | None
+) -> str:
+    """The placeholder for a carousel's last CTA: what works on the platform, with the offer."""
+    rule = system.cta_rules.get(platform or "") if system else None
+    offer = company.offer if company else ""
+    offer_text = f'the offer "{offer}"' if offer else "the offer (ask: services.md has none)"
+    if rule is None:
+        return f"<a short call to action with {offer_text}>"
+    return f"<{rule.use.split('.')[0]}, with {offer_text}>"
 
 
 def _first_frame(formats: Sequence[str]) -> str | None:
@@ -583,7 +613,12 @@ def _brief_template(
         template["post"] = _slot_template("post", suggested or post.format or "statement")
     carousel = by_part.get("carousel")
     if carousel is not None:
-        template["carousel"] = _slot_template("carousel", "carousel", slides=carousel.slides or 5)
+        template["carousel"] = _slot_template(
+            "carousel",
+            "carousel",
+            slides=carousel.slides or 5,
+            last_cta=_platform_cta(system, carousel.platform, company),
+        )
     if "ad" in by_part:
         template["ad"] = _slot_template("ad", "ad")
     video = by_part.get("video")
@@ -681,12 +716,41 @@ def _image_counts(brief: ContentBrief, settings: Settings) -> dict[str, int]:
 
 
 def _deliverable_problems(brief: ContentBrief, settings: Settings) -> list[str]:
+    problems = _quality_problems(brief, settings)
     if not brief.deliverables:
-        return []  # a brief from before deliverables: its formats decide
+        return problems  # a brief from before deliverables: its formats decide
     try:
-        return load_deliverables(settings.deliverables_file).problems(brief)
+        return load_deliverables(settings.deliverables_file).problems(brief) + problems
     except DeliverableError as error:
-        return [str(error)]
+        return [str(error), *problems]
+
+
+def _quality_problems(brief: ContentBrief, settings: Settings) -> list[str]:
+    """A real hook, distinct tips with a how, a platform CTA, and proof only from proof.md."""
+    proof_file = settings.company_file.parent / PROOF_FILE
+    proof = proof_file.read_text(encoding="utf-8") if proof_file.is_file() else ""
+    research = [
+        f"{found.title} {found.summary} {found.content}"
+        for article_id in brief.source_article_ids
+        if (found := find_article(settings.research_dir, article_id)) is not None
+    ]
+    problems = proof_problems(brief, proof, research)
+    platforms: dict[str, str] = {}
+    if brief.deliverables:
+        try:
+            catalog = load_deliverables(settings.deliverables_file)
+            for key in brief.deliverables:
+                item = catalog.deliverables.get(key)
+                if item is not None and item.platform:
+                    platforms[item.brief_format] = item.platform
+        except DeliverableError:
+            pass  # reported by the deliverable checks
+    try:
+        system = load_design_system(settings.design_system_file)
+        problems = carousel_problems(brief, system, platforms) + problems
+    except WorkflowError as error:
+        problems.append(str(error))
+    return problems
 
 
 def _in_brief_words(message: str) -> str:
@@ -729,6 +793,7 @@ def _slot_inputs(
         stat=slot.stat,
         source=slot.source,
         steps=STEP_SEPARATOR.join(slot.steps) or None,
+        audience_line=slot.audience_line,
         slide=slot.slide,
         slide_role=slot.slide_role,
         scene=slot.scene,
@@ -739,6 +804,7 @@ def _slot_inputs(
         count=count,
         request=request,
         history=history,
+        context=" ".join([brief.topic, brief.audience, brief.objective, *brief.key_points]),
     )
     if not slot.slides:
         return [base]
@@ -748,6 +814,7 @@ def _slot_inputs(
             base,
             # Only the hook slide (slide 1) shows the man.
             layout=slot.layout if number == 1 else None,
+            audience_line=slot.audience_line if number == 1 else None,
             pose=slot.pose if number == 1 else None,
             wardrobe=slot.wardrobe if number == 1 else None,
             headline=slide.headline,
@@ -755,6 +822,8 @@ def _slot_inputs(
             subheadline=slide.subheadline,
             sub_highlight=slide.sub_highlight,
             visual=slide.visual,
+            chat="|".join(f"{bubble.speaker}: {bubble.text}" for bubble in slide.chat) or None,
+            diagram=STEP_SEPARATOR.join(slide.diagram) or None,
             cta=slide.cta,
             cta_icon=slide.cta_icon,
             slide=f"{number}/{total}",

@@ -59,14 +59,23 @@ class _BriefModel(CamelModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class ChatBubble(_BriefModel):
+    """One bubble of a tip slide's chat example; the text is rendered exactly."""
+
+    speaker: Literal["customer", "bot"] = Field(alias="from")
+    text: str = Field(min_length=1)
+
+
 class SlideSlot(_BriefModel):
     """One slide of a carousel: the first is the hook (with the man), the last has the CTA."""
 
     headline: str = Field(min_length=1)
     highlight: list[str] = Field(default_factory=list, max_length=2)  # headline words
-    subheadline: str | None = None
+    subheadline: str | None = None  # tip slides: the concrete how or an example
     sub_highlight: str | None = None
     visual: str | None = None  # tip slides: what the icon shows
+    chat: list[ChatBubble] = Field(default_factory=list, max_length=3)  # tip slides
+    diagram: list[str] = Field(default_factory=list, max_length=4)  # tip slides: workflow
     cta: str | None = None  # last slide only: the button label
     cta_icon: CtaIconId | None = None
 
@@ -82,6 +91,7 @@ class ImageSlot(_BriefModel):
     kind: Kind | None = None  # default: post -> organic (carousel: carousel_slide), ad -> ad
     layout: LayoutId | None = None  # format ad: required; news: B or C to show the man
     pose: str | None = None  # a pose from the pools; picked when left out
+    audience_line: str | None = None  # "FOR DENTAL PRACTICES" (statement, stat, checklist, hook)
     headline: str | None = None
     highlight: list[str] = Field(default_factory=list, max_length=2)  # headline words
     subheadline: str | None = None

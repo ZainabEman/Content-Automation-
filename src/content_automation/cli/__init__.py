@@ -186,6 +186,18 @@ def image(
         str | None,
         typer.Option(help="Format stat/news: ID of the research article it comes from."),
     ] = None,
+    audience_line: Annotated[
+        str | None,
+        typer.Option(help='Statement, stat, checklist, carousel hook: "For dental practices".'),
+    ] = None,
+    chat: Annotated[
+        str | None,
+        typer.Option(help='Carousel tip: 2-3 bubbles, "Customer: ...|Bot: ...".'),
+    ] = None,
+    diagram: Annotated[
+        str | None,
+        typer.Option(help='Carousel tip: 3-4 workflow steps, "Visitor asks|Bot answers|CRM".'),
+    ] = None,
     first_slide: Annotated[
         str | None,
         typer.Option(
@@ -283,6 +295,9 @@ def image(
         source=source,
         steps=steps,
         first_slide=first_slide,
+        audience_line=audience_line,
+        chat=chat,
+        diagram=diagram,
         highlight=highlight,
         subheadline=subheadline,
         sub_highlight=sub_highlight,

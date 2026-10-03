@@ -4,6 +4,10 @@
 agent steps pause the job (awaiting_agent) until Codex records them with `ca job complete`.
 `ca video resume` then runs anything still missing and assembles final.mp4.
 Voiceover is disabled in the MVP (VOICE_PROVIDER=none): scenes keep their own sound.
+
+A content package needs a real video, so it starts its job with real_only=True: while a
+scene's provider is mock or none, the job is created but holds (status processing, no
+steps) and says what is missing; `ca video resume` continues it once a real provider is set.
 """
 
 import shutil
@@ -46,8 +50,16 @@ PLAN_FILE = "plan.json"
 SCRIPT_FILE = "script.md"
 ASPECT: Literal["9:16"] = "9:16"
 # Credits per scene, by provider; agent providers are estimated in M2.C.
-_CREDITS = {"mock": "0", "library": "0"}
+_CREDITS = {"mock": "0", "library": "0", "none": "0"}
 _CREDITS_TBD = "TBD until M2.C"
+NO_PROVIDER = "none"
+PLACEHOLDER_PROVIDERS = frozenset({"mock", NO_PROVIDER})  # no real clips
+REAL_ONLY = "realProvidersOnly"  # job input: wait for real providers instead of mock clips
+# Scene type -> (setting, real provider, what to connect in Codex).
+_REAL = {
+    "video": ("VIDEO_PROVIDER", "higgsfield-mcp", "the Higgsfield MCP"),
+    "avatar": ("AVATAR_PROVIDER", "heygen-mcp", "the HeyGen MCP (and set HEYGEN_AVATAR_ID)"),
+}
 
 logger = get_logger("workflows.video_job")
 
@@ -92,11 +104,48 @@ def prepare_video(plan: VideoPlan, settings: Settings) -> PreparedVideo:
 
 def _provider_for(scene: PlanScene, settings: Settings) -> tuple[str, str]:
     if scene.type == "video":
+        if settings.video_provider == NO_PROVIDER:
+            return NO_PROVIDER, NO_PROVIDER
         return settings.video_provider, get_video_provider(settings.video_provider, settings).mode
     if scene.type == "avatar":
+        if settings.avatar_provider == NO_PROVIDER:
+            return NO_PROVIDER, NO_PROVIDER
         avatar = get_avatar_provider(settings.avatar_provider, settings)
         return settings.avatar_provider, avatar.mode
     return "library", "code"  # image scene: an existing picture, no provider call
+
+
+def missing_providers(prepared: PreparedVideo) -> list[str]:
+    """What must be set before the plan's clips can be real (empty: nothing is missing)."""
+    lines = []
+    for kind in ("video", "avatar"):
+        providers = {item.provider for item in prepared.scenes if item.scene.type == kind}
+        for provider in sorted(providers & PLACEHOLDER_PROVIDERS):
+            setting, real, connect = _REAL[kind]
+            what = "no provider is set" if provider == NO_PROVIDER else "mock makes placeholders"
+            lines.append(
+                f"{kind} scenes: {setting}={provider} ({what}). Set {setting}={real} in .env and "
+                f"connect {connect} in Codex."
+            )
+    return lines
+
+
+def pending_lines(job: Job, settings: Settings) -> list[str]:
+    """Why a held job (see real_only) is still waiting, and how to finish it; else []."""
+    if job.status != "processing" or not job.inputs.get(REAL_ONLY) or job.steps:
+        return []
+    try:
+        prepared = prepare_video(load_plan(job.folder / PLAN_FILE, check_scenes=False), settings)
+    except (PlanError, StartImageError) as error:
+        return [f"The video plan has a problem: {error}"]
+    missing = missing_providers(prepared)
+    if not missing:
+        return [f'Real providers are set now: run uv run ca video resume "{job.folder}"']
+    return [
+        "Video pending: the job is created but no clips are made yet.",
+        *(f"  Missing: {line}" for line in missing),
+        f'  Then run: uv run ca video resume "{job.folder}"',
+    ]
 
 
 def dry_run_lines(prepared: PreparedVideo, settings: Settings) -> list[str]:
@@ -133,15 +182,30 @@ def dry_run_lines(prepared: PreparedVideo, settings: Settings) -> list[str]:
 
 
 def start_video_job(
-    plan_file: Path, settings: Settings, *, request: str | None = None
+    plan_file: Path,
+    settings: Settings,
+    *,
+    request: str | None = None,
+    real_only: bool = False,
 ) -> Job:
-    """Validate plan_file, create the job folder, and run as far as possible."""
+    """Validate plan_file, create the job folder, and run as far as possible.
+
+    real_only: with a mock or no provider the job is created and held (nothing is made)
+    until a real provider is set; without it a missing provider (none) is an error.
+    """
     try:
         text = plan_file.read_text(encoding="utf-8")
     except OSError:
         raise PlanError([f"cannot read {plan_file}"]) from None
     prepared = prepare_video(parse_plan(text, check_scenes=False), settings)
     plan = prepared.plan
+    unset = [item for item in prepared.scenes if item.provider == NO_PROVIDER]
+    if unset and not real_only:
+        raise PlanError([
+            f"scene {item.scene.n}: no {item.scene.type} provider is set "
+            f"({_REAL[item.scene.type][0]}=none in .env)"
+            for item in unset
+        ])
     providers = sorted({item.provider for item in prepared.scenes})
     job = create_job(
         settings.output_dir,
@@ -153,7 +217,7 @@ def start_video_job(
         provider="+".join(providers),
         model="+".join(sorted(_models(prepared, settings))),
         params=JobParams(aspect_ratio=ASPECT, image_size="1080x1920", count=1),
-        inputs=_inputs(prepared),
+        inputs=_inputs(prepared) | ({REAL_ONLY: True} if real_only else {}),
         est_cost_usd=0.0 if set(providers) <= set(_CREDITS) else None,
     )
     logger.info("Video job %s created in %s", job.job_id, job.folder)
@@ -161,6 +225,10 @@ def start_video_job(
     atomic_write_text(job.folder / SCRIPT_FILE, _script_markdown(prepared))
     job.notes.append(_voice_note(plan, settings))
     job.start()
+    if real_only and missing_providers(prepared):
+        job.notes.append("Held: waiting for real video providers; no placeholder clips are made.")
+        job.save()
+        return job
     return advance(job, prepared, settings)
 
 
@@ -177,6 +245,10 @@ def resume_video_job(job: Job, settings: Settings) -> Job:
         return job
     if job.status == "queued":
         job.start()
+    if job.inputs.get(REAL_ONLY) and missing_providers(prepared):
+        return job  # still held: no placeholder clips for a content package
+    if any(item.provider == NO_PROVIDER for item in prepared.scenes):
+        return job  # nothing can make these clips yet
     return advance(job, prepared, settings)
 
 
@@ -288,6 +360,8 @@ def agent_checklist(job: Job) -> list[str]:
             f'     uv run ca job complete "{folder}" --step {step.step_id} --file <saved file>',
         ]
     lines += [
+        "  If that provider's MCP is not connected in this Codex session, do not retry: tell the "
+        "user to connect it in Codex (MCP servers), then run the resume command below.",
         f'  If a step fails: uv run ca job fail "{folder}" --step <step> --error "<what happened>"',
         f'  When all are recorded: uv run ca video resume "{folder}"',
     ]

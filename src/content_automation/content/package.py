@@ -37,6 +37,11 @@ from content_automation.content.brief import (
     load_brief,
     slot_kind,
 )
+from content_automation.content.deliverables import (
+    DeliverableCatalog,
+    DeliverableError,
+    load_deliverables,
+)
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
 from content_automation.core.jobs import DETAILS_FILE, Job, slugify
@@ -76,10 +81,13 @@ from content_automation.workflows.variety import (
 )
 from content_automation.workflows.video_job import (
     agent_checklist,
+    missing_providers,
+    pending_lines,
+    prepare_video,
     resume_video_job,
     start_video_job,
 )
-from content_automation.workflows.video_plan import PlanError
+from content_automation.workflows.video_plan import PlanError, parse_plan
 
 PACKAGE_FILE = "package.json"
 BRIEF_FILE = "brief.json"
@@ -124,6 +132,7 @@ class ContentPackage(CamelModel):
 
     package_id: str
     topic: str
+    deliverables: list[str] = Field(default_factory=list)  # exactly what the user named
     platform: str
     formats: list[str]
     status: str = "brief needed"
@@ -147,9 +156,17 @@ class PackageResult:
 
 
 def start_package(
-    topic: str, platform: str, formats: list[str], settings: Settings
+    topic: str, deliverables: list[str], catalog: DeliverableCatalog, settings: Settings
 ) -> PackageResult:
-    lines: list[str] = []
+    """Make the package folder for exactly these deliverables (already resolved names)."""
+    items = [catalog.deliverables[key] for key in deliverables]
+    platform = catalog.platform_for(deliverables)
+    formats: list[str] = [item.brief_format for item in items]
+    lines: list[str] = [
+        "Deliverables: " + "; ".join(f"{key} ({item.label})" for key, item in zip(
+            deliverables, items, strict=True
+        ))
+    ]
     try:
         report, _ = collect(settings)
         lines.append(
@@ -171,8 +188,9 @@ def start_package(
     except WorkflowError as error:
         system = None
         lines.append(f"Design help left out of the template: {error}")
-    suggested: FormatId | None = None
-    if system is not None and "post" in formats:
+    post = next((item for item in items if item.part == "post"), None)
+    suggested: FormatId | None = post.format if post is not None else None
+    if system is not None and post is not None and suggested is None:
         # A format the newest packages did not use; the ad part already is an "ad".
         suggested = suggest_format(
             system, recent_packages(settings.packages_dir), skip=("ad",) if "ad" in formats else ()
@@ -181,8 +199,8 @@ def start_package(
     atomic_write_text(folder / RESEARCH_FILE, _research_markdown(topic, articles, note))
     template = _brief_template(
         topic,
-        platform,
-        formats,
+        deliverables,
+        catalog,
         articles,
         brand,
         company,
@@ -196,6 +214,7 @@ def start_package(
     package = ContentPackage(
         package_id=folder.name,
         topic=topic,
+        deliverables=deliverables,
         platform=platform,
         formats=formats,
         source_article_ids=template["sourceArticleIds"],
@@ -206,8 +225,8 @@ def start_package(
         f"Next (Codex): read {RESEARCH_FILE}, then write {BRIEF_FILE} in this folder: start "
         f"from {TEMPLATE_FILE} and replace every <...> (English; use docs/company/services.md "
         "and the brand and design rules in _help; no invented results, statistics, prices or "
-        "client names; keep the suggested post format unless it does not fit the research, "
-        "and fill the fields that format needs).",
+        "client names; keep deliverables and formats as they are: build only what the user "
+        "named).",
         f'Then run: uv run ca content build "{folder}" --dry-run',
     ]
     return PackageResult(folder, lines, package)
@@ -331,10 +350,23 @@ def _design_help(system: DesignSystem, suggested: FormatId | None) -> dict[str, 
     }
 
 
-def _slot_template(name: str, format_id: FormatId) -> dict[str, Any]:
+def _carousel_slides(count: int) -> list[dict[str, Any]]:
+    """Slide 1 the hook (with the man), then tips, the last slide with the call to action."""
+    line = "<one short line>"
+    tips = [
+        {"headline": f"<tip {number}>", "subheadline": line, "visual": "<what its icon shows>"}
+        for number in range(1, count - 1)
+    ]
+    return [
+        {"headline": "<the hook, at most 8 words>", "subheadline": line},
+        *tips,
+        {"headline": "<the call to action>", "cta": "<button label>"},
+    ]
+
+
+def _slot_template(name: str, format_id: FormatId, slides: int = 4) -> dict[str, Any]:
     """The fields the format needs, as placeholders."""
     highlight = ["<1-2 words from the headline>"]
-    line = "<one short line>"
     cta = (
         "<button label naming the one offer (see _help.design.rules.ad)>"
         if name == "ad"
@@ -365,14 +397,7 @@ def _slot_template(name: str, format_id: FormatId) -> dict[str, Any]:
             "source": "<the ID of the article (research.md)>",
             "layout": "<B or C to show the man; otherwise delete this line>",
         },
-        "carousel": {
-            "slides": [
-                {"headline": "<the hook, at most 8 words>", "subheadline": line},
-                {"headline": "<tip 1>", "subheadline": line, "visual": "<what its icon shows>"},
-                {"headline": "<tip 2>", "subheadline": line, "visual": "<what its icon shows>"},
-                {"headline": "<the call to action>", "cta": "<button label>"},
-            ],
-        },
+        "carousel": {"slides": _carousel_slides(slides)},
         "person_photo": {"headline": "<0-3 words, or delete this line>"},
         "checklist": {
             "headline": "<short title, at most 6 words>",
@@ -382,10 +407,41 @@ def _slot_template(name: str, format_id: FormatId) -> dict[str, Any]:
     return {"format": format_id, **fields[format_id]}
 
 
+def _video_template(workflow: str, first_frame: str | None) -> dict[str, Any]:
+    """reel_short and ugc_ad: generated clips; podcast_clip: the avatar speaks the script."""
+    video: dict[str, Any] = {
+        "workflow": workflow,
+        "hook": "<the first sentence that stops the scroll>",
+        "script": "<what the video tells, in 2-4 sentences>",
+    }
+    if workflow == "podcast_clip":
+        video["scenes"] = [
+            {
+                "type": "avatar",
+                "prompt": "<the exact words the avatar says, about 2.5 words per second>",
+                "durationSec": 12,
+                "onScreenText": "<at most 6 words>",
+            },
+            {"type": "video", "prompt": "<b-roll shot>", "durationSec": 5},
+        ]
+        return video
+    if first_frame:
+        video["firstFrame"] = first_frame
+    video["scenes"] = [
+        {
+            "prompt": "<shot 1: continues from the first frame>" if first_frame else "<shot 1>",
+            "durationSec": 5,
+            "onScreenText": "<at most 6 words>",
+        },
+        {"prompt": "<shot 2>", "durationSec": 5, "onScreenText": "<short call to action>"},
+    ]
+    return video
+
+
 def _brief_template(
     topic: str,
-    platform: str,
-    formats: list[str],
+    deliverables: list[str],
+    catalog: DeliverableCatalog,
     articles: list[SourceArticle],
     brand: BrandProfile | None,
     company: CompanyProfile | None,
@@ -394,14 +450,19 @@ def _brief_template(
     suggested: FormatId | None,
 ) -> dict[str, Any]:
     brand_tag = brand_hashtag(brand.brand_name) if brand else "<#BrandName>"
+    chosen = {key: catalog.deliverables[key] for key in deliverables}
+    by_part = {item.part: item for item in chosen.values()}
+    formats = [item.brief_format for item in chosen.values()]
     template: dict[str, Any] = {
         "_help": {
             "howTo": (
                 f"Save a copy as {BRIEF_FILE} in this folder and replace every <...>. English "
                 "only. Use docs/company/services.md and the brand and design rules below. "
-                "Never invent results, statistics, prices or client names. This _help block "
-                "is ignored."
+                "Never invent results, statistics, prices or client names. Keep deliverables "
+                "and formats unchanged: build only what the user named. This _help block is "
+                "ignored."
             ),
+            "deliverables": {key: item.label for key, item in chosen.items()},
             "services": service_names(brand, company),
             "brandRules": {
                 "tone": brand.tone if brand else "",
@@ -411,11 +472,13 @@ def _brief_template(
             },
             "design": _design_help(system, suggested) if system else {},
             "formats": {
-                "post": "2 image options in the post's format (a carousel: one image per slide)",
+                "post": "the post's format; a carousel makes one image per slide",
                 "ad": f"{AD_VARIANTS} variants of one ad: one message, one offer, one CTA",
                 "reel": (
-                    "9:16 video; each scene at most 15 s, all scenes at most 90 s; scene 1 "
-                    'starts from firstFrame; a scene with "image": "post-1" shows that picture'
+                    "9:16 video (workflow from the deliverable); each scene at most 15 s; "
+                    "reel_short and podcast_clip at most 90 s, ugc_ad at most 60 s; scene 1 "
+                    'starts from firstFrame; a scene with "image": "post-1" shows that picture; '
+                    'podcast_clip scenes are "avatar" (the exact words) or "video" (b-roll)'
                 ),
             },
             "caption": (
@@ -426,7 +489,8 @@ def _brief_template(
             "topArticles": [f"{a.article_id} | {a.source} | {a.title}" for a in articles],
         },
         "topic": topic,
-        "platform": platform,
+        "deliverables": deliverables,
+        "platform": catalog.platform_for(deliverables),
         "formats": formats,
         "service": "<one of the services in _help>",
         "audience": brand.audience if brand and brand.audience else "<who this is for>",
@@ -435,27 +499,15 @@ def _brief_template(
         "identitySet": identity_set,
         "sourceArticleIds": [a.article_id for a in articles[:3]],
     }
-    if "post" in formats:
-        template["post"] = _slot_template("post", suggested or "ad")
-    if "ad" in formats:
+    post = by_part.get("post")
+    if post is not None:
+        template["post"] = _slot_template("post", suggested or "ad", slides=post.slides or 4)
+    if "ad" in by_part:
         template["ad"] = _slot_template("ad", "ad")
-    if "reel" in formats:
-        reel: dict[str, Any] = {
-            "hook": "<the first sentence that stops the scroll>",
-            "script": "<what the reel tells, in 2-4 sentences>",
-        }
+    video = by_part.get("video")
+    if video is not None and video.workflow is not None:
         first = "post-1" if "post" in formats else ("ad-1" if "ad" in formats else None)
-        if first:
-            reel["firstFrame"] = first
-        reel["scenes"] = [
-            {
-                "prompt": "<shot 1: continues from the first frame>",
-                "durationSec": 5,
-                "onScreenText": "<at most 6 words>",
-            },
-            {"prompt": "<shot 2>", "durationSec": 5, "onScreenText": "<short call to action>"},
-        ]
-        template["reel"] = reel
+        template["reel"] = _video_template(video.workflow, first)
     template["caption"] = {
         "hook": "<line 1: the hook>",
         "lines": ["<short line: the problem>", "<short line: the solution>"],
@@ -484,6 +536,7 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
         services=service_names(brand, company),
         known_article_ids=known,
         brand_tag=brand_hashtag(brand.brand_name) if brand else None,
+        checks=lambda checked: _deliverable_problems(checked, settings),
     )
     package = _load(folder, brief)
     plans = _plan_images(brief, package, folder, settings)
@@ -517,6 +570,15 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
     atomic_write_text(folder / POST_FILE, _post_markdown(brief, package, articles))
     _save(folder, package)
     return PackageResult(folder, lines, package)
+
+
+def _deliverable_problems(brief: ContentBrief, settings: Settings) -> list[str]:
+    if not brief.deliverables:
+        return []  # a brief from before deliverables: its formats decide
+    try:
+        return load_deliverables(settings.deliverables_file).problems(brief)
+    except DeliverableError as error:
+        return [str(error)]
 
 
 def _in_brief_words(message: str) -> str:
@@ -697,6 +759,7 @@ def _make_reel(
             )
             return failed, []
     if job is None:
+        assert brief.reel is not None
         plan = _reel_plan(brief, package)
         if isinstance(plan, str):
             return PackageItem(status="pending", error=plan, updated_at=now), []
@@ -704,16 +767,27 @@ def _make_reel(
         plan_file.parent.mkdir(exist_ok=True)
         atomic_write_text(plan_file, json.dumps(plan, indent=2, ensure_ascii=False) + "\n")
         try:
+            # A package never takes placeholder clips: without a real provider the job is
+            # created and waits ("draft — video pending").
             job = start_video_job(
-                plan_file, settings, request=f"{brief.topic}: reel (package {folder.name})"
+                plan_file,
+                settings,
+                request=f"{brief.topic}: {brief.reel.workflow} (package {folder.name})",
+                real_only=True,
             )
         except (PlanError, VideoError, AvatarError) as error:
             return PackageItem(status="failed", error=str(error), updated_at=now), []
-    return _reel_item(job, folder)
+    return _reel_item(job, folder, settings)
 
 
-def _reel_plan(brief: ContentBrief, package: ContentPackage) -> dict[str, Any] | str:
-    """The video plan for `ca video`; a string explains what is still missing."""
+def _reel_plan(
+    brief: ContentBrief, package: ContentPackage, *, check: bool = False
+) -> dict[str, Any] | str:
+    """The video plan for `ca video`; a string explains what is still missing.
+
+    check: for a dry run, before the package images exist: no start images, and scenes that
+    show a package image count as video scenes.
+    """
     assert brief.reel is not None
     reel = brief.reel
 
@@ -731,14 +805,15 @@ def _reel_plan(brief: ContentBrief, package: ContentPackage) -> dict[str, Any] |
     for number, scene in enumerate(reel.scenes, start=1):
         entry: dict[str, Any] = {
             "n": number,
-            "type": "video",
+            "type": scene.type,
             "prompt": scene.prompt,
             "durationSec": scene.duration_sec,
         }
         if scene.on_screen_text:
             entry["onScreenText"] = scene.on_screen_text
-        wanted = scene.image or (first if number == 1 else None)
-        if wanted:
+        # Avatar scenes take no start image; the first frame starts the first video scene.
+        wanted = scene.image or (first if number == 1 and scene.type == "video" else None)
+        if wanted and not check:
             ref = image_ref(wanted)
             if ref is None:
                 return f"waiting for {wanted} (its image is not made yet); run build again"
@@ -747,8 +822,8 @@ def _reel_plan(brief: ContentBrief, package: ContentPackage) -> dict[str, Any] |
                 entry["type"] = "image"
         scenes.append(entry)
     return {
-        "workflowId": "reel_short",
-        "platform": f"{brief.platform}_reel",
+        "workflowId": reel.workflow,
+        "platform": f"{brief.platform}_{reel.workflow}",
         "durationSec": sum(scene.duration_sec for scene in reel.scenes),
         "hook": reel.hook,
         "script": reel.script,
@@ -757,7 +832,7 @@ def _reel_plan(brief: ContentBrief, package: ContentPackage) -> dict[str, Any] |
     }
 
 
-def _reel_item(job: Job, folder: Path) -> tuple[PackageItem, list[str]]:
+def _reel_item(job: Job, folder: Path, settings: Settings) -> tuple[PackageItem, list[str]]:
     now = datetime.now(UTC)
     if job.status == "completed":
         target_dir = folder / VIDEO_DIR
@@ -776,17 +851,16 @@ def _reel_item(job: Job, folder: Path) -> tuple[PackageItem, list[str]]:
         )
         return item, ([f"Video credits used: {sum(credits):g}"] if credits else [])
     if job.status in ("awaiting_agent", "processing"):
+        held = pending_lines(job, settings)  # no real video provider yet
         item = PackageItem(
             status="waiting",
             job_id=job.job_id,
             job_folder=str(job.folder),
-            error="video steps are with Codex",
+            error="waiting for a real video provider" if held else "video steps are with Codex",
             updated_at=now,
         )
-        checklist = agent_checklist(job) + [
-            f'  Then (for this package): uv run ca content build "{folder}"'
-        ]
-        return item, checklist
+        steps = held or agent_checklist(job)
+        return item, steps + [f'  Then (for this package): uv run ca content build "{folder}"']
     item = PackageItem(
         status="failed",
         job_id=job.job_id,
@@ -868,20 +942,46 @@ def _dry_run_lines(
         if item is not None and item.status == "done":
             lines.append("video: already done; skipped")
         elif item is not None and item.status == "waiting":
-            lines.append("video: waiting for Codex (agent steps); build checks it again")
+            lines.append("video: waiting (video pending); build checks it again")
         else:
-            provider = settings.video_provider
-            credits = "0 (mock)" if provider == "mock" else "TBD until the MCP is connected"
-            first = brief.reel.first_frame or ("post-1" if "post" in brief.formats else "none")
-            lines.append(
-                f"video: reel_short, {len(brief.reel.scenes)} scenes, {seconds:g} s, 9:16 via "
-                f"{provider}, first frame {first}; credits: {credits}"
-            )
+            lines += _video_dry_run(brief, seconds, settings)
     lines.append(
         f"Estimated image cost: ${total:.3f} ({settings.image_provider}). "
         "Run again without --dry-run to build."
     )
     return lines
+
+
+def _video_dry_run(brief: ContentBrief, seconds: float, settings: Settings) -> list[str]:
+    """What the video costs and whether it can be made now (nothing is made)."""
+    assert brief.reel is not None
+    reel = brief.reel
+    empty = ContentPackage(package_id="", topic="", platform="", formats=[])
+    plan = _reel_plan(brief, empty, check=True)
+    head = f"video: {reel.workflow}, {len(reel.scenes)} scenes, {seconds:g} s, 9:16"
+    if isinstance(plan, str):  # not expected in check mode
+        return [f"{head}: {plan}"]
+    try:
+        prepared = prepare_video(parse_plan(json.dumps(plan), check_scenes=False), settings)
+    except (PlanError, VideoError, AvatarError) as error:
+        return [f"{head}: cannot be made yet: {error}"]
+    used = sorted({(item.scene.type, item.provider) for item in prepared.scenes})
+    via = ", ".join(f"{kind} scenes via {provider}" for kind, provider in used)
+    lines = [f"{head}; {via}; {_credits({provider for _, provider in used})}"]
+    missing = missing_providers(prepared)
+    if missing:
+        lines.append("  The video will be pending (draft - video pending) until this is fixed:")
+        lines += [f"  - {line}" for line in missing]
+    return lines
+
+
+def _credits(providers: set[str]) -> str:
+    if providers <= {"mock", "none", "library"}:
+        return "cost: none now (no real clips are made; the video waits for a real provider)"
+    return (
+        "cost: Higgsfield/HeyGen credits charged in those apps (not estimated by this tool; "
+        "check the plan or credit balance there)"
+    )
 
 
 def _post_markdown(

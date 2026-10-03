@@ -178,8 +178,8 @@ Job status can be `queued`, `processing`, `awaiting_agent` (paused for Codex),
 
 | Setting | Meaning |
 | --- | --- |
-| `VIDEO_PROVIDER`, `VIDEO_MODEL` | Video clips: `mock` (free placeholders) or `higgsfield-mcp` (made by Codex). `VIDEO_MODEL` is passed on as the model (`mock`/`default` = the tool's default). |
-| `AVATAR_PROVIDER`, `AVATAR_MODEL`, `HEYGEN_AVATAR_ID` | Avatar clips: `mock` or `heygen-mcp` (made by Codex); `HEYGEN_AVATAR_ID` is the avatar to use. |
+| `VIDEO_PROVIDER`, `VIDEO_MODEL` | Video clips: `none` (not set), `mock` (free placeholders) or `higgsfield-mcp` (made by Codex). `VIDEO_MODEL` is passed on as the model (`mock`/`default` = the tool's default). In a content package, `none` and `mock` make no clips: the video waits ("draft — video pending") until a real provider is set, then `ca video resume` finishes it. |
+| `AVATAR_PROVIDER`, `AVATAR_MODEL`, `HEYGEN_AVATAR_ID` | Avatar clips: `none`, `mock` or `heygen-mcp` (made by Codex); `HEYGEN_AVATAR_ID` is the avatar to use. Same package rule as `VIDEO_PROVIDER`. |
 | `VOICE_PROVIDER` | `none` (default): no voiceover. `mock` and `elevenlabs` are kept for later. |
 | `VOICE_MODEL`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` | Only for a later voiceover (the key stays in `.env`). |
 | `AGENT_STEP_TIMEOUT_MIN` | Minutes an agent step may wait before it is marked failed (default 30). |

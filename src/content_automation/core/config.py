@@ -7,8 +7,9 @@ from pydantic import Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ImageProvider = Literal["mock", "openrouter"]
-VideoProvider = Literal["mock", "higgsfield-mcp"]
-AvatarProvider = Literal["mock", "heygen-mcp"]
+# "none": no provider is set; a content package then keeps its video pending.
+VideoProvider = Literal["none", "mock", "higgsfield-mcp"]
+AvatarProvider = Literal["none", "mock", "heygen-mcp"]
 # "none" (default): no voiceover step runs; the MVP videos have no voiceover.
 VoiceProvider = Literal["none", "mock", "elevenlabs"]
 # "free" (default): our own scraper (RSS + article pages); no paid API, no account.
@@ -37,6 +38,7 @@ class Settings(BaseSettings):
     output_dir: Path = Path("outputs/jobs")
     research_dir: Path = Path("research")
     packages_dir: Path = Path("outputs/content")
+    deliverables_file: Path = Path("config/deliverables.json")  # names the user can ask for
 
     image_provider: ImageProvider = "mock"
     image_model: str = Field(default="google/gemini-3.1-flash-image", min_length=1)

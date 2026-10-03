@@ -82,16 +82,28 @@ articles, so Codex knows the topic is thin this week.
 
 ### Make a content package
 
-For "make a post / ad / reel about X", Codex runs two commands and writes one file in between:
+For "make an insta post / facebook ad / reel about X", Codex runs two commands and writes one
+file in between (the steps are in the skill `.agents/skills/make-content/SKILL.md`).
 
-1. `uv run ca content start --topic "X" [--platform instagram|facebook|linkedin]
-   [--formats post,ad,reel]` collects news, ranks it for the topic, and creates
-   `outputs/content/YYYY-MM-DD_<topic>/` with:
+**What you can ask for** (`config/deliverables.json`; `uv run ca content deliverables` lists it):
+
+| You say | You get |
+| --- | --- |
+| "insta post", "instagram post", "ig post", "instagram carousel" | `instagram_carousel`: 5 slides (hook with you, 3 tips, call to action) |
+| "facebook ad" | `facebook_ad`: 3 variants of one ad |
+| "video", "reel", "insta reel", "facebook video" | `reel_short`: a 9:16 video up to 90 s |
+| "ugc ad" | `ugc_ad`: a UGC-style video ad up to 60 s |
+| "podcast clip" | `podcast_clip`: your avatar speaks the script, up to 90 s |
+
+Only what you name is made: "facebook ad only" makes just the ad. If a word is not in the
+table, or could mean two things ("ad", "post"), Codex asks you instead of guessing. One package
+makes at most one post, one image ad and one video.
+
+1. `uv run ca content start --topic "X" --deliverables "insta post, reel"` collects news, ranks
+   it for the topic, and creates `outputs/content/YYYY-MM-DD_<topic>/` with:
    - `research.md`: the best-matching articles with links;
-   - `brief.template.json`: a pre-filled brief (topic, platform, formats, the company's
-     services, brand rules, the design choices, and empty slots for the post, ad and reel).
-     The post slot already has a **suggested format** that the last 3 packages did not use
-     (statement, stat, news, carousel, person photo, checklist or ad);
+   - `brief.template.json`: a pre-filled brief with only the named parts (topic, deliverables,
+     the company's services, brand rules, the design choices, and empty slots to fill);
    - `package.json`: the package record.
 2. Codex writes `brief.json` from the template (English; one of the services; no invented
    results, statistics, prices or client names). The fields a post needs depend on its
@@ -106,11 +118,15 @@ For "make a post / ad / reel about X", Codex runs two commands and writes one fi
    To pre-fill the link, add a line `Website: https://…` to `docs/company/services.md`.
 3. `uv run ca content build "<folder>" --dry-run` checks `brief.json` (every problem is listed)
    and shows the cost. Codex waits for your OK.
-4. `uv run ca content build "<folder>"` makes:
-   - **post**: 2 image options in the post's format; a carousel instead makes one image per
-     slide (`post-1.png` is the hook slide);
-   - **ad**: 3 ad variants (one message, one offer, one CTA; same branding);
-   - **reel**: a 9:16 video whose first frame is the first post image;
+4. `uv run ca content build "<folder>"` makes only the named parts:
+   - **Instagram carousel**: one image per slide (`post-1.png` is the hook slide);
+   - **Facebook ad**: 3 ad variants (one message, one offer, one CTA; same branding);
+   - **video** (reel, UGC ad or podcast clip): made with `VIDEO_PROVIDER` / `AVATAR_PROVIDER`
+     from `.env`; its first frame is the first post image when there is one. The dry run shows
+     the video's provider and credits, and Codex waits for your OK as for images. If a provider
+     is `mock` or `none` (or its MCP is not connected in Codex), the package does not fail: the
+     video job is created, the status is **"draft — video pending"**, and the build prints
+     exactly what to set. `uv run ca video resume "<job folder>"` or another build finishes it;
    - `post.md` (the caption ready to paste, source links) and an updated `package.json`.
 
    Designed images are made at 2K: 5 images cost about $0.51 with OpenRouter (a 5-slide
@@ -133,7 +149,8 @@ For "make a post / ad / reel about X", Codex runs two commands and writes one fi
 | --- | --- |
 | `uv run ca research collect` | Collects new articles from every active site; prints counts per site and the report path. |
 | `uv run ca research digest [--topic "…"] [--days 14] [--limit 10]` | Lists saved articles from the last N days (default 14): ranked by topic if given, otherwise newest first. Each line: ID, site, date, title and a short snippet. |
-| `uv run ca content start --topic "…" [--platform …] [--formats post,ad,reel]` | Research + package folder with `research.md` and `brief.template.json`. |
+| `uv run ca content deliverables` | Lists what can be made and the names that ask for it. |
+| `uv run ca content start --topic "…" --deliverables "<names>"` | Research + package folder with `research.md` and `brief.template.json`, for exactly the named deliverables. |
 | `uv run ca content build <folder> [--dry-run]` | Checks `brief.json`, shows the cost (dry run) or makes what is missing. |
 
 ## Outputs

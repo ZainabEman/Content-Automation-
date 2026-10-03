@@ -1,0 +1,37 @@
+{
+  "deliverables": {
+    "instagram_carousel": {
+      "label": "Instagram carousel: 5 slides (hook, 3 tips, call to action)",
+      "part": "post",
+      "platform": "instagram",
+      "format": "carousel",
+      "slides": 5,
+      "aliases": ["insta post", "instagram post", "ig post", "instagram carousel"]
+    },
+    "facebook_ad": {
+      "label": "Facebook ad: 3 variants of one ad (headline, subheadline, CTA button)",
+      "part": "ad",
+      "platform": "facebook",
+      "format": "ad",
+      "aliases": ["facebook ad"]
+    },
+    "reel_short": {
+      "label": "Short vertical video (reel), up to 90 s",
+      "part": "video",
+      "workflow": "reel_short",
+      "aliases": ["video", "reel", "insta reel", "facebook video"]
+    },
+    "ugc_ad": {
+      "label": "UGC-style video ad, up to 60 s",
+      "part": "video",
+      "workflow": "ugc_ad",
+      "aliases": ["ugc ad"]
+    },
+    "podcast_clip": {
+      "label": "Podcast clip: the avatar speaks the script, with optional b-roll, up to 90 s",
+      "part": "video",
+      "workflow": "podcast_clip",
+      "aliases": ["podcast clip"]
+    }
+  }
+}

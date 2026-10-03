@@ -107,8 +107,10 @@ def _providers(settings: Settings) -> list[Check]:
         ("Video", settings.video_provider, "higgsfield-mcp"),
         ("Avatar", settings.avatar_provider, "heygen-mcp"),
     ):
-        if provider == "mock":
-            checks.append(Check("warn", label, "mock (placeholder clips)",
+        if provider in ("mock", "none"):
+            detail = "mock (placeholder clips)" if provider == "mock" else "none (not set)"
+            checks.append(Check("warn", label,
+                                f"{detail}; content packages keep their video pending",
                                 f"After connecting the MCP in Codex, set "
                                 f"{label.upper()}_PROVIDER={real} in .env "
                                 "(docs/guides/module-2-video.md)."))

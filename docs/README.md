@@ -14,7 +14,9 @@ Nothing is posted automatically.
 
 Ask Codex for a post, ad or reel about a topic. Codex follows `AGENTS.md`:
 
-1. `uv run ca content start --topic "…"` collects fresh news and creates a package folder in
+1. `uv run ca content start --topic "…" --deliverables "<what you named>"` collects fresh news
+   and creates a package folder (only for what you named: an insta post is a 5-slide carousel;
+   a video, reel, UGC ad or podcast clip is a real video part) in
    `outputs/content/YYYY-MM-DD_<topic>/` with `research.md` and `brief.template.json`.
 2. Codex writes `brief.json` (designs, reel, caption) from the research, the company
    profile (`docs/company/services.md`), the brand rules and the design system
@@ -33,7 +35,8 @@ You can also ask for single images, videos or research (see the guides).
 | Command | What it does |
 | --- | --- |
 | `uv run ca doctor` | Checks the setup and explains how to fix each problem. |
-| `uv run ca content start --topic "…" [--platform instagram\|facebook\|linkedin] [--formats post,ad,reel]` | Research + package folder with the brief template. |
+| `uv run ca content deliverables` | What can be made and the names that ask for it. |
+| `uv run ca content start --topic "…" --deliverables "<names>"` | Research + package folder with the brief template, for exactly those deliverables. |
 | `uv run ca content build <folder> [--dry-run]` | Makes what is missing in a package (or shows the cost). |
 | `uv run ca research collect` | Collects new articles from the sites in `config/sources.json`. |
 | `uv run ca research digest [--topic "…"] [--days 14] [--limit 10]` | Lists saved articles, ranked by topic if given. |
@@ -53,6 +56,7 @@ You can also ask for single images, videos or research (see the guides).
 | `research/` | Collected articles and run reports (`RESEARCH_DIR`). |
 | `assets/reference/` | Your photos, logo, style examples and `brand.json`. |
 | `config/sources.json` | The news sites to read. |
+| `config/deliverables.json` | What can be asked for by name (insta post, facebook ad, reel, ...). |
 | `config/design_system.json` | The look of designed graphics: layouts, poses, text rules. |
 | `docs/company/services.md` | Company profile: services, message, content rules. |
 

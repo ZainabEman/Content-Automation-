@@ -11,7 +11,8 @@ from pydantic import ValidationError
 from content_automation.ai.avatar import AvatarError
 from content_automation.ai.image import ASPECT_RATIOS, ImageError, ImageRequest
 from content_automation.ai.video import VideoError
-from content_automation.content.brief import FORMATS, PLATFORMS, BriefError
+from content_automation.content.brief import BriefError
+from content_automation.content.deliverables import DeliverableError, load_deliverables
 from content_automation.content.package import build_package, start_package
 from content_automation.core.agent_steps import record_agent_output, request_path
 from content_automation.core.config import ConfigurationError, Settings, load_settings
@@ -50,6 +51,7 @@ from content_automation.workflows.image_workflows import (
 from content_automation.workflows.registry import DEFAULT_STYLE_COUNT, WorkflowError
 from content_automation.workflows.video_job import (
     agent_checklist,
+    pending_lines,
     prepare_video,
     resume_video_job,
     start_video_job,
@@ -576,7 +578,7 @@ def video(
     except (PlanError, VideoError, AvatarError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from None
-    _report_video(job)
+    _report_video(job, settings)
 
 
 @video_app.command("resume")
@@ -590,10 +592,10 @@ def video_resume(job_dir: JobDir) -> None:
     except (VideoError, AvatarError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from None
-    _report_video(job)
+    _report_video(job, settings)
 
 
-def _report_video(job: Job) -> None:
+def _report_video(job: Job, settings: Settings) -> None:
     if job.status == "completed":
         for note in job.notes:
             typer.echo(note)
@@ -604,6 +606,12 @@ def _report_video(job: Job) -> None:
         for line in agent_checklist(job):
             typer.echo(line)
         typer.echo(f"Status: awaiting_agent ({job.folder})")
+        return
+    held = pending_lines(job, settings)
+    if held:  # a content package's video waits for a real provider
+        for line in held:
+            typer.echo(line)
+        typer.echo(f"Status: video pending ({job.folder})")
         return
     typer.echo(f"Failed: {job.error or job.status}", err=True)
     typer.echo(str(job.folder), err=True)
@@ -672,28 +680,50 @@ def research_digest(
 @content_app.command("start")
 def content_start(
     topic: Annotated[str, typer.Option(help='What it is about, e.g. "AI chatbots for SMEs".')],
-    platform: Annotated[str, typer.Option(help="instagram, facebook or linkedin.")] = "instagram",
-    formats: Annotated[str, typer.Option(help="Comma-separated: post, ad, reel.")] = "post,ad,reel",
+    deliverables: Annotated[
+        str,
+        typer.Option(
+            help='Exactly what the user named, comma-separated, e.g. "insta post, reel". '
+            "See `ca content deliverables`."
+        ),
+    ],
 ) -> None:
-    """Collect news, rank it for the topic, and create the package folder for brief.json."""
+    """Collect news, rank it for the topic, and create the package folder for brief.json.
+
+    Only the named deliverables are made; an unknown or ambiguous name stops with exit
+    code 2 so Codex can ask the user.
+    """
     _utf8_output()
-    parts = [part.strip().lower() for part in formats.split(",") if part.strip()]
-    chosen = list(dict.fromkeys(parts))
-    problems = []
-    if platform not in PLATFORMS:
-        problems.append(f"--platform must be one of: {', '.join(PLATFORMS)}.")
-    if not chosen or any(item not in FORMATS for item in chosen):
-        problems.append(f"--formats must be a comma list of: {', '.join(FORMATS)}.")
     if not topic.strip():
-        problems.append("--topic cannot be empty.")
-    if problems:
-        typer.echo(" ".join(problems), err=True)
+        typer.echo("--topic cannot be empty.", err=True)
         raise typer.Exit(code=2)
     settings = _settings(check_keys=False)
+    try:
+        catalog = load_deliverables(settings.deliverables_file)
+        chosen = catalog.resolve(deliverables)
+    except DeliverableError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from None
     configure_logging(settings)
-    result = start_package(topic.strip(), platform, chosen, settings)
+    result = start_package(topic.strip(), chosen, catalog, settings)
     for line in result.lines:
         typer.echo(line)
+
+
+@content_app.command("deliverables")
+def content_deliverables() -> None:
+    """List what can be made and the names (aliases) that ask for it."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        catalog = load_deliverables(settings.deliverables_file)
+    except DeliverableError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    for key, item in catalog.deliverables.items():
+        typer.echo(f"{key}: {item.label}")
+        typer.echo(f"  names: {', '.join(item.aliases)}")
+    typer.echo("Any other word: ask the user which of these they mean.")
 
 
 @content_app.command("build")

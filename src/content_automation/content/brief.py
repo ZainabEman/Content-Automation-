@@ -5,6 +5,7 @@ Keys starting with "_" (like the "_help" block in brief.template.json) are ignor
 
 import json
 import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
@@ -19,6 +20,8 @@ from content_automation.workflows.design_system import (
     LayoutId,
     SlideRole,
 )
+from content_automation.workflows.video_plan import VideoWorkflow
+from content_automation.workflows.video_workflows import VIDEO_WORKFLOWS
 
 Platform = Literal["instagram", "facebook", "linkedin"]
 Format = Literal["post", "ad", "reel"]
@@ -105,13 +108,17 @@ class Caption(_BriefModel):
 
 
 class ReelScene(_BriefModel):
-    prompt: str = Field(min_length=1)  # the shot, for the video provider
+    type: Literal["video", "avatar"] = "video"  # avatar: the avatar says ``prompt``
+    prompt: str = Field(min_length=1)  # video: the shot; avatar: the exact words
     duration_sec: float = Field(gt=0, le=15)
     on_screen_text: str | None = None
     image: ImageRef | None = None  # show this package image (slow zoom) instead of a clip
 
 
 class ReelSlot(_BriefModel):
+    """The package's video: reel_short, ugc_ad or podcast_clip (see deliverables.json)."""
+
+    workflow: VideoWorkflow = "reel_short"
     hook: str = Field(min_length=1)
     script: str = Field(min_length=1)
     first_frame: ImageRef | None = None  # start image of scene 1 (default: best post image)
@@ -120,6 +127,7 @@ class ReelSlot(_BriefModel):
 
 class ContentBrief(_BriefModel):
     topic: str = Field(min_length=1)
+    deliverables: list[str] = Field(default_factory=list)  # what the user named; sets formats
     platform: Platform
     formats: list[Format] = Field(min_length=1)
     service: str = Field(min_length=1)
@@ -149,9 +157,17 @@ def slot_kind(name: str, slot: ImageSlot) -> Kind:
 
 
 def load_brief(
-    path: Path, *, services: list[str], known_article_ids: set[str], brand_tag: str | None = None
+    path: Path,
+    *,
+    services: list[str],
+    known_article_ids: set[str],
+    brand_tag: str | None = None,
+    checks: Callable[[ContentBrief], list[str]] | None = None,
 ) -> ContentBrief:
-    """Read and check brief.json; raise BriefError listing every problem."""
+    """Read and check brief.json; raise BriefError listing every problem.
+
+    checks: more rules (e.g. the deliverables catalog) reported together with these.
+    """
     try:
         raw: Any = json.loads(path.read_text(encoding="utf-8"))
     except OSError:
@@ -169,6 +185,8 @@ def load_brief(
     problems = brief_problems(
         brief, services=services, known_article_ids=known_article_ids, brand_tag=brand_tag
     )
+    if checks is not None:
+        problems += checks(brief)
     placeholders = sorted(set(_PLACEHOLDER.findall(json.dumps(data, ensure_ascii=False))))
     if placeholders:
         problems.append(f"replace the template placeholders: {', '.join(placeholders[:5])}")
@@ -227,9 +245,25 @@ def brief_problems(
     if unknown:
         problems.append(f"unknown sourceArticleIds (see research.md): {', '.join(unknown)}")
     if brief.reel is not None:
+        video = VIDEO_WORKFLOWS[brief.reel.workflow]
+        limit = min(MAX_REEL_SEC, video.max_duration_sec)
         total = sum(scene.duration_sec for scene in brief.reel.scenes)
-        if total > MAX_REEL_SEC:
-            problems.append(f"the reel scenes add up to {total:g} s (max {MAX_REEL_SEC} s)")
+        if total > limit:
+            problems.append(
+                f"the reel scenes add up to {total:g} s (max {limit} s for {video.workflow_id})"
+            )
+        types = [scene.type for scene in brief.reel.scenes if scene.image is None]
+        if any(kind not in video.scene_types for kind in types):
+            problems.append(
+                f"{video.workflow_id} scenes are {' or '.join(video.scene_types)}, not "
+                f"{', '.join(sorted(set(types) - set(video.scene_types)))}"
+            )
+        if video.required_scene_type not in types:
+            problems.append(
+                f"{video.workflow_id} needs at least one {video.required_scene_type} scene"
+            )
+        if any(scene.type == "avatar" and scene.image for scene in brief.reel.scenes):
+            problems.append("an avatar scene cannot show a package image")
         refs = [brief.reel.first_frame] + [scene.image for scene in brief.reel.scenes]
         for ref in refs:
             if ref is not None and ref.split("-")[0] not in brief.formats:

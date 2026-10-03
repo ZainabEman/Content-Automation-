@@ -1,0 +1,197 @@
+"""Deliverables the user can ask for by name: config/deliverables.json (DELIVERABLES_FILE).
+
+A request names deliverables in plain words ("insta post, reel"). Each name must match one
+alias exactly; an unknown or ambiguous name is never guessed, so Codex asks the user. Only
+the named deliverables are built.
+"""
+
+import re
+from pathlib import Path
+from typing import Literal, Self
+
+from pydantic import ConfigDict, Field, ValidationError, model_validator
+
+from content_automation.content.brief import (
+    MAX_SLIDES,
+    MIN_SLIDES,
+    ContentBrief,
+    Format,
+    Platform,
+)
+from content_automation.core.files import CamelModel
+from content_automation.workflows.design_system import FormatId
+from content_automation.workflows.video_plan import VideoWorkflow
+
+Part = Literal["post", "ad", "video"]
+# The package part (brief.json "formats") that makes each kind of deliverable.
+FORMAT_BY_PART: dict[Part, Format] = {"post": "post", "ad": "ad", "video": "reel"}
+PART_NAMES: dict[Part, str] = {"post": "posts", "ad": "image ads", "video": "videos"}
+DEFAULT_PLATFORM: Platform = "instagram"
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_SPLIT = re.compile(r",|;|\+|&|\band\b|\bplus\b")
+_FILLER = re.compile(r"^(?:(?:a|an|one|the|only|just)\s+)+|(?:\s+only)+$")
+
+
+class DeliverableError(ValueError):
+    """An unknown or ambiguous deliverable name, or an invalid deliverables.json."""
+
+
+class _Model(CamelModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class Deliverable(_Model):
+    label: str = Field(min_length=1)
+    part: Part
+    platform: Platform | None = None
+    format: FormatId | None = None  # post and ad: the design format
+    slides: int | None = Field(default=None, ge=MIN_SLIDES, le=MAX_SLIDES)  # carousels
+    workflow: VideoWorkflow | None = None  # videos
+    aliases: list[str] = Field(min_length=1)
+
+    @property
+    def brief_format(self) -> Format:
+        return FORMAT_BY_PART[self.part]
+
+
+def normalize(name: str) -> str:
+    """"Insta-Reel only" -> "insta reel"."""
+    text = re.sub(r"[\s_\-]+", " ", name.lower()).strip(" .!?\"'")
+    return _FILLER.sub("", text).strip()
+
+
+class DeliverableCatalog(_Model):
+    deliverables: dict[str, Deliverable] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _check(self) -> Self:
+        problems = []
+        seen: dict[str, str] = {}
+        for key, item in self.deliverables.items():
+            if item.part == "video" and item.workflow is None:
+                problems.append(f"{key}: a video needs a workflow")
+            if item.part != "video" and item.format is None:
+                problems.append(f"{key}: a post or ad needs a format")
+            if item.part == "ad" and item.format != "ad":
+                problems.append(f'{key}: an ad uses format "ad"')
+            if (item.format == "carousel") != (item.slides is not None):
+                problems.append(f"{key}: slides are set for carousels, and only for them")
+            for name in [key, *item.aliases]:
+                alias = normalize(name)
+                if seen.setdefault(alias, key) != key:
+                    problems.append(f'"{alias}" names both {seen[alias]} and {key}')
+        if problems:
+            raise ValueError("; ".join(problems))
+        return self
+
+    def names(self) -> dict[str, str]:
+        """Every accepted name (aliases and IDs, normalized) -> deliverable ID."""
+        found = {}
+        for key, item in self.deliverables.items():
+            for name in [key, *item.aliases]:
+                found[normalize(name)] = key
+        return found
+
+    def resolve(self, text: str) -> list[str]:
+        """The deliverable IDs named in ``text`` (comma-separated), in order.
+
+        Raises DeliverableError for an unknown or ambiguous name, and when two named
+        deliverables need the same part of a package.
+        """
+        names = self.names()
+        chosen: list[str] = []
+        problems: list[str] = []
+        for raw in _SPLIT.split(text):
+            name = normalize(raw)
+            if not name:
+                continue
+            key = names.get(name)
+            if key is None:
+                problems.append(self._unknown(name))
+            elif key not in chosen:
+                chosen.append(key)
+        if not chosen and not problems:
+            problems.append("no deliverable was named")
+        for part in FORMAT_BY_PART:
+            same = [key for key in chosen if self.deliverables[key].part == part]
+            if len(same) > 1:
+                problems.append(
+                    f"{' and '.join(same)} are both {PART_NAMES[part]}; one package makes one "
+                    "of each. Ask which one, or make a second package for the other"
+                )
+        if problems:
+            known = "; ".join(f"{key}: {', '.join(item.aliases)}" for key, item in
+                              self.deliverables.items())
+            raise DeliverableError(
+                "Ask the user, never guess: " + ". ".join(problems) + f". Known names: {known}."
+            )
+        return chosen
+
+    def _unknown(self, name: str) -> str:
+        words = set(name.split())
+        close = [  # every word of the name is in one of its aliases ("ad" -> "facebook ad")
+            f"{item.aliases[0]} ({key})"
+            for key, item in self.deliverables.items()
+            if any(words <= set(normalize(alias).split()) for alias in item.aliases)
+        ]
+        if len(close) > 1:
+            return f'"{name}" is ambiguous: it could be {" or ".join(close)}'
+        if close:
+            return f'"{name}" is not a known name (did the user mean {close[0]}?)'
+        return f'"{name}" is not a deliverable we make'
+
+    def platform_for(self, keys: list[str]) -> Platform:
+        """The package platform: the first named deliverable that has one."""
+        platforms = [self.deliverables[key].platform for key in keys]
+        return next((platform for platform in platforms if platform), DEFAULT_PLATFORM)
+
+    def problems(self, brief: ContentBrief) -> list[str]:
+        """brief.json must build exactly its deliverables, as the catalog defines them."""
+        unknown = [key for key in brief.deliverables if key not in self.deliverables]
+        if unknown:
+            return [f"unknown deliverables: {', '.join(unknown)}"]
+        if not brief.deliverables:
+            return []
+        items = [self.deliverables[key] for key in brief.deliverables]
+        problems = []
+        wanted = [item.brief_format for item in items]
+        if sorted(brief.formats) != sorted(wanted):
+            problems.append(
+                f"formats must be exactly {wanted} for the deliverables {brief.deliverables}; "
+                "build only what the user named"
+            )
+        for key, item in zip(brief.deliverables, items, strict=True):
+            if item.part == "video":
+                if brief.reel is not None and brief.reel.workflow != item.workflow:
+                    problems.append(f'reel.workflow must be "{item.workflow}" ({item.label})')
+                continue
+            slot = brief.post if item.part == "post" else brief.ad
+            if slot is None:
+                continue
+            if slot.format != item.format:
+                problems.append(f'{item.part}.format must be "{item.format}" ({item.label})')
+            elif item.slides is not None and len(slot.slides) != item.slides:
+                problems.append(
+                    f"{item.part}.slides: {key} needs exactly {item.slides} slides "
+                    f"(found {len(slot.slides)})"
+                )
+        return problems
+
+
+def load_deliverables(path: Path) -> DeliverableCatalog:
+    """Read and check deliverables.json; a relative path is also tried in the project folder."""
+    candidates = [path] if path.is_absolute() else [path, _PROJECT_ROOT / path]
+    file = next((candidate for candidate in candidates if candidate.is_file()), None)
+    if file is None:
+        raise DeliverableError(
+            f"Deliverables file not found at {path}. Restore config/deliverables.json or set "
+            "DELIVERABLES_FILE in .env."
+        )
+    try:
+        return DeliverableCatalog.model_validate_json(file.read_text(encoding="utf-8"))
+    except ValidationError as error:
+        problems = sorted({
+            ".".join(str(part) for part in issue["loc"]) or str(issue["msg"])
+            for issue in error.errors(include_url=False)
+        })
+        raise DeliverableError(f"{file.name} is invalid; check: {'; '.join(problems)}.") from None

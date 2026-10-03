@@ -460,6 +460,12 @@ def creative_sets(
     return list(found.values())
 
 
+def _slide_role(position: int, total: int) -> str:
+    if position == 0:
+        return "hook"
+    return "cta" if position == total - 1 else "tip"
+
+
 def select_rotating_style_refs(
     names: Sequence[str],
     max_n: int,
@@ -468,12 +474,16 @@ def select_rotating_style_refs(
     avoid: Sequence[str] = (),
     seed: str = "",
     strict: bool = False,
+    role: str | None = None,
 ) -> tuple[list[ReferenceImage], list[str]]:
     """Up to max_n style images from the named creative sets, and the set IDs they came from.
 
     One image per video/file. Asset IDs in ``avoid`` (newest first) are used only when too
     few others remain, the one used longest ago first. The rest is shuffled by ``seed`` and
     taken from different sets where possible, so the same inputs give the same images.
+
+    role: carousel examples only for that slide role. Within a set the videos/files in name
+    order are the slides: the first is the "hook", the last the "cta", the rest "tip".
     """
     if max_n <= 0:
         return [], []
@@ -482,8 +492,13 @@ def select_rotating_style_refs(
         groups: dict[str, list[RefAsset]] = {}
         for asset in sorted(ref_set.ok_assets, key=lambda a: natural_key(a.file)):
             groups.setdefault(_source_key(asset.file), []).append(asset)
-        for items in groups.values():
-            best = min(items, key=lambda a: (_frame_preference(a.file), natural_key(a.file)))
+        ordered = sorted(groups, key=natural_key)
+        for position, key in enumerate(ordered):
+            if role is not None and _slide_role(position, len(ordered)) != role:
+                continue
+            best = min(
+                groups[key], key=lambda a: (_frame_preference(a.file), natural_key(a.file))
+            )
             candidates.append((ref_set, best))
     last_used: dict[str, int] = {}
     for position, asset_id in enumerate(avoid):

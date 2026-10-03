@@ -82,6 +82,7 @@ class Core(_DesignModel):
     fonts: str = Field(min_length=1)
     logo: str = Field(min_length=1)
     identity: IdentityRules
+    no_person: str = Field(min_length=1)  # said by every design that does not show him
     text: TextRules
 
 
@@ -152,6 +153,7 @@ class FormatSpec(_DesignModel):
     fixed_texts: dict[str, str] = Field(default_factory=dict)  # what it is -> exact text
     typography: dict[TextField, str] = Field(default_factory=dict)  # replaces the default
     style_sets: list[str] = Field(default_factory=list)  # creative sets (or folders) that fit
+    style_by_role: bool = False  # carousels: hook, tip or cta examples by slide position
     style_refs: int = Field(default=3, ge=0, le=3)  # 0 = no style images
 
 
@@ -164,6 +166,7 @@ class KindSpec(_DesignModel):
 class CarouselSpec(_DesignModel):
     slides: dict[SlideRole, str]
     navigation: str = Field(min_length=1)
+    demos: dict[str, str] = Field(default_factory=dict)  # where the examples are, their structure
 
 
 class DesignRules(_DesignModel):

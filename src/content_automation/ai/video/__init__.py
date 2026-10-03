@@ -23,7 +23,7 @@ CLIPS_DIR = "clips"
 
 # Provider name -> adapter module. Adding a provider = one adapter file + one line here.
 _ADAPTERS: dict[str, str] = {
-    "higgsfield-mcp": "content_automation.ai.video.providers.higgsfield_mcp",
+    "higgsfield-plugin": "content_automation.ai.video.providers.higgsfield_plugin",
     "mock": "content_automation.ai.video.providers.mock",
 }
 
@@ -62,6 +62,8 @@ class VideoRequest(BaseModel):
     aspect_ratio: VideoAspect = "9:16"
     start_image_path: Path | None = None
     start_image_asset_id: str | None = None
+    # Photos of the identity person: any person in the clip must be him.
+    identity_image_paths: list[Path] = Field(default_factory=list)
 
 
 class VideoProvider(Protocol):

@@ -17,7 +17,7 @@ TERMINAL_STATUSES: frozenset[str] = frozenset({"completed", "failed", "cancelled
 DETAILS_FILE = "details.json"
 _ACTIVE = {"processing", "awaiting_agent"}
 
-# "code": the app calls the provider API. "agent": Codex calls an MCP tool, then records
+# "code": the app calls the provider API. "agent": Codex uses a Codex plugin, then records
 # the result with `ca job complete` / `ca job fail`.
 AdapterMode = Literal["code", "agent"]
 StepStatus = Literal["processing", "awaiting_agent", "completed", "failed"]

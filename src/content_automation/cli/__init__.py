@@ -13,7 +13,8 @@ from content_automation.ai.image import ASPECT_RATIOS, ImageError, ImageRequest
 from content_automation.ai.video import VideoError
 from content_automation.content.brief import BriefError
 from content_automation.content.deliverables import DeliverableError, load_deliverables
-from content_automation.content.package import build_package, start_package
+from content_automation.content.package import build_package, set_deliverables, start_package
+from content_automation.content.research_input import ResearchInputError, load_idea
 from content_automation.core.agent_steps import record_agent_output, request_path
 from content_automation.core.config import ConfigurationError, Settings, load_settings
 from content_automation.core.jobs import DETAILS_FILE, Job, JobStateError
@@ -185,6 +186,13 @@ def image(
         str | None,
         typer.Option(help="Format stat/news: ID of the research article it comes from."),
     ] = None,
+    first_slide: Annotated[
+        str | None,
+        typer.Option(
+            help="Format carousel, slides 2+: slide 1's image as <jobId>/image-1.png "
+            "(same scene, decor and colours)."
+        ),
+    ] = None,
     steps: Annotated[
         str | None,
         typer.Option(help='Format checklist: 3-5 short steps separated by "|".'),
@@ -274,6 +282,7 @@ def image(
         stat=stat,
         source=source,
         steps=steps,
+        first_slide=first_slide,
         highlight=highlight,
         subheadline=subheadline,
         sub_highlight=sub_highlight,
@@ -554,7 +563,7 @@ def video(
 ) -> None:
     """Make a video from plan.json: check it, make each scene, assemble final.mp4.
 
-    If a scene waits for Codex (an MCP provider), the job pauses; record each clip with
+    If a scene waits for Codex (a plugin provider), the job pauses; record each clip with
     `ca job complete`, then run `ca video resume <job folder>`.
     """
     if ctx.invoked_subcommand is not None:
@@ -679,33 +688,77 @@ def research_digest(
 
 @content_app.command("start")
 def content_start(
-    topic: Annotated[str, typer.Option(help='What it is about, e.g. "AI chatbots for SMEs".')],
+    topic: Annotated[
+        str | None,
+        typer.Option(help='What it is about, e.g. "AI chatbots" (default: the idea title).'),
+    ] = None,
     deliverables: Annotated[
-        str,
+        str | None,
         typer.Option(
-            help='Exactly what the user named, comma-separated, e.g. "insta post, reel". '
-            "See `ca content deliverables`."
+            help='Only if the user already named them, e.g. "insta post, reel" '
+            "(see `ca content deliverables`). Leave out to decide later with `ca content set`."
         ),
-    ],
+    ] = None,
+    research_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="Research from a file instead of the scraper: the content list JSON saved by "
+            "the show-content skill."
+        ),
+    ] = None,
+    idea: Annotated[
+        int | None, typer.Option(min=1, help="With --research-file: the idea number to use.")
+    ] = None,
 ) -> None:
-    """Collect news, rank it for the topic, and create the package folder for brief.json.
+    """Stage 1 (free): research and the package folder with research.md.
 
-    Only the named deliverables are made; an unknown or ambiguous name stops with exit
-    code 2 so Codex can ask the user.
+    Deliverables are optional here; nothing is built until they are named. An unknown or
+    ambiguous name stops with exit code 2 so Codex can ask the user.
     """
     _utf8_output()
-    if not topic.strip():
-        typer.echo("--topic cannot be empty.", err=True)
+    settings = _settings(check_keys=False)
+    chosen_idea = None
+    try:
+        if research_file is not None:
+            chosen_idea = load_idea(research_file, idea)
+        elif idea is not None:
+            raise ResearchInputError("--idea needs --research-file.")
+        catalog = load_deliverables(settings.deliverables_file)
+        chosen = catalog.resolve(deliverables) if deliverables else []
+    except (DeliverableError, ResearchInputError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from None
+    title = (topic or "").strip() or (chosen_idea.title if chosen_idea else "")
+    if not title:
+        typer.echo("Give --topic, or --research-file with --idea.", err=True)
         raise typer.Exit(code=2)
+    configure_logging(settings)
+    result = start_package(title, chosen, catalog, settings, idea=chosen_idea)
+    for line in result.lines:
+        typer.echo(line)
+
+
+@content_app.command("set")
+def content_set(
+    folder: Annotated[Path, typer.Argument(help="The package folder from `ca content start`.")],
+    deliverables: Annotated[
+        str,
+        typer.Option(help='Exactly what the user named, e.g. "facebook ad only".'),
+    ],
+) -> None:
+    """Stage 2: name the deliverables of a package and write its brief template.
+
+    An unknown or ambiguous name stops with exit code 2 so Codex can ask the user.
+    """
+    _utf8_output()
     settings = _settings(check_keys=False)
     try:
         catalog = load_deliverables(settings.deliverables_file)
         chosen = catalog.resolve(deliverables)
+        result = set_deliverables(folder, chosen, catalog, settings)
     except DeliverableError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from None
-    configure_logging(settings)
-    result = start_package(topic.strip(), chosen, catalog, settings)
     for line in result.lines:
         typer.echo(line)
 

@@ -24,17 +24,20 @@ from content_automation.workflows.video_plan import VideoWorkflow
 from content_automation.workflows.video_workflows import VIDEO_WORKFLOWS
 
 Platform = Literal["instagram", "facebook", "linkedin"]
-Format = Literal["post", "ad", "reel"]
+Format = Literal["post", "carousel", "ad", "reel"]
 ImageRef = Literal[
-    "post-1", "post-2", "post-3", "post-4", "post-5", "post-6", "post-7", "ad-1", "ad-2", "ad-3"
+    "post-1", "post-2", "post-3", "post-4", "post-5", "post-6", "post-7",
+    "carousel-1", "carousel-2", "carousel-3", "carousel-4", "carousel-5", "carousel-6",
+    "carousel-7", "ad-1", "ad-2", "ad-3",
 ]
 PLATFORMS: tuple[Platform, ...] = ("instagram", "facebook", "linkedin")
-FORMATS: tuple[Format, ...] = ("post", "ad", "reel")
+FORMATS: tuple[Format, ...] = ("post", "carousel", "ad", "reel")
 ASPECT_BY_PLATFORM = {"instagram": "4:5", "facebook": "4:5", "linkedin": "1:1"}
 STORY_ASPECT = "9:16"
 # The design kind of each image slot: the default first, then the others it may use.
 SLOT_KINDS: dict[str, tuple[Kind, ...]] = {
     "post": ("organic", "story", "carousel_slide"),
+    "carousel": ("carousel_slide",),
     "ad": ("ad",),
 }
 MIN_SLIDES, MAX_SLIDES = 3, 7  # a carousel: hook, at least one tip, call to action
@@ -136,10 +139,12 @@ class ContentBrief(_BriefModel):
     key_points: list[str] = Field(min_length=1)
     identity_set: str | None = None  # default: DEFAULT_IDENTITY_SET
     source_article_ids: list[str] = Field(default_factory=list)
-    post: ImageSlot | None = None
+    post: ImageSlot | None = None  # a single designed image (e.g. facebook_post)
+    carousel: ImageSlot | None = None  # format carousel with its slides (instagram_carousel)
     ad: ImageSlot | None = None
     reel: ReelSlot | None = None
-    caption: Caption
+    caption: Caption | None = None  # briefs without deliverables: one caption
+    captions: dict[str, Caption] = Field(default_factory=dict)  # one per deliverable
     hashtags: list[str] = Field(min_length=MIN_HASHTAGS, max_length=MAX_HASHTAGS)
     cta: str = Field(min_length=1)
     link: str = Field(pattern=r"^https?://\S+$")  # closes the caption, after the cta
@@ -217,6 +222,8 @@ def brief_problems(
             problems.append(f"{name}.kind must be one of: {', '.join(kinds)}")
         if name == "ad" and image.format != "ad":
             problems.append('ad.format must be "ad" (headline, subheadline and CTA button)')
+        if name == "carousel" and image.format != "carousel":
+            problems.append('carousel.format must be "carousel"')
         if image.format == "ad" and image.layout is None:
             problems.append(f"{name}.layout: choose A, B, C or D")
         if image.format == "carousel":
@@ -239,8 +246,19 @@ def brief_problems(
             problems.append(f'hashtag "{tag}" must look like #OneWord')
     if brand_tag and brand_tag.lower() not in {tag.lower() for tag in brief.hashtags}:
         problems.append(f"hashtags must include {brand_tag}")
-    if not brief.caption.question.rstrip().endswith("?"):
-        problems.append("caption.question must be one question ending with ?")
+    if brief.deliverables:
+        if sorted(brief.captions) != sorted(brief.deliverables) or brief.caption is not None:
+            problems.append(
+                "captions: write one caption per deliverable, keyed by its name "
+                f"({', '.join(brief.deliverables)}), and no single \"caption\""
+            )
+    elif brief.caption is None or brief.captions:
+        problems.append('caption: a brief without deliverables has one "caption"')
+    captions = {"caption": brief.caption} if brief.caption else {}
+    captions |= {f"captions.{key}": value for key, value in brief.captions.items()}
+    for where, caption in captions.items():
+        if caption is not None and not caption.question.rstrip().endswith("?"):
+            problems.append(f"{where}.question must be one question ending with ?")
     unknown = [aid for aid in brief.source_article_ids if aid not in known_article_ids]
     if unknown:
         problems.append(f"unknown sourceArticleIds (see research.md): {', '.join(unknown)}")

@@ -10,6 +10,21 @@ Nothing is posted automatically.
 - **New computer?** Follow [Set up Codex Desktop](SETUP-CODEX.md) step by step.
 - **Something not working?** Ask Codex to run `uv run ca doctor`; every problem comes with a fix.
 
+## The flow
+
+1. **"Show content"** (or "what's new"): Codex reads your Gmail newsletters (label
+   `Newsletters`, last 7 days, read-only) and shows 5-10 numbered ideas that fit our services.
+2. **"Make 3"**, **"make 2 and 5"** or **"make a post about X"**: Codex writes the research and
+   the text (`research.md`, `content.md`) for free, then asks **"What should I make?"**
+3. You name what you want (for example "insta post and fb ad"). Codex builds exactly that: it
+   shows the cost and waits for your **"ok"**, then makes the images and `post.md` (one caption
+   per deliverable).
+4. A video waits until Codex has made the clips with Higgsfield or HeyGen (it asks for "ok"
+   again); then the package has `video/final.mp4`.
+
+Anyone shown in an image or video is always you (your reference photos); designs without you
+show no people.
+
 ## Daily use
 
 Ask Codex for a post, ad or reel about a topic. Codex follows `AGENTS.md`:
@@ -36,7 +51,8 @@ You can also ask for single images, videos or research (see the guides).
 | --- | --- |
 | `uv run ca doctor` | Checks the setup and explains how to fix each problem. |
 | `uv run ca content deliverables` | What can be made and the names that ask for it. |
-| `uv run ca content start --topic "…" --deliverables "<names>"` | Research + package folder with the brief template, for exactly those deliverables. |
+| `uv run ca content start --topic "…" \| --research-file <list.json> --idea N [--deliverables "<names>"]` | Stage 1: research + package folder (deliverables optional). |
+| `uv run ca content set <folder> --deliverables "<names>"` | Stage 2: name the deliverables; writes the brief template for exactly those. |
 | `uv run ca content build <folder> [--dry-run]` | Makes what is missing in a package (or shows the cost). |
 | `uv run ca research collect` | Collects new articles from the sites in `config/sources.json`. |
 | `uv run ca research digest [--topic "…"] [--days 14] [--limit 10]` | Lists saved articles, ranked by topic if given. |
@@ -67,6 +83,7 @@ You can also ask for single images, videos or research (see the guides).
 - [Module 2: Video](guides/module-2-video.md)
 - [Module 3: Research and content packages](guides/module-3-research.md)
 - [Guide template](guides/_TEMPLATE.md)
+- [Pre-Codex check](PRE-CODEX-CHECK.md): what was checked before Codex testing, and what only Codex can check
 
 ## Troubleshooting
 
@@ -84,8 +101,8 @@ All choices are lines in `.env`; nothing else changes.
 | What | Setting | Options |
 | --- | --- | --- |
 | Images | `IMAGE_PROVIDER` | `openrouter` (real, paid) or `mock` (free placeholders) |
-| Video clips | `VIDEO_PROVIDER` | `higgsfield-mcp` (via Codex) or `mock` |
-| Avatar clips | `AVATAR_PROVIDER` | `heygen-mcp` (via Codex) or `mock` |
+| Video clips | `VIDEO_PROVIDER` | `higgsfield-plugin` (Codex plugin), `mock` or `none` |
+| Avatar clips | `AVATAR_PROVIDER` | `heygen-plugin` (Codex plugin), `mock` or `none` |
 | Voiceover | `VOICE_PROVIDER` | `none` (MVP) |
 | News | `SCRAPER_PROVIDER` | `free` (our own scraper) or `mock` |
 
@@ -96,8 +113,9 @@ All choices are lines in `.env`; nothing else changes.
 - **Design system**: the fixed look of our graphics; colours, fonts and logo come from `brand.json`.
 - **Job**: one image or video request, with its record `details.json`.
 - **Mock**: a free stand-in that makes placeholders, for trying things out.
-- **MCP**: a connection that lets Codex use an outside service (Higgsfield, HeyGen) with your account.
-- **Agent step**: a part of a job that Codex does through an MCP; the job waits until it is recorded.
+- **Plugin**: an app installed in Codex (Gmail, Higgsfield, HeyGen) that Codex uses with your account.
+- **Skill**: written instructions Codex follows for one kind of request (`.agents/skills/`).
+- **Agent step**: a part of a job that Codex does with a plugin; the job waits until it is recorded.
 - **Dry run**: shows what would happen and what it costs, without making anything.
 
 ## For developers

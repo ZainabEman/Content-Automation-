@@ -1,8 +1,8 @@
-"""Agent steps: provider work that Codex does through an MCP tool while the job waits.
+"""Agent steps: provider work that Codex does with a Codex plugin while the job waits.
 
 An agent adapter calls nothing. It writes requests/<stepId>.json (what to make and which
-MCP tool to use) and returns an awaiting_agent step. Codex reads the request, calls the tool,
-saves the result, then records it with `ca job complete` (or `ca job fail`).
+plugin to use) and returns an awaiting_agent step. Codex finds the plugin's tool at run time,
+calls it, saves the result, then records it with `ca job complete` (or `ca job fail`).
 """
 
 import shutil
@@ -20,19 +20,20 @@ OUTPUT_DIRS = {"video": "clips", "avatar": "clips"}
 
 
 class AgentRequest(CamelModel):
-    """The requests/<stepId>.json file Codex reads before calling the MCP tool."""
+    """The requests/<stepId>.json file Codex reads before using the plugin."""
 
     step_id: str
     capability: str
     provider: str
     model: str
-    mcp_server: str
-    mcp_tool: str
+    plugin: str  # the Codex plugin to use; its tools are found at run time, never hardcoded
     prompt: str
     duration_sec: float | None = None
     aspect_ratio: str | None = None
     start_image_path: str | None = None
     start_image_asset_id: str | None = None
+    identity_images: list[str] = Field(default_factory=list)  # the only person allowed
+    person_rule: str = ""
     options: dict[str, str | int | float | bool] = Field(default_factory=dict)
     instructions: list[str] = Field(default_factory=list)  # numbered steps for Codex
     created_at: datetime = Field(default_factory=lambda: datetime.now().astimezone())

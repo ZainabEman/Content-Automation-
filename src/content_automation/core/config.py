@@ -8,8 +8,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ImageProvider = Literal["mock", "openrouter"]
 # "none": no provider is set; a content package then keeps its video pending.
-VideoProvider = Literal["none", "mock", "higgsfield-mcp"]
-AvatarProvider = Literal["none", "mock", "heygen-mcp"]
+# Agent providers are Codex plugins: Codex makes the clip, the app records it.
+VideoProvider = Literal["none", "mock", "higgsfield-plugin"]
+AvatarProvider = Literal["none", "mock", "heygen-plugin"]
 # "none" (default): no voiceover step runs; the MVP videos have no voiceover.
 VoiceProvider = Literal["none", "mock", "elevenlabs"]
 # "free" (default): our own scraper (RSS + article pages); no paid API, no account.

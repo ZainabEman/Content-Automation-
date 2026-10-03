@@ -27,6 +27,11 @@ from content_automation.core.jobs import Job, JobParams, JobStep, create_job
 from content_automation.core.log import get_logger, mask_secrets, secret_values
 from content_automation.media.assemble import CAPTIONS_FILE, FINAL_FILE, Segment, assemble
 from content_automation.media.assemble import text_support as assembly_text_support
+from content_automation.references import (
+    ReferenceLibraryError,
+    load_set,
+    select_identity_refs,
+)
 from content_automation.workflows.start_images import (
     StartImage,
     StartImageError,
@@ -51,14 +56,15 @@ SCRIPT_FILE = "script.md"
 ASPECT: Literal["9:16"] = "9:16"
 # Credits per scene, by provider; agent providers are estimated in M2.C.
 _CREDITS = {"mock": "0", "library": "0", "none": "0"}
+MAX_IDENTITY_PHOTOS = 14  # all of the person's usable photos (the model limit)
 _CREDITS_TBD = "TBD until M2.C"
 NO_PROVIDER = "none"
 PLACEHOLDER_PROVIDERS = frozenset({"mock", NO_PROVIDER})  # no real clips
 REAL_ONLY = "realProvidersOnly"  # job input: wait for real providers instead of mock clips
 # Scene type -> (setting, real provider, what to connect in Codex).
 _REAL = {
-    "video": ("VIDEO_PROVIDER", "higgsfield-mcp", "the Higgsfield MCP"),
-    "avatar": ("AVATAR_PROVIDER", "heygen-mcp", "the HeyGen MCP (and set HEYGEN_AVATAR_ID)"),
+    "video": ("VIDEO_PROVIDER", "higgsfield-plugin", "the Higgsfield plugin"),
+    "avatar": ("AVATAR_PROVIDER", "heygen-plugin", "the HeyGen plugin (and set HEYGEN_AVATAR_ID)"),
 }
 
 logger = get_logger("workflows.video_job")
@@ -78,6 +84,9 @@ class PreparedVideo:
     plan: VideoPlan
     spec: VideoWorkflowSpec
     scenes: list[PreparedScene]
+    identity_set: str | None = None  # the only person allowed in the clips
+    identity_paths: tuple[Path, ...] = ()
+    identity_asset_ids: tuple[str, ...] = ()
 
 
 def prepare_video(plan: VideoPlan, settings: Settings) -> PreparedVideo:
@@ -97,9 +106,28 @@ def prepare_video(plan: VideoPlan, settings: Settings) -> PreparedVideo:
                 problems.append(f"scene {scene.n}: {error}")
         provider, mode = _provider_for(scene, settings)
         scenes.append(PreparedScene(scene, f"scene-{scene.n}", provider, mode, start_image))
+    identity_set, refs = None, []
+    if any(scene.type == "video" for scene in plan.scenes):
+        # Any person in a generated clip must be the identity person: send all his photos.
+        try:
+            refs = select_identity_refs(
+                settings.default_identity_set, MAX_IDENTITY_PHOTOS, settings.references_dir
+            )
+            identity_set = load_set(settings.default_identity_set, settings.references_dir).set_id
+        except ReferenceLibraryError as error:
+            problems.append(f"identity photos for the video are missing: {error}")
+        if identity_set is not None and not refs:
+            problems.append(f"identity set {identity_set} has no usable photos for the video")
     if problems:
         raise PlanError(problems)
-    return PreparedVideo(plan, VIDEO_WORKFLOWS[plan.workflow_id], scenes)
+    return PreparedVideo(
+        plan,
+        VIDEO_WORKFLOWS[plan.workflow_id],
+        scenes,
+        identity_set,
+        tuple(ref.path for ref in refs),
+        tuple(ref.asset_id for ref in refs),
+    )
 
 
 def _provider_for(scene: PlanScene, settings: Settings) -> tuple[str, str]:
@@ -124,8 +152,8 @@ def missing_providers(prepared: PreparedVideo) -> list[str]:
             setting, real, connect = _REAL[kind]
             what = "no provider is set" if provider == NO_PROVIDER else "mock makes placeholders"
             lines.append(
-                f"{kind} scenes: {setting}={provider} ({what}). Set {setting}={real} in .env and "
-                f"connect {connect} in Codex."
+                f"{kind} scenes: {setting}={provider} ({what}). Set {setting}={real} in .env; "
+                f"{connect} must be installed in Codex."
             )
     return lines
 
@@ -217,6 +245,7 @@ def start_video_job(
         provider="+".join(providers),
         model="+".join(sorted(_models(prepared, settings))),
         params=JobParams(aspect_ratio=ASPECT, image_size="1080x1920", count=1),
+        identity_asset_ids=list(prepared.identity_asset_ids),
         inputs=_inputs(prepared) | ({REAL_ONLY: True} if real_only else {}),
         est_cost_usd=0.0 if set(providers) <= set(_CREDITS) else None,
     )
@@ -258,7 +287,7 @@ def advance(job: Job, prepared: PreparedVideo, settings: Settings) -> Job:
         for item in prepared.scenes:
             if any(step.step_id == item.step_id for step in job.steps):
                 continue
-            job.add_step(_run_scene(job, item, settings))
+            job.add_step(_run_scene(job, item, settings, prepared.identity_paths))
         if job.waiting_steps():
             return job
         result = assemble(_segments(job, prepared), job.folder)
@@ -285,7 +314,9 @@ def advance(job: Job, prepared: PreparedVideo, settings: Settings) -> Job:
     return job
 
 
-def _run_scene(job: Job, item: PreparedScene, settings: Settings) -> JobStep:
+def _run_scene(
+    job: Job, item: PreparedScene, settings: Settings, identity: tuple[Path, ...] = ()
+) -> JobStep:
     scene = item.scene
     if scene.type == "video":
         return generate_video(
@@ -297,6 +328,7 @@ def _run_scene(job: Job, item: PreparedScene, settings: Settings) -> JobStep:
                 aspect_ratio=ASPECT,
                 start_image_path=item.start_image.path if item.start_image else None,
                 start_image_asset_id=item.start_image.asset_id if item.start_image else None,
+                identity_image_paths=list(identity),
             ),
             settings,
         )
@@ -360,8 +392,8 @@ def agent_checklist(job: Job) -> list[str]:
             f'     uv run ca job complete "{folder}" --step {step.step_id} --file <saved file>',
         ]
     lines += [
-        "  If that provider's MCP is not connected in this Codex session, do not retry: tell the "
-        "user to connect it in Codex (MCP servers), then run the resume command below.",
+        "  If that provider's plugin is not available in this Codex session, stop and tell the "
+        "user which plugin is missing; then run the resume command below once it is installed.",
         f'  If a step fails: uv run ca job fail "{folder}" --step <step> --error "<what happened>"',
         f'  When all are recorded: uv run ca video resume "{folder}"',
     ]
@@ -393,6 +425,9 @@ def _models(prepared: PreparedVideo, settings: Settings) -> set[str]:
 
 def _inputs(prepared: PreparedVideo) -> dict[str, str | bool]:
     inputs: dict[str, str | bool] = {"platform": prepared.plan.platform}
+    if prepared.identity_set:
+        inputs["identitySet"] = prepared.identity_set
+        inputs["identityRefs"] = str(len(prepared.identity_paths))
     for item in prepared.scenes:
         if item.start_image:
             inputs[f"{item.step_id}.startImageAssetId"] = item.start_image.asset_id

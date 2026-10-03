@@ -60,6 +60,11 @@ _ROLES = {
         "typography style, graphic elements). Never copy any person or face from them, and "
         "do not copy their products, text or subject matter."
     ),
+    "series": (
+        "SERIES: slide 1 of this carousel. Match its scene, colours, text panel and decor so "
+        "the slides look like one series; never copy the person or any face from it, and do "
+        "not copy its text."
+    ),
 }
 _ROLE_LABELS: dict[ColorRole, str] = {
     "background": "Background colour",
@@ -75,6 +80,7 @@ class RefCounts:
     product: int = 0
     logo: int = 0
     style: int = 0
+    series: int = 0  # slide 1 of the same carousel, attached after the style images
 
 
 def _image_range(start: int, count: int) -> str:
@@ -89,6 +95,7 @@ def reference_lines(counts: RefCounts) -> list[str]:
         ("product", counts.product),
         ("logo", counts.logo),
         ("style", counts.style),
+        ("series", counts.series),
     ):
         if count:
             lines.append(f"- {_image_range(start, count)} - {_ROLES[role]}")
@@ -221,6 +228,8 @@ def _layout_section(
             lines.append(f"Poses: left half: {left}; right half: {right}.")
     if look.pose is not None:
         lines.append(f"Pose: {_sentence(look.pose.text)}")
+    if not design.person:
+        lines.append(f"People: {system.core.no_person}")
     if look.scene is not None:
         lines.append(f"Scene: {_sentence(look.scene.text)}")
     if details and details.strip():
@@ -398,7 +407,7 @@ def _text_section(
         items.append(f"- {_label(design, system, 'icons')}: {_quoted(design.icons)}")
     if design.slide is not None:
         number, total = design.slide
-        items.append(f'- Slide number, next to the slide dots: "{number}/{total}"')
+        items.append(f'- Slide counter in the pill: "{number:02d}/{total:02d}"')
     if _is_split(design, system):
         items.append('- Symbol on the split button: "»"')
 

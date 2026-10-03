@@ -22,10 +22,14 @@ from content_automation.core.files import CamelModel
 from content_automation.workflows.design_system import FormatId
 from content_automation.workflows.video_plan import VideoWorkflow
 
-Part = Literal["post", "ad", "video"]
+Part = Literal["post", "carousel", "ad", "video"]
 # The package part (brief.json "formats") that makes each kind of deliverable.
-FORMAT_BY_PART: dict[Part, Format] = {"post": "post", "ad": "ad", "video": "reel"}
-PART_NAMES: dict[Part, str] = {"post": "posts", "ad": "image ads", "video": "videos"}
+FORMAT_BY_PART: dict[Part, Format] = {
+    "post": "post", "carousel": "carousel", "ad": "ad", "video": "reel",
+}
+PART_NAMES: dict[Part, str] = {
+    "post": "single-image posts", "carousel": "carousels", "ad": "image ads", "video": "videos",
+}
 DEFAULT_PLATFORM: Platform = "instagram"
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _SPLIT = re.compile(r",|;|\+|&|\band\b|\bplus\b")
@@ -44,7 +48,9 @@ class Deliverable(_Model):
     label: str = Field(min_length=1)
     part: Part
     platform: Platform | None = None
-    format: FormatId | None = None  # post and ad: the design format
+    format: FormatId | None = None  # a fixed design format
+    formats: list[FormatId] = Field(default_factory=list)  # or: formats to rotate between
+    images: int = Field(default=1, ge=1, le=4)  # image options per job (carousel: per slide)
     slides: int | None = Field(default=None, ge=MIN_SLIDES, le=MAX_SLIDES)  # carousels
     workflow: VideoWorkflow | None = None  # videos
     aliases: list[str] = Field(min_length=1)
@@ -70,12 +76,16 @@ class DeliverableCatalog(_Model):
         for key, item in self.deliverables.items():
             if item.part == "video" and item.workflow is None:
                 problems.append(f"{key}: a video needs a workflow")
-            if item.part != "video" and item.format is None:
-                problems.append(f"{key}: a post or ad needs a format")
+            if item.part != "video" and (item.format is None) == (not item.formats):
+                problems.append(f"{key}: an image part needs a format or a list of formats")
             if item.part == "ad" and item.format != "ad":
                 problems.append(f'{key}: an ad uses format "ad"')
+            if (item.part == "carousel") != (item.format == "carousel"):
+                problems.append(f'{key}: the carousel part, and only it, uses format "carousel"')
             if (item.format == "carousel") != (item.slides is not None):
                 problems.append(f"{key}: slides are set for carousels, and only for them")
+            if "carousel" in item.formats or "ad" in item.formats:
+                problems.append(f"{key}: formats to rotate are single-image, non-ad formats")
             for name in [key, *item.aliases]:
                 alias = normalize(name)
                 if seen.setdefault(alias, key) != key:
@@ -140,6 +150,13 @@ class DeliverableCatalog(_Model):
             return f'"{name}" is not a known name (did the user mean {close[0]}?)'
         return f'"{name}" is not a deliverable we make'
 
+    def images_for(self, keys: list[str], part: str) -> int | None:
+        """Image options per job for a part, from the named deliverables (None: not named)."""
+        return next(
+            (self.deliverables[key].images for key in keys if self.deliverables[key].part == part),
+            None,
+        )
+
     def platform_for(self, keys: list[str]) -> Platform:
         """The package platform: the first named deliverable that has one."""
         platforms = [self.deliverables[key].platform for key in keys]
@@ -165,11 +182,14 @@ class DeliverableCatalog(_Model):
                 if brief.reel is not None and brief.reel.workflow != item.workflow:
                     problems.append(f'reel.workflow must be "{item.workflow}" ({item.label})')
                 continue
-            slot = brief.post if item.part == "post" else brief.ad
+            slot = {"post": brief.post, "carousel": brief.carousel, "ad": brief.ad}[item.part]
             if slot is None:
                 continue
-            if slot.format != item.format:
-                problems.append(f'{item.part}.format must be "{item.format}" ({item.label})')
+            allowed = item.formats or ([item.format] if item.format else [])
+            if slot.format not in allowed:
+                problems.append(
+                    f"{item.part}.format must be {' or '.join(allowed)} ({item.label})"
+                )
             elif item.slides is not None and len(slot.slides) != item.slides:
                 problems.append(
                     f"{item.part}.slides: {key} needs exactly {item.slides} slides "

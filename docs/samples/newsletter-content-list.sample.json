@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-03",
+  "note": "SAMPLE for testing the newsletter path without Gmail. Not real newsletter content; do not publish.",
+  "ideas": [
+    {
+      "number": 1,
+      "title": "Sample: small businesses add chat to their websites",
+      "summary": "A sample newsletter item says more small businesses are adding chat to their websites. It describes answering common questions outside office hours.",
+      "whyNow": "Sample text: the item was in this week's newsletter.",
+      "service": "AI Chatbots & AI Development",
+      "deliverables": ["instagram_carousel", "facebook_ad"],
+      "sources": [
+        {
+          "title": "Sample newsletter: website chat for small businesses",
+          "source": "Sample Marketing Newsletter",
+          "url": "https://example.com/sample-newsletter/website-chat",
+          "date": "2026-10-01",
+          "emailId": "sample-email-0001",
+          "excerpt": "SAMPLE EXCERPT. More small businesses are adding a chat window to their website so visitors can ask common questions outside office hours and leave their contact details for a follow-up."
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "title": "Sample: follow up with every inquiry",
+      "summary": "A sample newsletter item says inquiries are often left without an answer. It suggests a simple follow-up routine.",
+      "whyNow": "Sample text: the item was in this week's newsletter.",
+      "service": "CRM & Marketing Automation",
+      "deliverables": ["facebook_post"],
+      "sources": [
+        {
+          "title": "Sample newsletter: the follow-up gap",
+          "source": "Sample Marketing Newsletter",
+          "url": null,
+          "date": "2026-10-02",
+          "emailId": "sample-email-0002",
+          "excerpt": "SAMPLE EXCERPT. Many inquiries never get a second message. A short routine helps: answer the same day, send a reminder after two days, and log every contact in one place."
+        }
+      ]
+    }
+  ]
+}

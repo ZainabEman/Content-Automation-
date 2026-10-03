@@ -60,14 +60,19 @@ photos of people who have agreed to this use.
 - **Variety**: what you do not set (scene, wardrobe, props, decor, pose) is picked from the pools
   and avoids what the last 5 content packages used. The same request always gets the same picks,
   so a dry run shows what the real run will use. The picks are saved in `details.json`
-  (`inputs`) and, for packages, in `package.json` (`picks`). The style examples rotate too: up to
-  3 that fit the format (ads: `creative/facebook_ads`; text formats: the carousel sets), and none
-  for a person photo.
-- **Consistent person**: every design that shows the man (layouts B, C, D, carousel hook
-  slides, person photos) always gets his reference photos (`DEFAULT_IDENTITY_SET`), and the prompt tells the model
-  to keep exactly that face, hair, skin tone and age, without beautifying him or adding glasses, a
-  beard or accessories. His face is never described in words; the photos define it. Style
-  examples are used for layout and look only, never for a person.
+  (`inputs`) and, for packages, in `package.json` (`picks`). The style examples rotate too: ads
+  use up to 3 past ads (`creative/facebook_ads`); carousels use the 13 demo carousels in
+  `creative/carousels`, picked by slide role (slide 1 of a demo for the hook, its last slide for
+  the call to action, the slides between for tips); other formats use none. Within one carousel
+  all slides share one scene, decor and palette, and slides 2+ also attach slide 1's image.
+- **Consistent person (compulsory)**: any human in any image, slide or video is the person from
+  `DEFAULT_IDENTITY_SET`. Every design that shows him (format ad with layout B, C or D, news with
+  a person, person photo, carousel hook slide) and every video gets all his reference photos; a
+  clear error stops it if they are missing. The prompt tells the model to keep exactly that face,
+  hair, skin tone and age, that he is the only person, and not to beautify him or add glasses, a
+  beard or accessories. Designs without him say: no people, faces or human figures. His face is
+  never described in words and never taken from style examples or slide 1; the 14-image limit
+  never drops his photos or the logo. `details.json` records `personShown` and `identityRefs`.
 - **Exact text only**: the image shows only the texts you give (headline, subheadline, CTA label,
   big number, steps, icon labels, slide number), exactly as written and in the language of
   `brand.json`.
@@ -241,7 +246,8 @@ The logo is always placed at the top right. Never describe the man's face.
    uv run ca image --workflow social_creative --format person_photo --scene cafe --count 3 --request "A photo of me in a cafe for Instagram, no text"
    ```
 9. "The first slide of a 5-slide carousel: '3 AI tools every marketer needs'" (run it again with
-   `--slide 2/5` … `5/5`; all slides of one carousel get the same scene, decor and style examples)
+   `--slide 2/5` … `5/5` and `--first-slide <jobId>/image-1.png` so the later slides match slide 1;
+   all slides of one carousel get the same scene and decor)
    ```
    uv run ca image --workflow social_creative --format carousel --slide 1/5 --headline "3 AI Tools Every Marketer Needs" --highlight "AI Tools" --subheadline "Swipe to see where to start." --request "The first slide of a 5-slide carousel: '3 AI tools every marketer needs'"
    ```

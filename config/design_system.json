@@ -25,10 +25,12 @@
         "The man is the exact person in {images}: same face, facial structure, hairline and hair, skin tone and age.",
         "Do not beautify, idealize or change him.",
         "Do not add glasses, a beard or accessories that are not in the references.",
-        "His face comes only from these photos, never from the style reference images."
+        "His face comes only from these photos, never from the style reference images or an earlier slide.",
+        "He is the only person in the image."
       ],
       "split": "Both halves of the split show this same person."
     },
+    "noPerson": "No people, faces or human figures anywhere: no hands, silhouettes, bystanders, crowds, mannequins or human-shaped holograms.",
     "text": {
       "only": "Render ONLY the texts listed here, exactly as written, sharp and correctly spelled, in {language}, and nothing else:",
       "nothingElse": "Do not add any other words, letters, numbers, labels, buttons, captions or watermarks.",
@@ -89,10 +91,10 @@
         "description": "a tidy home-office desk by a window: soft morning light and a few plants"
       },
       "conference_stage": {
-        "description": "a conference stage: a large softly blurred screen, stage lights and the audience in soft focus"
+        "description": "an empty conference stage: a large softly blurred screen, stage lights and empty seats in soft focus"
       },
       "coworking": {
-        "description": "a lively co-working space: warm pendant lights and people softly blurred in the background"
+        "description": "a quiet co-working space: warm pendant lights and empty desks softly blurred in the background"
       },
       "abstract_gradient": {
         "description": "no photo scene: an abstract gradient background built from the background and accent colours, with soft light blooms",
@@ -167,7 +169,7 @@
     },
     "holograms": {
       "glass_tiles": {
-        "description": "glowing hologram icons (chat, calendar, people, mail, chart, gear, checklist, clock) inside glass tiles (rounded square, hexagon or circle), linked by thin glowing lines and orbiting a central \"AI\" chip or brain"
+        "description": "glowing hologram icons (chat, calendar, mail, chart, gear, checklist, clock, target) inside glass tiles (rounded square, hexagon or circle), linked by thin glowing lines and orbiting a central \"AI\" chip or brain"
       },
       "dashboard": {
         "description": "a floating translucent dashboard with simple charts, chat bubbles and a lead pipeline, linked by thin glowing lines to a small \"AI\" chip"
@@ -256,8 +258,8 @@
       "headlineMaxWords": 12,
       "labels": {"headline": "Statement"},
       "typography": {"headline": "ALL CAPS, extra-bold, very large, 3-5 short lines that fill most of the frame."},
-      "styleSets": ["creative/carousels"],
-      "styleRefs": 3
+      "styleSets": [],
+      "styleRefs": 0
     },
     "stat": {
       "use": "one big number from the research plus one context line",
@@ -267,8 +269,8 @@
       "elements": ["decor"],
       "labels": {"stat": "Big number", "subheadline": "Context line"},
       "typography": {"subheadline": "Regular weight, sentence case, 1-2 lines, directly below the number."},
-      "styleSets": ["creative/carousels"],
-      "styleRefs": 3
+      "styleSets": [],
+      "styleRefs": 0
     },
     "news": {
       "use": "a news item from the research in one line, plus what it means for the audience",
@@ -282,8 +284,8 @@
       "labels": {"headline": "News line", "subheadline": "Meaning line"},
       "fixedTexts": {"Small label above the meaning line": "What it means"},
       "typography": {"headline": "Bold, sentence case, 2-3 lines."},
-      "styleSets": ["creative/carousels"],
-      "styleRefs": 3
+      "styleSets": [],
+      "styleRefs": 0
     },
     "carousel": {
       "use": "a topic taught in slides: a hook slide with the man, tip slides, and a last slide with the call to action",
@@ -296,6 +298,7 @@
       "elements": ["textPanel", "decor"],
       "headlineMaxWords": 8,
       "styleSets": ["creative/carousels"],
+      "styleByRole": true,
       "styleRefs": 3
     },
     "person_photo": {
@@ -316,8 +319,8 @@
       "person": "never",
       "elements": ["textPanel", "decor"],
       "labels": {"headline": "Title"},
-      "styleSets": ["creative/carousels"],
-      "styleRefs": 3
+      "styleSets": [],
+      "styleRefs": 0
     }
   },
   "kinds": {
@@ -341,11 +344,15 @@
   },
   "carousel": {
     "slides": {
-      "hook": "Slide 1, the hook: the man with the headline that stops the scroll. No button.",
-      "tip": "A tip slide: exactly one tip (the headline) with one large glowing icon that illustrates it. No person, no button.",
-      "cta": "The last slide: the call to action is the focal point, with the CTA button and the logo clearly visible. No person."
+      "hook": "Slide 1, the hook: a big ALL-CAPS statement or question (2-4 short lines, 1-2 highlight words) next to the man, with an optional short line below it. No button.",
+      "tip": "A tip slide: exactly one tip as a bold sentence-case headline (2-3 lines) with highlight words, a short accent-coloured underline, an optional 2-3 line explanation, and one large glowing visual on the right that illustrates the tip. No button.",
+      "cta": "The last slide: a question or call to action as the headline, the CTA button as the focal point and the logo clearly visible; optionally a row of three outlined icons (heart, paper plane, bookmark) without words."
     },
-    "navigation": "Swipe chevrons at the top left and slide dots at the bottom left (one dot per slide, the current slide's dot lit in the accent colour)."
+    "navigation": "A small rounded pill with the slide counter at the top left (the logo keeps the top right) and a small row of swipe chevrons at the bottom right on every slide except the last.",
+    "demos": {
+      "source": "assets/reference/creative/carousels: 13 demo carousels of 8 slides each (video frames in _frames/). Slide 1 is used as a hook example, the last slide as a call-to-action example and the slides between as tip examples.",
+      "structure": "Dark background with a glowing particle-dot wave, faint hexagon lines and small dot grids; text left or centred, the visual on the right. Hook: a large statement headline. Tips: a headline with highlight words, a short underline, a short explanation and often a small hexagon icon with a one-line takeaway. Last slide: a question that invites comments, an engagement icon row and the logo. A counter pill like 02/07 marks the slide; there is no visible swipe text."
+    }
   },
   "headlineFormulas": {
     "contrast": "Less Busywork. More Qualified Leads.",

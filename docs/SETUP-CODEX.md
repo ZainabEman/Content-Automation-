@@ -81,8 +81,8 @@ back to **Ask for approval** afterwards.
    | `SCRAPER_PROVIDER=` | `free` | real news (our own free scraper) |
    | `USER_NAME=` | your name | saved in every job record |
 
-   Leave `VIDEO_PROVIDER=mock`, `AVATAR_PROVIDER=mock` and `VOICE_PROVIDER=none` for now (see
-   step 8).
+   `VIDEO_PROVIDER=higgsfield-plugin`, `AVATAR_PROVIDER=heygen-plugin` and `VOICE_PROVIDER=none`
+   are already set (see step 8); `IMAGE_DAILY_LIMIT=30`.
 3. Save the file. **Never paste a key into the Codex chat, a document or a screenshot**:
    it belongs only in `.env`, which is never shared or uploaded.
 
@@ -105,12 +105,13 @@ Ask Codex: **"Run uv run ca doctor."** It checks the tools, your `.env` (it show
 each key is set, never the key itself), the photos, `brand.json`, the company profile
 (`docs/company/services.md`), the news sites, the providers and the output folders. Every
 `[FAIL]` line comes with a **Fix:** line; do that and run it again until there are no problems.
-`[WARN]` lines are fine for a start (for example "mock" video while Higgsfield is not connected).
+`[WARN]` lines are fine for a start (for example `HEYGEN_AVATAR_ID` not set yet).
 
-## 8. Later: connect Higgsfield and HeyGen (videos)
+## 8. Plugins: Gmail, Higgsfield and HeyGen
 
-Reels use placeholder clips until the video services are connected. When you are ready,
-follow [Connect Higgsfield and HeyGen in Codex](guides/module-2-video.md#connect-higgsfield-and-heygen-in-codex).
+Codex uses three plugins: **Gmail** (read-only, for "show content"), **Higgsfield** (video clips)
+and **HeyGen** (your avatar). Install and sign in to them in Codex; nothing goes into `.env`
+except the provider names above. Details: [Higgsfield and HeyGen plugins](guides/module-2-video.md#higgsfield-and-heygen-plugins).
 
 ## 9. Try it: example requests
 

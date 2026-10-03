@@ -15,6 +15,7 @@ saved per part in package.json.
 import json
 import re
 import shutil
+from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -42,6 +43,7 @@ from content_automation.content.deliverables import (
     DeliverableError,
     load_deliverables,
 )
+from content_automation.content.research_input import ResearchIdea, save_sources
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
 from content_automation.core.jobs import DETAILS_FILE, Job, slugify
@@ -57,7 +59,7 @@ from content_automation.references import (
 from content_automation.research.collectors import CollectorError
 from content_automation.research.models import SourceArticle, SourcesError
 from content_automation.research.run import collect, topic_digest, topic_note
-from content_automation.research.store import known_article_ids, load_articles
+from content_automation.research.store import find_article, known_article_ids, load_articles
 from content_automation.workflows.design_system import (
     STEP_SEPARATOR,
     DesignSystem,
@@ -98,9 +100,13 @@ IMAGES_DIR = "images"
 VIDEO_DIR = "video"
 TOPIC_DAYS = 14
 TOPIC_LIMIT = 10
-IMAGE_SLOTS = ("post", "ad")  # made in this order; a later part avoids the earlier one's picks
-IMAGE_COUNTS = {"post": 2, "ad": AD_VARIANTS}
-LABELS = {"post": "post images", "ad": "ad images", "reel": "video"}
+# Made in this order; a later part avoids the earlier ones' picks.
+IMAGE_SLOTS = ("post", "carousel", "ad")
+# Image options per job for briefs without deliverables (deliverables.json sets its own).
+IMAGE_COUNTS = {"post": 2, "carousel": 1, "ad": AD_VARIANTS}
+LABELS = {"post": "post images", "carousel": "carousel slides", "ad": "ad images", "reel": "video"}
+CONTENT_FILE = "content.md"  # stage 1: angle, key message, key points, draft caption
+MIN_RELEVANT = 3  # fewer matching articles: Codex adds sources with web search
 _IMAGE_ERRORS = (
     WorkflowError,
     ReferenceLibraryError,
@@ -156,31 +162,100 @@ class PackageResult:
 
 
 def start_package(
-    topic: str, deliverables: list[str], catalog: DeliverableCatalog, settings: Settings
+    topic: str,
+    deliverables: list[str],
+    catalog: DeliverableCatalog,
+    settings: Settings,
+    *,
+    idea: ResearchIdea | None = None,
 ) -> PackageResult:
-    """Make the package folder for exactly these deliverables (already resolved names)."""
-    items = [catalog.deliverables[key] for key in deliverables]
-    platform = catalog.platform_for(deliverables)
-    formats: list[str] = [item.brief_format for item in items]
-    lines: list[str] = [
-        "Deliverables: " + "; ".join(f"{key} ({item.label})" for key, item in zip(
-            deliverables, items, strict=True
-        ))
-    ]
-    try:
-        report, _ = collect(settings)
+    """Make the package folder with research.md (stage 1, free).
+
+    idea: research from a file (a newsletter idea) instead of the scraper. With no
+    deliverables yet, nothing can be built until `ca content set` names them.
+    """
+    lines: list[str] = []
+    if idea is not None:
+        articles = save_sources(idea, settings.research_dir, topic)
+        note = None
         lines.append(
-            f"Collected news: {report.new} new articles ({report.duplicates} already saved)."
+            f"Research: {len(articles)} source(s) from idea {idea.number} "
+            f'("{idea.title}"); the scraper was not used.'
         )
-    except (SourcesError, CollectorError) as error:
-        lines.append(f"Collecting news failed ({error}); using the articles already saved.")
-    ranked = topic_digest(settings, topic, TOPIC_DAYS, TOPIC_LIMIT)
-    note = topic_note(ranked)
-    if note:
-        lines.append(note[0].upper() + note[1:])
-    articles = [item.article for item in ranked.articles]
+    else:
+        try:
+            report, _ = collect(settings)
+            lines.append(
+                f"Collected news: {report.new} new articles ({report.duplicates} already saved)."
+            )
+        except (SourcesError, CollectorError) as error:
+            lines.append(f"Collecting news failed ({error}); using the articles already saved.")
+        ranked = topic_digest(settings, topic, TOPIC_DAYS, TOPIC_LIMIT)
+        note = topic_note(ranked)
+        if note:
+            lines.append(note[0].upper() + note[1:])
+        articles = [item.article for item in ranked.articles]
+        if ranked.strong_matches < MIN_RELEVANT:
+            lines.append(
+                f"Only {ranked.strong_matches} relevant article(s): add up to 5 reputable "
+                f"sources with web search, with links and dates, to {RESEARCH_FILE}."
+            )
 
     folder = _new_folder(settings.packages_dir, f"{date.today():%Y-%m-%d}_{slugify(topic)}")
+    atomic_write_text(folder / RESEARCH_FILE, _research_markdown(topic, articles, note))
+    package = ContentPackage(
+        package_id=folder.name,
+        topic=topic,
+        platform=catalog.platform_for([]),
+        formats=[],
+        source_article_ids=[article.article_id for article in articles[:3]],
+    )
+    _save(folder, package)
+    lines.append(f"Package folder: {folder}")
+    if deliverables:
+        lines += _apply_deliverables(folder, package, deliverables, catalog, settings, articles)
+    else:
+        lines.append(
+            f"Next (Codex): write {CONTENT_FILE} (angle, key message, 3-5 key points, draft "
+            'caption, source link), then ask "What should I make?". Nothing is built until '
+            f'the user names deliverables: uv run ca content set "{folder}" --deliverables '
+            '"<names>"'
+        )
+    return PackageResult(folder, lines, package)
+
+
+def set_deliverables(
+    folder: Path, deliverables: list[str], catalog: DeliverableCatalog, settings: Settings
+) -> PackageResult:
+    """Name the deliverables of an existing package and write its brief template."""
+    path = folder / PACKAGE_FILE
+    if not path.is_file():
+        raise DeliverableError(f"No {PACKAGE_FILE} in {folder}: start the package first.")
+    package = ContentPackage.model_validate_json(path.read_text(encoding="utf-8"))
+    articles = [
+        found
+        for article_id in package.source_article_ids
+        if (found := find_article(settings.research_dir, article_id)) is not None
+    ]
+    lines = _apply_deliverables(folder, package, deliverables, catalog, settings, articles)
+    if (folder / BRIEF_FILE).is_file():
+        lines.append(f"{BRIEF_FILE} already exists: make it match the new {TEMPLATE_FILE}.")
+    return PackageResult(folder, lines, package)
+
+
+def _apply_deliverables(
+    folder: Path,
+    package: ContentPackage,
+    deliverables: list[str],
+    catalog: DeliverableCatalog,
+    settings: Settings,
+    articles: list[SourceArticle],
+) -> list[str]:
+    items = [catalog.deliverables[key] for key in deliverables]
+    lines = [
+        "Deliverables: "
+        + "; ".join(f"{key} ({item.label})" for key, item in zip(deliverables, items, strict=True))
+    ]
     brand = _brand(settings)
     company = load_company(settings.company_file)
     try:
@@ -191,14 +266,13 @@ def start_package(
     post = next((item for item in items if item.part == "post"), None)
     suggested: FormatId | None = post.format if post is not None else None
     if system is not None and post is not None and suggested is None:
-        # A format the newest packages did not use; the ad part already is an "ad".
+        # The next format in the rotation that the newest packages did not use.
         suggested = suggest_format(
-            system, recent_packages(settings.packages_dir), skip=("ad",) if "ad" in formats else ()
+            system, recent_packages(settings.packages_dir, exclude=folder), allowed=post.formats
         )
         lines.append(f"Suggested post format: {suggested} (different from the last packages).")
-    atomic_write_text(folder / RESEARCH_FILE, _research_markdown(topic, articles, note))
     template = _brief_template(
-        topic,
+        package.topic,
         deliverables,
         catalog,
         articles,
@@ -211,25 +285,21 @@ def start_package(
     atomic_write_text(
         folder / TEMPLATE_FILE, json.dumps(template, indent=2, ensure_ascii=False) + "\n"
     )
-    package = ContentPackage(
-        package_id=folder.name,
-        topic=topic,
-        deliverables=deliverables,
-        platform=platform,
-        formats=formats,
-        source_article_ids=template["sourceArticleIds"],
-    )
+    package.deliverables = deliverables
+    package.platform = catalog.platform_for(deliverables)
+    package.formats = [item.brief_format for item in items]
+    if post is not None and suggested is not None and "post" not in package.items:
+        # Saved now, so the next package already rotates to another format.
+        package.items["post"] = PackageItem(picks=DesignPicks(format=suggested))
     _save(folder, package)
     lines += [
-        f"Package folder: {folder}",
-        f"Next (Codex): read {RESEARCH_FILE}, then write {BRIEF_FILE} in this folder: start "
-        f"from {TEMPLATE_FILE} and replace every <...> (English; use docs/company/services.md "
-        "and the brand and design rules in _help; no invented results, statistics, prices or "
-        "client names; keep deliverables and formats as they are: build only what the user "
-        "named).",
+        f"Next (Codex): write {BRIEF_FILE} for only these deliverables: start from "
+        f"{TEMPLATE_FILE} (and {CONTENT_FILE} if it exists) and replace every <...> (English; "
+        "use docs/company/services.md and the brand and design rules in _help; no invented "
+        "results, statistics, prices or client names; one caption per deliverable).",
         f'Then run: uv run ca content build "{folder}" --dry-run',
     ]
-    return PackageResult(folder, lines, package)
+    return lines
 
 
 def _new_folder(parent: Path, name: str) -> Path:
@@ -407,6 +477,14 @@ def _slot_template(name: str, format_id: FormatId, slides: int = 4) -> dict[str,
     return {"format": format_id, **fields[format_id]}
 
 
+def _first_frame(formats: Sequence[str]) -> str | None:
+    """The package image a video starts from: the post, else the carousel hook, else the ad."""
+    for kind in ("post", "carousel", "ad"):
+        if kind in formats:
+            return f"{kind}-1"
+    return None
+
+
 def _video_template(workflow: str, first_frame: str | None) -> dict[str, Any]:
     """reel_short and ugc_ad: generated clips; podcast_clip: the avatar speaks the script."""
     video: dict[str, Any] = {
@@ -472,7 +550,8 @@ def _brief_template(
             },
             "design": _design_help(system, suggested) if system else {},
             "formats": {
-                "post": "the post's format; a carousel makes one image per slide",
+                "post": "one designed image in the post's format",
+                "carousel": "one image per slide: hook (with the man), tips, call to action",
                 "ad": f"{AD_VARIANTS} variants of one ad: one message, one offer, one CTA",
                 "reel": (
                     "9:16 video (workflow from the deliverable); each scene at most 15 s; "
@@ -501,17 +580,23 @@ def _brief_template(
     }
     post = by_part.get("post")
     if post is not None:
-        template["post"] = _slot_template("post", suggested or "ad", slides=post.slides or 4)
+        template["post"] = _slot_template("post", suggested or post.format or "statement")
+    carousel = by_part.get("carousel")
+    if carousel is not None:
+        template["carousel"] = _slot_template("carousel", "carousel", slides=carousel.slides or 5)
     if "ad" in by_part:
         template["ad"] = _slot_template("ad", "ad")
     video = by_part.get("video")
     if video is not None and video.workflow is not None:
-        first = "post-1" if "post" in formats else ("ad-1" if "ad" in formats else None)
+        first = _first_frame(formats)
         template["reel"] = _video_template(video.workflow, first)
-    template["caption"] = {
-        "hook": "<line 1: the hook>",
-        "lines": ["<short line: the problem>", "<short line: the solution>"],
-        "question": "<one question that invites comments?>",
+    template["captions"] = {
+        key: {
+            "hook": f"<line 1: the hook for the {item.label.split(':')[0]}>",
+            "lines": ["<short line: the problem>", "<short line: the solution>"],
+            "question": "<one question that invites comments?>",
+        }
+        for key, item in chosen.items()
     }
     template["cta"] = "<one clear call to action>"
     website = company.website if company else ""
@@ -528,6 +613,14 @@ def _brief_template(
 
 def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> PackageResult:
     """Raises BriefError when brief.json is missing or invalid (nothing is made)."""
+    saved_package = folder / PACKAGE_FILE
+    if saved_package.is_file() and not (folder / BRIEF_FILE).is_file():
+        package = ContentPackage.model_validate_json(saved_package.read_text(encoding="utf-8"))
+        if not package.deliverables and not package.formats:
+            return PackageResult(folder, [
+                "No deliverables on this package yet: nothing is built. Ask the user what to "
+                f'make, then run: uv run ca content set "{folder}" --deliverables "<names>"'
+            ], package)
     brand = _brand(settings)
     company = load_company(settings.company_file)
     known = known_article_ids(settings.research_dir)
@@ -539,7 +632,7 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
         checks=lambda checked: _deliverable_problems(checked, settings),
     )
     package = _load(folder, brief)
-    plans = _plan_images(brief, package, folder, settings)
+    plans = _plan_images(brief, package, folder, settings, _image_counts(brief, settings))
     problems = [
         f"{name}: {_in_brief_words(str(plan.error))}"
         for name, plan in plans.items()
@@ -572,6 +665,21 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
     return PackageResult(folder, lines, package)
 
 
+def _image_counts(brief: ContentBrief, settings: Settings) -> dict[str, int]:
+    """Image options per job and part: from the deliverables, else the old defaults."""
+    counts = dict(IMAGE_COUNTS)
+    if brief.deliverables:
+        try:
+            catalog = load_deliverables(settings.deliverables_file)
+        except DeliverableError:
+            return counts  # reported by the brief checks
+        for part in counts:
+            images = catalog.images_for(brief.deliverables, part)
+            if images is not None:
+                counts[part] = images
+    return counts
+
+
 def _deliverable_problems(brief: ContentBrief, settings: Settings) -> list[str]:
     if not brief.deliverables:
         return []  # a brief from before deliverables: its formats decide
@@ -592,7 +700,12 @@ def _in_brief_words(message: str) -> str:
 
 
 def _slot_inputs(
-    name: str, slot: ImageSlot, brief: ContentBrief, folder: Path, history: list[DesignPicks]
+    name: str,
+    slot: ImageSlot,
+    brief: ContentBrief,
+    folder: Path,
+    history: list[DesignPicks],
+    count: int,
 ) -> list[WorkflowInputs]:
     """One image job per part; a carousel has one job per slide, all with the same look."""
     design_kind = slot_kind(name, slot)
@@ -623,7 +736,7 @@ def _slot_inputs(
         props=slot.props,
         logo=True,
         aspect_ratio=aspect,
-        count=IMAGE_COUNTS[name],
+        count=count,
         request=request,
         history=history,
     )
@@ -664,7 +777,11 @@ class _ImagePlan:
 
 
 def _plan_images(
-    brief: ContentBrief, package: ContentPackage, folder: Path, settings: Settings
+    brief: ContentBrief,
+    package: ContentPackage,
+    folder: Path,
+    settings: Settings,
+    counts: dict[str, int],
 ) -> dict[str, _ImagePlan]:
     """Check the image parts that are not done yet.
 
@@ -680,7 +797,8 @@ def _plan_images(
         if slot is None or (item is not None and item.status == "done"):
             continue
         earlier = [picks[part] for part in IMAGE_SLOTS[:position] if part in picks]
-        plan = _ImagePlan(slot, _slot_inputs(name, slot, brief, folder, earlier + others))
+        jobs = _slot_inputs(name, slot, brief, folder, earlier + others, counts[name])
+        plan = _ImagePlan(slot, jobs)
         try:
             plan.prepared = [
                 prepare_workflow("social_creative", inputs, settings) for inputs in plan.jobs
@@ -712,6 +830,9 @@ def _make_images(
     for number, inputs in enumerate(plan.jobs, start=1):
         if number <= done:
             continue
+        if number > 1 and len(plan.jobs) > 1 and item.image_refs:
+            # Later carousel slides attach slide 1's image: one scene, decor and palette.
+            inputs = replace(inputs, first_slide=item.image_refs[0])
         try:
             job = run_workflow("social_creative", inputs, settings)
         except _IMAGE_ERRORS as error:
@@ -798,9 +919,7 @@ def _reel_plan(
             return None
         return item.image_refs[int(number) - 1]
 
-    first = reel.first_frame or (
-        "post-1" if "post" in brief.formats else ("ad-1" if "ad" in brief.formats else None)
-    )
+    first = reel.first_frame or _first_frame(brief.formats)
     scenes: list[dict[str, Any]] = []
     for number, scene in enumerate(reel.scenes, start=1):
         entry: dict[str, Any] = {
@@ -904,15 +1023,16 @@ def _dry_run_lines(
         f"formats: {', '.join(brief.formats)}",
     ]
     total = 0.0
+    names = _part_names(brief, settings)
     for kind in IMAGE_SLOTS:
         item = package.items.get(kind)
         plan = plans.get(kind)
         if plan is None:
             if item is not None and item.status == "done":
-                lines.append(f"{LABELS[kind]}: already done ({', '.join(item.files)}); skipped")
+                lines.append(f"{names[kind]}: already done ({', '.join(item.files)}); skipped")
             continue
         if plan.error is not None or not plan.prepared:
-            lines.append(f"{LABELS[kind]}: cannot be made yet: {plan.error}")
+            lines.append(f"{names[kind]}: cannot be made yet: {plan.error}")
             continue
         todo = plan.prepared[_slides_done(plan, item):]
         cost = sum(estimate_cost_usd(prepared.request, settings) for prepared in todo)
@@ -923,19 +1043,25 @@ def _dry_run_lines(
         if len(plan.prepared) > 1:
             images = f"{len(todo)} of {len(plan.prepared)} slides"
         else:
-            images = f"{request.count}"
+            images = f"{request.count} image{'s' if request.count > 1 else ''}"
         layout = f", layout {slot.layout}" if slot.layout else ""
         title = slot.headline or slot.stat or (slot.slides[0].headline if slot.slides else "")
         picks: dict[str, str] = {}
         if lead.picks is not None:
             picks = lead.picks.model_dump(exclude={"format", "style_refs"}, exclude_none=True)
         look = ", ".join(f"{name} {value}" for name, value in picks.items()) or "-"
+        person = "the man shown" if lead.inputs.get("personShown") else "no person"
         lines.append(
-            f"{LABELS[kind]}: {images} x {request.aspect_ratio} {request.image_size} "
+            f"{names[kind]}: {images} x {request.aspect_ratio} {request.image_size} "
             f'(format {slot.format}{layout}), "{title}"; picked: {look}; '
-            f"{len(request.identity_refs)} identity + {len(request.style_refs)} style photos, "
-            f"via {settings.image_provider}: about ${cost:.3f}"
+            f"{person}, {len(request.identity_refs)} identity + {len(request.style_refs)} style "
+            f"photos + logo, via {settings.image_provider}: about ${cost:.3f}"
         )
+        if len(plan.prepared) > 1:
+            lines.append(
+                "  slides 2+ also attach slide 1's image (same scene, decor and colours); "
+                f"slide 1 shows the man, slides 2-{len(plan.prepared)} no person"
+            )
     if brief.reel is not None:
         item = package.items.get("reel")
         seconds = sum(scene.duration_sec for scene in brief.reel.scenes)
@@ -952,13 +1078,28 @@ def _dry_run_lines(
     return lines
 
 
+def _part_names(brief: ContentBrief, settings: Settings) -> dict[str, str]:
+    """How the dry run names each part: the deliverable's name when the brief has them."""
+    names = dict(LABELS)
+    if brief.deliverables:
+        try:
+            catalog = load_deliverables(settings.deliverables_file)
+        except DeliverableError:
+            return names
+        for key in brief.deliverables:
+            item = catalog.deliverables.get(key)
+            if item is not None:
+                names[item.brief_format] = key
+    return names
+
+
 def _video_dry_run(brief: ContentBrief, seconds: float, settings: Settings) -> list[str]:
     """What the video costs and whether it can be made now (nothing is made)."""
     assert brief.reel is not None
     reel = brief.reel
     empty = ContentPackage(package_id="", topic="", platform="", formats=[])
     plan = _reel_plan(brief, empty, check=True)
-    head = f"video: {reel.workflow}, {len(reel.scenes)} scenes, {seconds:g} s, 9:16"
+    head = f"{reel.workflow}: 1 video, {len(reel.scenes)} scenes, {seconds:g} s, 9:16"
     if isinstance(plan, str):  # not expected in check mode
         return [f"{head}: {plan}"]
     try:
@@ -993,21 +1134,24 @@ def _post_markdown(
         f"Platform: {brief.platform} | Formats: {', '.join(brief.formats)} | "
         f"Status: {package.status}",
         "",
-        "## Caption",
-        "",
-        brief.caption.hook.strip(),
-        "",
-        *(line.strip() for line in brief.caption.lines),
-        "",
-        brief.caption.question.strip(),
-        "",
-        f"{brief.cta.strip()} {brief.link}",
-        "",
-        " ".join(brief.hashtags),
-        "",
-        "## Files",
-        "",
     ]
+    captions = dict(brief.captions) or ({"caption": brief.caption} if brief.caption else {})
+    for name, caption in captions.items():
+        lines += [
+            "## Caption" if name == "caption" else f"## Caption: {name}",
+            "",
+            caption.hook.strip(),
+            "",
+            *(line.strip() for line in caption.lines),
+            "",
+            caption.question.strip(),
+            "",
+            f"{brief.cta.strip()} {brief.link}",
+            "",
+            " ".join(brief.hashtags),
+            "",
+        ]
+    lines += ["## Files", ""]
     for kind in brief.formats:
         item = package.items.get(kind)
         if item is not None and item.files:

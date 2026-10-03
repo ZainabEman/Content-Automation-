@@ -42,6 +42,7 @@ from content_automation.workflows.registry import (
     WorkflowSpec,
     get_workflow,
 )
+from content_automation.workflows.start_images import StartImageError, resolve_start_image
 from content_automation.workflows.variety import (
     DesignLook,
     DesignPicks,
@@ -94,6 +95,8 @@ class WorkflowInputs:
     # The person to show when the design has one and no identity_set is given (from a brief);
     # unlike identity_set it is simply unused by designs without a person.
     fallback_identity_set: str | None = None
+    # Carousel slides 2+: slide 1's image ("<jobId>/image-1.png"), attached as a style image.
+    first_slide: str | None = None
     # Picks to avoid, newest first (from a brief's package); default: the newest packages.
     history: list[DesignPicks] | None = None
 
@@ -125,6 +128,7 @@ class WorkflowInputs:
             "scene": self.scene,
             "wardrobe": self.wardrobe,
             "props": self.props,
+            "first_slide": self.first_slide,
         }
         return {name for name, value in values.items() if value not in (None, "", False)}
 
@@ -242,6 +246,21 @@ def _check_source(design: DesignChoice, settings: Settings) -> None:
         )
 
 
+def _first_slide_ref(design: DesignChoice, inputs: WorkflowInputs, settings: Settings) -> (
+    ReferenceImage | None
+):
+    """Slide 1's image for the later slides of a carousel: same scene, colours and decor."""
+    if not inputs.first_slide:
+        return None
+    if design.format != "carousel" or design.slide_role == "hook":
+        raise WorkflowError("--first-slide is for carousel slides after the first.")
+    try:
+        found = resolve_start_image(inputs.first_slide, settings)
+    except StartImageError as error:
+        raise WorkflowError(f"--first-slide: {error}") from None
+    return ReferenceImage(asset_id=found.asset_id, path=found.path, source=found.source)
+
+
 def _variety_seed(design: DesignChoice) -> str:
     """Picks follow the content, so different posts differ; carousel slides share one look."""
     if design.format == "carousel":
@@ -319,6 +338,9 @@ def prepare_workflow(
             seed=seed,
         )
         recorded.update(_recorded_design(design, look))
+        recorded["personShown"] = design.person
+    else:
+        recorded["personShown"] = bool(identity_set)  # photo workflows always show the person
     want_logo = inputs.logo or spec.designed
 
     identity: list[ReferenceImage] = []
@@ -326,6 +348,7 @@ def prepare_workflow(
         # Primary photos first, capped by IMAGE_IDENTITY_REFS_MAX and the provider's limit.
         identity_max = min(capabilities.max_identity_refs, settings.image_identity_refs_max)
         identity = _identity_refs(identity_set, identity_max, design, settings)
+        recorded["identityRefs"] = str(len(identity))
         recorded["identitySet"] = load_set(identity_set, root).set_id
 
     # All reference images together must fit the model's limit (14). Identity photos and
@@ -357,6 +380,7 @@ def prepare_workflow(
             avoid=[asset_id for picks in history for asset_id in picks.style_refs],
             seed=f"{seed}|style",
             strict=bool(inputs.style_set),
+            role=design.slide_role if fits.style_by_role else None,
         )
     else:
         style_set = inputs.style_set or spec.default_style_set
@@ -383,9 +407,18 @@ def prepare_workflow(
             raise WorkflowError("No room for product images; lower --style-count.")
         product = select_set_refs(inputs.product_set, object_budget, root, ref_type="product")
         recorded["productSet"] = load_set(inputs.product_set, root).set_id
-    over = len(identity) + len(logo) + len(product) + len(style) - limit
+    series: list[ReferenceImage] = []
+    if design is not None:
+        first = _first_slide_ref(design, inputs, settings)
+        series = [first] if first is not None else []
+        if first is not None:
+            recorded["firstSlide"] = first.source
+    # Over the limit: drop the style examples first, then slide 1; never identity or logo.
+    over = len(identity) + len(logo) + len(product) + len(style) + len(series) - limit
     if over > 0:
-        style = style[: len(style) - over]
+        dropped = min(over, len(style))
+        style = style[: len(style) - dropped]
+        series = series[: len(series) - (over - dropped)] if over > dropped else series
     if style:
         recorded["styleSet"] = ", ".join(style_sets)
 
@@ -395,7 +428,11 @@ def prepare_workflow(
         recorded["headline"] = inputs.headline
 
     counts = RefCounts(
-        identity=len(identity), product=len(product), logo=len(logo), style=len(style)
+        identity=len(identity),
+        product=len(product),
+        logo=len(logo),
+        style=len(style),
+        series=len(series),
     )
     company = load_company(settings.company_file)
     picks: DesignPicks | None = None
@@ -422,7 +459,7 @@ def prepare_workflow(
         count=inputs.count,
         identity_refs=identity,
         object_refs=product + logo,
-        style_refs=style,
+        style_refs=style + series,
     )
     return PreparedWorkflow(
         spec=spec,

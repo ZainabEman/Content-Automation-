@@ -1,11 +1,13 @@
 """`ca doctor`: check that everything needed is in place, with a plain-English fix for each
 problem. Key values are never shown, only whether they are set."""
 
+import re
 import shutil
 import subprocess
 import sys
 import uuid
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Literal
 
@@ -13,7 +15,9 @@ import httpx
 import imageio_ffmpeg
 from pydantic import SecretStr
 
+from content_automation.content.deliverables import DeliverableError, load_deliverables
 from content_automation.core.config import ConfigurationError, Settings, load_settings
+from content_automation.core.limits import images_generated_on
 from content_automation.media.assemble import text_support
 from content_automation.references import (
     BrandProfileError,
@@ -23,9 +27,14 @@ from content_automation.references import (
 )
 from content_automation.research.collectors import USER_AGENT
 from content_automation.research.models import SourcesError, load_sources
+from content_automation.workflows.design_system import DesignSystemError, load_design_system
 
 Level = Literal["ok", "warn", "fail"]
 SETUP_GUIDE = "docs/SETUP-CODEX.md"
+SKILLS_DIR = Path(".agents/skills")
+EXPECTED_SKILLS = ("show-content", "make-content", "make-video")
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_FRONTMATTER = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -50,6 +59,8 @@ def run_checks(env_file: Path = Path(".env")) -> list[Check]:
         return checks
     checks += _keys(settings)
     checks += _providers(settings)
+    checks += _skills()
+    checks += _config_files(settings)
     checks += _ffmpeg()
     checks += _references(settings)
     checks += _brand_and_company(settings)
@@ -103,23 +114,28 @@ def _providers(settings: Settings) -> list[Check]:
                             "For real images set IMAGE_PROVIDER=openrouter in .env."))
     else:
         checks.append(Check("ok", "Images", f"{settings.image_provider} ({settings.image_model})"))
-    for label, provider, real in (
-        ("Video", settings.video_provider, "higgsfield-mcp"),
-        ("Avatar", settings.avatar_provider, "heygen-mcp"),
+    used = images_generated_on(settings.output_dir, date.today())
+    checks.append(Check("ok", "Image daily limit",
+                        f"{settings.image_daily_limit} per day ({used} used today)"))
+    for label, provider, real, plugin in (
+        ("Video", settings.video_provider, "higgsfield-plugin", "Higgsfield"),
+        ("Avatar", settings.avatar_provider, "heygen-plugin", "HeyGen"),
     ):
         if provider in ("mock", "none"):
             detail = "mock (placeholder clips)" if provider == "mock" else "none (not set)"
             checks.append(Check("warn", label,
                                 f"{detail}; content packages keep their video pending",
-                                f"After connecting the MCP in Codex, set "
+                                f"With the {plugin} plugin installed in Codex, set "
                                 f"{label.upper()}_PROVIDER={real} in .env "
                                 "(docs/guides/module-2-video.md)."))
         else:
             checks.append(Check("ok", label,
-                                f"{provider}: Codex must have this MCP connected and signed in"))
-    if settings.avatar_provider == "heygen-mcp" and not settings.heygen_avatar_id:
+                                f"{provider}: Codex makes the clips with the {plugin} plugin "
+                                "(checked by Codex when a video is made)"))
+    if settings.avatar_provider == "heygen-plugin" and not settings.heygen_avatar_id:
         checks.append(Check("warn", "HEYGEN_AVATAR_ID", "not set",
-                            "Ask Codex to list your HeyGen avatars, then put the ID in .env."))
+                            "The make-video skill lists your HeyGen avatars and gives the line "
+                            "for .env."))
     voice = "off (no voiceover in the MVP)" if settings.voice_provider == "none" else (
         settings.voice_provider)
     checks.append(Check("ok", "Voice", voice))
@@ -128,6 +144,42 @@ def _providers(settings: Settings) -> list[Check]:
                             "For real news set SCRAPER_PROVIDER=free in .env."))
     else:
         checks.append(Check("ok", "News scraper", settings.scraper_provider))
+    return checks
+
+
+def _skills() -> list[Check]:
+    """Codex skills in .agents/skills: each needs a SKILL.md with a name and a description."""
+    folder = SKILLS_DIR if SKILLS_DIR.is_dir() else _PROJECT_ROOT / SKILLS_DIR
+    found = {}
+    for path in sorted(folder.glob("*/SKILL.md")):
+        match = _FRONTMATTER.match(path.read_text(encoding="utf-8"))
+        fields = dict(
+            line.split(":", 1) for line in (match.group(1) if match else "").splitlines()
+            if ":" in line
+        )
+        if fields.get("name", "").strip() and fields.get("description", "").strip():
+            found[path.parent.name] = fields["name"].strip()
+    missing = [name for name in EXPECTED_SKILLS if name not in found]
+    if missing:
+        return [Check("fail", "Skills", f"missing or without name/description: "
+                      f"{', '.join(missing)}", f"Restore {SKILLS_DIR}/<name>/SKILL.md from git.")]
+    return [Check("ok", "Skills", f"{len(found)} found: {', '.join(sorted(found))}")]
+
+
+def _config_files(settings: Settings) -> list[Check]:
+    checks = []
+    try:
+        catalog = load_deliverables(settings.deliverables_file)
+        checks.append(Check("ok", "Deliverables", f"valid: {', '.join(catalog.deliverables)}"))
+    except DeliverableError as error:
+        checks.append(Check("fail", "Deliverables", str(error),
+                            "Restore config/deliverables.json from git."))
+    try:
+        system = load_design_system(settings.design_system_file)
+        checks.append(Check("ok", "Design system", f"valid: {len(system.formats)} formats"))
+    except DesignSystemError as error:
+        checks.append(Check("fail", "Design system", str(error),
+                            "Restore config/design_system.json from git."))
     return checks
 
 
@@ -153,6 +205,19 @@ def _references(settings: Settings) -> list[Check]:
     if identity:
         names = ", ".join(f"{s.set_id} ({len(s.ok_assets)} photos)" for s in identity)
         checks.append(Check("ok", "Person photos", names))
+        person = next((s for s in identity if s.set_id == settings.default_identity_set), None)
+        if person is None:
+            checks.append(Check("fail", "DEFAULT_IDENTITY_SET",
+                                f"{settings.default_identity_set} has no usable photos",
+                                "Set DEFAULT_IDENTITY_SET in .env to one of the sets above."))
+        elif settings.image_identity_refs_max < len(person.ok_assets):
+            checks.append(Check("warn", "Identity photos per image",
+                                f"{settings.image_identity_refs_max} of {len(person.ok_assets)} "
+                                "are sent", f"Set IMAGE_IDENTITY_REFS_MAX="
+                                f"{min(len(person.ok_assets), 13)} in .env to send all."))
+        else:
+            checks.append(Check("ok", "Identity photos per image",
+                                f"all {len(person.ok_assets)} of {person.set_id}"))
     else:
         checks.append(Check("fail", "Person photos", "no identity set with usable photos",
                             "Add photos to assets/reference/identity/person_01/ and run "

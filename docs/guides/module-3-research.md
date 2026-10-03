@@ -89,18 +89,25 @@ file in between (the steps are in the skill `.agents/skills/make-content/SKILL.m
 
 | You say | You get |
 | --- | --- |
-| "insta post", "instagram post", "ig post", "instagram carousel" | `instagram_carousel`: 5 slides (hook with you, 3 tips, call to action) |
-| "facebook ad" | `facebook_ad`: 3 variants of one ad |
+| "facebook post", "fb post" | `facebook_post`: 1 designed image in a format that rotates (statement, stat, news, person photo, checklist) |
+| "facebook ad", "fb ad" | `facebook_ad`: 3 variants of one ad |
+| "insta post", "instagram post", "ig post", "insta carousel", "instagram carousel", "ig carousel" | `instagram_carousel`: 5 slides (hook with you, 3 tips, call to action) |
 | "video", "reel", "insta reel", "facebook video" | `reel_short`: a 9:16 video up to 90 s |
 | "ugc ad" | `ugc_ad`: a UGC-style video ad up to 60 s |
 | "podcast clip" | `podcast_clip`: your avatar speaks the script, up to 90 s |
 
 Only what you name is made: "facebook ad only" makes just the ad. If a word is not in the
 table, or could mean two things ("ad", "post"), Codex asks you instead of guessing. One package
-makes at most one post, one image ad and one video.
+makes at most one single-image post, one carousel, one image ad and one video. A package can start
+with no deliverables (research and text only) and get them later; until then nothing is built.
 
-1. `uv run ca content start --topic "X" --deliverables "insta post, reel"` collects news, ranks
-   it for the topic, and creates `outputs/content/YYYY-MM-DD_<topic>/` with:
+1. `uv run ca content start --topic "X"` collects news and ranks it for the topic, or
+   `uv run ca content start --research-file research/newsletters/<date>_content-list.json --idea 3`
+   uses a newsletter idea instead (no scraping; its sources are saved as research articles).
+   `--deliverables "insta post, reel"` is added only if you already named them; otherwise Codex
+   writes `content.md` (angle, key message, key points, draft caption, source) and asks what to
+   make, then runs `uv run ca content set "<folder>" --deliverables "<names>"`. It creates
+   `outputs/content/YYYY-MM-DD_<topic>/` with:
    - `research.md`: the best-matching articles with links;
    - `brief.template.json`: a pre-filled brief with only the named parts (topic, deliverables,
      the company's services, brand rules, the design choices, and empty slots to fill);
@@ -124,7 +131,7 @@ makes at most one post, one image ad and one video.
    - **video** (reel, UGC ad or podcast clip): made with `VIDEO_PROVIDER` / `AVATAR_PROVIDER`
      from `.env`; its first frame is the first post image when there is one. The dry run shows
      the video's provider and credits, and Codex waits for your OK as for images. If a provider
-     is `mock` or `none` (or its MCP is not connected in Codex), the package does not fail: the
+     is `mock` or `none` (or its Codex plugin is missing), the package does not fail: the
      video job is created, the status is **"draft — video pending"**, and the build prints
      exactly what to set. `uv run ca video resume "<job folder>"` or another build finishes it;
    - `post.md` (the caption ready to paste, source links) and an updated `package.json`.

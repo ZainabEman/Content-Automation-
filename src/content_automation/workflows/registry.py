@@ -9,7 +9,7 @@ InputName = Literal[
     "identity_set", "product_set", "style_set", "variant", "headline", "logo", "service",
     "kind", "layout", "pose", "highlight", "subheadline", "sub_highlight", "cta", "cta_icon",
     "icons", "visual", "slide", "slide_role", "format", "scene", "wardrobe", "props", "stat",
-    "source", "steps",
+    "source", "steps", "first_slide",
 ]
 RefCategory = Literal["identity", "product", "brand", "style"]
 DEFAULT_STYLE_COUNT = 3
@@ -42,6 +42,7 @@ INPUT_FLAGS: dict[InputName, str] = {
     "stat": "--stat",
     "source": "--source",
     "steps": "--steps",
+    "first_slide": "--first-slide",
 }
 
 
@@ -94,7 +95,7 @@ WORKFLOWS: dict[str, WorkflowSpec] = {
                 "identity_set", "product_set", "style_set", "variant", "headline", "logo",
                 "kind", "layout", "pose", "highlight", "subheadline", "sub_highlight", "cta",
                 "cta_icon", "icons", "visual", "slide", "slide_role", "format", "scene",
-                "wardrobe", "props", "stat", "source", "steps",
+                "wardrobe", "props", "stat", "source", "steps", "first_slide",
             ),
             default_aspect="4:5",
             ref_categories=("identity", "product", "brand", "style"),

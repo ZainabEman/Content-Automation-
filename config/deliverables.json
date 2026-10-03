@@ -1,19 +1,31 @@
 {
   "deliverables": {
-    "instagram_carousel": {
-      "label": "Instagram carousel: 5 slides (hook, 3 tips, call to action)",
+    "facebook_post": {
+      "label": "Facebook post: 1 designed image in a non-ad format (rotates between packages)",
       "part": "post",
-      "platform": "instagram",
-      "format": "carousel",
-      "slides": 5,
-      "aliases": ["insta post", "instagram post", "ig post", "instagram carousel"]
+      "platform": "facebook",
+      "formats": ["statement", "stat", "news", "person_photo", "checklist"],
+      "images": 1,
+      "aliases": ["facebook post", "fb post"]
     },
     "facebook_ad": {
       "label": "Facebook ad: 3 variants of one ad (headline, subheadline, CTA button)",
       "part": "ad",
       "platform": "facebook",
       "format": "ad",
-      "aliases": ["facebook ad"]
+      "images": 3,
+      "aliases": ["facebook ad", "fb ad"]
+    },
+    "instagram_carousel": {
+      "label": "Instagram carousel: 5 slides (hook, 3 tips, call to action)",
+      "part": "carousel",
+      "platform": "instagram",
+      "format": "carousel",
+      "slides": 5,
+      "aliases": [
+        "insta post", "instagram post", "ig post",
+        "insta carousel", "instagram carousel", "ig carousel"
+      ]
     },
     "reel_short": {
       "label": "Short vertical video (reel), up to 90 s",
@@ -28,7 +40,7 @@
       "aliases": ["ugc ad"]
     },
     "podcast_clip": {
-      "label": "Podcast clip: the avatar speaks the script, with optional b-roll, up to 90 s",
+      "label": "Podcast clip: the person's own HeyGen avatar speaks the script, with optional b-roll, up to 90 s",
       "part": "video",
       "workflow": "podcast_clip",
       "aliases": ["podcast clip"]

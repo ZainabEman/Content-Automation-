@@ -123,15 +123,19 @@ def suggest_format(
     packages: list[list[DesignPicks]],
     *,
     skip: Collection[str] = (),
+    allowed: Collection[str] = (),
 ) -> FormatId:
-    """The next format in the design system's order that the newest packages did not use."""
+    """The next format in the design system's order that the newest packages did not use.
+
+    allowed: only these formats (e.g. a deliverable's rotation); empty = all.
+    """
     recent = [picks.format for picks in flatten(packages[:RECENT_FORMATS]) if picks.format]
-    order = list(system.formats)
+    order = [name for name in system.formats if not allowed or name in allowed]
     names: list[str] = list(order)
     start = names.index(recent[0]) + 1 if recent and recent[0] in names else 0
     rotated = order[start:] + order[:start]
-    allowed = [name for name in rotated if name not in skip] or rotated
-    return next((name for name in allowed if name not in recent), allowed[0])
+    choices = [name for name in rotated if name not in skip] or rotated
+    return next((name for name in choices if name not in recent), choices[0])
 
 
 def _rng(seed: str) -> random.Random:

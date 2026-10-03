@@ -23,7 +23,7 @@ CLIPS_DIR = "clips"
 
 # Provider name -> adapter module. Adding a provider = one adapter file + one line here.
 _ADAPTERS: dict[str, str] = {
-    "heygen-mcp": "content_automation.ai.avatar.providers.heygen_mcp",
+    "heygen-plugin": "content_automation.ai.avatar.providers.heygen_plugin",
     "mock": "content_automation.ai.avatar.providers.mock",
 }
 

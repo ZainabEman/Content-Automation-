@@ -1,13 +1,15 @@
 """HeyGen avatar clips made by Codex with the HeyGen plugin (agent adapter).
 
-The app calls nothing: it writes requests/<stepId>.json (script, avatar, 9:16, numbered
-instructions) and returns an awaiting_agent step. Codex finds the HeyGen plugin's avatar
-video tool at run time (no tool name is assumed), shows the user the cost, makes the clip
-with the person's own avatar, saves it and records it with `ca job complete` (or
-`ca job fail`; no retries). The make-video skill describes the full exchange.
+The app calls nothing: it writes requests/<stepId>.json (script, avatar, voice, 9:16,
+numbered instructions) and returns an awaiting_agent step. Codex finds the HeyGen plugin's
+avatar video tool at run time (no tool name is assumed), shows the user the cost, makes the
+clip with the person's own avatar and the chosen voice, saves it and records it with
+`ca job complete` (or `ca job fail`; no retries). The make-video skill describes the full
+exchange. The voice is always passed explicitly: an avatar without a default voice is
+rejected by HeyGen, and a default voice may not be his.
 """
 
-from content_automation.ai.avatar import AvatarRequest
+from content_automation.ai.avatar import AvatarProviderError, AvatarRequest
 from content_automation.core.agent_steps import AgentRequest, create_agent_step
 from content_automation.core.config import Settings
 from content_automation.core.jobs import AdapterMode, JobStep
@@ -24,27 +26,32 @@ class HeygenPluginProvider:
     name = "heygen-plugin"
     mode: AdapterMode = "agent"
 
-    def __init__(self, default_avatar_id: str | None = None) -> None:
+    def __init__(
+        self, default_avatar_id: str | None = None, default_voice_id: str | None = None
+    ) -> None:
         self._default_avatar_id = default_avatar_id
+        self._default_voice_id = default_voice_id
 
     def generate(self, request: AvatarRequest, model: str) -> JobStep:
         job_dir = request.job_dir.resolve()
         step = request.step_id
         avatar = request.avatar_id or self._default_avatar_id
-        avatar_text = avatar or (
-            "not set: list the avatars with the HeyGen plugin, let the user choose his own "
-            "avatar, and give them the exact line for .env: HEYGEN_AVATAR_ID=<avatar ID>"
-        )
+        voice = request.voice_id or self._default_voice_id
+        if not avatar or not voice:  # the video job checks this before the job exists
+            missing = [name for name, value in (("HEYGEN_AVATAR_ID", avatar),
+                                                ("HEYGEN_VOICE_ID", voice)) if not value]
+            raise AvatarProviderError(f"{', '.join(missing)} not set in .env.")
         instructions = [
             f"1. Use the {PLUGIN} plugin in Codex: find its avatar video tool among the plugin's "
             "tools now; do not assume a tool name. If the plugin is not available, stop and tell "
             f"the user that the {PLUGIN} plugin is missing.",
-            f"2. Inputs: script = the prompt above, spoken word for word; avatar = {avatar_text}; "
-            f"voice = the avatar's default voice; portrait {request.aspect_ratio}; "
+            f"2. Inputs: script = the prompt above, spoken word for word; avatar = {avatar}; "
+            f"voice = {voice} (pass this voice ID explicitly in every request; never leave the "
+            f"voice out or rely on the avatar's default voice); portrait {request.aspect_ratio}; "
             f"about {request.duration_sec:g} s.",
             f"3. Person: {PERSON_RULE}",
-            "4. Before generating, show the user the script, the provider and any credit cost the "
-            'plugin reports, and wait for "ok".',
+            "4. Before generating, show the user the script, the provider, the avatar, the voice, "
+            'the duration and any credit cost the plugin reports, and wait for "ok".',
             "5. Wait until the video is ready; note its video ID and the credits it used.",
             "6. Save the MP4 locally (for a content package: in its video/clips/ folder).",
             f'7. Run: uv run ca job complete "{job_dir}" --step {step} --file "<saved file>" '
@@ -66,11 +73,13 @@ class HeygenPluginProvider:
                 duration_sec=request.duration_sec,
                 aspect_ratio=request.aspect_ratio,
                 person_rule=PERSON_RULE,
-                options={"avatarId": avatar or "", "voice": "avatar default"},
+                options={"avatarId": avatar, "voiceId": voice},
                 instructions=instructions,
             ),
         )
 
 
 def create_provider(settings: Settings | None = None) -> HeygenPluginProvider:
-    return HeygenPluginProvider(settings.heygen_avatar_id if settings else None)
+    if settings is None:
+        return HeygenPluginProvider()
+    return HeygenPluginProvider(settings.heygen_avatar_id, settings.heygen_voice_id)

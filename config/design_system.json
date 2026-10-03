@@ -23,14 +23,16 @@
     "layout": "Fill the whole canvas: no large empty areas. Size every text to read easily on a phone: the headline large, other text never tiny.",
     "footer": "Small, in the text colour, centred at the bottom edge on its own: the handle or website.",
     "audienceLine": "A small ALL-CAPS line in the accent colour just above the headline: who this is for.",
-    "logo": "Always at the top right: the brand logo from the logo reference image, once and unaltered.",
+    "logo": "Keep the top-right corner empty (a box about 30% of the width wide and 15% of the height tall): plain background only, no text, icons, decor, panel edges or busy detail. The real logo is placed there afterwards. Do not draw any logo, wordmark, monogram or brand name anywhere.",
+    "sceneText": "No readable text in the scene: screens, phones, laptops, tablets, signs, papers and packaging show only abstract shapes, blurred interface blocks or simple icons, never letters, words or numbers.",
+    "sourceLine": "Small, regular weight, in the text colour, at the lower left just above the footer.",
     "identity": {
       "rules": [
-        "The man is the exact person in {images}: same face, facial structure, hairline and hair, skin tone and age.",
+        "The only person allowed in this image is the man in {images}; nobody else appears.",
+        "He is that exact person: same face, facial structure, hairline and hair, skin tone and age.",
         "Do not beautify, idealize or change him.",
         "Do not add glasses, a beard or accessories that are not in the references.",
-        "His face comes only from these photos, never from the style reference images or an earlier slide.",
-        "He is the only person in the image."
+        "His face comes only from these photos. Any person, face, body part or logo in any other reference image is ignored and never copied."
       ],
       "split": "Both halves of the split show this same person."
     },
@@ -40,7 +42,8 @@
       "nothingElse": "Do not add any other words, letters, numbers, labels, buttons, captions or watermarks.",
       "none": "Do not render any words, labels, buttons, captions or watermarks.",
       "noButton": "Do not draw a CTA button.",
-      "lettering": "The only other lettering allowed is {lettering}; screens, holograms and props show icons and abstract shapes, never words."
+      "lettering": "The only other lettering allowed is {lettering}; screens, holograms and props show icons and abstract shapes, never words.",
+      "noLettering": "No other lettering anywhere; screens, holograms and props show icons and abstract shapes, never words."
     }
   },
   "typography": {
@@ -82,7 +85,22 @@
       },
       "office_day": {
         "description": "a bright modern office in daylight: large windows, soft natural light, clean and airy",
-        "tags": ["office", "agency", "consulting", "b2b", "team", "marketing", "startup", "sme"]
+        "tags": ["office", "agency", "consulting", "b2b", "team", "marketing", "startup", "sme", "real estate", "realtor", "brokerage"]
+      },
+      "real_estate_office": {
+        "description": "a modern real estate agency office: a clean desk by a large window, framed architectural photos of houses on the wall, a small model house on the desk, soft daylight, no other people",
+        "general": false,
+        "tags": ["real estate", "realtor", "realtors", "estate agent", "estate agents", "brokerage", "broker", "property", "properties", "listing", "listings", "home buyers", "homebuyers", "mortgage"]
+      },
+      "property_interior": {
+        "description": "a bright, staged living room of a modern home for sale: large windows, light wood floor, a sofa and plants, open-house atmosphere, no other people",
+        "general": false,
+        "tags": ["real estate", "realtor", "realtors", "estate agent", "estate agents", "property", "properties", "listing", "listings", "home buyers", "homebuyers", "open house", "house viewing", "apartment", "apartments"]
+      },
+      "property_exterior": {
+        "description": "the front of a modern detached house at golden hour: a tidy front garden and path, warm light in the windows, a quiet street softly blurred, no signs and no other people",
+        "general": false,
+        "tags": ["real estate", "realtor", "realtors", "estate agent", "estate agents", "property", "properties", "listing", "listings", "home buyers", "homebuyers", "neighbourhood", "neighborhood"]
       },
       "studio": {
         "description": "a clean photo studio: a seamless dark backdrop, a soft key light and a cool rim light",
@@ -110,14 +128,17 @@
       },
       "reception_desk": {
         "description": "a modern reception desk in a bright practice or office: a tablet for check-in, a phone, a small plant and a waiting area softly blurred behind, no other people",
+        "general": false,
         "tags": ["reception", "front desk", "appointment", "booking", "bookings", "dental", "dentist", "practice", "clinic", "salon", "hotel", "patients", "calls"]
       },
       "clinic": {
         "description": "a bright, modern clinic or practice room: clean surfaces, soft daylight and calm colours, softly blurred, no other people",
+        "general": false,
         "tags": ["clinic", "dental", "dentist", "doctor", "medical", "practice", "physio", "therapy", "patients", "health"]
       },
       "shop": {
         "description": "a modern small shop: neatly lit shelves, a counter with a card terminal and a warm window display, no other people",
+        "general": false,
         "tags": ["shop", "store", "retail", "boutique", "e-commerce", "ecommerce", "local business", "customers", "products"]
       },
       "abstract_gradient": {
@@ -154,19 +175,19 @@
     "props": {
       "desk_full": {
         "description": "a laptop, a black coffee mug, a notebook with a pen and a small plant",
-        "scenes": ["office_night", "office_day", "home_desk", "coworking"]
+        "scenes": ["office_night", "office_day", "home_desk", "coworking", "real_estate_office"]
       },
       "laptop_coffee": {
         "description": "a laptop and a black coffee mug",
-        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking", "reception_desk"]
+        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking", "reception_desk", "real_estate_office"]
       },
       "notebook_plant": {
         "description": "an open notebook with a pen and a small plant",
-        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking"]
+        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking", "real_estate_office"]
       },
       "tablet_phone": {
         "description": "a tablet and a smartphone",
-        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking", "studio", "reception_desk", "shop", "clinic"]
+        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking", "studio", "reception_desk", "shop", "clinic", "real_estate_office", "property_interior", "property_exterior"]
       },
       "robot_mascot": {
         "description": "a friendly white robot mascot beside a laptop",
@@ -213,14 +234,14 @@
       },
       "laptop": {
         "description": "seated at a laptop, hands clasped",
-        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking", "reception_desk"]
+        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking", "reception_desk", "real_estate_office"]
       },
       "profile": {
         "description": "side profile, hand on chin, studying what is in front of him"
       },
       "leaning_back": {
         "description": "leaning back in a chair, hands behind the head, smiling",
-        "scenes": ["office_night", "office_day", "home_desk", "coworking"]
+        "scenes": ["office_night", "office_day", "home_desk", "coworking", "real_estate_office"]
       },
       "presenting": {
         "description": "standing, gesturing with one open hand as if explaining something"
@@ -230,7 +251,7 @@
       },
       "walking": {
         "description": "walking towards the camera mid-stride, relaxed and confident",
-        "scenes": ["office_day", "city_street", "coworking", "conference_stage", "shop", "clinic"]
+        "scenes": ["office_day", "city_street", "coworking", "conference_stage", "shop", "clinic", "property_interior", "property_exterior"]
       },
       "stressed": {
         "description": "stressed, hands on the head",
@@ -361,7 +382,7 @@
     "story": {
       "description": "a vertical story / reel graphic",
       "aspects": ["9:16"],
-      "safeZone": "Keep the top 13% and the bottom 13% of the frame free of text, logo and buttons; only background and decor continue there. Place the logo at the top right just below the top safe zone."
+      "safeZone": "Keep the top 13% and the bottom 13% of the frame free of text, logo and buttons; only background and decor continue there. The logo corner sits at the top right just below the top safe zone."
     },
     "carousel_slide": {
       "description": "one slide of a social media carousel",
@@ -372,11 +393,11 @@
     "slides": {
       "hook": "Slide 1, the hook: the audience line, then a big ALL-CAPS headline that names the problem or the promise (2-4 short lines, 1-2 highlight words), next to the man, with an optional short line below. No tip on this slide and no button.",
       "tip": "A tip slide: exactly one tip as a bold sentence-case headline (2-3 lines) with highlight words, a short accent-coloured underline, the concrete how in 2-3 lines, and one large visual that shows the automation: a chat example or a workflow diagram when listed below, otherwise one glowing visual. No button.",
-      "cta": "The last slide: the call to action as the headline and the CTA button as the focal point, with the logo clearly visible; optionally a row of three outlined icons (heart, paper plane, bookmark) without words."
+      "cta": "The last slide: the call to action as the headline and the CTA button as the focal point, with the top-right corner kept empty for the logo; optionally a row of three outlined icons (heart, paper plane, bookmark) without words."
     },
     "chat": "A phone-style chat on the right: the listed bubbles in order, customer bubbles on the left in a dark grey, business or chatbot bubbles on the right in the accent colour, each with its text exactly as listed.",
     "diagram": "A simple workflow diagram on the right: the listed steps as 3-4 rounded glass boxes connected by glowing arrows in order, each box with a small icon and its label exactly as listed.",
-    "navigation": "A small rounded pill with the slide counter at the top left (the logo keeps the top right) and a small row of swipe chevrons at the bottom right on every slide except the last.",
+    "navigation": "A small rounded pill with the slide counter at the top left (the top right stays empty for the logo) and a small row of swipe chevrons at the bottom right on every slide except the last.",
     "demos": {
       "source": "assets/reference/creative/carousels: 13 demo carousels of 8 slides each (video frames in _frames/). Slide 1 is used as a hook example, the last slide as a call-to-action example and the slides between as tip examples.",
       "structure": "Dark background with a glowing particle-dot wave, faint hexagon lines and small dot grids; text left or centred, the visual on the right. Hook: a large statement headline. Tips: a headline with highlight words, a short underline, a short explanation and often a small hexagon icon with a one-line takeaway. Last slide: a question that invites comments, an engagement icon row and the logo. A counter pill like 02/07 marks the slide; there is no visible swipe text."

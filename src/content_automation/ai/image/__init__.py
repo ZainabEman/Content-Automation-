@@ -63,6 +63,8 @@ class ReferenceImage(BaseModel):
     asset_id: str = Field(min_length=1)
     path: Path
     source: str = ""  # original file, e.g. identity/person_01/1.jpg (for display)
+    people: bool | None = None  # style tags from the reference library; None = untagged
+    logo: bool | None = None
 
 
 class ImageRequest(BaseModel):
@@ -70,6 +72,7 @@ class ImageRequest(BaseModel):
 
     Adapters must attach reference images in this order: identity_refs, then
     object_refs, then style_refs, because prompts number the images that way.
+    The logo is never sent: the app pastes the real file onto the result.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -79,7 +82,7 @@ class ImageRequest(BaseModel):
     image_size: ImageSize = "1K"
     count: int = Field(default=1, ge=1, le=MAX_COUNT)
     identity_refs: list[ReferenceImage] = Field(default_factory=list)
-    object_refs: list[ReferenceImage] = Field(default_factory=list)  # product + brand
+    object_refs: list[ReferenceImage] = Field(default_factory=list)  # products
     style_refs: list[ReferenceImage] = Field(default_factory=list)  # creative
 
 

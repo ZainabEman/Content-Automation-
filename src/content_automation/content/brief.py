@@ -102,6 +102,7 @@ class ImageSlot(_BriefModel):
     visual: str | None = None  # layout A: the system visual
     stat: str | None = None  # format stat: the one big number
     source: str | None = None  # format stat (required) and news: the research article ID
+    source_name: str | None = None  # format stat: "Source: <this>" (default: the article's)
     steps: list[str] = Field(default_factory=list, max_length=5)  # format checklist
     slides: list[SlideSlot] = Field(default_factory=list, max_length=MAX_SLIDES)  # carousel
     slide: str | None = None  # a single carousel slide instead of "slides": "N/TOTAL"

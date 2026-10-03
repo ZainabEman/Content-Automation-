@@ -6,15 +6,51 @@ ImageRequest and final prompt, then call run_image_job().
 
 from pathlib import Path
 
-from content_automation.ai.image import ImageRequest, estimate_cost_usd, generate_image
+from content_automation.ai.image import (
+    ImageRequest,
+    ReferenceImage,
+    estimate_cost_usd,
+    generate_image,
+)
 from content_automation.core.config import Settings
-from content_automation.core.jobs import Job, JobParams, create_job
+from content_automation.core.jobs import Job, JobParams, JobReference, create_job
 from content_automation.core.limits import check_daily_limit
 from content_automation.core.log import get_logger, mask_secrets, secret_values
 from content_automation.core.retry import call_with_retry
 from content_automation.references import asset_id_for
+from content_automation.workflows.logo import LogoOverlay, apply_logo
 
 _EXTENSIONS = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
+RAW_DIR = "raw"  # the model's image before the logo is pasted (slide 1 for later slides)
+
+
+def raw_image(folder: Path, name: str) -> Path | None:
+    """The logo-free original of an output image, if the logo was pasted onto it."""
+    path = folder / RAW_DIR / name
+    return path if path.is_file() else None
+
+
+def job_references(
+    request: ImageRequest, series: list[ReferenceImage] | None = None
+) -> list[JobReference]:
+    """Every reference image in the order the adapter attaches it (image 1 first)."""
+    series_ids = {ref.asset_id for ref in series or []}
+    groups = (
+        ("identity", request.identity_refs),
+        ("product", request.object_refs),
+        ("style", request.style_refs),
+    )
+    return [
+        JobReference(
+            role="series" if role == "style" and ref.asset_id in series_ids else role,
+            asset_id=ref.asset_id,
+            source=ref.source,
+            people=ref.people,
+            logo=ref.logo,
+        )
+        for role, refs in groups
+        for ref in refs
+    ]
 
 logger = get_logger("workflows.image_job")
 
@@ -30,9 +66,12 @@ def run_image_job(
     product_asset_ids: list[str] | None = None,
     brand_asset_ids: list[str] | None = None,
     inputs: dict[str, str | bool] | None = None,
+    logo: LogoOverlay | None = None,
+    references: list[JobReference] | None = None,
 ) -> Job:
     """Run one image job and return its record (status completed or failed).
 
+    logo: pasted onto every image; the image without it is kept in raw/.
     Raises DailyLimitError before any job or provider call when the limit is hit.
     Mock images are free and do not count toward the limit.
     """
@@ -60,6 +99,7 @@ def run_image_job(
         brand_asset_ids=brand_asset_ids or [],
         style_asset_ids=[ref.asset_id for ref in request.style_refs],
         inputs=inputs,
+        references=references if references is not None else job_references(request),
     )
     logger.info("Job %s created in %s", job.job_id, job.folder)
 
@@ -82,12 +122,26 @@ def run_image_job(
         job.model = result.model
         job.actual_cost_usd = result.cost_usd
         for index, image in enumerate(result.images, start=1):
-            path = job.folder / f"image-{index}.{_EXTENSIONS.get(image.mime_type, 'png')}"
-            path.write_bytes(image.data)
+            extension = _EXTENSIONS.get(image.mime_type, "png")
+            if logo is None:
+                path = job.folder / f"image-{index}.{extension}"
+                path.write_bytes(image.data)
+            else:
+                raw = job.folder / RAW_DIR / f"image-{index}.{extension}"
+                raw.parent.mkdir(exist_ok=True)
+                raw.write_bytes(image.data)
+                written.append(raw)
+                path = job.folder / f"image-{index}.png"
+                path.write_bytes(apply_logo(image.data, logo))
             written.append(path)
+        finals = [path for path in written if path.parent == job.folder]
+        if logo is not None:
+            job.notes.append(
+                f"Logo: {logo.describe()}; the images without it are in {RAW_DIR}/."
+            )
         # Same ID scheme as reference photos, so a video plan can use it as startImageAssetId.
-        job.output_asset_ids = [asset_id_for(path) for path in written]
-        job.complete([path.name for path in written])
+        job.output_asset_ids = [asset_id_for(path) for path in finals]
+        job.complete([path.name for path in finals])
     except KeyboardInterrupt:
         _remove(written)
         job.cancel()

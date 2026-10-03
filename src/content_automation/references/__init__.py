@@ -30,6 +30,8 @@ from content_automation.references.library import (
     select_set_refs,
     select_style_refs,
     set_primary,
+    tag_assets,
+    untagged_style_refs,
 )
 from content_automation.references.models import (
     REF_TYPES,
@@ -69,4 +71,6 @@ __all__ = [
     "select_set_refs",
     "select_style_refs",
     "set_primary",
+    "tag_assets",
+    "untagged_style_refs",
 ]

@@ -1,6 +1,6 @@
 """Named image workflows: check inputs, pick references, build the prompt, run the job."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from content_automation.ai.image import (
     ASPECT_RATIOS,
@@ -11,7 +11,7 @@ from content_automation.ai.image import (
     get_provider,
 )
 from content_automation.core.config import Settings
-from content_automation.core.jobs import Job
+from content_automation.core.jobs import DETAILS_FILE, Job, JobReference
 from content_automation.references import (
     BrandProfile,
     ReferenceLibraryError,
@@ -27,12 +27,14 @@ from content_automation.references import (
 )
 from content_automation.research.store import find_article, number_in_article
 from content_automation.workflows.design_system import (
+    MAX_SOURCE_WORDS,
     DesignChoice,
     DesignSystem,
     load_design_system,
     resolve_design,
 )
-from content_automation.workflows.image_job import run_image_job
+from content_automation.workflows.image_job import job_references, raw_image, run_image_job
+from content_automation.workflows.logo import LogoError, LogoOverlay, check_logo
 from content_automation.workflows.prompt import RefCounts, build_design_prompt, build_prompt
 from content_automation.workflows.registry import (
     DEFAULT_STYLE_COUNT,
@@ -85,6 +87,7 @@ class WorkflowInputs:
     visual: str | None = None
     stat: str | None = None
     source: str | None = None  # research article ID behind a stat or news line
+    source_name: str | None = None  # stat: the publisher for "Source: ..." (default: article's)
     steps: str | None = None  # "|"-separated
     audience_line: str | None = None  # "FOR DENTAL PRACTICES"
     chat: str | None = None  # tip slides: "Customer: ...|Bot: ..."
@@ -127,6 +130,7 @@ class WorkflowInputs:
             "visual": self.visual,
             "stat": self.stat,
             "source": self.source,
+            "source_name": self.source_name,
             "steps": self.steps,
             "slide": self.slide,
             "slide_role": self.slide_role,
@@ -146,9 +150,11 @@ class PreparedWorkflow:
     spec: WorkflowSpec
     request: ImageRequest
     product_refs: list[ReferenceImage] = field(default_factory=list)
-    brand_refs: list[ReferenceImage] = field(default_factory=list)
+    logo: LogoOverlay | None = None  # pasted by the app after generation; never sent
+    references: list[JobReference] = field(default_factory=list)  # in the order attached
     inputs: dict[str, str | bool] = field(default_factory=dict)
     picks: DesignPicks | None = None  # designs: what was used from the pools
+    person_shown: bool = False  # the result needs the person check before it is used
 
     @property
     def product_asset_ids(self) -> list[str]:
@@ -156,7 +162,7 @@ class PreparedWorkflow:
 
     @property
     def brand_asset_ids(self) -> list[str]:
-        return [ref.asset_id for ref in self.brand_refs]
+        return [self.logo.asset_id] if self.logo is not None else []
 
 
 def _check_inputs(spec: WorkflowSpec, inputs: WorkflowInputs) -> None:
@@ -237,10 +243,14 @@ def _design_aspect(design: DesignChoice, system: DesignSystem, wanted: str | Non
     return wanted
 
 
-def _check_source(design: DesignChoice, settings: Settings) -> None:
-    """A stat is refused unless its number is written in the research article it names."""
+def _check_source(design: DesignChoice, settings: Settings) -> DesignChoice:
+    """A stat is refused unless its number is written in the research article it names.
+
+    A stat also shows "Source: <publisher>": the given --source-name must be the article's
+    publisher (its source or web address); without one, the article's source is used.
+    """
     if design.source is None:
-        return
+        return design
     article = find_article(settings.research_dir, design.source)
     if article is None:
         raise WorkflowError(
@@ -252,12 +262,28 @@ def _check_source(design: DesignChoice, settings: Settings) -> None:
             f'Refused: the number "{design.stat}" is not in research article {design.source} '
             f'("{article.title}"). A stat must come from the research; never invent one.'
         )
+    if design.format != "stat":
+        return design
+    publisher = f"{article.source} {article.url}".casefold()
+    if design.source_name is not None:
+        if design.source_name.casefold().replace(" ", "") not in publisher.replace(" ", ""):
+            raise WorkflowError(
+                f'--source-name "{design.source_name}" is not the publisher of research article '
+                f'{design.source} ("{article.source}"); use a short form of that name.'
+            )
+        return design
+    name = " ".join(article.source.split("(")[0].split()[:MAX_SOURCE_WORDS]) or article.source
+    return replace(design, source_name=name)
 
 
 def _first_slide_ref(design: DesignChoice, inputs: WorkflowInputs, settings: Settings) -> (
     ReferenceImage | None
 ):
-    """Slide 1's image for the later slides of a carousel: same scene, colours and decor."""
+    """Slide 1's image for the later slides of a carousel: same scene, colours and decor.
+
+    The logo-free original is attached (the model must not copy a logo), and a slide 1 that
+    failed the person check is never used.
+    """
     if not inputs.first_slide:
         return None
     if design.format != "carousel" or design.slide_role == "hook":
@@ -266,7 +292,32 @@ def _first_slide_ref(design: DesignChoice, inputs: WorkflowInputs, settings: Set
         found = resolve_start_image(inputs.first_slide, settings)
     except StartImageError as error:
         raise WorkflowError(f"--first-slide: {error}") from None
-    return ReferenceImage(asset_id=found.asset_id, path=found.path, source=found.source)
+    folder, name = found.path.parent, found.path.name
+    try:
+        review = Job.load(folder / DETAILS_FILE).review(name)
+    except (OSError, ValueError):
+        review = None
+    if review is not None and review.result == "fail":
+        raise WorkflowError(
+            f"--first-slide {inputs.first_slide} failed the person check; regenerate slide 1 "
+            "first. A failed slide 1 is never used for later slides."
+        )
+    raw = raw_image(folder, name)
+    if raw is None:  # made before the app pasted logos
+        return ReferenceImage(asset_id=found.asset_id, path=found.path, source=found.source)
+    source = f"{found.source.removesuffix(name)}raw/{name}"
+    return ReferenceImage(asset_id=found.asset_id, path=raw, source=source)
+
+
+def _logo(settings: Settings, brand: BrandProfile | None) -> LogoOverlay:
+    """The logo the app pastes on; checked now, so a bad file stops before any cost."""
+    try:
+        ref = select_logo_ref(settings.references_dir, preferred=brand.logo_file if brand else None)
+        overlay = LogoOverlay(path=ref.path, source=ref.source, asset_id=ref.asset_id)
+        check_logo(overlay)
+    except (ReferenceLibraryError, LogoError) as error:
+        raise WorkflowError(str(error)) from None
+    return overlay
 
 
 def _context(inputs: WorkflowInputs) -> str:
@@ -337,8 +388,7 @@ def prepare_workflow(
     if spec.designed:
         system = load_design_system(settings.design_system_file)
         kind = inputs.kind or (KIND_BY_VARIANT[inputs.variant] if inputs.variant else None)
-        design = resolve_design(inputs, system, kind=kind)
-        _check_source(design, settings)
+        design = _check_source(resolve_design(inputs, system, kind=kind), settings)
         identity_set = _design_identity_set(design, inputs, settings)
         aspect = _design_aspect(design, system, inputs.aspect_ratio)
         if inputs.history is not None:
@@ -371,16 +421,20 @@ def prepare_workflow(
         recorded["identityRefs"] = str(len(identity))
         recorded["identitySet"] = load_set(identity_set, root).set_id
 
-    # All reference images together must fit the model's limit (14). Identity photos and
-    # the logo always stay; when it gets too many, style images are dropped first.
+    # All reference images together must fit the model's limit (14). Identity photos always
+    # stay; when it gets too many, style images are dropped first. The logo is not sent.
     limit = min(capabilities.max_total_refs or MAX_REFERENCE_IMAGES, MAX_REFERENCE_IMAGES)
-    total_left = limit - len(identity) - (1 if want_logo else 0)
+    total_left = limit - len(identity)
     if total_left < 0:
         raise WorkflowError(
-            f"{len(identity)} identity photos plus the logo are more than the {limit} "
-            "reference images the model accepts; lower IMAGE_IDENTITY_REFS_MAX."
+            f"{len(identity)} identity photos are more than the {limit} reference images the "
+            "model accepts; lower IMAGE_IDENTITY_REFS_MAX."
         )
     brand = _load_brand_if_present(settings)
+    logo = _logo(settings, brand) if want_logo else None
+    if logo is not None:
+        recorded["logo"] = logo.describe()
+    person_shown = bool(recorded["personShown"])
     style: list[ReferenceImage] = []
     style_sets: list[str] = []
     if design is not None and system is not None:
@@ -401,6 +455,7 @@ def prepare_workflow(
             seed=f"{seed}|style",
             strict=bool(inputs.style_set),
             role=design.slide_role if fits.style_by_role else None,
+            person=design.person,
         )
     else:
         style_set = inputs.style_set or spec.default_style_set
@@ -409,18 +464,12 @@ def prepare_workflow(
                 inputs.style_count or DEFAULT_STYLE_COUNT, capabilities.max_style_refs, total_left
             )
             if wanted > 0:
-                style = select_style_refs(style_set, wanted, root)
+                style = select_style_refs(style_set, wanted, root, person=person_shown)
                 style_sets = [load_set(style_set, root).set_id]
 
-    logo: list[ReferenceImage] = []
-    if want_logo:
-        logo = [select_logo_ref(root, preferred=brand.logo_file if brand else None)]
-        recorded["logo"] = True
-    object_budget = min(capabilities.max_object_refs - len(logo), total_left)
+    object_budget = min(capabilities.max_object_refs, total_left)
     if capabilities.max_object_and_style_refs is not None:
-        object_budget = min(
-            object_budget, capabilities.max_object_and_style_refs - len(style) - len(logo)
-        )
+        object_budget = min(object_budget, capabilities.max_object_and_style_refs - len(style))
     product: list[ReferenceImage] = []
     if inputs.product_set:
         if object_budget < 1:
@@ -433,8 +482,12 @@ def prepare_workflow(
         series = [first] if first is not None else []
         if first is not None:
             recorded["firstSlide"] = first.source
-    # Over the limit: drop the style examples first, then slide 1; never identity or logo.
-    over = len(identity) + len(logo) + len(product) + len(style) + len(series) - limit
+    # Over the limit: drop the style examples first, then slide 1; never identity photos.
+    # Slide 1 also counts toward the provider's style limit.
+    over = max(
+        len(identity) + len(product) + len(style) + len(series) - limit,
+        len(style) + len(series) - capabilities.max_style_refs,
+    )
     if over > 0:
         dropped = min(over, len(style))
         style = style[: len(style) - dropped]
@@ -450,7 +503,6 @@ def prepare_workflow(
     counts = RefCounts(
         identity=len(identity),
         product=len(product),
-        logo=len(logo),
         style=len(style),
         series=len(series),
     )
@@ -466,11 +518,13 @@ def prepare_workflow(
             aspect_ratio=aspect,
             details=scene_prompt if inputs.scene else None,
             company=company,
+            logo=logo is not None,
         )
         picks = DesignPicks.from_recorded(recorded, [ref.asset_id for ref in style])
     else:
         prompt = build_prompt(
-            spec, inputs.prompt, counts, brand, service=service, company=company
+            spec, inputs.prompt, counts, brand, service=service, company=company,
+            logo=logo is not None,
         )
     request = ImageRequest(
         prompt=prompt,
@@ -478,16 +532,18 @@ def prepare_workflow(
         image_size=settings.image_design_size if spec.designed else "1K",
         count=inputs.count,
         identity_refs=identity,
-        object_refs=product + logo,
+        object_refs=product,
         style_refs=style + series,
     )
     return PreparedWorkflow(
         spec=spec,
         request=request,
         product_refs=product,
-        brand_refs=logo,
+        logo=logo,
+        references=job_references(request, series),
         inputs=recorded,
         picks=picks,
+        person_shown=person_shown,
     )
 
 
@@ -505,4 +561,6 @@ def run_workflow(workflow_id: str, inputs: WorkflowInputs, settings: Settings) -
         product_asset_ids=prepared.product_asset_ids,
         brand_asset_ids=prepared.brand_asset_ids,
         inputs=prepared.inputs,
+        logo=prepared.logo,
+        references=prepared.references,
     )

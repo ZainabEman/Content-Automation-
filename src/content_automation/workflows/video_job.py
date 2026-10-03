@@ -8,6 +8,10 @@ Voiceover is disabled in the MVP (VOICE_PROVIDER=none): scenes keep their own so
 A content package needs a real video, so it starts its job with real_only=True: while a
 scene's provider is mock or none, the job is created but holds (status processing, no
 steps) and says what is missing; `ca video resume` continues it once a real provider is set.
+
+HeyGen clips need the person's avatar and a voice (HEYGEN_AVATAR_ID, HEYGEN_VOICE_ID). They
+are checked before a job is created (AvatarSetupError), so a missing ID never leaves a
+failed job behind; Codex confirms both IDs with the HeyGen plugin before the "ok".
 """
 
 import shutil
@@ -58,6 +62,12 @@ ASPECT: Literal["9:16"] = "9:16"
 _CREDITS = {"mock": "0", "library": "0", "none": "0"}
 MAX_IDENTITY_PHOTOS = 14  # all of the person's usable photos (the model limit)
 _CREDITS_TBD = "TBD until M2.C"
+HEYGEN = "heygen-plugin"
+# Credit cost per scene as far as it is known before generation, by provider.
+_SCENE_CREDITS = {
+    "higgsfield-plugin": "reported by the Higgsfield plugin before generating",
+    HEYGEN: "reported by the HeyGen plugin before generating",
+}
 NO_PROVIDER = "none"
 PLACEHOLDER_PROVIDERS = frozenset({"mock", NO_PROVIDER})  # no real clips
 REAL_ONLY = "realProvidersOnly"  # job input: wait for real providers instead of mock clips
@@ -68,6 +78,15 @@ _REAL = {
 }
 
 logger = get_logger("workflows.video_job")
+
+
+class AvatarSetupError(PlanError):
+    """HeyGen avatar or voice ID is missing; raised before any job is created."""
+
+    def __init__(self, problems: list[str]) -> None:
+        super().__init__(problems)
+        lines = "\n".join(f"- {problem}" for problem in problems)
+        self.args = (f"HeyGen is not set up, so no video job was created:\n{lines}",)
 
 
 @dataclass(frozen=True)
@@ -158,15 +177,50 @@ def missing_providers(prepared: PreparedVideo) -> list[str]:
     return lines
 
 
+def missing_avatar_ids(prepared: PreparedVideo, settings: Settings) -> list[str]:
+    """HeyGen clips need the avatar and the voice ID; what is missing and how to set it."""
+    if not any(item.provider == HEYGEN for item in prepared.scenes):
+        return []
+    lines = []
+    for name, value, what in (
+        ("HEYGEN_AVATAR_ID", settings.heygen_avatar_id, "avatars (his own avatar first)"),
+        ("HEYGEN_VOICE_ID", settings.heygen_voice_id, "voices (his own or cloned voices first)"),
+    ):
+        if not value:
+            lines.append(
+                f"{name} is not set: list the account's {what} with the HeyGen plugin, let the "
+                f"user choose, then run: uv run ca env set {name} <id>"
+            )
+    return lines
+
+
+def scene_lines(prepared: PreparedVideo, settings: Settings) -> list[str]:
+    """Per scene: provider, avatar, voice, duration and credits, for the "ok" step."""
+    lines = []
+    for item in prepared.scenes:
+        scene = item.scene
+        parts = [f"scene {scene.n}: {scene.type}", f"{scene.duration_sec:g} s", item.provider]
+        if item.provider == HEYGEN:
+            parts.append(f"avatar {settings.heygen_avatar_id or 'NOT SET'}")
+            parts.append(f"voice {settings.heygen_voice_id or 'NOT SET'}")
+        elif scene.type == "video" and item.provider not in PLACEHOLDER_PROVIDERS:
+            parts.append(f"model {settings.video_model}")
+        credits = _SCENE_CREDITS.get(item.provider, _CREDITS.get(item.provider, _CREDITS_TBD))
+        parts.append(f"credits: {credits}")
+        lines.append(", ".join(parts))
+    return lines
+
+
 def pending_lines(job: Job, settings: Settings) -> list[str]:
-    """Why a held job (see real_only) is still waiting, and how to finish it; else []."""
-    if job.status != "processing" or not job.inputs.get(REAL_ONLY) or job.steps:
+    """Why a held job (real_only, or HeyGen IDs missing) is still waiting, and how to finish it;
+    else []."""
+    if job.status != "processing" or job.steps:
         return []
     try:
         prepared = prepare_video(load_plan(job.folder / PLAN_FILE, check_scenes=False), settings)
     except (PlanError, StartImageError) as error:
         return [f"The video plan has a problem: {error}"]
-    missing = missing_providers(prepared)
+    missing = missing_providers(prepared) or missing_avatar_ids(prepared, settings)
     if not missing:
         return [f'Real providers are set now: run uv run ca video resume "{job.folder}"']
     return [
@@ -180,6 +234,7 @@ def dry_run_lines(prepared: PreparedVideo, settings: Settings) -> list[str]:
     plan, spec = prepared.plan, prepared.spec
     lines = [
         "DRY RUN: no job created, no provider call, nothing spent.",
+        *(f"STOP: {line}" for line in missing_avatar_ids(prepared, settings)),
         f"Workflow: {spec.workflow_id} (v{spec.version}), max {spec.max_duration_sec}s: "
         f"{spec.description}",
         f"Plan: {plan.duration_sec:g}s, {len(plan.scenes)} scenes, platform {plan.platform}",
@@ -192,6 +247,11 @@ def dry_run_lines(prepared: PreparedVideo, settings: Settings) -> list[str]:
             f"  {scene.n}. {scene.type:<6} {scene.duration_sec:>4g}s  "
             f"{item.provider} ({item.mode})"
         )
+        if item.provider == HEYGEN:
+            line += (
+                f" | avatar {settings.heygen_avatar_id or 'NOT SET'}, "
+                f"voice {settings.heygen_voice_id or 'NOT SET'}"
+            )
         if item.start_image:
             line += f" | start image {item.start_image.source} [{item.start_image.asset_id}]"
         lines.append(line)
@@ -227,6 +287,9 @@ def start_video_job(
         raise PlanError([f"cannot read {plan_file}"]) from None
     prepared = prepare_video(parse_plan(text, check_scenes=False), settings)
     plan = prepared.plan
+    ids = missing_avatar_ids(prepared, settings)
+    if ids:  # before the job exists, so nothing is marked failed
+        raise AvatarSetupError(ids)
     unset = [item for item in prepared.scenes if item.provider == NO_PROVIDER]
     if unset and not real_only:
         raise PlanError([
@@ -276,6 +339,10 @@ def resume_video_job(job: Job, settings: Settings) -> Job:
         job.start()
     if job.inputs.get(REAL_ONLY) and missing_providers(prepared):
         return job  # still held: no placeholder clips for a content package
+    if missing_avatar_ids(prepared, settings) and not any(
+        step.provider == HEYGEN for step in job.steps
+    ):
+        return job  # held until the avatar and voice IDs are set (pending_lines says how)
     if any(item.provider == NO_PROVIDER for item in prepared.scenes):
         return job  # nothing can make these clips yet
     return advance(job, prepared, settings)
@@ -340,6 +407,8 @@ def _run_scene(
                 script=scene.prompt,
                 duration_sec=scene.duration_sec,
                 aspect_ratio=ASPECT,
+                avatar_id=settings.heygen_avatar_id,
+                voice_id=settings.heygen_voice_id,
             ),
             settings,
         )

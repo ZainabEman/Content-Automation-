@@ -93,7 +93,7 @@ Put the files in these folders inside the project (create them if needed):
 | Folder | What goes in it |
 | --- | --- |
 | `assets/reference/identity/person_01/` | 4–10 clear photos of the person (face visible, at least 512 px). Only photos of people who agreed to this use. |
-| `assets/reference/brand/logo/` | the logo as PNG or JPG |
+| `assets/reference/brand/logo/` | the logo as a PNG with a transparent background (the app pastes it onto every design) |
 | `assets/reference/creative/facebook_ads/` | a few past ads, used as style examples |
 | `assets/reference/brand/brand.json` | colours, fonts, tone and rules (already there for Branded Genius) |
 
@@ -105,7 +105,8 @@ Ask Codex: **"Run uv run ca doctor."** It checks the tools, your `.env` (it show
 each key is set, never the key itself), the photos, `brand.json`, the company profile
 (`docs/company/services.md`), the news sites, the providers and the output folders. Every
 `[FAIL]` line comes with a **Fix:** line; do that and run it again until there are no problems.
-`[WARN]` lines are fine for a start (for example `HEYGEN_AVATAR_ID` not set yet).
+`[WARN]` lines are fine for a start (for example `HEYGEN_AVATAR_ID` or `HEYGEN_VOICE_ID` not
+set yet; Codex helps you choose them when the first HeyGen video is made).
 
 ## 8. Plugins: Gmail, Higgsfield and HeyGen
 

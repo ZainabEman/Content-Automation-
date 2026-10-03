@@ -6,10 +6,12 @@ brand (colours, fonts, logo from brand.json), identity, text, reference roles. T
 identity and text sections are the fixed core; the rest varies with the format and the
 picks from the pools.
 
-Reference images are numbered in the order adapters attach them:
-identity, then objects (products, then logo), then style.
+Reference images are numbered in the order adapters attach them: identity, then products,
+then style. The logo is never sent or drawn: the prompt keeps the top-right corner clear and
+the app pastes the real logo file there (workflows/logo.py).
 """
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -44,21 +46,18 @@ _INTROS = {
 }
 _ROLES = {
     "identity": (
-        "IDENTITY: the same real person. Keep this exact person: same face, facial structure, "
-        "hairline and hair, skin tone and age. Do not alter, beautify or blend their identity."
+        "IDENTITY: the same real person, the only person allowed in the image. Keep this exact "
+        "person: same face, facial structure, hairline and hair, skin tone and age. Do not "
+        "alter, beautify or blend their identity."
     ),
     "product": (
         "PRODUCT: include this exact product. Keep its shape, colours, materials, labels "
         "and printed text unchanged."
     ),
-    "logo": (
-        "BRAND LOGO: place this exact logo once, clearly visible and unaltered. "
-        "Do not redraw or restyle it."
-    ),
     "style": (
         "STYLE: copy only the look and layout (composition, colour grading, lighting mood, "
-        "typography style, graphic elements). Never copy any person or face from them, and "
-        "do not copy their products, text or subject matter."
+        "typography style, graphic elements). Ignore and never copy any person, face, hand, "
+        "logo or wordmark in them, and do not copy their products, text or subject matter."
     ),
     "series": (
         "SERIES: slide 1 of this carousel. Match its scene, colours, text panel and decor so "
@@ -66,6 +65,20 @@ _ROLES = {
         "not copy its text."
     ),
 }
+# Photo workflows do not load the design system; designs use core.sceneText instead.
+SCENE_TEXT = (
+    "No readable text in the scene: screens, phones, laptops, tablets, signs and papers show "
+    "only abstract shapes, blurred interface blocks or simple icons, never letters, words or "
+    "numbers."
+)
+PHOTO_PERSON = (
+    "Person: the only person allowed in the image is the one in the identity reference images; "
+    "nobody else appears. Any person, face or logo in other reference images is ignored."
+)
+LOGO_CORNER = (
+    "Keep the top-right corner calm and free of important detail: the real logo is placed "
+    "there afterwards. Do not draw any logo, wordmark or brand name."
+)
 _ROLE_LABELS: dict[ColorRole, str] = {
     "background": "Background colour",
     "accent": "Accent / glow colour",
@@ -78,7 +91,6 @@ _ROLE_LABELS: dict[ColorRole, str] = {
 class RefCounts:
     identity: int = 0
     product: int = 0
-    logo: int = 0
     style: int = 0
     series: int = 0  # slide 1 of the same carousel, attached after the style images
 
@@ -93,7 +105,6 @@ def reference_lines(counts: RefCounts) -> list[str]:
     for role, count in (
         ("identity", counts.identity),
         ("product", counts.product),
-        ("logo", counts.logo),
         ("style", counts.style),
         ("series", counts.series),
     ):
@@ -122,9 +133,15 @@ def brand_lines(brand: BrandProfile) -> list[str]:
             "- Brand colours, used as subtle accents (clothing, props, background details): "
             f"{palette}"
         )
-    if brand.dont:
-        lines.append("- Avoid: " + " ".join(rule.rstrip(".") + "." for rule in brand.dont))
+    avoid = [rule for rule in brand.dont if _not_about_logo(rule)]
+    if avoid:
+        lines.append("- Avoid: " + " ".join(rule.rstrip(".") + "." for rule in avoid))
     return lines
+
+
+def _not_about_logo(rule: str) -> bool:
+    """brand.json rules on handling the logo itself: the model never draws it, so leave out."""
+    return re.search(r"\bthe logo\b", rule, re.IGNORECASE) is None
 
 
 def text_language(brand: BrandProfile | None) -> str:
@@ -141,20 +158,28 @@ def build_prompt(
     *,
     service: str | None = None,
     company: CompanyProfile | None = None,
+    logo: bool = False,
 ) -> str:
-    """Photo workflows (person_lifestyle, person_service)."""
+    """Photo workflows (person_lifestyle, person_service).
+
+    logo: the app pastes the logo afterwards, so the prompt keeps its corner calm.
+    """
     sections = [_INTROS[spec.workflow_id]]
     if company is not None and company.name and service:
         sections.append(f"Company: {company.name}, {first_sentence(company.summary)}")
     if service:
         sections.append(f"Service: {service.strip()}")
-    sections.append(f"Scene: {scene.strip()}")
+    sections.append(f"Scene: {scene.strip()} {SCENE_TEXT}")
+    if counts.identity:
+        sections.append(PHOTO_PERSON)
 
     refs = _reference_section(counts)
     if refs:
         sections.append(refs)
 
     text = "Text: do not add any text, captions, watermarks or logos."
+    if logo:
+        text += f" {LOGO_CORNER}"
     text += f" Any text in the image must be in {text_language(brand)}."
     if company is not None and company.content_rules:
         text += f" Content rules: {company.content_rules}"
@@ -234,6 +259,7 @@ def _layout_section(
         lines.append(f"Scene: {_sentence(look.scene.text)}")
     if details and details.strip():
         lines.append(f"Scene details: {details.strip()}")
+    lines.append(f"Scene text: {system.core.scene_text}")
     if design.visual:
         name = "Tip icon" if design.slide_role == "tip" else "System visual"
         lines.append(f"{name}: {design.visual}")
@@ -291,6 +317,8 @@ def _typography(
     if design.steps:
         rule = spec.typography.get("steps", defaults.steps)
         lines.append(f"- {_label(design, system, 'steps')} typography: {rule}")
+    if design.source_name:
+        lines.append(f"- Source line typography: {system.core.source_line}")
     return lines
 
 
@@ -301,6 +329,7 @@ def _design_section(
     counts: RefCounts,
     brand: BrandProfile | None,
     footer: str | None,
+    logo: bool,
 ) -> str:
     """Only what this format shows: the panel, holograms, decor and props are optional."""
     spec = system.formats[design.format]
@@ -329,8 +358,8 @@ def _design_section(
         lines.append(f"- Decor: {_sentence(look.decor.text)}")
     if look.props is not None:
         lines.append(f"- Props: {_sentence(look.props.text)}")
-    if counts.logo:
-        lines.append(f"- Logo: {system.core.logo}")
+    if logo:
+        lines.append(f"- Logo corner: {system.core.logo}")
     if footer:
         story = bool(system.kinds[design.kind].safe_zone)
         safe = " Keep it just above the bottom safe zone." if story else ""
@@ -364,10 +393,9 @@ def _brand_section(
         if brand.fonts:
             fonts = [f"{f.name} ({f.usage})" if f.usage else f.name for f in brand.fonts]
             lines.append(f"- Fonts: {'; '.join(fonts)}. {system.core.fonts}")
-        if brand.logo_rules:
-            lines.append(f"- Logo: {brand.logo_rules[0]}")
-        if brand.dont:
-            lines.append("- Avoid: " + " ".join(rule.rstrip(".") + "." for rule in brand.dont))
+        avoid = [rule for rule in brand.dont if _not_about_logo(rule)]
+        if avoid:
+            lines.append("- Avoid: " + " ".join(rule.rstrip(".") + "." for rule in avoid))
     if not lines:
         return None
     name = f" ({brand.brand_name})" if brand is not None else ""
@@ -456,6 +484,8 @@ def _text_section(
         items.append(f'- Slide counter in the pill: "{number:02d}/{total:02d}"')
     if _is_split(design, system):
         items.append('- Symbol on the split button: "»"')
+    if design.source_name:
+        items.append(f'- Source line: "Source: {design.source_name}"')
     footer = footer_text(company)
     if footer:
         items.append(f'- Footer: "{footer}"')
@@ -467,11 +497,10 @@ def _text_section(
         text = f"Text: {rules.none}"
     if not design.cta:
         text += f" {rules.no_button}"
-    lettering = ["the logo"] if counts.logo else []
     if look.holograms is not None:
-        lettering.append('"AI" on the hologram chip or core')
-    if lettering:
-        text += " " + rules.lettering.replace("{lettering}", " and ".join(lettering))
+        text += " " + rules.lettering.replace("{lettering}", '"AI" on the hologram chip or core')
+    else:
+        text += f" {rules.no_lettering}"
     if design.chat or design.diagram:
         text += " The chat or diagram shows only its listed texts."
     if company is not None and company.content_rules:
@@ -489,12 +518,16 @@ def build_design_prompt(
     aspect_ratio: str,
     details: str | None = None,
     company: CompanyProfile | None = None,
+    logo: bool = True,
 ) -> str:
-    """Designed graphics (social_creative): the format, the picked look and the fixed core."""
+    """Designed graphics (social_creative): the format, the picked look and the fixed core.
+
+    logo: the app pastes the logo afterwards, so the prompt keeps its corner empty.
+    """
     sections = [
         _format_section(design, system, aspect_ratio),
         _layout_section(design, look, system, counts, details),
-        _design_section(design, look, system, counts, brand, footer_text(company)),
+        _design_section(design, look, system, counts, brand, footer_text(company), logo),
         _brand_section(brand, system, company),
         _identity_section(design, look, system, counts.identity) if design.person else None,
         _text_section(design, look, system, counts, brand, company),

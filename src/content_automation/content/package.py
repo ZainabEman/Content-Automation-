@@ -10,6 +10,12 @@ never blocks the others, and running build again redoes only what is missing.
 Variety: the template suggests a post format the newest packages did not use, and scene,
 wardrobe, props, decor and style images avoid what the newest packages used; the picks are
 saved per part in package.json.
+
+Person check: every image that shows the person is made as its own job, and the build stops
+right after it (part status "review") until Codex has compared it with his photos and
+recorded `ca job review`. A passed image lets the build go on; a failed one is made again on
+the next build (after the user agreed to the cost) and is never used as slide 1 for later
+slides.
 """
 
 import json
@@ -56,6 +62,7 @@ from content_automation.references import (
     ReferenceLibraryError,
     load_brand,
     load_company,
+    load_set,
 )
 from content_automation.research.collectors import CollectorError
 from content_automation.research.models import SourceArticle, SourcesError
@@ -83,11 +90,14 @@ from content_automation.workflows.variety import (
     suggest_format,
 )
 from content_automation.workflows.video_job import (
+    AvatarSetupError,
     agent_checklist,
+    missing_avatar_ids,
     missing_providers,
     pending_lines,
     prepare_video,
     resume_video_job,
+    scene_lines,
     start_video_job,
 )
 from content_automation.workflows.video_plan import PlanError, parse_plan
@@ -117,13 +127,15 @@ _IMAGE_ERRORS = (
     ImageError,
 )
 
-ItemStatus = Literal["pending", "done", "waiting", "failed"]
+# waiting = video steps are with Codex; review = an image waits for the person check
+ItemStatus = Literal["pending", "done", "waiting", "failed", "review"]
+IDENTITY_PHOTOS_TO_COMPARE = 2  # primary photos shown beside an image at the person check
 
 
 class PackageItem(CamelModel):
     """One part of the package (post, ad or reel)."""
 
-    status: ItemStatus = "pending"  # waiting = video steps are with Codex
+    status: ItemStatus = "pending"
     job_id: str | None = None  # the newest job of this part
     job_folder: str | None = None
     job_ids: list[str] = Field(default_factory=list)  # a carousel has one job per slide
@@ -476,6 +488,7 @@ def _slot_template(
             "audienceLine": audience,
             "stat": "<the one big number, exactly as the article writes it, e.g. 73%>",
             "source": "<the ID of that article (research.md); list it in sourceArticleIds too>",
+            "sourceName": "<the publisher, short, as the article names it, e.g. Zillow>",
             "subheadline": "<one context line: what the number measures>",
         },
         "news": {
@@ -680,11 +693,17 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
         return PackageResult(folder, lines, package)
 
     lines = []
+    check: list[str] = []
     for kind, plan in plans.items():
-        package.items[kind] = _make_images(kind, plan, folder, settings, package.items.get(kind))
+        package.items[kind], check = _make_images(
+            kind, plan, folder, settings, package.items.get(kind)
+        )
         lines.append(_item_line(kind, package.items[kind]))
         _save(folder, package)
-    if brief.reel is not None:
+        if check:  # an image with the person waits for the person check: build nothing more
+            lines += check
+            break
+    if brief.reel is not None and not check:
         item = package.items.get("reel")
         if item is None or item.status != "done":
             package.items["reel"], extra = _make_reel(brief, package, folder, settings)
@@ -792,6 +811,7 @@ def _slot_inputs(
         visual=slot.visual,
         stat=slot.stat,
         source=slot.source,
+        source_name=slot.source_name,
         steps=STEP_SEPARATOR.join(slot.steps) or None,
         audience_line=slot.audience_line,
         slide=slot.slide,
@@ -872,6 +892,12 @@ def _plan_images(
             plan.prepared = [
                 prepare_workflow("social_creative", inputs, settings) for inputs in plan.jobs
             ]
+            if len(jobs) == 1 and jobs[0].count > 1 and plan.prepared[0].person_shown:
+                # Each image with the person gets its own job, so each one is checked
+                # before the next is made (same inputs, so the same look).
+                plan.jobs = [replace(jobs[0], count=1) for _ in range(jobs[0].count)]
+                one = prepare_workflow("social_creative", plan.jobs[0], settings)
+                plan.prepared = [one] * len(plan.jobs)
         except _IMAGE_ERRORS as error:
             plan.error = error
         if plan.prepared and plan.prepared[0].picks is not None:
@@ -880,42 +906,123 @@ def _plan_images(
     return plans
 
 
-def _slides_done(plan: _ImagePlan, previous: PackageItem | None) -> int:
-    """Slides of a carousel that an earlier, interrupted build already made."""
-    if len(plan.jobs) < 2 or previous is None or previous.status != "failed":
+def _last_image(item: PackageItem) -> tuple[Job, str] | None:
+    """The newest image of a part and its job (the one a person check is about)."""
+    if not item.image_refs or not item.job_folder:
+        return None
+    job_id, _, name = item.image_refs[-1].partition("/")
+    try:
+        job = Job.load(Path(item.job_folder) / DETAILS_FILE)
+    except (OSError, ValueError):
+        return None
+    return (job, name) if job.job_id == job_id else None
+
+
+def _review_result(item: PackageItem) -> str | None:
+    """"pass", "fail" or None (not checked yet) for a part waiting at the person check."""
+    found = _last_image(item)
+    if found is None:
+        return None
+    review = found[0].review(found[1])
+    return review.result if review is not None else None
+
+
+def _jobs_done(plan: _ImagePlan, previous: PackageItem | None) -> int:
+    """Image jobs of a part that an earlier build already made (and that may be kept).
+
+    A part stopped at the person check keeps its images; one that failed the check is
+    made again. A part that failed half-way keeps the images it has.
+    """
+    if previous is None or previous.status not in ("failed", "review") or not plan.jobs:
         return 0
-    return len(previous.files) if len(previous.files) < len(plan.jobs) else 0
+    per_job = plan.jobs[0].count
+    done = len(previous.image_refs) // per_job
+    if previous.status == "review" and _review_result(previous) == "fail":
+        done -= 1
+    return max(0, done)
+
+
+def _identity_photos(job: Job, settings: Settings) -> list[Path]:
+    set_id = str(job.inputs.get("identitySet") or settings.default_identity_set)
+    try:
+        ref_set = load_set(set_id, settings.references_dir)
+    except ReferenceLibraryError:
+        return []
+    photos = ref_set.primary_assets or ref_set.ok_assets
+    return [(ref_set.folder / a.file).resolve() for a in photos[:IDENTITY_PHOTOS_TO_COMPARE]]
+
+
+def _check_lines(
+    kind: str, item: PackageItem, folder: Path, settings: Settings, *, waiting: bool = False
+) -> list[str]:
+    """What Codex must do at the person check: compare, record, ask before regenerating."""
+    found = _last_image(item)
+    if found is None:
+        return [f"{LABELS[kind]}: person check pending, but its job record is missing."]
+    job, name = found
+    image = (folder / item.files[-1]).resolve()
+    cost = f"${job.est_cost_usd:.3f}" if job.est_cost_usd else "the price of 1 image"
+    head = (
+        f"PERSON CHECK (still not recorded) for {item.files[-1]}"
+        if waiting
+        else f"PERSON CHECK: stop here. {item.files[-1]} shows the person."
+    )
+    lines = [
+        head,
+        f"  View it: {image}",
+        "  beside his primary photos: "
+        + ", ".join(str(path) for path in _identity_photos(job, settings)),
+        "  Same person (hair, build, facial hair, age)? Record the result:",
+        f'    uv run ca job review "{job.folder}" --image {name} --pass',
+        f'    uv run ca job review "{job.folder}" --image {name} --fail "<what differs>"',
+        "  If it differs: stop, show the user the image and ask whether to make it again "
+        f"(about {cost}, 1 image via {settings.image_provider}). Only after a yes:",
+        f'    uv run ca content build "{folder}"   (makes this image again)',
+        f'  If it passes: uv run ca content build "{folder}"   (continues)',
+    ]
+    return lines
 
 
 def _make_images(
     kind: str, plan: _ImagePlan, folder: Path, settings: Settings, previous: PackageItem | None
-) -> PackageItem:
+) -> tuple[PackageItem, list[str]]:
+    """Make the part's missing images; the lines are a person check that stops the build."""
     now = datetime.now(UTC)
-    done = _slides_done(plan, previous)
-    if done and previous is not None:  # keep the finished slides; make only the missing ones
+    if previous is not None and previous.status == "review":
+        result = _review_result(previous)
+        if result is None:  # not checked yet: make nothing
+            return previous, _check_lines(kind, previous, folder, settings, waiting=True)
+    done = _jobs_done(plan, previous)
+    if done and previous is not None:  # keep the finished images; make only the missing ones
         item = previous.model_copy(update={"error": None, "updated_at": now}, deep=True)
+        per_job = plan.jobs[0].count
+        for stale in item.files[done * per_job:]:  # an image that failed the person check
+            (folder / stale).unlink(missing_ok=True)
+        item.files = item.files[: done * per_job]
+        item.image_refs = item.image_refs[: done * per_job]
     else:
         item = PackageItem(status="failed", updated_at=now)
     for number, inputs in enumerate(plan.jobs, start=1):
         if number <= done:
             continue
-        if number > 1 and len(plan.jobs) > 1 and item.image_refs:
-            # Later carousel slides attach slide 1's image: one scene, decor and palette.
+        if number > 1 and plan.slot.format == "carousel" and item.image_refs:
+            # Later carousel slides attach slide 1's image (it passed the person check): one
+            # scene, decor and palette.
             inputs = replace(inputs, first_slide=item.image_refs[0])
         try:
             job = run_workflow("social_creative", inputs, settings)
         except _IMAGE_ERRORS as error:
-            item.error = str(error)
-            return item
+            item.status, item.error = "failed", str(error)
+            return item, []
         item.job_id, item.job_folder = job.job_id, str(job.folder)
         item.job_ids.append(job.job_id)
         if job.status != "completed":
-            item.error = job.error
+            item.status, item.error = "failed", job.error
             item.cost_usd = _add_cost(item.cost_usd, job.actual_cost_usd)
-            return item
+            return item, []
         (folder / IMAGES_DIR).mkdir(exist_ok=True)
         for index, name in enumerate(job.outputs, start=1):
-            position = number if len(plan.jobs) > 1 else index  # carousel: one file per slide
+            position = number if len(plan.jobs) > 1 else index  # one file per slide or variant
             target = folder / IMAGES_DIR / f"{kind}-{position}{Path(name).suffix}"
             shutil.copyfile(job.folder / name, target)
             item.files.append(f"{IMAGES_DIR}/{target.name}")
@@ -924,8 +1031,12 @@ def _make_images(
         item.cost_usd = _add_cost(item.cost_usd, cost)
         if item.picks is None:
             item.picks = DesignPicks.from_recorded(job.inputs, job.style_asset_ids)
-    item.status = "done"
-    return item
+        if job.inputs.get("personShown") is True:
+            item.status = "review"
+            item.error = f"person check pending: {item.files[-1]}"
+            return item, _check_lines(kind, item, folder, settings)
+    item.status, item.error = "done", None
+    return item, []
 
 
 def _add_cost(total: float | None, cost: float | None) -> float | None:
@@ -965,6 +1076,14 @@ def _make_reel(
                 request=f"{brief.topic}: {brief.reel.workflow} (package {folder.name})",
                 real_only=True,
             )
+        except AvatarSetupError as error:  # no job was created, so nothing is failed
+            pending = PackageItem(
+                status="pending", error="HeyGen avatar or voice ID not set", updated_at=now
+            )
+            return pending, [
+                "Video not started (no job created): set these first, then build again:",
+                *(f"  - {line}" for line in error.problems),
+            ]
         except (PlanError, VideoError, AvatarError) as error:
             return PackageItem(status="failed", error=str(error), updated_at=now), []
     return _reel_item(job, folder, settings)
@@ -1066,6 +1185,8 @@ def _status(brief: ContentBrief, package: ContentPackage) -> str:
         state = item.status if item else "pending"
         if state in ("pending", "waiting"):
             missing.append(f"{LABELS[kind]} pending")
+        elif state == "review":
+            missing.append(f"{LABELS[kind]}: person check pending")
         elif state == "failed":
             missing.append(f"{LABELS[kind]} failed")
     return "draft" if not missing else "draft — " + ", ".join(missing)
@@ -1103,14 +1224,15 @@ def _dry_run_lines(
         if plan.error is not None or not plan.prepared:
             lines.append(f"{names[kind]}: cannot be made yet: {plan.error}")
             continue
-        todo = plan.prepared[_slides_done(plan, item):]
+        todo = plan.prepared[_jobs_done(plan, item):]
         cost = sum(estimate_cost_usd(prepared.request, settings) for prepared in todo)
         total += cost
         lead = plan.prepared[0]
         request = lead.request
         slot = plan.slot
         if len(plan.prepared) > 1:
-            images = f"{len(todo)} of {len(plan.prepared)} slides"
+            unit = "slides" if slot.format == "carousel" else "images"
+            images = f"{len(todo)} of {len(plan.prepared)} {unit}"
         else:
             images = f"{request.count} image{'s' if request.count > 1 else ''}"
         layout = f", layout {slot.layout}" if slot.layout else ""
@@ -1124,12 +1246,22 @@ def _dry_run_lines(
             f"{names[kind]}: {images} x {request.aspect_ratio} {request.image_size} "
             f'(format {slot.format}{layout}), "{title}"; picked: {look}; '
             f"{person}, {len(request.identity_refs)} identity + {len(request.style_refs)} style "
-            f"photos + logo, via {settings.image_provider}: about ${cost:.3f}"
+            f"images (people-free and logo-free when he is shown), logo pasted by the app, via "
+            f"{settings.image_provider}: about ${cost:.3f}"
         )
-        if len(plan.prepared) > 1:
+        if slot.format == "carousel" and len(plan.prepared) > 1:
             lines.append(
                 "  slides 2+ also attach slide 1's image (same scene, decor and colours); "
                 f"slide 1 shows the man, slides 2-{len(plan.prepared)} no person"
+            )
+        checked = [n for n, prepared in enumerate(plan.prepared, start=1) if prepared.person_shown]
+        if checked:
+            which = "each image" if len(checked) == len(plan.prepared) else (
+                "slide 1" if checked == [1] else f"images {', '.join(map(str, checked))}"
+            )
+            lines.append(
+                f"  person check: the build stops after {which} so Codex can compare it with "
+                "his photos before anything else is made"
             )
     if brief.reel is not None:
         item = package.items.get("reel")
@@ -1178,6 +1310,11 @@ def _video_dry_run(brief: ContentBrief, seconds: float, settings: Settings) -> l
     used = sorted({(item.scene.type, item.provider) for item in prepared.scenes})
     via = ", ".join(f"{kind} scenes via {provider}" for kind, provider in used)
     lines = [f"{head}; {via}; {_credits({provider for _, provider in used})}"]
+    lines += [f"  {line}" for line in scene_lines(prepared, settings)]
+    ids = missing_avatar_ids(prepared, settings)
+    if ids:
+        lines.append("  STOP: the video cannot start until these are set (no job is created):")
+        lines += [f"  - {line}" for line in ids]
     missing = missing_providers(prepared)
     if missing:
         lines.append("  The video will be pending (draft - video pending) until this is fixed:")

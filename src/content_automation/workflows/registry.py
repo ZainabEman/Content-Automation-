@@ -9,7 +9,7 @@ InputName = Literal[
     "identity_set", "product_set", "style_set", "variant", "headline", "logo", "service",
     "kind", "layout", "pose", "highlight", "subheadline", "sub_highlight", "cta", "cta_icon",
     "icons", "visual", "slide", "slide_role", "format", "scene", "wardrobe", "props", "stat",
-    "source", "steps", "first_slide", "audience_line", "chat", "diagram",
+    "source", "steps", "first_slide", "audience_line", "chat", "diagram", "source_name",
 ]
 RefCategory = Literal["identity", "product", "brand", "style"]
 DEFAULT_STYLE_COUNT = 3
@@ -41,6 +41,7 @@ INPUT_FLAGS: dict[InputName, str] = {
     "props": "--props",
     "stat": "--stat",
     "source": "--source",
+    "source_name": "--source-name",
     "steps": "--steps",
     "first_slide": "--first-slide",
     "audience_line": "--audience-line",
@@ -91,7 +92,7 @@ WORKFLOWS: dict[str, WorkflowSpec] = {
         ),
         WorkflowSpec(
             workflow_id="social_creative",
-            version="3",
+            version="4",
             description="Designed post in one of the design system's formats.",
             required_inputs=(),
             optional_inputs=(
@@ -99,7 +100,7 @@ WORKFLOWS: dict[str, WorkflowSpec] = {
                 "kind", "layout", "pose", "highlight", "subheadline", "sub_highlight", "cta",
                 "cta_icon", "icons", "visual", "slide", "slide_role", "format", "scene",
                 "wardrobe", "props", "stat", "source", "steps", "first_slide", "audience_line",
-                "chat", "diagram",
+                "chat", "diagram", "source_name",
             ),
             default_aspect="4:5",
             ref_categories=("identity", "product", "brand", "style"),

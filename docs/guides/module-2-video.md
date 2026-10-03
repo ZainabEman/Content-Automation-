@@ -68,8 +68,14 @@ credits; no API key goes into `.env`.
 
 1. Make sure the Higgsfield and HeyGen plugins are installed and signed in in Codex.
 2. In `.env` set `VIDEO_PROVIDER=higgsfield-plugin` and `AVATAR_PROVIDER=heygen-plugin`.
-3. For podcast clips: when `HEYGEN_AVATAR_ID` is empty, the make-video skill lists your HeyGen
-   avatars, lets you pick your own, and gives you the exact line for `.env`.
+3. For podcast clips, HeyGen needs two IDs in `.env`: `HEYGEN_AVATAR_ID` (your own avatar) and
+   `HEYGEN_VOICE_ID` (the voice; it is passed with every clip, because an avatar without a
+   default voice is rejected and a default voice may not be yours). When one is empty, the
+   video stops **before a job is created** (so nothing is marked failed), and Codex lists your
+   avatars or voices with the plugin (your own or cloned voices first), lets you choose, and
+   sets only that line with `uv run ca env set HEYGEN_VOICE_ID <id>` (the file is never shown).
+   Before your "ok", Codex checks with the plugin that both IDs exist and shows per scene: the
+   provider, avatar, voice, length and the credits the plugin reports.
 4. Run `uv run ca doctor`. It shows the providers; whether the plugins are really available is
    checked by Codex when a video is made (a missing plugin is named and the work stops).
 
@@ -141,6 +147,7 @@ every request, and if a plugin cannot take them for a shot with a person, Codex 
 | `uv run ca job status <job folder>` | Shows the job and every step; marks steps that waited too long as failed. |
 | `uv run ca job complete <job folder> --step scene-1 --file <path>` | Records the clip for a waiting step (the file is copied into the job folder). Optional: `--provider-job-id`, `--credits`. |
 | `uv run ca job fail <job folder> --step scene-1 --error "what happened"` | Records a failed step; the job ends as failed. |
+| `uv run ca env set HEYGEN_VOICE_ID <id>` | Sets one ID line in `.env` (only `HEYGEN_AVATAR_ID` or `HEYGEN_VOICE_ID`); nothing else in the file is changed or shown. |
 
 ## Outputs
 
@@ -164,7 +171,7 @@ Job status can be `queued`, `processing`, `awaiting_agent` (paused for Codex),
 | Setting | Meaning |
 | --- | --- |
 | `VIDEO_PROVIDER`, `VIDEO_MODEL` | Video clips: `none` (not set), `mock` (free placeholders) or `higgsfield-plugin` (made by Codex with the Higgsfield plugin). `VIDEO_MODEL` is passed on as the model (`mock`/`default` = the tool's default). In a content package, `none` and `mock` make no clips: the video waits ("draft — video pending") until a real provider is set, then `ca video resume` finishes it. |
-| `AVATAR_PROVIDER`, `AVATAR_MODEL`, `HEYGEN_AVATAR_ID` | Avatar clips: `none`, `mock` or `heygen-plugin` (made by Codex with the HeyGen plugin and the person's own avatar); `HEYGEN_AVATAR_ID` is the avatar to use. Same package rule as `VIDEO_PROVIDER`. |
+| `AVATAR_PROVIDER`, `AVATAR_MODEL`, `HEYGEN_AVATAR_ID`, `HEYGEN_VOICE_ID` | Avatar clips: `none`, `mock` or `heygen-plugin` (made by Codex with the HeyGen plugin and the person's own avatar); `HEYGEN_AVATAR_ID` is the avatar and `HEYGEN_VOICE_ID` the voice, both required for HeyGen (`uv run ca doctor` warns when one is empty; set them with `uv run ca env set`). Same package rule as `VIDEO_PROVIDER`. |
 | `VOICE_PROVIDER` | `none` (default): no voiceover. `mock` and `elevenlabs` are kept for later. |
 | `VOICE_MODEL`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` | Only for a later voiceover (the key stays in `.env`). |
 | `AGENT_STEP_TIMEOUT_MIN` | Minutes an agent step may wait before it is marked failed (default 30). |
@@ -182,6 +189,10 @@ Job status can be `queued`, `processing`, `awaiting_agent` (paused for Codex),
 ## Troubleshooting
 
 - **"plan.json has N problem(s)"**: fix each listed line in the plan; nothing was made or spent.
+- **"HeyGen is not set up, so no video job was created"**: choose the avatar or voice it names
+  (Codex lists them with the HeyGen plugin), run `uv run ca env set <NAME> <id>`, then try again.
+- **HeyGen "voice_id is required"** (seen on 2026-10-03, before the voice was passed): set
+  `HEYGEN_VOICE_ID`; every request now sends the voice explicitly.
 - **"… is not in the reference sets or M1 image outputs"**: check the ID in the image job's
   `details.json` (`outputAssetIds`) or use `<jobId>/image-N.png`; run `uv run ca refs scan`
   if it is a new reference photo.

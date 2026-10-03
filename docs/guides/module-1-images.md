@@ -39,6 +39,12 @@ photos of people who have agreed to this use.
   or deleted), checks each photo, gives it a permanent ID, and makes a smaller copy for sending.
   Four kinds are kept separate: `identity` (the person), `product`, `brand` (logos), and
   `creative` (past ads and carousels, used only as **style** examples, never as the person's face).
+- **Style tags**: every style example is tagged once, by looking at it: does it show people
+  (a person, face, hand or human figure) and does it show a logo? The tags are saved in each
+  set's `set.json` (`"people"`, `"logo"`) and survive a rescan. On 2026-10-04 all 318 were
+  tagged: 197 show neither, 51 show people, 62 show a logo. For a new style image: look at it,
+  then `uv run ca refs tag --asset <id> --people yes|no --logo yes|no` (`uv run ca refs list`
+  shows how many are still untagged).
 - **Primary photos**: for each person, the 4 best photos are marked "primary". These are
   the ones sent to the image model.
 - **Brand profile** (`brand.json`): colours, fonts, tone and do/don't rules, drafted from the
@@ -46,15 +52,19 @@ photos of people who have agreed to this use.
 - **Video frames**: carousel videos are turned into still frames (3 per video) so they can be
   used as style examples.
 - **Three workflows** that turn a short scene description into a full prompt: they add the
-  right reference photos, say what each photo is for (the person, the logo, or style only),
+  right reference photos, say what each photo is for (the person, a product, or style only),
   and add the brand rules from `brand.json` automatically. Any text in an image is in English.
 - **Design system** (`config/design_system.json`), in three parts:
   - a fixed **core** that is always on: the brand colours (named by role: background,
-    accent/glow, highlight, text; the actual colours come from `brand.json`), the fonts, the logo
-    rule, the identity rules and the text-accuracy rules;
-  - **pools** of things that vary: 10 scenes (office by day or night, studio, cafe, city street,
-    home desk, conference stage, co-working space, two abstract backgrounds without a photo
-    scene), 6 wardrobes (smart-casual to suit), props, decor, hologram styles and poses;
+    accent/glow, highlight, text; the actual colours come from `brand.json`), the fonts, the
+    empty logo corner, the identity rules, "no readable text on screens or signs" and the
+    text-accuracy rules;
+  - **pools** of things that vary: 16 scenes (office by day or night, studio, cafe, city street,
+    home desk, conference stage, co-working space, reception desk, clinic, shop, a real estate
+    office, a staged home interior, a house front, two abstract backgrounds), 6 wardrobes
+    (smart-casual to suit), props, decor, hologram styles and poses. Scenes made for one trade
+    (reception desk, clinic, shop, the three real estate scenes) are used only when the topic
+    names that trade, so a real estate post never gets a clinic-style reception;
   - seven post **formats** (see "Designed graphics"). The glass text panel, holograms, decor and
     props are optional parts: each format shows only the ones it lists.
 - **Variety**: what you do not set (scene, wardrobe, props, decor, pose) is picked from the pools
@@ -64,15 +74,33 @@ photos of people who have agreed to this use.
   use up to 3 past ads (`creative/facebook_ads`); carousels use the 13 demo carousels in
   `creative/carousels`, picked by slide role (slide 1 of a demo for the hook, its last slide for
   the call to action, the slides between for tips); other formats use none. Within one carousel
-  all slides share one scene, decor and palette, and slides 2+ also attach slide 1's image.
+  all slides share one scene, decor and palette, and slides 2+ also attach slide 1's image
+  (the version without the logo). Style examples with a logo are never sent, and images that
+  show the man get only examples with no people and no logo (or none: today no past ad
+  qualifies, since all 6 show the logo and 4 show people).
 - **Consistent person (compulsory)**: any human in any image, slide or video is the person from
   `DEFAULT_IDENTITY_SET`. Every design that shows him (format ad with layout B, C or D, news with
   a person, person photo, carousel hook slide) and every video gets all his reference photos; a
   clear error stops it if they are missing. The prompt tells the model to keep exactly that face,
   hair, skin tone and age, that he is the only person, and not to beautify him or add glasses, a
-  beard or accessories. Designs without him say: no people, faces or human figures. His face is
-  never described in words and never taken from style examples or slide 1; the 14-image limit
-  never drops his photos or the logo. `details.json` records `personShown` and `identityRefs`.
+  beard or accessories. Designs without him say: no people, faces or human figures. His photos
+  are attached first (primary photos first) and the prompt says he is the only person allowed:
+  any person, face or logo in another reference image is ignored. His face is never described
+  in words and never taken from style examples or slide 1; the 14-image limit never drops his
+  photos. `details.json` records `personShown`, `identityRefs` and `references` (every image
+  sent, in order, with its tags).
+- **Person check** (content packages): each image with the man is made on its own and the build
+  stops after it. Codex looks at it beside two of his primary photos. If he clearly differs
+  (hair, build, facial hair, age) it records `uv run ca job review <job folder> --fail "..."`,
+  shows you the image and asks before making it again (with the cost); otherwise `--pass` and
+  the build goes on. The result is saved in `details.json` (`reviews`). A slide 1 that failed is
+  never used for the later slides.
+- **Logo, pasted by the app**: the image model is never asked to draw the logo (it used to invent
+  one). The prompt keeps the top-right corner empty, and the app pastes the real logo file there
+  at one fixed size and place on every image: 20% of the width, a small margin from the top and
+  right edge (on 9:16 just below the top safe zone). The file is `logoFile` in `brand.json` and
+  must have a transparent background (now `logo (1).png`; `cFkuqb.jpg` has a white background).
+  The model's own image is kept in the job's `raw/` folder.
 - **Exact text only**: the image shows only the texts you give (headline, subheadline, CTA label,
   big number, steps, icon labels, slide number), exactly as written and in the language of
   `brand.json`.
@@ -154,7 +182,8 @@ Pick sharp, well-lit photos where the face is clearly visible, ideally from diff
 Open `assets/reference/brand/brand.json` in any text editor, or run `uv run ca brand show`.
 Fix anything wrong, remove each item from `needsReview` once you have checked it, and change
 `"status": "draft"` to `"status": "approved"` when you are happy. `logoFile` is the file in
-`brand/logo/` that is added when you ask for the logo. `language` is `"en"`, so any text in an
+`brand/logo/` that the app pastes onto every design; it must be a PNG with a transparent
+background. `language` is `"en"`, so any text in an
 image is written in English. `services` lists the company's 7 services (from
 `docs/company/services.md`); pick one for `person_service`. To change what the company offers,
 edit `docs/company/services.md` and `services` in `brand.json` together.
@@ -210,7 +239,10 @@ Then the details:
 | `--scene`, `--wardrobe`, `--props`, `--pose` | an ID from the pools in `config/design_system.json`, or your own words | Usually leave them out: they are picked for variety. Set one only when you want something specific. |
 
 Shapes: organic 4:5 (or 1:1), ads 1:1 or 4:5, stories 9:16. Designed graphics are made at 2K.
-The logo is always placed at the top right. Never describe the man's face.
+The app pastes the logo at the top right (the model leaves that corner empty). Never describe
+the man's face. A stat post also shows a small "Source: ..." line: `--source-name` (brief:
+`sourceName`) is the article's publisher in short, e.g. "Zillow"; left out, the article's source
+is used, and a name that is not the article's publisher is refused.
 
 ### Example Codex requests
 
@@ -360,7 +392,8 @@ Set these in `.env`:
 - Up to 4 images per request; shapes 1:1, 4:5, 9:16, 16:9.
 - Reference photos per request: **14 in total at most** (the model's limit); photos of the
   person up to `IMAGE_IDENTITY_REFS_MAX` (default 4). If it would be more than 14, style
-  examples are left out first; the person's photos and the logo are never dropped.
+  examples are left out first; the person's photos are never dropped. The logo is not one of
+  them: the app pastes it afterwards.
 - The daily limit (`IMAGE_DAILY_LIMIT`) counts real images that were actually made today; when
   it is reached, requests are refused before any provider call.
 - Temporary errors (rate limit, server busy) are retried per image; images already made are
@@ -381,7 +414,10 @@ Set these in `.env`:
 | `OpenRouter returned no image` | Often a safety block: reword the prompt or use other reference photos. |
 | Extra text you did not ask for (for example a German button like "Mehr erfahren") | The style examples can bring in their own text. Check every post before use; pick the other version or run it again. |
 | `… did not respond within … seconds` / `did not respond in time` | The image took too long (more likely with many photos of the person). Try again, or raise `IMAGE_TIMEOUT_MS` (e.g. `300000`). |
-| `… identity photos plus the logo are more than the 14 reference images the model accepts` | Lower `IMAGE_IDENTITY_REFS_MAX`. |
+| `… identity photos are more than the 14 reference images the model accepts` | Lower `IMAGE_IDENTITY_REFS_MAX`. |
+| `The logo … has no transparent background` | Put a PNG of the logo with a transparent background in `assets/reference/brand/logo/`, run `uv run ca refs scan` and set `logoFile` in `brand.json` to it. |
+| `--source-name "…" is not the publisher of research article …` | Use a short form of the publisher the article names (see `research.md`). |
+| `--first-slide … failed the person check` | Make slide 1 again first; a failed slide 1 is never used for the later slides. |
 | `Invalid image request: aspect_ratio` | Use one of 1:1, 4:5, 9:16, 16:9. |
 | `Failed: …` and exit code 1 | Open the printed folder's `details.json` and read `error`. |
 | `rejected x.jpg: too small` | Use a larger photo (512 px short side; logos 256 px). |

@@ -57,6 +57,7 @@ class AvatarRequest(BaseModel):
     duration_sec: float = Field(gt=0, le=MAX_CLIP_SEC)
     aspect_ratio: AvatarAspect = "9:16"
     avatar_id: str | None = None  # default: HEYGEN_AVATAR_ID
+    voice_id: str | None = None  # default: HEYGEN_VOICE_ID; always passed to the provider
 
 
 class AvatarProvider(Protocol):

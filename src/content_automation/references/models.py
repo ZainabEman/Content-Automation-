@@ -1,5 +1,6 @@
 """Data stored in each set's set.json."""
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -25,6 +26,12 @@ class RefAsset(CamelModel):
     primary: bool = False
     status: AssetStatus
     reason: str | None = None
+    # Style tags, set once by viewing the image (`ca refs tag`); None = not tagged yet.
+    people: bool | None = None  # shows a person, face, hand or human figure
+    logo: bool | None = None  # shows a logo, wordmark or brand mark
+
+
+TAG_FIELDS = ("people", "logo")
 
 
 class ReferenceSet(CamelModel):
@@ -60,6 +67,14 @@ class ReferenceSet(CamelModel):
         ref_set._folder = set_file.parent
         return ref_set
 
+    @property
+    def untagged_assets(self) -> list[RefAsset]:
+        return [a for a in self.ok_assets if a.people is None or a.logo is None]
+
     def save(self) -> None:
-        text = self.model_dump_json(by_alias=True, indent=2) + "\n"
-        atomic_write_text(self.folder / SET_FILE, text)
+        data = self.model_dump(mode="json", by_alias=True)
+        for asset in data["assets"]:  # untagged sets keep their old file layout
+            for name in TAG_FIELDS:
+                if asset.get(name) is None:
+                    asset.pop(name, None)
+        atomic_write_text(self.folder / SET_FILE, json.dumps(data, indent=2) + "\n")

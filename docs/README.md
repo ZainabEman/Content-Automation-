@@ -58,8 +58,9 @@ You can also ask for single images, videos or research (see the guides).
 | `uv run ca research digest [--topic "…"] [--days 14] [--limit 10]` | Lists saved articles, ranked by topic if given. |
 | `uv run ca image …` | One image job (see the [Images guide](guides/module-1-images.md)). |
 | `uv run ca video --plan <file> [--dry-run]` / `uv run ca video resume <job>` | One video job (see the [Video guide](guides/module-2-video.md)). |
-| `uv run ca job status\|complete\|fail <job> …` | Job records and video steps done by Codex. |
-| `uv run ca refs scan\|list\|frames\|primary` | Reference photo library. |
+| `uv run ca job status\|complete\|fail\|review <job> …` | Job records, video steps done by Codex, and the person check of an image. |
+| `uv run ca refs scan\|list\|frames\|primary\|tag` | Reference photo library (`tag`: people/logo tags of a style image). |
+| `uv run ca env set HEYGEN_AVATAR_ID\|HEYGEN_VOICE_ID <id>` | Sets one HeyGen ID line in `.env` (never shows the file). |
 | `uv run ca brand show` | Summary of `brand.json`. |
 | `uv run ca hello` | Shows the settings (keys hidden). |
 

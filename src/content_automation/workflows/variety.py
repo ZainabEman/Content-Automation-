@@ -162,6 +162,7 @@ def _pick(
     (newest first) does not hold, else the fitting entry that was used longest ago.
 
     Entries that are ``relevant`` (to the topic) come first: the rotation then runs among them.
+    Without a relevant entry only "general" ones are used (no clinic for a real estate post).
     """
     wanted = (given or "").strip()
     if wanted:
@@ -170,7 +171,11 @@ def _pick(
     options = [key for key, entry in pool.items() if entry.auto and fits(entry)]
     if not options:
         return None
-    options = [key for key in options if relevant(pool[key])] or options
+    options = (
+        [key for key in options if relevant(pool[key])]
+        or [key for key in options if pool[key].general]
+        or options
+    )
     fresh = [key for key in options if key not in used]
     key = _rng(seed).choice(fresh) if fresh else max(options, key=used.index)
     return Pick(key, pool[key].description)

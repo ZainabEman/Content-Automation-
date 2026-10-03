@@ -181,8 +181,10 @@ def _scan_set(
         seen[asset_id] = name
         asset = _check_and_copy(folder, name, asset_id, ref_type)
         old = previous.get(asset_id)
-        if ref_type == "identity" and asset.status == "ok" and old is not None:
-            asset.primary = old.primary
+        if asset.status == "ok" and old is not None:
+            if ref_type == "identity":
+                asset.primary = old.primary
+            asset.people, asset.logo = old.people, old.logo  # tags survive a rescan
         assets.append(asset)
 
     ok_assets = [asset for asset in assets if asset.status == "ok"]
@@ -356,8 +358,73 @@ def set_primary(set_id: str, files: list[str], root: Path | None = None) -> Refe
 def _as_reference(ref_set: ReferenceSet, asset: RefAsset) -> ReferenceImage:
     path = ref_set.folder / (asset.resized or asset.file)
     return ReferenceImage(
-        asset_id=asset.asset_id, path=path, source=f"{ref_set.set_id}/{asset.file}"
+        asset_id=asset.asset_id,
+        path=path,
+        source=f"{ref_set.set_id}/{asset.file}",
+        people=asset.people,
+        logo=asset.logo,
     )
+
+
+def tag_assets(
+    asset_ids: Sequence[str],
+    *,
+    people: bool,
+    logo: bool,
+    root: Path | None = None,
+) -> list[str]:
+    """Record what a style image shows (after viewing it); returns "set/file" per asset.
+
+    An asset ID that appears in several sets (the same file copied) is tagged everywhere.
+    """
+    wanted = {asset_id.strip() for asset_id in asset_ids if asset_id.strip()}
+    if not wanted:
+        raise ReferenceLibraryError("Give at least one asset ID (see set.json or the dry run).")
+    tagged: list[str] = []
+    found: set[str] = set()
+    for ref_set in list_sets(None, root):
+        changed = False
+        for asset in ref_set.ok_assets:
+            if asset.asset_id in wanted:
+                asset.people, asset.logo = people, logo
+                tagged.append(f"{ref_set.set_id}/{asset.file}")
+                found.add(asset.asset_id)
+                changed = True
+        if changed:
+            ref_set.save()
+    missing = sorted(wanted - found)
+    if missing:
+        raise ReferenceLibraryError(
+            f"Not a usable reference image: {', '.join(missing)}. Run `uv run ca refs scan`."
+        )
+    return tagged
+
+
+def untagged_style_refs(root: Path | None = None) -> list[str]:
+    """Creative images not tagged yet ("set/file"); person designs never use them."""
+    return [
+        f"{ref_set.set_id}/{asset.file} [{asset.asset_id}]"
+        for ref_set in list_sets("creative", root)
+        for asset in ref_set.untagged_assets
+    ]
+
+
+def _style_tier(asset: RefAsset, person: bool) -> int | None:
+    """How well a style image suits a design; lower is better, None = never used.
+
+    The model never draws a logo (the app pastes the real one), so images tagged with a logo
+    are never sent. A design that shows the person takes only images tagged free of people
+    and logos, so no other face can leak in. Other designs prefer those, then images with
+    people, then untagged ones.
+    """
+    if asset.logo is True:
+        return None
+    clean = asset.people is False and asset.logo is False
+    if person:
+        return 0 if clean else None
+    if clean:
+        return 0
+    return 1 if asset.logo is False else 2
 
 
 def select_identity_refs(
@@ -411,9 +478,13 @@ def spread_indices(total: int, wanted: int) -> list[int]:
 
 
 def select_style_refs(
-    set_id: str, max_n: int, root: Path | None = None
+    set_id: str, max_n: int, root: Path | None = None, *, person: bool = False
 ) -> list[ReferenceImage]:
-    """Pick up to max_n style images from different videos/files, spread across the set."""
+    """Pick up to max_n style images from different videos/files, spread across the set.
+
+    person: the image shows the person, so only images tagged free of people and logos
+    (possibly none); logo images are never used (see _style_tier).
+    """
     ref_set = load_set(set_id, root)
     if ref_set.type != "creative":
         raise ReferenceLibraryError(
@@ -421,8 +492,9 @@ def select_style_refs(
         )
     if not ref_set.ok_assets:
         raise ReferenceLibraryError(f"{ref_set.set_id} has no usable images.")
+    usable = [a for a in ref_set.ok_assets if _style_tier(a, person) is not None]
     groups: dict[str, list[RefAsset]] = {}
-    for asset in sorted(ref_set.ok_assets, key=lambda a: natural_key(a.file)):
+    for asset in sorted(usable, key=lambda a: natural_key(a.file)):
         groups.setdefault(_source_key(asset.file), []).append(asset)
     queues = [
         sorted(items, key=lambda a: (_frame_preference(a.file), natural_key(a.file)))
@@ -475,6 +547,7 @@ def select_rotating_style_refs(
     seed: str = "",
     strict: bool = False,
     role: str | None = None,
+    person: bool = False,
 ) -> tuple[list[ReferenceImage], list[str]]:
     """Up to max_n style images from the named creative sets, and the set IDs they came from.
 
@@ -484,10 +557,12 @@ def select_rotating_style_refs(
 
     role: carousel examples only for that slide role. Within a set the videos/files in name
     order are the slides: the first is the "hook", the last the "cta", the rest "tip".
+    person: the design shows the person, so only images tagged free of people and logos are
+    used (possibly none); otherwise those come first (see _style_tier).
     """
     if max_n <= 0:
         return [], []
-    candidates: list[tuple[ReferenceSet, RefAsset]] = []
+    candidates: list[tuple[int, ReferenceSet, RefAsset]] = []
     for ref_set in creative_sets(names, root, strict=strict):
         groups: dict[str, list[RefAsset]] = {}
         for asset in sorted(ref_set.ok_assets, key=lambda a: natural_key(a.file)):
@@ -496,21 +571,36 @@ def select_rotating_style_refs(
         for position, key in enumerate(ordered):
             if role is not None and _slide_role(position, len(ordered)) != role:
                 continue
-            best = min(
-                groups[key], key=lambda a: (_frame_preference(a.file), natural_key(a.file))
+            usable = [
+                (tier, asset)
+                for asset in groups[key]
+                if (tier := _style_tier(asset, person)) is not None
+            ]
+            if not usable:
+                continue
+            tier, best = min(
+                usable,
+                key=lambda item: (
+                    item[0], _frame_preference(item[1].file), natural_key(item[1].file)
+                ),
             )
-            candidates.append((ref_set, best))
+            candidates.append((tier, ref_set, best))
     last_used: dict[str, int] = {}
     for position, asset_id in enumerate(avoid):
         last_used.setdefault(asset_id, position)
-    fresh = [item for item in candidates if item[1].asset_id not in last_used]
-    random.Random(zlib.crc32(seed.encode("utf-8"))).shuffle(fresh)
-    stale = sorted(
-        (item for item in candidates if item[1].asset_id in last_used),
-        key=lambda item: -last_used[item[1].asset_id],
-    )
+    rng = random.Random(zlib.crc32(seed.encode("utf-8")))
+    pools: list[tuple[list[tuple[ReferenceSet, RefAsset]], bool]] = []
+    for level in sorted({tier for tier, _, _ in candidates}):
+        in_tier = [(ref_set, asset) for tier, ref_set, asset in candidates if tier == level]
+        fresh = [item for item in in_tier if item[1].asset_id not in last_used]
+        rng.shuffle(fresh)
+        stale = sorted(
+            (item for item in in_tier if item[1].asset_id in last_used),
+            key=lambda item: -last_used[item[1].asset_id],
+        )
+        pools += [(fresh, True), (fresh, False), (stale, False)]
     picked: list[tuple[ReferenceSet, RefAsset]] = []
-    for pool, one_per_set in ((fresh, True), (fresh, False), (stale, False)):
+    for pool, one_per_set in pools:
         for ref_set, asset in pool:
             if len(picked) >= max_n:
                 break
@@ -525,8 +615,11 @@ def select_rotating_style_refs(
 def select_logo_ref(
     root: Path | None = None, set_id: str = LOGO_SET, preferred: str | None = None
 ) -> ReferenceImage:
-    """Pick the brand logo: the preferred file (brand.json logoFile) if given; otherwise
-    file names containing "logo" first, PNG before other formats."""
+    """The brand logo file (the original, full size), pasted onto designs by the app.
+
+    The preferred file (brand.json logoFile) if given; otherwise file names containing
+    "logo" first, PNG before other formats.
+    """
     ref_set = load_set(set_id, root)
     if ref_set.type != "brand" or not ref_set.ok_assets:
         raise ReferenceLibraryError(f"No usable logo found in {set_id}.")
@@ -536,16 +629,20 @@ def select_logo_ref(
             raise ReferenceLibraryError(
                 f"logoFile '{preferred}' is not a usable image in {ref_set.set_id}."
             )
-        return _as_reference(ref_set, match)
-    best = min(
-        ref_set.ok_assets,
-        key=lambda a: (
-            "logo" not in a.file.casefold(),
-            not a.file.casefold().endswith(".png"),
-            natural_key(a.file),
-        ),
+    else:
+        match = min(
+            ref_set.ok_assets,
+            key=lambda a: (
+                "logo" not in a.file.casefold(),
+                not a.file.casefold().endswith(".png"),
+                natural_key(a.file),
+            ),
+        )
+    return ReferenceImage(
+        asset_id=match.asset_id,
+        path=ref_set.folder / match.file,
+        source=f"{ref_set.set_id}/{match.file}",
     )
-    return _as_reference(ref_set, best)
 
 
 def assets_by_type(root: Path | None = None) -> dict[RefType, list[ReferenceImage]]:

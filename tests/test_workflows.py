@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 
 from content_automation.cli import app
 from content_automation.core.config import Settings
-from content_automation.references import load_set, scan
+from content_automation.references import list_sets, load_set, scan, tag_assets
 from content_automation.workflows.image_workflows import (
     WorkflowInputs,
     prepare_workflow,
@@ -34,6 +34,14 @@ def _image(path: Path, index: int, size: tuple[int, int] = (600, 800)) -> None:
     Image.new("RGB", size, ((index * 41) % 256, (index * 97) % 256, 150)).save(path)
 
 
+def _transparent_logo(path: Path) -> None:
+    """A logo on a transparent background, as the app pastes it onto designs."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    logo = Image.new("RGBA", (300, 300), (0, 0, 0, 0))
+    logo.paste((20, 80, 200, 255), (40, 110, 260, 190))
+    logo.save(path)
+
+
 @pytest.fixture
 def library(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = isolated / "refs"
@@ -44,9 +52,11 @@ def library(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for i in range(1, 13):
         _image(root / "creative" / "facebook_ads" / f"ad{i:02d}.jpg", 40 + i)
     _image(root / "brand" / "logo" / "a-mark.jpg", 60, (300, 300))
-    _image(root / "brand" / "logo" / "logo.png", 61, (300, 300))
+    _transparent_logo(root / "brand" / "logo" / "logo.png")
     (root / "brand" / "brand.json").write_text(json.dumps(BRAND), encoding="utf-8")
     scan(root)
+    style = [a.asset_id for s in list_sets("creative", root) for a in s.ok_assets]
+    tag_assets(style, people=False, logo=False, root=root)  # viewed: no people, no logo
     monkeypatch.setenv("REFERENCES_DIR", str(root))
     return root
 
@@ -89,10 +99,12 @@ def test_person_lifestyle_end_to_end(settings: Settings) -> None:
     for expected in (
         "Laughing at a café table", "Images 1-4 - IDENTITY", "Keep this exact person",
         "Images 5-7 - STYLE", "copy only the look and layout", "Confident and warm",
-        "Bright natural light", "Royal Blue #004BA0", "Avoid: Don't stretch the logo.",
-        "must be in English", "do not add any text",
+        "Bright natural light", "Royal Blue #004BA0", "must be in English",
+        "do not add any text", "the only person allowed", "No readable text in the scene",
     ):
         assert expected in prompt, expected
+    # The model never handles the logo, so brand rules about it are left out.
+    assert "stretch the logo" not in prompt
 
 
 def test_person_service_end_to_end(settings: Settings) -> None:
@@ -126,18 +138,21 @@ def test_social_creative_ad_with_logo_headline_and_default_style(settings: Setti
     data = _details(job.folder)
     assert data["status"] == "completed"
     assert data["brandAssetIds"] == [_ids(settings, "brand/logo")["logo.png"]]
-    # 10 product/brand/style slots: 3 style + 1 logo leaves 6 for the product
-    assert len(data["productAssetIds"]) == 6
+    # 10 product/style slots: 3 style leaves 7 for the product; the logo is not sent
+    assert len(data["productAssetIds"]) == 7
     assert len(data["styleAssetIds"]) == 3
+    assert [ref["role"] for ref in data["references"]] == ["product"] * 7 + ["style"] * 3
     assert data["inputs"]["styleSet"] == "creative/facebook_ads"
     assert data["inputs"]["variant"] == "ad"
     prompt = data["prompt"]
     assert "advertisement" in prompt
     assert '"GROW FASTER WITH AI"' in prompt  # headlines are rendered in capitals
-    assert "Images 1-6 - PRODUCT" in prompt
-    assert "Image 7 - BRAND LOGO" in prompt
+    assert "Images 1-7 - PRODUCT" in prompt
+    assert "BRAND LOGO" not in prompt and "Do not draw any logo" in prompt
     assert "Images 8-10 - STYLE" in prompt
     assert data["params"]["aspectRatio"] == "1:1"
+    # The app pasted the logo; the model's image without it is kept.
+    assert (job.folder / "raw" / "image-1.png").is_file()
 
 
 @pytest.mark.parametrize(
@@ -217,8 +232,13 @@ def test_logo_file_from_brand_json_is_preferred(settings: Settings, library: Pat
         prompt="x", logo=True, headline="x", subheadline=AD_SUB, cta=AD_CTA
     )
 
+    # A logo without a transparent background cannot be pasted: a clear error, no job.
+    with pytest.raises(WorkflowError, match="no transparent background"):
+        prepare_workflow("social_creative", inputs, settings)
+
+    brand_file.write_text(json.dumps({**BRAND, "logoFile": "logo.png"}), encoding="utf-8")
     prepared = prepare_workflow("social_creative", inputs, settings)
-    assert prepared.brand_asset_ids == [_ids(settings, "brand/logo")["a-mark.jpg"]]
+    assert prepared.brand_asset_ids == [_ids(settings, "brand/logo")["logo.png"]]
 
     brand_file.write_text(json.dumps({**BRAND, "logoFile": "missing.png"}), encoding="utf-8")
     with pytest.raises(ValueError, match="missing.png"):

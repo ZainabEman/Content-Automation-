@@ -21,13 +21,17 @@ from content_automation.core.limits import images_generated_on
 from content_automation.media.assemble import text_support
 from content_automation.references import (
     BrandProfileError,
+    ReferenceLibraryError,
     list_sets,
     load_brand,
     load_company,
+    select_logo_ref,
+    untagged_style_refs,
 )
 from content_automation.research.collectors import USER_AGENT
 from content_automation.research.models import SourcesError, load_sources
 from content_automation.workflows.design_system import DesignSystemError, load_design_system
+from content_automation.workflows.logo import LogoError, load_logo
 
 Level = Literal["ok", "warn", "fail"]
 SETUP_GUIDE = "docs/SETUP-CODEX.md"
@@ -132,10 +136,15 @@ def _providers(settings: Settings) -> list[Check]:
             checks.append(Check("ok", label,
                                 f"{provider}: Codex makes the clips with the {plugin} plugin "
                                 "(checked by Codex when a video is made)"))
-    if settings.avatar_provider == "heygen-plugin" and not settings.heygen_avatar_id:
-        checks.append(Check("warn", "HEYGEN_AVATAR_ID", "not set",
-                            "The make-video skill lists your HeyGen avatars and gives the line "
-                            "for .env."))
+    if settings.avatar_provider == "heygen-plugin":
+        for name, value, what in (
+            ("HEYGEN_AVATAR_ID", settings.heygen_avatar_id, "avatars"),
+            ("HEYGEN_VOICE_ID", settings.heygen_voice_id, "voices (own or cloned first)"),
+        ):
+            if not value:
+                checks.append(Check("warn", name, "not set; HeyGen clips cannot start",
+                                    f"Codex lists your HeyGen {what} with the HeyGen plugin; "
+                                    f"after you choose: uv run ca env set {name} <id>"))
     voice = "off (no voiceover in the MVP)" if settings.voice_provider == "none" else (
         settings.voice_provider)
     checks.append(Check("ok", "Voice", voice))
@@ -222,17 +231,38 @@ def _references(settings: Settings) -> list[Check]:
         checks.append(Check("fail", "Person photos", "no identity set with usable photos",
                             "Add photos to assets/reference/identity/person_01/ and run "
                             "`uv run ca refs scan`."))
-    if any(s.set_id == "brand/logo" and s.ok_assets for s in sets):
-        checks.append(Check("ok", "Logo", "brand/logo"))
-    else:
-        checks.append(Check("warn", "Logo", "no usable logo",
-                            "Add a PNG/JPG logo to assets/reference/brand/logo/ and rescan."))
+    checks.append(_logo(settings))
     if any(s.type == "creative" and s.ok_assets for s in sets):
-        checks.append(Check("ok", "Style examples", "creative sets found"))
+        untagged = untagged_style_refs(settings.references_dir)
+        if untagged:
+            checks.append(Check("warn", "Style examples", f"{len(untagged)} not tagged yet "
+                                f"(e.g. {untagged[0]}); designs with the person skip them",
+                                "View each one and run: uv run ca refs tag --asset <id> "
+                                "--people yes|no --logo yes|no"))
+        else:
+            checks.append(Check("ok", "Style examples", "creative sets found, all tagged"))
     else:
         checks.append(Check("warn", "Style examples", "none",
                             "Add past ads to assets/reference/creative/facebook_ads/ and rescan."))
     return checks
+
+
+def _logo(settings: Settings) -> Check:
+    """The app pastes the logo onto designs, so it needs a transparent background."""
+    try:
+        brand = load_brand(settings.references_dir)
+    except BrandProfileError:
+        brand = None
+    try:
+        ref = select_logo_ref(settings.references_dir, preferred=brand.logo_file if brand else None)
+        load_logo(ref.path)
+    except ReferenceLibraryError as error:
+        return Check("fail", "Logo", str(error),
+                     "Add the logo as a PNG with a transparent background to "
+                     "assets/reference/brand/logo/, rescan, and set logoFile in brand.json.")
+    except LogoError as error:
+        return Check("fail", "Logo", str(error))
+    return Check("ok", "Logo", f"{ref.source} (transparent; pasted by the app)")
 
 
 def _brand_and_company(settings: Settings) -> list[Check]:

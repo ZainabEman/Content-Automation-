@@ -1,5 +1,6 @@
 """Typer command line interface."""
 
+import re
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -17,6 +18,7 @@ from content_automation.content.package import build_package, set_deliverables, 
 from content_automation.content.research_input import ResearchInputError, load_idea
 from content_automation.core.agent_steps import record_agent_output, request_path
 from content_automation.core.config import ConfigurationError, Settings, load_settings
+from content_automation.core.files import atomic_write_text
 from content_automation.core.jobs import DETAILS_FILE, Job, JobStateError
 from content_automation.core.limits import DailyLimitError
 from content_automation.core.log import configure_logging
@@ -30,6 +32,7 @@ from content_automation.references import (
     load_brand,
     scan,
     set_primary,
+    tag_assets,
 )
 from content_automation.research.collectors import CollectorError
 from content_automation.research.models import SourcesError
@@ -63,7 +66,8 @@ from content_automation.workflows.video_plan import PlanError, load_plan
 app = typer.Typer(name="ca", no_args_is_help=True, help="Content Automation CLI.")
 refs_app = typer.Typer(no_args_is_help=True, help="Reference photo library.")
 brand_app = typer.Typer(no_args_is_help=True, help="Brand profile (brand.json).")
-job_app = typer.Typer(no_args_is_help=True, help="Job records and agent steps.")
+job_app = typer.Typer(no_args_is_help=True, help="Job records, agent steps and person checks.")
+env_app = typer.Typer(no_args_is_help=True, help="Set one allowed line in .env (never shown).")
 video_app = typer.Typer(help="Short vertical videos (1080x1920) from a plan.json.")
 research_app = typer.Typer(no_args_is_help=True, help="News research: collect and digest articles.")
 content_app = typer.Typer(
@@ -75,6 +79,10 @@ app.add_typer(job_app, name="job")
 app.add_typer(video_app, name="video")
 app.add_typer(research_app, name="research")
 app.add_typer(content_app, name="content")
+app.add_typer(env_app, name="env")
+# The only .env lines a command may set: IDs chosen by the user in a plugin, never keys.
+ENV_SETTABLE = ("HEYGEN_AVATAR_ID", "HEYGEN_VOICE_ID")
+_ENV_VALUE = re.compile(r"[A-Za-z0-9_-]{1,128}")
 
 JobDir = Annotated[Path, typer.Argument(help="Job folder (the one with details.json).")]
 StepOption = Annotated[str, typer.Option("--step", help="Step ID, e.g. scene-1.")]
@@ -186,6 +194,12 @@ def image(
         str | None,
         typer.Option(help="Format stat/news: ID of the research article it comes from."),
     ] = None,
+    source_name: Annotated[
+        str | None,
+        typer.Option(
+            help='Format stat: the publisher shown as "Source: ..." (default: the article\'s).'
+        ),
+    ] = None,
     audience_line: Annotated[
         str | None,
         typer.Option(help='Statement, stat, checklist, carousel hook: "For dental practices".'),
@@ -293,6 +307,7 @@ def image(
         props=props,
         stat=stat,
         source=source,
+        source_name=source_name,
         steps=steps,
         first_slide=first_slide,
         audience_line=audience_line,
@@ -343,12 +358,12 @@ def _dry_run(workflow: str | None, inputs: WorkflowInputs, settings: Settings) -
         settings,
         workflow=f"{prepared.spec.workflow_id} (v{prepared.spec.version})",
         product_refs=prepared.product_refs,
-        brand_refs=prepared.brand_refs,
+        logo=prepared.logo,
     )
     if prepared.picks is not None:  # what the design takes from the pools (saved with the job)
         picks = prepared.picks.model_dump(exclude={"style_refs"}, exclude_none=True)
         chosen = ", ".join(f"{name} {value}" for name, value in picks.items())
-        lines.insert(lines.index("References:"), f"Design: {chosen}")
+        lines.insert(lines.index("References (attached in this order):"), f"Design: {chosen}")
     return lines
 
 
@@ -430,11 +445,14 @@ def refs_list(
         typer.echo("No sets found. Run `ca refs scan` first.")
         return
     width = max(len("set"), *(len(s.set_id) for s in sets))
-    typer.echo(f"{'type':<9} {'set':<{width}} {'ok':>3} {'rejected':>8} {'primary':>7}")
+    typer.echo(
+        f"{'type':<9} {'set':<{width}} {'ok':>3} {'rejected':>8} {'primary':>7} {'untagged':>8}"
+    )
     for ref_set in sets:
+        untagged = str(len(ref_set.untagged_assets)) if ref_set.type == "creative" else "-"
         typer.echo(
             f"{ref_set.type:<9} {ref_set.set_id:<{width}} {len(ref_set.ok_assets):>3} "
-            f"{len(ref_set.rejected_assets):>8} {len(ref_set.primary_assets):>7}"
+            f"{len(ref_set.rejected_assets):>8} {len(ref_set.primary_assets):>7} {untagged:>8}"
         )
 
 
@@ -452,6 +470,44 @@ def refs_primary(
         raise typer.Exit(code=1) from None
     chosen = ", ".join(asset.file for asset in ref_set.primary_assets)
     typer.echo(f"{ref_set.set_id} primary: {chosen}")
+
+
+def _yes_no(value: str, flag: str) -> bool:
+    answer = value.strip().lower()
+    if answer not in ("yes", "no"):
+        typer.echo(f"{flag} must be yes or no.", err=True)
+        raise typer.Exit(code=2)
+    return answer == "yes"
+
+
+@refs_app.command("tag")
+def refs_tag(
+    asset: Annotated[
+        list[str], typer.Option("--asset", help="Asset ID (repeat for several images).")
+    ],
+    people: Annotated[
+        str, typer.Option(help="yes if it shows a person, face, hand or human figure.")
+    ],
+    logo: Annotated[str, typer.Option(help="yes if it shows a logo, wordmark or brand mark.")],
+) -> None:
+    """Record what a style image shows, after viewing it (saved in its set.json).
+
+    Designs with the person use only images tagged people no + logo no; images with a logo
+    are never sent.
+    """
+    settings = _settings(dry_run=True)
+    try:
+        tagged = tag_assets(
+            asset,
+            people=_yes_no(people, "--people"),
+            logo=_yes_no(logo, "--logo"),
+            root=settings.references_dir,
+        )
+    except ReferenceLibraryError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    for name in tagged:
+        typer.echo(f"tagged {name}: people {people}, logo {logo}")
 
 
 @brand_app.command("show")
@@ -561,6 +617,68 @@ def job_fail(
         typer.echo(str(state_error), err=True)
         raise typer.Exit(code=1) from None
     typer.echo(f"{step} failed; job {job.job_id} is now failed.")
+
+
+@job_app.command("review")
+def job_review(
+    job_dir: JobDir,
+    image: Annotated[str, typer.Option(help="The output file checked.")] = "image-1.png",
+    passed: Annotated[
+        bool, typer.Option("--pass", help="It is the identity person.")
+    ] = False,
+    failed: Annotated[
+        str | None,
+        typer.Option("--fail", help="It is not him: what differs (hair, build, beard, age)."),
+    ] = None,
+    note: Annotated[
+        str | None, typer.Option(help='With --pass: e.g. "accepted by the user".')
+    ] = None,
+) -> None:
+    """Record the person check of an image (saved in details.json; the newest one counts)."""
+    if passed == (failed is not None):
+        typer.echo("Give exactly one of --pass or --fail \"<what differs>\".", err=True)
+        raise typer.Exit(code=2)
+    job = _load_job(job_dir)
+    try:
+        if failed is not None:
+            job.add_review(image, "fail", failed.strip() or "differs from the identity photos")
+        else:
+            job.add_review(image, "pass", note)
+    except JobStateError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    result = "passed" if passed else "failed"
+    typer.echo(f"{image} of {job.job_id}: person check {result} (recorded in {DETAILS_FILE}).")
+
+
+@env_app.command("set")
+def env_set(
+    name: Annotated[str, typer.Argument(help=f"One of: {', '.join(ENV_SETTABLE)}.")],
+    value: Annotated[str, typer.Argument(help="The ID the user chose.")],
+    env_file: Annotated[Path, typer.Option(hidden=True)] = Path(".env"),
+) -> None:
+    """Set one ID line in .env; nothing else in the file is changed or shown."""
+    key = name.strip().upper()
+    if key not in ENV_SETTABLE:
+        typer.echo(f"Only these can be set here: {', '.join(ENV_SETTABLE)}.", err=True)
+        raise typer.Exit(code=2)
+    if not _ENV_VALUE.fullmatch(value.strip()):
+        typer.echo("The ID may contain only letters, digits, - and _.", err=True)
+        raise typer.Exit(code=2)
+    if not env_file.is_file():
+        typer.echo(f"{env_file} not found: copy .env.example to .env first.", err=True)
+        raise typer.Exit(code=1)
+    lines = env_file.read_text(encoding="utf-8").splitlines()
+    line = f"{key}={value.strip()}"
+    found = [i for i, text in enumerate(lines) if text.split("=", 1)[0].strip() == key]
+    if found:
+        lines[found[0]] = line
+        for extra in reversed(found[1:]):
+            del lines[extra]
+    else:
+        lines.append(line)
+    atomic_write_text(env_file, "\n".join(lines) + "\n")
+    typer.echo(f"{key} set in {env_file}.")
 
 
 @video_app.callback(invoke_without_command=True)

@@ -49,6 +49,28 @@ class JobStep(CamelModel):
     updated_at: datetime = Field(default_factory=lambda: _utc_now())
 
 
+ReviewResult = Literal["pass", "fail"]
+
+
+class JobReference(CamelModel):
+    """One reference image sent to the model, in the order attached (image 1 first)."""
+
+    role: str  # identity, product, style or series (slide 1 of the same carousel)
+    asset_id: str
+    source: str
+    people: bool | None = None  # style tags from the reference library
+    logo: bool | None = None
+
+
+class ImageReview(CamelModel):
+    """The person check of one output image: is it the identity person?"""
+
+    image: str  # e.g. image-1.png
+    result: ReviewResult
+    note: str | None = None  # what differs (hair, build, facial hair, age) or who accepted it
+    reviewed_at: datetime = Field(default_factory=lambda: _utc_now())
+
+
 class Job(CamelModel):
     """The details.json record described in docs/prd/module-1.md."""
 
@@ -75,6 +97,8 @@ class Job(CamelModel):
     actual_cost_usd: float | None = None  # as reported by the provider
     steps: list[JobStep] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)  # plain-language remarks, e.g. about text
+    references: list[JobReference] = Field(default_factory=list)  # in the order attached
+    reviews: list[ImageReview] = Field(default_factory=list)  # person checks; newest last
     created_at: datetime
     updated_at: datetime
 
@@ -205,6 +229,20 @@ class Job(CamelModel):
         )
         return ids
 
+    def review(self, image: str) -> ImageReview | None:
+        """The newest person check of one output image, if any."""
+        found = [review for review in self.reviews if review.image == image]
+        return found[-1] if found else None
+
+    def add_review(self, image: str, result: ReviewResult, note: str | None = None) -> None:
+        if self.status != "completed":
+            raise JobStateError(f"Only a completed job can be reviewed; this one is {self.status}.")
+        if image not in self.outputs:
+            outputs = ", ".join(self.outputs) or "none"
+            raise JobStateError(f"{image} is not an output of this job (outputs: {outputs}).")
+        self.reviews.append(ImageReview(image=image, result=result, note=note or None))
+        self.save()
+
     def waiting_steps(self) -> list[JobStep]:
         return [step for step in self.steps if step.status == "awaiting_agent"]
 
@@ -251,6 +289,7 @@ def create_job(
     style_asset_ids: list[str] | None = None,
     inputs: dict[str, str | bool] | None = None,
     est_cost_usd: float | None = None,
+    references: list[JobReference] | None = None,
     now: datetime | None = None,
 ) -> Job:
     """Create OUTPUT_DIR/YYYY-MM-DD/HHmm_<slug>/ and write a queued details.json."""
@@ -276,6 +315,7 @@ def create_job(
         style_asset_ids=style_asset_ids or [],
         inputs=inputs or {},
         est_cost_usd=est_cost_usd,
+        references=references or [],
         created_at=created,
         updated_at=created,
     )

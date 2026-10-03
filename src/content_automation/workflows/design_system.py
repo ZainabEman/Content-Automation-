@@ -49,6 +49,7 @@ STEPS_MIN, STEPS_MAX = 3, 5
 MAX_STEP_WORDS = 8
 MAX_STAT_CHARS = 12
 MAX_AUDIENCE_WORDS = 6
+MAX_SOURCE_WORDS = 4
 CHAT_MIN, CHAT_MAX, MAX_BUBBLE_WORDS = 2, 3, 14
 DIAGRAM_MIN, DIAGRAM_MAX, MAX_DIAGRAM_WORDS = 3, 4, 4
 SPEAKERS = ("customer", "bot")
@@ -81,6 +82,7 @@ class TextRules(_DesignModel):
     none: str = Field(min_length=1)
     no_button: str = Field(min_length=1)
     lettering: str = Field(min_length=1)  # "{lettering}" lists what else may carry letters
+    no_lettering: str = Field(min_length=1)  # when nothing else may carry letters
 
 
 class Core(_DesignModel):
@@ -92,7 +94,9 @@ class Core(_DesignModel):
     layout: str = Field(min_length=1)  # fill the canvas, phone-readable text
     footer: str = Field(min_length=1)  # where the handle or website goes
     audience_line: str = Field(min_length=1)  # how the "FOR ..." line looks
-    logo: str = Field(min_length=1)
+    logo: str = Field(min_length=1)  # the corner kept clear: the app pastes the real logo there
+    scene_text: str = Field(min_length=1)  # no readable text on screens, devices or signs
+    source_line: str = Field(min_length=1)  # how a stat's "Source: ..." line looks
     identity: IdentityRules
     no_person: str = Field(min_length=1)  # said by every design that does not show him
     text: TextRules
@@ -129,6 +133,7 @@ class PoolEntry(_DesignModel):
     description: str = Field(min_length=1)
     auto: bool = True  # may be picked when nothing is given
     photo: bool = True  # scenes: a real place, where the man and props can be shown
+    general: bool = True  # scenes: false = picked only when the topic matches its tags
     scenes: list[str] = Field(default_factory=list)  # props and poses: scenes they fit; [] = all
     tags: list[str] = Field(default_factory=list)  # scenes: topics and audiences it suits
 
@@ -290,6 +295,7 @@ class DesignFields(Protocol):
     visual: str | None
     stat: str | None
     source: str | None
+    source_name: str | None
     steps: str | None
     audience_line: str | None
     chat: str | None
@@ -317,6 +323,7 @@ class DesignChoice:
     visual: str | None = None
     stat: str | None = None
     source: str | None = None  # research article ID behind a stat or a news line
+    source_name: str | None = None  # stat: the publisher shown as "Source: <name>"
     steps: tuple[str, ...] = ()
     audience_line: str | None = None  # "FOR DENTAL PRACTICES"
     chat: tuple[tuple[str, str], ...] = ()  # (speaker, text): a tip slide's chat example
@@ -591,6 +598,13 @@ def resolve_design(
         )
     if source is not None and format_id not in ("stat", "news"):
         raise WorkflowError("--source is for --format stat or news.")
+    source_name = _clean(fields.source_name)
+    if source_name is not None and format_id != "stat":
+        raise WorkflowError("--source-name is for --format stat (its small source line).")
+    if source_name is not None and len(source_name.split()) > MAX_SOURCE_WORDS:
+        raise WorkflowError(
+            f'--source-name is the publisher in at most {MAX_SOURCE_WORDS} words, e.g. "Zillow".'
+        )
 
     return DesignChoice(
         kind=kind_id,
@@ -608,6 +622,7 @@ def resolve_design(
         visual=visual,
         stat=stat,
         source=source,
+        source_name=source_name,
         steps=steps,
         audience_line=audience_line,
         chat=chat,

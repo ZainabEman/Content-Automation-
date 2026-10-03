@@ -12,11 +12,22 @@ from content_automation.ai.image import (
 )
 from content_automation.core.config import Settings
 from content_automation.core.limits import images_generated_on
+from content_automation.workflows.logo import LogoOverlay
 
 
-def _refs_line(label: str, refs: list[ReferenceImage]) -> str:
-    names = ", ".join(ref.source or ref.asset_id for ref in refs) or "-"
-    return f"  {label} ({len(refs)}): {names}"
+def _yes_no(value: bool | None) -> str:
+    return "untagged" if value is None else ("yes" if value else "no")
+
+
+def _tags(ref: ReferenceImage) -> str:
+    if not ref.source.startswith("creative/"):
+        return " [earlier output: slide 1 of this carousel]"
+    return f" [people {_yes_no(ref.people)}, logo {_yes_no(ref.logo)}]"
+
+
+def _refs_line(label: str, refs: list[ReferenceImage], *, tags: bool = False) -> str:
+    names = ", ".join((ref.source or ref.asset_id) + (_tags(ref) if tags else "") for ref in refs)
+    return f"  {label} ({len(refs)}): {names or '-'}"
 
 
 def dry_run_lines(
@@ -25,7 +36,7 @@ def dry_run_lines(
     *,
     workflow: str,
     product_refs: list[ReferenceImage] | None = None,
-    brand_refs: list[ReferenceImage] | None = None,
+    logo: LogoOverlay | None = None,
 ) -> list[str]:
     """Validate the request against the provider's limits and describe it.
 
@@ -51,11 +62,11 @@ def dry_run_lines(
             f"this request would add {request.count}."
         )
     lines += [
-        "References:",
+        "References (attached in this order):",
         _refs_line("identity", request.identity_refs),
         _refs_line("product", product_refs or []),
-        _refs_line("brand", brand_refs or []),
-        _refs_line("style", request.style_refs),
+        _refs_line("style", request.style_refs, tags=True),
+        f"Logo: {logo.describe() if logo else 'none'}",
         "Final prompt:",
         request.prompt,
     ]

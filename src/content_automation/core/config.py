@@ -56,7 +56,8 @@ class Settings(BaseSettings):
     video_model: str = Field(default="mock", min_length=1)
     avatar_provider: AvatarProvider = "mock"
     avatar_model: str = Field(default="mock", min_length=1)
-    heygen_avatar_id: str | None = None
+    heygen_avatar_id: str | None = None  # the person's own HeyGen avatar
+    heygen_voice_id: str | None = None  # passed with every HeyGen clip (never the default voice)
     voice_provider: VoiceProvider = "none"
     voice_model: str = Field(default="mock", min_length=1)
     elevenlabs_api_key: SecretStr | None = None

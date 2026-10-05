@@ -18,14 +18,14 @@
         "use": "all other text, the CTA label, arrows and chevrons"
       }
     },
-    "fonts": "Use the heading font for headlines, statements and big numbers and the sub-heading font for all other text.",
+    "fonts": "Use the heading font for headlines, the audience line and big numbers, and the body font for all other text.",
     "headingFont": "Set in {font}, the brand heading font: a geometric sans of normal width, never condensed, narrow or compressed.",
     "layout": "Fill the whole canvas: no large empty areas. Size every text to read easily on a phone: the headline large, other text never tiny.",
     "footer": "Small, in the text colour, centred at the bottom edge on its own: the handle or website.",
     "audienceLine": "A small ALL-CAPS line in the accent colour just above the headline: who this is for.",
-    "logo": "Keep the top-right corner empty (a box about 30% of the width wide and 15% of the height tall): plain background only, no text, icons, decor, panel edges or busy detail. The real logo is placed there afterwards. Do not draw any logo, wordmark, monogram or brand name anywhere.",
+    "logo": "Keep the top-right corner empty (a box about 30% of the width wide and 15% of the height tall): plain background only, no text, icons, decor, panel edges or busy detail. The approved logo version that contrasts with the background is placed there afterwards. Do not draw any logo, wordmark, monogram or brand name anywhere.",
     "sceneText": "No readable text in the scene: screens, phones, laptops, tablets, signs, papers and packaging show only abstract shapes, blurred interface blocks or simple icons, never letters, words or numbers.",
-    "sourceLine": "Small, regular weight, in the text colour, at the lower left just above the footer.",
+    "sourceLine": "Small, in the body font and the text colour, directly under the big number.",
     "identity": {
       "rules": [
         "The only person allowed in this image is the man in {images}; nobody else appears.",
@@ -44,15 +44,22 @@
       "noButton": "Do not draw a CTA button.",
       "lettering": "The only other lettering allowed is {lettering}; screens, holograms and props show icons and abstract shapes, never words.",
       "noLettering": "No other lettering anywhere; screens, holograms and props show icons and abstract shapes, never words."
+    },
+    "bodyFont": "Set in {font}, the brand body font: medium weight, normal width.",
+    "brandRules": {
+      "colours": "Only the brand colours listed here and their lighter tints or deeper shades; no other hue anywhere in graphics, glows, icons, panels or text (no purple, teal, green, orange or gold). Blue gradients are paired with silver/metallic accents, as in the logo. The photo scene is colour-graded cool and neutral (blue, white and grey tones) to match.",
+      "typography": "Exactly two type styles, identical on every image of the set: {heading} for the headline, the audience line and big numbers; {body} for all other text (supporting line, key points, chat, labels, button, footer). Each role keeps the same size, weight and case on every image. Never condensed, narrow, rounded, serif, script or decorative fonts, never the logo font, no outlined, 3D or distorted text.",
+      "spacing": "Even outer margins of about 6% of the width on every side; only the background touches the edges. Text is left-aligned on one margin line inside the panel with generous line spacing; elements sit on a simple grid with even gaps; at most three small decor elements; no clutter and no large empty areas."
     }
   },
   "typography": {
-    "headline": "ALL CAPS, extra-bold, left-aligned, 3-4 short lines.",
+    "headline": "ALL CAPS, bold, left-aligned, 2-4 short lines.",
     "headlineHighlight": "The highlight words are set in the highlight colour.",
-    "subheadline": "Regular weight, sentence case, 2-3 lines.",
+    "subheadline": "Sentence case, 1-3 lines.",
     "subheadlineHighlight": "The one highlight word is set in the highlight colour.",
     "stat": "Huge and extra-bold, in the highlight colour.",
-    "steps": "Medium weight, sentence case, one line per step."
+    "steps": "Medium weight, sentence case, one line per step.",
+    "points": "One line per point, sentence case, each with a small outlined glowing icon in the accent colour on its left."
   },
   "elements": {
     "textPanel": "A dark translucent glass panel with rounded corners, a thin glowing outline in the accent colour and a slanted inner edge. It holds all text.",
@@ -85,22 +92,79 @@
       },
       "office_day": {
         "description": "a bright modern office in daylight: large windows, soft natural light, clean and airy",
-        "tags": ["office", "agency", "consulting", "b2b", "team", "marketing", "startup", "sme", "real estate", "realtor", "brokerage"]
+        "tags": [
+          "office",
+          "agency",
+          "consulting",
+          "b2b",
+          "team",
+          "marketing",
+          "startup",
+          "sme",
+          "real estate",
+          "realtor",
+          "brokerage"
+        ]
       },
       "real_estate_office": {
         "description": "a modern real estate agency office: a clean desk by a large window, framed architectural photos of houses on the wall, a small model house on the desk, soft daylight, no other people",
         "general": false,
-        "tags": ["real estate", "realtor", "realtors", "estate agent", "estate agents", "brokerage", "broker", "property", "properties", "listing", "listings", "home buyers", "homebuyers", "mortgage"]
+        "tags": [
+          "real estate",
+          "realtor",
+          "realtors",
+          "estate agent",
+          "estate agents",
+          "brokerage",
+          "broker",
+          "property",
+          "properties",
+          "listing",
+          "listings",
+          "home buyers",
+          "homebuyers",
+          "mortgage"
+        ]
       },
       "property_interior": {
         "description": "a bright, staged living room of a modern home for sale: large windows, light wood floor, a sofa and plants, open-house atmosphere, no other people",
         "general": false,
-        "tags": ["real estate", "realtor", "realtors", "estate agent", "estate agents", "property", "properties", "listing", "listings", "home buyers", "homebuyers", "open house", "house viewing", "apartment", "apartments"]
+        "tags": [
+          "real estate",
+          "realtor",
+          "realtors",
+          "estate agent",
+          "estate agents",
+          "property",
+          "properties",
+          "listing",
+          "listings",
+          "home buyers",
+          "homebuyers",
+          "open house",
+          "house viewing",
+          "apartment",
+          "apartments"
+        ]
       },
       "property_exterior": {
         "description": "the front of a modern detached house at golden hour: a tidy front garden and path, warm light in the windows, a quiet street softly blurred, no signs and no other people",
         "general": false,
-        "tags": ["real estate", "realtor", "realtors", "estate agent", "estate agents", "property", "properties", "listing", "listings", "home buyers", "homebuyers", "neighbourhood", "neighborhood"]
+        "tags": [
+          "real estate",
+          "realtor",
+          "realtors",
+          "estate agent",
+          "estate agents",
+          "property",
+          "properties",
+          "listing",
+          "listings",
+          "home buyers",
+          "homebuyers",
+          "neighbourhood",
+          "neighborhood"
+        ]
       },
       "studio": {
         "description": "a clean photo studio: a seamless dark backdrop, a soft key light and a cool rim light",
@@ -129,17 +193,52 @@
       "reception_desk": {
         "description": "a modern reception desk in a bright practice or office: a tablet for check-in, a phone, a small plant and a waiting area softly blurred behind, no other people",
         "general": false,
-        "tags": ["reception", "front desk", "appointment", "booking", "bookings", "dental", "dentist", "practice", "clinic", "salon", "hotel", "patients", "calls"]
+        "tags": [
+          "reception",
+          "front desk",
+          "appointment",
+          "booking",
+          "bookings",
+          "dental",
+          "dentist",
+          "practice",
+          "clinic",
+          "salon",
+          "hotel",
+          "patients",
+          "calls"
+        ]
       },
       "clinic": {
         "description": "a bright, modern clinic or practice room: clean surfaces, soft daylight and calm colours, softly blurred, no other people",
         "general": false,
-        "tags": ["clinic", "dental", "dentist", "doctor", "medical", "practice", "physio", "therapy", "patients", "health"]
+        "tags": [
+          "clinic",
+          "dental",
+          "dentist",
+          "doctor",
+          "medical",
+          "practice",
+          "physio",
+          "therapy",
+          "patients",
+          "health"
+        ]
       },
       "shop": {
         "description": "a modern small shop: neatly lit shelves, a counter with a card terminal and a warm window display, no other people",
         "general": false,
-        "tags": ["shop", "store", "retail", "boutique", "e-commerce", "ecommerce", "local business", "customers", "products"]
+        "tags": [
+          "shop",
+          "store",
+          "retail",
+          "boutique",
+          "e-commerce",
+          "ecommerce",
+          "local business",
+          "customers",
+          "products"
+        ]
       },
       "abstract_gradient": {
         "description": "no photo scene: an abstract gradient background built from the background and accent colours, with soft light blooms",
@@ -179,7 +278,15 @@
       },
       "laptop_coffee": {
         "description": "a laptop and a black coffee mug",
-        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking", "reception_desk", "real_estate_office"]
+        "scenes": [
+          "office_night",
+          "office_day",
+          "cafe",
+          "home_desk",
+          "coworking",
+          "reception_desk",
+          "real_estate_office"
+        ]
       },
       "notebook_plant": {
         "description": "an open notebook with a pen and a small plant",
@@ -187,7 +294,20 @@
       },
       "tablet_phone": {
         "description": "a tablet and a smartphone",
-        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking", "studio", "reception_desk", "shop", "clinic", "real_estate_office", "property_interior", "property_exterior"]
+        "scenes": [
+          "office_night",
+          "office_day",
+          "cafe",
+          "home_desk",
+          "coworking",
+          "studio",
+          "reception_desk",
+          "shop",
+          "clinic",
+          "real_estate_office",
+          "property_interior",
+          "property_exterior"
+        ]
       },
       "robot_mascot": {
         "description": "a friendly white robot mascot beside a laptop",
@@ -219,13 +339,18 @@
         "description": "glowing hologram icons (chat, calendar, mail, chart, gear, checklist, clock, target) inside glass tiles (rounded square, hexagon or circle), linked by thin glowing lines and orbiting a central \"AI\" chip or brain"
       },
       "dashboard": {
-        "description": "a floating translucent dashboard with simple charts, chat bubbles and a lead pipeline, linked by thin glowing lines to a small \"AI\" chip"
+        "description": "a floating translucent dashboard with simple charts, chat bubbles and a lead pipeline, linked by thin glowing lines to a small \"AI\" chip",
+        "tags": ["ui"]
       },
       "orbit_rings": {
         "description": "glowing outlined icons riding on thin orbit rings around a bright \"AI\" core"
       },
       "node_network": {
         "description": "a network of glowing nodes and lines that forms a workflow, with a small outlined icon at each node and an \"AI\" chip at the centre"
+      },
+      "ui_cards": {
+        "description": "floating translucent UI cards: a chat window with two bubbles, a CRM contact card and a calendar with one booked slot, linked by thin glowing lines; abstract lines stand in for words",
+        "tags": ["ui"]
       }
     },
     "poses": {
@@ -234,7 +359,15 @@
       },
       "laptop": {
         "description": "seated at a laptop, hands clasped",
-        "scenes": ["office_night", "office_day", "cafe", "home_desk", "coworking", "reception_desk", "real_estate_office"]
+        "scenes": [
+          "office_night",
+          "office_day",
+          "cafe",
+          "home_desk",
+          "coworking",
+          "reception_desk",
+          "real_estate_office"
+        ]
       },
       "profile": {
         "description": "side profile, hand on chin, studying what is in front of him"
@@ -251,7 +384,16 @@
       },
       "walking": {
         "description": "walking towards the camera mid-stride, relaxed and confident",
-        "scenes": ["office_day", "city_street", "coworking", "conference_stage", "shop", "clinic", "property_interior", "property_exterior"]
+        "scenes": [
+          "office_day",
+          "city_street",
+          "coworking",
+          "conference_stage",
+          "shop",
+          "clinic",
+          "property_interior",
+          "property_exterior"
+        ]
       },
       "stressed": {
         "description": "stressed, hands on the head",
@@ -262,8 +404,8 @@
   "layouts": {
     "A": {
       "use": "product / feature",
-      "description": "Text panel on the left, the system visual on the right. No person in the image.",
-      "person": false
+      "description": "Text panel on the left; on the right a large floating system visual (a chat window, CRM card or calendar) with the man beside it, gesturing towards it.",
+      "person": true
     },
     "B": {
       "use": "trust / authority",
@@ -284,61 +426,75 @@
   },
   "formats": {
     "ad": {
-      "use": "an offer or service message with a call to action: headline, subheadline and CTA button, usually with the man",
-      "composition": "A premium tech-style graphic with a rich composition and no large empty areas. All text sits in the text panel; the layout decides where the man or the system visual stands.",
+      "use": "an offer or service message with a call to action: headline, subheadline and CTA button, always with the man",
+      "composition": "A premium tech-style graphic with a rich composition and no large empty areas. All text sits in the text panel; the layout decides where the man and, in layout A, the system visual stand.",
       "required": ["headline", "subheadline", "cta"],
       "optional": ["icons", "visual"],
       "layouts": ["A", "B", "C", "D"],
-      "defaultLayout": "A",
-      "person": "layout",
+      "person": "always",
       "elements": ["textPanel", "holograms", "decor", "props"],
       "headlineMaxWords": 6,
-      "styleSets": ["creative/facebook_ads"],
-      "styleRefs": 3
+      "styleSets": ["creative/facebook_ads_masked"],
+      "styleRefs": 1
     },
     "statement": {
-      "use": "one bold sentence: an opinion or insight that stands on its own",
-      "composition": "A bold statement graphic: the one sentence is set very large and is the only focal point, directly on the background with strong contrast, filling most of the frame; the scene is only a soft, darkened, out-of-focus backdrop. No text panel, no person, no subheadline, no button.",
-      "required": ["headline", "audience_line"],
-      "person": "never",
-      "elements": ["decor"],
-      "headlineMaxWords": 12,
-      "labels": {"headline": "Statement"},
-      "typography": {"headline": "ALL CAPS, extra-bold, very large, 3-5 short lines that fill most of the frame."},
-      "styleSets": [],
-      "styleRefs": 0
+      "use": "content type insight: one bold claim or insight and 3 ways to act on it",
+      "composition": "Content type insight: the headline is one bold claim; the 3 key points say how to act on it.",
+      "required": ["headline", "subheadline", "audience_line", "points"],
+      "headlineMaxWords": 10,
+      "labels": {
+        "points": "Key point"
+      },
+      "layouts": ["A", "B", "C", "D"],
+      "person": "always",
+      "family": "post",
+      "elements": ["textPanel", "holograms", "decor", "props"],
+      "styleSets": ["creative/facebook_ads_masked"],
+      "styleRefs": 1
     },
     "stat": {
-      "use": "one big number from the research plus one context line",
-      "composition": "A data graphic: one very large number is the focal point with one context line directly below it, set on the background with strong contrast; the scene is only a soft, darkened, out-of-focus backdrop. No text panel, no person, no button, no charts or extra figures.",
-      "required": ["stat", "subheadline", "audience_line"],
-      "person": "never",
-      "elements": ["decor"],
-      "labels": {"stat": "Big number", "subheadline": "Context line"},
-      "typography": {"subheadline": "Regular weight, sentence case, 1-2 lines, directly below the number."},
-      "styleSets": [],
-      "styleRefs": 0
+      "use": "content type stat: one sourced number from the research and what it means",
+      "composition": "Content type stat: the content block is the one big number with its source line.",
+      "required": ["headline", "subheadline", "audience_line", "stat"],
+      "headlineMaxWords": 10,
+      "labels": {
+        "stat": "Big number",
+        "subheadline": "Supporting line"
+      },
+      "layouts": ["A", "B", "C", "D"],
+      "person": "always",
+      "family": "post",
+      "elements": ["textPanel", "holograms", "decor", "props"],
+      "styleSets": ["creative/facebook_ads_masked"],
+      "styleRefs": 1
     },
     "news": {
-      "use": "a news item from the research in one line, plus what it means for the audience",
-      "composition": "A news graphic: the text panel shows the news in one bold line, then a small label and the line that says what it means for the reader. Without the man, the scene is only a soft, darkened backdrop behind the panel. No button.",
-      "required": ["headline", "subheadline"],
-      "layouts": ["B", "C"],
-      "person": "layout",
-      "elements": ["textPanel", "decor"],
+      "use": "content type news: a news item from the research, what it means, and 3 things to do now",
+      "composition": "Content type news: the headline is the news in one line; the supporting line says what it means for the reader; the 3 key points are what to do now.",
+      "required": ["headline", "subheadline", "points"],
+      "optional": ["audience_line"],
       "headlineMaxWords": 14,
       "headlineCaps": false,
-      "labels": {"headline": "News line", "subheadline": "Meaning line"},
-      "fixedTexts": {"Small label above the meaning line": "What it means"},
-      "typography": {"headline": "Bold, sentence case, 2-3 lines."},
-      "styleSets": [],
-      "styleRefs": 0
+      "labels": {
+        "headline": "News line",
+        "subheadline": "Meaning line",
+        "points": "Key point"
+      },
+      "typography": {
+        "headline": "Bold, sentence case, 2-3 lines."
+      },
+      "layouts": ["A", "B", "C", "D"],
+      "person": "always",
+      "family": "post",
+      "elements": ["textPanel", "holograms", "decor", "props"],
+      "styleSets": ["creative/facebook_ads_masked"],
+      "styleRefs": 1
     },
     "carousel": {
       "use": "a topic taught in slides: a hook slide with the man, tip slides, and a last slide with the call to action",
       "composition": "One slide of a carousel; every slide shares the same background, text panel and decor so the series looks consistent.",
       "required": ["headline"],
-      "optional": ["subheadline", "visual", "chat", "diagram", "cta", "audience_line"],
+      "optional": ["subheadline", "chat", "diagram", "mini_checklist", "before_after", "cta", "audience_line"],
       "layouts": ["B", "C"],
       "defaultLayout": "B",
       "person": "layout",
@@ -346,7 +502,7 @@
       "headlineMaxWords": 8,
       "styleSets": ["creative/carousels"],
       "styleByRole": true,
-      "styleRefs": 3
+      "styleRefs": 1
     },
     "person_photo": {
       "use": "a human or behind-the-scenes moment: the man in a scene with almost no text",
@@ -355,19 +511,29 @@
       "person": "always",
       "elements": ["props"],
       "headlineMaxWords": 3,
-      "labels": {"headline": "Small caption"},
-      "typography": {"headline": "Small, bold, ALL CAPS, one line in a lower corner."},
+      "labels": {
+        "headline": "Small caption"
+      },
+      "typography": {
+        "headline": "Small, bold, ALL CAPS, one line in a lower corner."
+      },
       "styleRefs": 0
     },
     "checklist": {
-      "use": "a how-to in 3-5 short steps with icons",
-      "composition": "A checklist graphic: a short title, then the steps as a numbered vertical list in the text panel, each step with a small outlined glowing icon that illustrates it; the scene is only a soft, darkened backdrop behind the panel. No person, no button.",
-      "required": ["headline", "steps", "audience_line"],
-      "person": "never",
-      "elements": ["textPanel", "decor"],
-      "labels": {"headline": "Title"},
-      "styleSets": [],
-      "styleRefs": 0
+      "use": "content type checklist: a task in 3 numbered steps",
+      "composition": "Content type checklist: the headline names the task; the 3 key points are numbered steps.",
+      "required": ["headline", "subheadline", "audience_line", "points"],
+      "headlineMaxWords": 8,
+      "labels": {
+        "points": "Step"
+      },
+      "numberedPoints": true,
+      "layouts": ["A", "B", "C", "D"],
+      "person": "always",
+      "family": "post",
+      "elements": ["textPanel", "holograms", "decor", "props"],
+      "styleSets": ["creative/facebook_ads_masked"],
+      "styleRefs": 1
     }
   },
   "kinds": {
@@ -391,16 +557,28 @@
   },
   "carousel": {
     "slides": {
-      "hook": "Slide 1, the hook: the audience line, then a big ALL-CAPS headline that names the problem or the promise (2-4 short lines, 1-2 highlight words), next to the man, with an optional short line below. No tip on this slide and no button.",
-      "tip": "A tip slide: exactly one tip as a bold sentence-case headline (2-3 lines) with highlight words, a short accent-coloured underline, the concrete how in 2-3 lines, and one large visual that shows the automation: a chat example or a workflow diagram when listed below, otherwise one glowing visual. No button.",
-      "cta": "The last slide: the call to action as the headline and the CTA button as the focal point, with the top-right corner kept empty for the logo; optionally a row of three outlined icons (heart, paper plane, bookmark) without words."
+      "hook": "The first slide, the hook, with the man: the audience line, then a big ALL-CAPS headline that names the problem or the promise (1-2 highlight words), with an optional short line below. No tip and no button.",
+      "tip": "A middle slide, an information visual without people: the heading (ALL CAPS, bold, at most 2 lines, the same style as on the first slide) with highlight words, a short accent-coloured underline, the supporting line with the concrete fact or action, and one large visual that adds information (listed below). No button.",
+      "cta": "The last slide, with the man: the call to action as the headline and the CTA button as the focal point; optionally a row of three outlined icons (heart, paper plane, bookmark) without words."
     },
     "chat": "A phone-style chat on the right: the listed bubbles in order, customer bubbles on the left in a dark grey, business or chatbot bubbles on the right in the accent colour, each with its text exactly as listed.",
     "diagram": "A simple workflow diagram on the right: the listed steps as 3-4 rounded glass boxes connected by glowing arrows in order, each box with a small icon and its label exactly as listed.",
-    "navigation": "A small rounded pill with the slide counter at the top left (the top right stays empty for the logo) and a small row of swipe chevrons at the bottom right on every slide except the last.",
+    "navigation": "No slide numbers, counters, page dots or counts anywhere. A small row of swipe chevrons at the bottom right on every slide except the last.",
     "demos": {
       "source": "assets/reference/creative/carousels: 13 demo carousels of 8 slides each (video frames in _frames/). Slide 1 is used as a hook example, the last slide as a call-to-action example and the slides between as tip examples.",
       "structure": "Dark background with a glowing particle-dot wave, faint hexagon lines and small dot grids; text left or centred, the visual on the right. Hook: a large statement headline. Tips: a headline with highlight words, a short underline, a short explanation and often a small hexagon icon with a one-line takeaway. Last slide: a question that invites comments, an engagement icon row and the logo. A counter pill like 02/07 marks the slide; there is no visible swipe text."
+    },
+    "checklist": "A mini checklist on the right: exactly 3 rows in a glass card, each a check-box icon in the accent colour and its label exactly as listed.",
+    "beforeAfter": "A before/after comparison on the right: two stacked glass cards joined by a glowing arrow; the top card has a small cross icon and the before text, the bottom card a check icon and the after text, each exactly as listed.",
+    "series": "Every slide of this carousel uses the same design: the same glass panel, the same two fonts and sizes, the same palette and the same scene treatment (on the middle slides the scene of the first slide, softly blurred and darkened behind the panel). Only the texts and the visual change.",
+    "story": {
+      "hook": "slide 1: names the audience and the problem or the promise (with the man)",
+      "problem": "slide 2: what goes wrong today, concretely (who waits, what is lost)",
+      "step": "a step to take: who sends what, when, through which channel",
+      "insight": "a usable insight: a timing, a tool setting, example wording or a sourced figure",
+      "example": "second to last: a concrete example run-through (a message thread or a day)",
+      "result": "second to last: what changes, with a sourced figure or a concrete scenario",
+      "cta": "last slide: the call to action with the offer (with the man)"
     }
   },
   "ctaRules": {
@@ -435,5 +613,11 @@
       "Short text.",
       "3 variants: a different headline or visual, the same branding."
     ]
+  },
+  "postFamily": {
+    "use": "every Facebook post: one premium layout family; statement, stat, checklist and news are its content types",
+    "composition": "A premium social post in the quality of the brand's past ads: the man integrated in a topic-relevant scene with depth (softly blurred background, a few foreground props) and brand lighting (cool blue key light, sky-blue rim light); a dark translucent glass panel holds the audience line, the headline and one supporting line, then the content block; topic-relevant hologram or UI elements (a chat window, a CRM card, a calendar) float near him; the footer at the bottom. No flat single-colour background and no large empty areas.",
+    "points": "Content block: the 3 key points listed below, one per line, each with its icon.",
+    "stat": "Content block: the one big number, huge and bold in the highlight colour, with the small source line directly under it."
   }
 }

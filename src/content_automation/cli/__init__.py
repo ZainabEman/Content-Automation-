@@ -19,7 +19,7 @@ from content_automation.content.research_input import ResearchInputError, load_i
 from content_automation.core.agent_steps import record_agent_output, request_path
 from content_automation.core.config import ConfigurationError, Settings, load_settings
 from content_automation.core.files import atomic_write_text
-from content_automation.core.jobs import DETAILS_FILE, Job, JobStateError
+from content_automation.core.jobs import DETAILS_FILE, Job, JobStateError, ReviewCheck
 from content_automation.core.limits import DailyLimitError
 from content_automation.core.log import configure_logging
 from content_automation.doctor import run_checks
@@ -30,6 +30,7 @@ from content_automation.references import (
     extract_frames,
     list_sets,
     load_brand,
+    mask_copies,
     scan,
     set_primary,
     tag_assets,
@@ -210,7 +211,19 @@ def image(
     ] = None,
     diagram: Annotated[
         str | None,
-        typer.Option(help='Carousel tip: 3-4 workflow steps, "Visitor asks|Bot answers|CRM".'),
+        typer.Option(help='Carousel middle slide: 3-4 steps, "Lead asks|Bot answers|CRM".'),
+    ] = None,
+    mini_checklist: Annotated[
+        str | None,
+        typer.Option(help='Carousel middle slide: 3 checklist rows, "One|Two|Three".'),
+    ] = None,
+    before_after: Annotated[
+        str | None,
+        typer.Option(help='Carousel middle slide: "<before>|<after>", each at most 12 words.'),
+    ] = None,
+    points: Annotated[
+        str | None,
+        typer.Option(help='Post (statement, checklist, news): 3 key points, "One|Two|Three".'),
     ] = None,
     first_slide: Annotated[
         str | None,
@@ -313,6 +326,9 @@ def image(
         audience_line=audience_line,
         chat=chat,
         diagram=diagram,
+        mini_checklist=mini_checklist,
+        before_after=before_after,
+        points=points,
         highlight=highlight,
         subheadline=subheadline,
         sub_highlight=sub_highlight,
@@ -410,6 +426,24 @@ def refs_scan() -> None:
     for warning in report.warnings:
         typer.echo(f"warning: {warning}", err=True)
     typer.echo(f"{len(report.sets)} sets scanned, {len(report.skipped)} folders skipped.")
+
+
+@refs_app.command("mask")
+def refs_mask() -> None:
+    """Make the masked copies listed in config/references.json (logos covered), then rescan.
+
+    Designs use only these copies of the past ads; the originals are never sent.
+    """
+    settings = _settings()
+    try:
+        made = mask_copies(settings.references_dir)
+        report = scan(settings.references_dir)
+    except ReferenceLibraryError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    for name in made:
+        typer.echo(f"masked {name}")
+    typer.echo(f"{len(made)} masked copies made; {len(report.sets)} sets scanned.")
 
 
 @refs_app.command("frames")
@@ -633,22 +667,33 @@ def job_review(
     note: Annotated[
         str | None, typer.Option(help='With --pass: e.g. "accepted by the user".')
     ] = None,
+    check: Annotated[
+        str,
+        typer.Option(
+            help="person: is it him? set: does it match the first image of its set (fonts, "
+            "colours, layout family)?"
+        ),
+    ] = "person",
 ) -> None:
-    """Record the person check of an image (saved in details.json; the newest one counts)."""
+    """Record a person or set check of an image (saved in details.json; the newest counts)."""
+    if check not in ("person", "set"):
+        typer.echo("--check must be person or set.", err=True)
+        raise typer.Exit(code=2)
     if passed == (failed is not None):
         typer.echo("Give exactly one of --pass or --fail \"<what differs>\".", err=True)
         raise typer.Exit(code=2)
     job = _load_job(job_dir)
     try:
+        kind: ReviewCheck = "set" if check == "set" else "person"
         if failed is not None:
-            job.add_review(image, "fail", failed.strip() or "differs from the identity photos")
+            job.add_review(image, "fail", failed.strip() or "differs", check=kind)
         else:
-            job.add_review(image, "pass", note)
+            job.add_review(image, "pass", note, check=kind)
     except JobStateError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from None
     result = "passed" if passed else "failed"
-    typer.echo(f"{image} of {job.job_id}: person check {result} (recorded in {DETAILS_FILE}).")
+    typer.echo(f"{image} of {job.job_id}: {check} check {result} (recorded in {DETAILS_FILE}).")
 
 
 @env_app.command("set")

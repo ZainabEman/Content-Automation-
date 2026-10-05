@@ -1,0 +1,83 @@
+{
+  "brandName": "Branded Genius",
+  "status": "draft",
+  "sources": [
+    "assets/reference/brand/guidelines/Branded Genius Brand Style Guide.pdf"
+  ],
+  "colors": [
+    {
+      "name": "Royal Blue",
+      "hex": "#004BA0",
+      "usage": "Dark end of the blue gradient in the \"BRANDED\" wordmark; main brand blue"
+    },
+    {
+      "name": "Sky Blue",
+      "hex": "#69BFF8",
+      "usage": "Light end of the blue gradient in the \"BRANDED\" wordmark; highlights and accents"
+    },
+    {
+      "name": "Medium Gray",
+      "hex": "#969595",
+      "usage": "Dark end of the silver/metallic gradient in the \"GENIUS\" wordmark"
+    },
+    {
+      "name": "White",
+      "hex": "#FFFFFF",
+      "usage": "Light end of the silver/metallic gradient in the \"GENIUS\" wordmark; backgrounds"
+    }
+  ],
+  "fonts": [
+    {
+      "name": "Futura Bold",
+      "usage": "Headings"
+    },
+    {
+      "name": "Futura Medium",
+      "usage": "Sub-headings and all supporting text (the one body font)"
+    },
+    {
+      "name": "Good Times",
+      "usage": "Logo only"
+    }
+  ],
+  "language": "en",
+  "tone": "confident, clear, data-driven, friendly",
+  "audience": "startups, SMEs and growth-focused brands in DACH and internationally (B2B and B2C)",
+  "contentPillars": [
+    "AI marketing",
+    "marketing automation",
+    "lead generation",
+    "SEO & web",
+    "AI chatbots"
+  ],
+  "services": [
+    "AI Marketing & Content Creation",
+    "Lead Generation & Performance Marketing (PPC)",
+    "SEO",
+    "Web Design",
+    "AI Chatbots & AI Development",
+    "CRM & Marketing Automation",
+    "Photo & Video Production"
+  ],
+  "logoFile": "logo (1).png",
+  "logoRules": [
+    "The logo is the wordmark \"BRANDED\" (bold, blue gradient) above \"GENIUS\" (bold, silver/metallic gradient) with a short line on each side of \"GENIUS\".",
+    "Approved versions: full colour, dark logo (white lettering on dark grey), white-background logo (black lettering), and greyscale logo (grey lettering on dark grey).",
+    "Keep the bold lettering, the metallic effect and the colour gradients; they carry the professional, tech-forward look.",
+    "The guide shows the logo on A4 and A5 letterhead, envelopes and business cards."
+  ],
+  "imageStyle": "Clean, modern and tech-forward: light grey or white backgrounds, royal and sky blue accents, silver/metallic highlights, generous white space and bold, simple headlines.",
+  "do": [
+    "Use only the four brand colours: Royal Blue, Sky Blue, Medium Gray and White.",
+    "Pair blue gradients with silver/metallic tones, as in the logo.",
+    "Use Futura Bold for headings and Futura Medium for sub-headings.",
+    "Use one of the approved logo versions that contrasts with the background.",
+    "On dark backgrounds use the dark logo version (white lettering); on light backgrounds the full-colour logo."
+  ],
+  "dont": [
+    "Don't use the Good Times logo font for headings or body text.",
+    "Don't recolour the logo outside the brand palette.",
+    "Don't stretch, rotate, crop or add effects to the logo."
+  ],
+  "needsReview": []
+}

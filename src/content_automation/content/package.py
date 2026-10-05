@@ -34,8 +34,14 @@ from content_automation.ai.image import ImageError, estimate_cost_usd
 from content_automation.ai.video import VideoError
 from content_automation.content.brief import (
     ASPECT_BY_PLATFORM,
+    DEFAULT_SLIDES,
     MAX_HASHTAGS,
+    MAX_SLIDES,
+    MAX_TAKEAWAYS,
     MIN_HASHTAGS,
+    MIN_INSIGHTS,
+    MIN_SLIDES,
+    MIN_TAKEAWAYS,
     STORY_ASPECT,
     BriefError,
     ContentBrief,
@@ -49,11 +55,20 @@ from content_automation.content.deliverables import (
     DeliverableError,
     load_deliverables,
 )
-from content_automation.content.quality import carousel_problems, proof_problems
+from content_automation.content.quality import (
+    CAPTION_MAX_WORDS,
+    CAPTION_MIN_WORDS,
+    caption_problems,
+    carousel_problems,
+    insight_problems,
+    offer_label,
+    post_problems,
+    proof_problems,
+)
 from content_automation.content.research_input import ResearchIdea, save_sources
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
-from content_automation.core.jobs import DETAILS_FILE, Job, slugify
+from content_automation.core.jobs import DETAILS_FILE, Job, ReviewCheck, slugify
 from content_automation.core.limits import DailyLimitError
 from content_automation.references import (
     BrandProfile,
@@ -142,6 +157,7 @@ class PackageItem(CamelModel):
     picks: DesignPicks | None = None  # format, scene, wardrobe, props, style images used
     files: list[str] = Field(default_factory=list)  # relative to the package folder
     image_refs: list[str] = Field(default_factory=list)  # "<jobId>/<file>" per image
+    image_folders: list[str] = Field(default_factory=list)  # the job folder of each image
     cost_usd: float | None = None
     error: str | None = None
     updated_at: datetime | None = None
@@ -377,25 +393,23 @@ def _design_help(system: DesignSystem, suggested: FormatId | None) -> dict[str, 
     """The design system's choices, for the "_help" block of the brief template."""
 
     def person(key: str, spec: FormatSpec) -> str:
-        if spec.person != "layout":
-            return "always the man" if spec.person == "always" else "no person"
         if key == "carousel":
-            return "the man on slide 1 only"
-        shown = [name for name in spec.layouts if system.layouts[name].person]
-        others = [name for name in spec.layouts if name not in shown]
-        rest = f"with layout {', '.join(others)}" if others else "without a layout"
-        return f"the man with layout {', '.join(shown)}; no person {rest}"
+            return "the man on the first and last slides; middle slides without people"
+        return "always the man" if spec.person != "never" else "no person"
 
+    post_types = [key for key, spec in system.formats.items() if spec.family == "post"]
     return {
         "choose": (
-            "Format: keep the suggested post format (it differs from the last packages) unless "
-            "it does not fit the research; then pick another from formats and fill its "
-            "required fields. A stat needs a number that is written in a research article "
-            "(its ID goes in source); never invent one. Layout: A for a product or feature; "
-            "B or C for trust (alternate B and C between posts); D for pain vs gain. Headline "
-            "(format ad): one formula from headlineFormulas. Never describe the man's face."
+            "Every Facebook post is the premium post layout with the man; statement, stat, "
+            f"checklist and news are its content types ({', '.join(post_types)}). Keep the "
+            "suggested content type (it differs from the last packages) unless it does not fit "
+            "the research. A stat needs a number written in a research article (its ID goes in "
+            "source); never invent one. Layout: leave it out to rotate A-D (A product or feature, "
+            "B or C trust, D pain vs gain). Headline (format ad): one formula from "
+            "headlineFormulas. Never describe the man's face."
         ),
         "suggestedFormat": suggested,
+        "postFamily": system.post_family.composition,
         "formats": {
             key: {
                 "use": spec.use,
@@ -409,6 +423,7 @@ def _design_help(system: DesignSystem, suggested: FormatId | None) -> dict[str, 
         "layouts": {
             key: f"{layout.use}: {layout.description}" for key, layout in system.layouts.items()
         },
+        "carouselStory": system.carousel.story,
         "pools": {
             name: {key: entry.description for key, entry in pool.items()}
             for name, pool in (
@@ -425,45 +440,60 @@ def _design_help(system: DesignSystem, suggested: FormatId | None) -> dict[str, 
         },
         "rules": {"post": system.rules.organic, "ad": system.rules.ad},
         "optional": (
-            'Per image you may add "scene", "wardrobe", "props" or "pose": an ID from pools or '
-            "your own words. Left out, they are picked so that they differ from the last "
-            'packages. Format ad also takes "ctaIcon" (arrow, calendar or play; default: '
-            'chosen from the cta label) and "icons" (3-4 labels of 1-2 words). In post, '
-            '"kind": "story" makes it 9:16.'
+            'Per image you may add "layout", "scene", "wardrobe", "props" or "pose": a letter, '
+            "an ID from pools or your own words. Left out, they are picked so that they differ "
+            'from the last packages. Format ad also takes "ctaIcon" (arrow, calendar or play; '
+            'default: chosen from the cta label) and "icons" (3-4 labels of 1-2 words). In '
+            'post, "kind": "story" makes it 9:16.'
         ),
     }
 
 
+_STORY_DEFAULT = {6: ["hook", "problem", "step", "insight", "example", "cta"],
+                  7: ["hook", "problem", "step", "step", "insight", "example", "cta"],
+                  8: ["hook", "problem", "step", "step", "insight", "insight", "example", "cta"]}
+
+
 def _carousel_slides(count: int, cta: str) -> list[dict[str, Any]]:
-    """Slide 1 the hook (with the man), then tips, the last slide with the call to action."""
-    how = "<the concrete how or an example, 1-2 short lines>"
-    shows: list[dict[str, Any]] = [
+    """The story: hook (with the man) -> problem -> steps or insights -> example or result ->
+    cta (with the man). Every middle slide: a heading, one specific line, one visual."""
+    roles = _STORY_DEFAULT.get(count, _STORY_DEFAULT[DEFAULT_SLIDES])
+    line = (
+        "<one line, at most 18 words: who sends what, when, through which channel (or the "
+        "specific fact)>"
+    )
+    visuals: list[dict[str, Any]] = [
+        {"beforeAfter": {"before": "<what happens today, at most 12 words>",
+                         "after": "<what happens with the automation, at most 12 words>"}},
         {"chat": [
-            {"from": "customer", "text": "<a short customer question>"},
-            {"from": "bot", "text": "<the automated answer>"},
+            {"from": "customer", "text": "<the customer's real message>"},
+            {"from": "bot", "text": "<the automated reply, exact wording>"},
         ]},
-        {"diagram": ["<step 1>", "<step 2>", "<step 3>"]},
-        {"visual": "<what its icon shows, or replace with chat/diagram>"},
+        {"diagram": ["<trigger>", "<what is sent, by which channel>", "<where it is logged>"]},
+        {"checklist": ["<check 1>", "<check 2>", "<check 3>"]},
     ]
-    tips = [
-        {"headline": f"<tip {number}: its own idea>", "subheadline": how,
-         **shows[(number - 1) % len(shows)]}
-        for number in range(1, count - 1)
+    middle = [
+        {"role": role, "headline": f"<{role}: at most 6 words>", "subheadline": line,
+         **visuals[number % len(visuals)]}
+        for number, role in enumerate(roles[1:-1])
     ]
     return [
-        {"headline": "<the problem or the promise for this audience, at most 8 words>",
+        {"role": "hook",
+         "headline": "<the problem or the promise for this audience, at most 8 words>",
          "subheadline": "<one short line>"},
-        *tips,
-        {"headline": "<the call to action>", "cta": cta},
+        *middle,
+        {"role": "cta", "headline": "<the call to action with the offer>", "cta": cta},
     ]
 
 
 def _slot_template(
-    name: str, format_id: FormatId, slides: int = 4, last_cta: str = "<button label>"
+    name: str, format_id: FormatId, slides: int = DEFAULT_SLIDES, last_cta: str = "<label>"
 ) -> dict[str, Any]:
     """The fields the format needs, as placeholders."""
     highlight = ["<1-2 words from the headline>"]
     audience = "<FOR WHOM, from the topic, e.g. FOR DENTAL PRACTICES>"
+    line = "<one specific supporting line: who does what, when, through which channel>"
+    points = ["<key point 1, at most 8 words>", "<key point 2>", "<key point 3>"]
     cta = (
         "<button label naming the one offer (see _help.design.rules.ad)>"
         if name == "ad"
@@ -471,38 +501,40 @@ def _slot_template(
     )
     fields: dict[FormatId, dict[str, Any]] = {
         "ad": {
-            "layout": "<A, B, C or D (see _help.design.layouts)>",
             "headline": "<at most 6 words, built from a formula in _help.design.headlineFormulas>",
             "highlight": highlight,
-            "subheadline": "<one short sentence>",
+            "subheadline": "<one short, specific sentence>",
             "subHighlight": "<one word from the subheadline>",
             "cta": cta,
-            "visual": "<layout A: the system visual on the right; otherwise delete this line>",
         },
         "statement": {
             "audienceLine": audience,
-            "headline": "<one bold sentence, at most 12 words>",
+            "headline": "<one bold claim or insight, at most 10 words>",
             "highlight": highlight,
+            "subheadline": line,
+            "points": points,
         },
         "stat": {
             "audienceLine": audience,
+            "headline": "<what the number means, at most 10 words>",
             "stat": "<the one big number, exactly as the article writes it, e.g. 73%>",
             "source": "<the ID of that article (research.md); list it in sourceArticleIds too>",
             "sourceName": "<the publisher, short, as the article names it, e.g. Zillow>",
-            "subheadline": "<one context line: what the number measures>",
+            "subheadline": "<one line: what the number measures and what to do about it>",
         },
         "news": {
             "headline": "<the news in one line, at most 14 words>",
             "subheadline": "<what it means for our audience, in one sentence>",
             "source": "<the ID of the article (research.md)>",
-            "layout": "<B or C to show the man; otherwise delete this line>",
+            "points": ["<what to do now 1>", "<what to do now 2>", "<what to do now 3>"],
         },
         "carousel": {"audienceLine": audience, "slides": _carousel_slides(slides, last_cta)},
         "person_photo": {"headline": "<0-3 words, or delete this line>"},
         "checklist": {
             "audienceLine": audience,
-            "headline": "<short title, at most 6 words>",
-            "steps": ["<step 1>", "<step 2>", "<step 3>"],
+            "headline": "<the task, at most 8 words>",
+            "subheadline": line,
+            "points": ["<step 1>", "<step 2>", "<step 3>"],
         },
     }
     return {"format": format_id, **fields[format_id]}
@@ -593,8 +625,12 @@ def _brief_template(
             },
             "design": _design_help(system, suggested) if system else {},
             "formats": {
-                "post": "one designed image in the post's format",
-                "carousel": "one image per slide: hook (with the man), tips, call to action",
+                "post": "one premium post image with the man, in the post's content type",
+                "carousel": (
+                    f"{MIN_SLIDES}-{MAX_SLIDES} slides (default {DEFAULT_SLIDES}), one story: "
+                    "hook (with the man) -> problem -> steps or insights -> example or result -> "
+                    "cta (with the man); no slide numbers"
+                ),
                 "ad": f"{AD_VARIANTS} variants of one ad: one message, one offer, one CTA",
                 "reel": (
                     "9:16 video (workflow from the deliverable); each scene at most 15 s; "
@@ -604,9 +640,17 @@ def _brief_template(
                 ),
             },
             "caption": (
-                "hook = line 1; lines = 2-3 short lines, the problem then the solution; "
-                "question = one question that invites comments; cta and link close the "
-                f"caption; {MIN_HASHTAGS}-{MAX_HASHTAGS} English hashtags including {brand_tag}."
+                f"hook = line 1; takeaways = {MIN_TAKEAWAYS}-{MAX_TAKEAWAYS} specific, usable "
+                "points; question = one question that invites comments; the cta (with the "
+                "offer) and link close the caption; hook, takeaways, question and cta together "
+                f"{CAPTION_MIN_WORDS}-{CAPTION_MAX_WORDS} words; {MIN_HASHTAGS}-{MAX_HASHTAGS} "
+                f"English hashtags including {brand_tag}."
+            ),
+            "insights": (
+                f"Before writing anything else, list at least {MIN_INSIGHTS} specific insights "
+                "from the research (actions, how-to steps, example wording, timings, tools, "
+                "sourced figures), each with its source: an article ID or a link in "
+                "research.md. Build every slide and post on them; generic lines are refused."
             ),
             "topArticles": [f"{a.article_id} | {a.source} | {a.title}" for a in articles],
         },
@@ -620,6 +664,11 @@ def _brief_template(
         "keyPoints": ["<key point 1>", "<key point 2>", "<key point 3>"],
         "identitySet": identity_set,
         "sourceArticleIds": [a.article_id for a in articles[:3]],
+        "insights": [
+            {"text": f"<insight {number}: specific and usable today>",
+             "source": "<article ID or link from research.md>"}
+            for number in range(1, MIN_INSIGHTS + 1)
+        ],
     }
     post = by_part.get("post")
     if post is not None:
@@ -629,7 +678,7 @@ def _brief_template(
         template["carousel"] = _slot_template(
             "carousel",
             "carousel",
-            slides=carousel.slides or 5,
+            slides=carousel.slides or DEFAULT_SLIDES,
             last_cta=_platform_cta(system, carousel.platform, company),
         )
     if "ad" in by_part:
@@ -641,12 +690,16 @@ def _brief_template(
     template["captions"] = {
         key: {
             "hook": f"<line 1: the hook for the {item.label.split(':')[0]}>",
-            "lines": ["<short line: the problem>", "<short line: the solution>"],
+            "takeaways": [f"<takeaway {n}: specific and usable today>" for n in range(1, 5)],
             "question": "<one question that invites comments?>",
         }
         for key, item in chosen.items()
     }
-    template["cta"] = "<one clear call to action>"
+    offer = company.offer if company else ""
+    template["cta"] = (
+        f'<one clear call to action that names the offer "{offer_label(offer)}">'
+        if offer else "<one clear call to action with the offer (ask: services.md has none)>"
+    )
     website = company.website if company else ""
     template["link"] = website or (
         "<https://... the page to open; ask the user, never guess (to pre-fill it, add a "
@@ -677,7 +730,7 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
         services=service_names(brand, company),
         known_article_ids=known,
         brand_tag=brand_hashtag(brand.brand_name) if brand else None,
-        checks=lambda checked: _deliverable_problems(checked, settings),
+        checks=lambda checked: _deliverable_problems(checked, settings, folder),
     )
     package = _load(folder, brief)
     plans = _plan_images(brief, package, folder, settings, _image_counts(brief, settings))
@@ -734,8 +787,8 @@ def _image_counts(brief: ContentBrief, settings: Settings) -> dict[str, int]:
     return counts
 
 
-def _deliverable_problems(brief: ContentBrief, settings: Settings) -> list[str]:
-    problems = _quality_problems(brief, settings)
+def _deliverable_problems(brief: ContentBrief, settings: Settings, folder: Path) -> list[str]:
+    problems = _quality_problems(brief, settings, folder)
     if not brief.deliverables:
         return problems  # a brief from before deliverables: its formats decide
     try:
@@ -744,16 +797,26 @@ def _deliverable_problems(brief: ContentBrief, settings: Settings) -> list[str]:
         return [str(error), *problems]
 
 
-def _quality_problems(brief: ContentBrief, settings: Settings) -> list[str]:
-    """A real hook, distinct tips with a how, a platform CTA, and proof only from proof.md."""
+def _quality_problems(brief: ContentBrief, settings: Settings, folder: Path) -> list[str]:
+    """The story and specific content, insights from the research, captions with the offer,
+    a platform CTA, and proof only from proof.md or the cited research."""
     proof_file = settings.company_file.parent / PROOF_FILE
     proof = proof_file.read_text(encoding="utf-8") if proof_file.is_file() else ""
-    research = [
-        f"{found.title} {found.summary} {found.content}"
-        for article_id in brief.source_article_ids
+    cited = {*brief.source_article_ids, *(insight.source for insight in brief.insights)}
+    articles = {
+        article_id: f"{found.title} {found.summary} {found.content}"
+        for article_id in cited
         if (found := find_article(settings.research_dir, article_id)) is not None
-    ]
+    }
+    research = [articles[key] for key in brief.source_article_ids if key in articles]
+    research_md = folder / RESEARCH_FILE
+    company = load_company(settings.company_file)
+    offer = company.offer if company else ""
     problems = proof_problems(brief, proof, research)
+    problems += insight_problems(
+        brief, research_md.read_text(encoding="utf-8") if research_md.is_file() else "", articles
+    )
+    problems += post_problems(brief) + caption_problems(brief, offer)
     platforms: dict[str, str] = {}
     if brief.deliverables:
         try:
@@ -766,7 +829,7 @@ def _quality_problems(brief: ContentBrief, settings: Settings) -> list[str]:
             pass  # reported by the deliverable checks
     try:
         system = load_design_system(settings.design_system_file)
-        problems = carousel_problems(brief, system, platforms) + problems
+        problems = carousel_problems(brief, system, platforms, offer) + problems
     except WorkflowError as error:
         problems.append(str(error))
     return problems
@@ -813,6 +876,7 @@ def _slot_inputs(
         source=slot.source,
         source_name=slot.source_name,
         steps=STEP_SEPARATOR.join(slot.steps) or None,
+        points=STEP_SEPARATOR.join(slot.points) or None,
         audience_line=slot.audience_line,
         slide=slot.slide,
         slide_role=slot.slide_role,
@@ -829,14 +893,14 @@ def _slot_inputs(
     if not slot.slides:
         return [base]
     total = len(slot.slides)
+    person = (1, total)  # the first and last slides show the man; the middle ones do not
     return [
         replace(
             base,
-            # Only the hook slide (slide 1) shows the man.
-            layout=slot.layout if number == 1 else None,
+            layout=slot.layout if number in person else None,
             audience_line=slot.audience_line if number == 1 else None,
-            pose=slot.pose if number == 1 else None,
-            wardrobe=slot.wardrobe if number == 1 else None,
+            pose=slot.pose if number in person else None,
+            wardrobe=slot.wardrobe if number in person else None,
             headline=slide.headline,
             highlight=", ".join(slide.highlight) or None,
             subheadline=slide.subheadline,
@@ -844,6 +908,11 @@ def _slot_inputs(
             visual=slide.visual,
             chat="|".join(f"{bubble.speaker}: {bubble.text}" for bubble in slide.chat) or None,
             diagram=STEP_SEPARATOR.join(slide.diagram) or None,
+            mini_checklist=STEP_SEPARATOR.join(slide.checklist) or None,
+            before_after=(
+                f"{slide.before_after.before}{STEP_SEPARATOR}{slide.before_after.after}"
+                if slide.before_after else None
+            ),
             cta=slide.cta,
             cta_icon=slide.cta_icon,
             slide=f"{number}/{total}",
@@ -889,16 +958,18 @@ def _plan_images(
         jobs = _slot_inputs(name, slot, brief, folder, earlier + others, counts[name])
         plan = _ImagePlan(slot, jobs)
         try:
-            plan.prepared = [
-                prepare_workflow("social_creative", inputs, settings) for inputs in plan.jobs
-            ]
-            if len(jobs) == 1 and jobs[0].count > 1 and plan.prepared[0].person_shown:
-                # Each image with the person gets its own job, so each one is checked
-                # before the next is made (same inputs, so the same look).
+            if len(jobs) == 1 and jobs[0].count > 1:
+                # One job per image: each image is checked on its own and can be made again
+                # alone (same inputs, so the same look).
                 plan.jobs = [replace(jobs[0], count=1) for _ in range(jobs[0].count)]
-                one = prepare_workflow("social_creative", plan.jobs[0], settings)
-                plan.prepared = [one] * len(plan.jobs)
+            for position, inputs in enumerate(plan.jobs, start=1):
+                try:
+                    plan.prepared.append(prepare_workflow("social_creative", inputs, settings))
+                except WorkflowError as error:  # name the slide or image it is about
+                    where = "slide" if slot.format == "carousel" else "image"
+                    raise WorkflowError(f"{where} {position}: {error}") from None
         except _IMAGE_ERRORS as error:
+            plan.prepared = []
             plan.error = error
         if plan.prepared and plan.prepared[0].picks is not None:
             picks[name] = plan.prepared[0].picks
@@ -906,40 +977,51 @@ def _plan_images(
     return plans
 
 
-def _last_image(item: PackageItem) -> tuple[Job, str] | None:
-    """The newest image of a part and its job (the one a person check is about)."""
-    if not item.image_refs or not item.job_folder:
-        return None
-    job_id, _, name = item.image_refs[-1].partition("/")
-    try:
-        job = Job.load(Path(item.job_folder) / DETAILS_FILE)
-    except (OSError, ValueError):
-        return None
-    return (job, name) if job.job_id == job_id else None
+def _image_job(item: PackageItem, position: int, settings: Settings) -> tuple[Job, str] | None:
+    """The job and output file behind one image of a part (position 0 = the first image)."""
+    job_id, _, name = item.image_refs[position].partition("/")
+    folders = item.image_folders[position:position + 1] or (
+        [item.job_folder] if item.job_folder and position == len(item.image_refs) - 1 else []
+    )
+    candidates = [Path(folder) / DETAILS_FILE for folder in folders]
+    candidates += sorted(settings.output_dir.glob(f"*/*/{DETAILS_FILE}"), reverse=True)
+    for details in candidates:
+        try:
+            job = Job.load(details)
+        except (OSError, ValueError):
+            continue
+        if job.job_id == job_id:
+            return job, name
+    return None
 
 
-def _review_result(item: PackageItem) -> str | None:
-    """"pass", "fail" or None (not checked yet) for a part waiting at the person check."""
-    found = _last_image(item)
+def _check(
+    item: PackageItem, position: int, check: ReviewCheck, settings: Settings
+) -> str | None:
+    """"pass", "fail" or None for one check of one image."""
+    found = _image_job(item, position, settings)
     if found is None:
         return None
-    review = found[0].review(found[1])
+    review = found[0].review(found[1], check)
     return review.result if review is not None else None
 
 
-def _jobs_done(plan: _ImagePlan, previous: PackageItem | None) -> int:
-    """Image jobs of a part that an earlier build already made (and that may be kept).
+def _person_shown(item: PackageItem, position: int, settings: Settings) -> bool:
+    found = _image_job(item, position, settings)
+    return found is not None and found[0].inputs.get("personShown") is True
 
-    A part stopped at the person check keeps its images; one that failed the check is
-    made again. A part that failed half-way keeps the images it has.
-    """
-    if previous is None or previous.status not in ("failed", "review") or not plan.jobs:
-        return 0
-    per_job = plan.jobs[0].count
-    done = len(previous.image_refs) // per_job
-    if previous.status == "review" and _review_result(previous) == "fail":
-        done -= 1
-    return max(0, done)
+
+def _todo(plan: _ImagePlan, item: PackageItem | None, settings: Settings) -> list[int]:
+    """Positions still to make: missing ones, and those that failed a check."""
+    if item is None or item.status not in ("failed", "review") or not item.image_refs:
+        return list(range(len(plan.jobs)))
+    redo = {
+        position for position in range(min(len(item.image_refs), len(plan.jobs)))
+        if _check(item, position, "person", settings) == "fail"
+        or (position > 0 and _check(item, position, "set", settings) == "fail")
+    }
+    missing = range(len(item.image_refs), len(plan.jobs))
+    return sorted(redo | set(missing))
 
 
 def _identity_photos(job: Job, settings: Settings) -> list[Path]:
@@ -952,33 +1034,68 @@ def _identity_photos(job: Job, settings: Settings) -> list[Path]:
     return [(ref_set.folder / a.file).resolve() for a in photos[:IDENTITY_PHOTOS_TO_COMPARE]]
 
 
-def _check_lines(
-    kind: str, item: PackageItem, folder: Path, settings: Settings, *, waiting: bool = False
-) -> list[str]:
-    """What Codex must do at the person check: compare, record, ask before regenerating."""
-    found = _last_image(item)
-    if found is None:
-        return [f"{LABELS[kind]}: person check pending, but its job record is missing."]
-    job, name = found
-    image = (folder / item.files[-1]).resolve()
+def _cost_text(job: Job, settings: Settings) -> str:
     cost = f"${job.est_cost_usd:.3f}" if job.est_cost_usd else "the price of 1 image"
+    return f"about {cost} per image via {settings.image_provider}"
+
+
+def _person_lines(
+    item: PackageItem, position: int, folder: Path, settings: Settings, *, waiting: bool = False
+) -> list[str]:
+    """The person check: compare with his photos, record, ask before making it again."""
+    found = _image_job(item, position, settings)
+    file = item.files[position]
+    if found is None:
+        return [f"PERSON CHECK for {file}: its job record is missing; make the part again."]
+    job, name = found
     head = (
-        f"PERSON CHECK (still not recorded) for {item.files[-1]}"
+        f"PERSON CHECK (still not recorded) for {file}"
         if waiting
-        else f"PERSON CHECK: stop here. {item.files[-1]} shows the person."
+        else f"PERSON CHECK: stop here. {file} shows the person."
     )
-    lines = [
+    return [
         head,
-        f"  View it: {image}",
+        f"  View it: {(folder / file).resolve()}",
         "  beside his primary photos: "
         + ", ".join(str(path) for path in _identity_photos(job, settings)),
         "  Same person (hair, build, facial hair, age)? Record the result:",
         f'    uv run ca job review "{job.folder}" --image {name} --pass',
         f'    uv run ca job review "{job.folder}" --image {name} --fail "<what differs>"',
         "  If it differs: stop, show the user the image and ask whether to make it again "
-        f"(about {cost}, 1 image via {settings.image_provider}). Only after a yes:",
+        f"({_cost_text(job, settings)}). Only after a yes:",
         f'    uv run ca content build "{folder}"   (makes this image again)',
         f'  If it passes: uv run ca content build "{folder}"   (continues)',
+    ]
+
+
+def _set_lines(
+    item: PackageItem, positions: list[int], folder: Path, settings: Settings
+) -> list[str]:
+    """The set check: every image of the set against the first one."""
+    lines = [
+        "SET CHECK: stop here. Compare each image below with the first one of the set "
+        f"({(folder / item.files[0]).resolve()}): the same two fonts and text sizes, the same "
+        "colours, the same layout family (panel, decor, scene treatment). Record each one:",
+    ]
+    cost = ""
+    for position in positions:
+        found = _image_job(item, position, settings)
+        if found is None:
+            lines.append(f"  {item.files[position]}: its job record is missing")
+            continue
+        job, name = found
+        cost = _cost_text(job, settings)
+        lines += [
+            f"  {(folder / item.files[position]).resolve()}",
+            f'    uv run ca job review "{job.folder}" --check set --image {name} --pass',
+            f'    uv run ca job review "{job.folder}" --check set --image {name} --fail '
+            '"<what differs>"',
+        ]
+    lines += [
+        "  If any differs: stop, show the user those images and ask whether to make them again "
+        f"({cost}). Only after a yes: uv run ca content build \"{folder}\" (makes the "
+        "failed ones again).",
+        f'  When all pass: uv run ca content build "{folder}"   (continues)',
     ]
     return lines
 
@@ -986,28 +1103,33 @@ def _check_lines(
 def _make_images(
     kind: str, plan: _ImagePlan, folder: Path, settings: Settings, previous: PackageItem | None
 ) -> tuple[PackageItem, list[str]]:
-    """Make the part's missing images; the lines are a person check that stops the build."""
+    """Make the part's missing images; the lines are a check that stops the build.
+
+    Person check: right after each image with the man. Set check: once every image of a set
+    exists, each one against the first. A failed image is made again (after the user agreed)
+    in its own place; the others are kept.
+    """
     now = datetime.now(UTC)
-    if previous is not None and previous.status == "review":
-        result = _review_result(previous)
-        if result is None:  # not checked yet: make nothing
-            return previous, _check_lines(kind, previous, folder, settings, waiting=True)
-    done = _jobs_done(plan, previous)
-    if done and previous is not None:  # keep the finished images; make only the missing ones
+    keep = previous is not None and previous.status in ("failed", "review") and bool(
+        previous.image_refs
+    )
+    if keep and previous is not None:
         item = previous.model_copy(update={"error": None, "updated_at": now}, deep=True)
-        per_job = plan.jobs[0].count
-        for stale in item.files[done * per_job:]:  # an image that failed the person check
-            (folder / stale).unlink(missing_ok=True)
-        item.files = item.files[: done * per_job]
-        item.image_refs = item.image_refs[: done * per_job]
+        for position in range(len(item.image_refs)):  # a person check still to record
+            if _person_shown(item, position, settings) and _check(
+                item, position, "person", settings
+            ) is None:
+                item.status = "review"
+                return item, _person_lines(item, position, folder, settings, waiting=True)
     else:
         item = PackageItem(status="failed", updated_at=now)
-    for number, inputs in enumerate(plan.jobs, start=1):
-        if number <= done:
-            continue
-        if number > 1 and plan.slot.format == "carousel" and item.image_refs:
-            # Later carousel slides attach slide 1's image (it passed the person check): one
-            # scene, decor and palette.
+    if len(item.image_folders) < len(item.image_refs):  # an item from before this field
+        item.image_folders += [""] * (len(item.image_refs) - len(item.image_folders))
+    todo = _todo(plan, item if keep else None, settings)
+    for position in todo:
+        inputs = plan.jobs[position]
+        if position > 0 and plan.slot.format == "carousel" and item.image_refs:
+            # Later slides attach slide 1 (it passed the person check): one scene and design.
             inputs = replace(inputs, first_slide=item.image_refs[0])
         try:
             job = run_workflow("social_creative", inputs, settings)
@@ -1021,20 +1143,33 @@ def _make_images(
             item.cost_usd = _add_cost(item.cost_usd, job.actual_cost_usd)
             return item, []
         (folder / IMAGES_DIR).mkdir(exist_ok=True)
-        for index, name in enumerate(job.outputs, start=1):
-            position = number if len(plan.jobs) > 1 else index  # one file per slide or variant
-            target = folder / IMAGES_DIR / f"{kind}-{position}{Path(name).suffix}"
-            shutil.copyfile(job.folder / name, target)
-            item.files.append(f"{IMAGES_DIR}/{target.name}")
-            item.image_refs.append(f"{job.job_id}/{name}")
+        name = job.outputs[0]  # one image per job
+        target = folder / IMAGES_DIR / f"{kind}-{position + 1}{Path(name).suffix}"
+        shutil.copyfile(job.folder / name, target)
+        entry = (f"{IMAGES_DIR}/{target.name}", f"{job.job_id}/{name}", str(job.folder))
+        if position < len(item.image_refs):  # made again in its own place
+            item.files[position], item.image_refs[position], item.image_folders[position] = entry
+        else:
+            item.files.append(entry[0])
+            item.image_refs.append(entry[1])
+            item.image_folders.append(entry[2])
         cost = job.actual_cost_usd if job.actual_cost_usd is not None else job.est_cost_usd
         item.cost_usd = _add_cost(item.cost_usd, cost)
         if item.picks is None:
             item.picks = DesignPicks.from_recorded(job.inputs, job.style_asset_ids)
         if job.inputs.get("personShown") is True:
             item.status = "review"
-            item.error = f"person check pending: {item.files[-1]}"
-            return item, _check_lines(kind, item, folder, settings)
+            item.error = f"person check pending: {item.files[position]}"
+            return item, _person_lines(item, position, folder, settings)
+    if len(plan.jobs) > 1:
+        pending = [
+            position for position in range(1, len(plan.jobs))
+            if _check(item, position, "set", settings) is None
+        ]
+        if pending:
+            item.status = "review"
+            item.error = "set check pending: " + ", ".join(item.files[p] for p in pending)
+            return item, _set_lines(item, pending, folder, settings)
     item.status, item.error = "done", None
     return item, []
 
@@ -1186,7 +1321,7 @@ def _status(brief: ContentBrief, package: ContentPackage) -> str:
         if state in ("pending", "waiting"):
             missing.append(f"{LABELS[kind]} pending")
         elif state == "review":
-            missing.append(f"{LABELS[kind]}: person check pending")
+            missing.append(f"{LABELS[kind]}: check pending")
         elif state == "failed":
             missing.append(f"{LABELS[kind]} failed")
     return "draft" if not missing else "draft — " + ", ".join(missing)
@@ -1224,7 +1359,7 @@ def _dry_run_lines(
         if plan.error is not None or not plan.prepared:
             lines.append(f"{names[kind]}: cannot be made yet: {plan.error}")
             continue
-        todo = plan.prepared[_jobs_done(plan, item):]
+        todo = [plan.prepared[position] for position in _todo(plan, item, settings)]
         cost = sum(estimate_cost_usd(prepared.request, settings) for prepared in todo)
         total += cost
         lead = plan.prepared[0]
@@ -1250,18 +1385,25 @@ def _dry_run_lines(
             f"{settings.image_provider}: about ${cost:.3f}"
         )
         if slot.format == "carousel" and len(plan.prepared) > 1:
+            last = len(plan.prepared)
             lines.append(
-                "  slides 2+ also attach slide 1's image (same scene, decor and colours); "
-                f"slide 1 shows the man, slides 2-{len(plan.prepared)} no person"
+                "  slides 2+ also attach slide 1's image (same scene, design and colours); "
+                f"slides 1 and {last} show the man, slides 2-{last - 1} no person; no slide "
+                "numbers"
             )
         checked = [n for n, prepared in enumerate(plan.prepared, start=1) if prepared.person_shown]
         if checked:
             which = "each image" if len(checked) == len(plan.prepared) else (
-                "slide 1" if checked == [1] else f"images {', '.join(map(str, checked))}"
+                f"images {' and '.join(map(str, checked))}"
             )
             lines.append(
-                f"  person check: the build stops after {which} so Codex can compare it with "
+                f"  person check: the build stops after {which} so Codex can compare each with "
                 "his photos before anything else is made"
+            )
+        if len(plan.prepared) > 1:
+            lines.append(
+                "  set check: when all images exist, the build stops once more so Codex can "
+                "compare images 2+ with the first (fonts, colours, layout family)"
             )
     if brief.reel is not None:
         item = package.items.get("reel")
@@ -1348,7 +1490,7 @@ def _post_markdown(
             "",
             caption.hook.strip(),
             "",
-            *(line.strip() for line in caption.lines),
+            *(f"- {line.strip()}" for line in caption.takeaways),
             "",
             caption.question.strip(),
             "",

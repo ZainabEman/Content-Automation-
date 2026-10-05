@@ -1,13 +1,29 @@
-"""Content checks on brief.json: a real hook, distinct tips with a how, a CTA that works on
-the platform, and no result numbers except those in docs/company/proof.md or the research."""
+"""Content checks on brief.json, run by the dry run (nothing is made while one fails).
+
+- Carousel story: hook -> problem -> steps or insights -> example or result -> cta, 6-8 slides.
+- Middle slides teach something usable today: specific, never generic, and the step, insight
+  and example slides show the automation concretely (a channel or tool and a timing).
+- Posts: the supporting line and the key points are specific too.
+- Insights: at least 6 specific findings from the research, each with its source; their
+  numbers must be in the article they cite.
+- Captions: 120-200 words, 3-5 takeaways, a question, the CTA with the offer.
+- Numbers that read as results come only from docs/company/proof.md or the cited research.
+"""
 
 import re
 from collections.abc import Iterable
 
-from content_automation.content.brief import ContentBrief, ImageSlot
+from content_automation.content.brief import (
+    MIN_INSIGHTS,
+    Caption,
+    ContentBrief,
+    ImageSlot,
+    SlideSlot,
+)
 from content_automation.workflows.design_system import DesignSystem
 
 SAME_POINT = 0.6  # tips whose key words overlap this much make the same point
+CAPTION_MIN_WORDS, CAPTION_MAX_WORDS = 120, 200
 _WORD = re.compile(r"[a-z0-9]+")
 _STOP = frozenset({
     "a", "an", "and", "are", "as", "at", "be", "by", "can", "for", "from", "get", "how", "in",
@@ -24,6 +40,62 @@ _RESULT = re.compile(
     re.IGNORECASE,
 )
 _NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
+# "within 5 minutes", "after 24 hours": a timing, not a result
+_TIMING_BEFORE = re.compile(r"(?:within|after|before|every|each|per|next|first|in the first)\s+$",
+                            re.IGNORECASE)
+
+# What makes a line usable: a channel or tool (who sends through what) and a timing (when).
+CHANNELS = (
+    "sms", "text message", "texts", "email", "e-mail", "emails", "whatsapp", "messenger", "dm",
+    "dms", "instagram", "facebook", "chat", "chatbot", "bot", "website", "web form", "form",
+    "landing page", "crm", "hubspot", "pipedrive", "salesforce", "zapier", "make.com",
+    "calendly", "calendar", "booking link", "phone", "call", "calls", "voicemail", "missed call",
+    "slack", "spreadsheet", "template", "autoresponder", "auto-reply", "tag", "tags", "pipeline",
+    "inbox", "notification", "reminder", "sequence", "workflow", "trigger", "webhook",
+    "google", "zillow", "portal", "listing alert", "lead form", "voice agent", "ai assistant",
+    "review request", "survey", "newsletter", "ads",
+)
+TIMINGS = (  # real times: they make a line specific
+    "minute", "minutes", "min", "hour", "hours", "day", "days", "week", "weeks", "month",
+    "months", "morning", "evening", "night", "overnight", "same day", "same-day", "24/7",
+    "weekend", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+    "daily", "weekly", "instantly", "immediately", "tomorrow", "today",
+)
+SEQUENCE = ("within", "after", "before", "every", "once", "when", "until", "then")  # "when" only
+# Empty marketing phrases: a line with one of them is generic, whatever else it says.
+BUZZWORDS = (
+    "game changer", "game-changer", "next level", "unlock", "supercharge", "revolutionize",
+    "revolutionise", "seamless", "cutting-edge", "cutting edge", "world-class", "fast-paced",
+    "sets the next step", "take your business", "skyrocket", "effortless",
+)
+_QUOTED = re.compile(r"[\"“”‘’]|'[^']{3,}'")
+
+
+def _has(text: str, words: Iterable[str]) -> bool:
+    low = text.lower()
+    return any(re.search(rf"(?<![a-z]){re.escape(word)}(?![a-z])", low) for word in words)
+
+
+def generic_reason(text: str) -> str | None:
+    """Why a line is too generic to teach anything (None: it is specific)."""
+    if _has(text, BUZZWORDS):
+        return "uses an empty marketing phrase"
+    if re.search(r"\d", text) or _QUOTED.search(text):
+        return None
+    if _has(text, CHANNELS) or _has(text, TIMINGS):
+        return None
+    return "says nothing specific (no channel or tool, timing, number or example wording)"
+
+
+def automation_reason(texts: Iterable[str]) -> str | None:
+    """A step, insight or example shows who sends what, when and through which channel."""
+    joined = " ".join(texts)
+    missing = []
+    if not _has(joined, CHANNELS):
+        missing.append("the channel or tool")
+    if not (_has(joined, TIMINGS) or _has(joined, SEQUENCE) or re.search(r"\d", joined)):
+        missing.append("when it happens")
+    return f"show the automation concretely: name {' and '.join(missing)}" if missing else None
 
 
 def _key_words(text: str) -> set[str]:
@@ -41,36 +113,78 @@ def _carousels(brief: ContentBrief) -> Iterable[tuple[str, ImageSlot]]:
             yield name, slot
 
 
+def _slide_texts(slide: SlideSlot) -> list[str]:
+    texts = [slide.headline, slide.subheadline or ""]
+    texts += [bubble.text for bubble in slide.chat] + list(slide.diagram) + list(slide.checklist)
+    if slide.before_after is not None:
+        texts += [slide.before_after.before, slide.before_after.after]
+    return texts
+
+
+def _story_problems(name: str, slides: list[SlideSlot]) -> list[str]:
+    """hook -> problem -> steps or insights -> example or result -> cta."""
+    wanted: list[tuple[str, ...]] = [("hook",), ("problem",)]
+    wanted += [("step", "insight")] * (len(slides) - 4)
+    wanted += [("example", "result"), ("cta",)]
+    problems = []
+    for number, (slide, allowed) in enumerate(zip(slides, wanted, strict=False), start=1):
+        if slide.role is None:
+            problems.append(
+                f'{name}.slides[{number}].role: set it ("{" or ".join(allowed)}"); the story runs '
+                "hook -> problem -> steps or insights -> example or result -> cta"
+            )
+        elif slide.role not in allowed:
+            problems.append(
+                f'{name}.slides[{number}].role is "{slide.role}" but this place in the story is '
+                f'{" or ".join(allowed)} (hook -> problem -> steps or insights -> example or '
+                "result -> cta)"
+            )
+    return problems
+
+
 def carousel_problems(
-    brief: ContentBrief, system: DesignSystem, platforms: dict[str, str] | None = None
+    brief: ContentBrief,
+    system: DesignSystem,
+    platforms: dict[str, str] | None = None,
+    offer: str = "",
 ) -> list[str]:
-    """platforms: the platform of each brief part (from its deliverable); default the brief's."""
+    """platforms: the platform of each brief part (from its deliverable); default the brief's.
+    offer: the services.md offer the last slide's call to action must name."""
     platforms = platforms or {}
     problems = []
     for name, slot in _carousels(brief):
-        hook, tips, last = slot.slides[0], slot.slides[1:-1], slot.slides[-1]
+        hook, middle, last = slot.slides[0], slot.slides[1:-1], slot.slides[-1]
+        problems += _story_problems(name, slot.slides)
         if not slot.audience_line:
             problems.append(
                 f'{name}.audienceLine: the hook names the audience, e.g. "FOR DENTAL PRACTICES"'
             )
-        if hook.visual or hook.chat or hook.diagram or _TIP_LIKE.match(hook.headline):
+        if (hook.visual or hook.chat or hook.diagram or hook.checklist or hook.before_after
+                or _TIP_LIKE.match(hook.headline)):
             problems.append(
                 f"{name}.slides[1] is the hook: it names the problem or the promise and carries "
-                "no tip (no tip text, visual, chat or diagram)"
+                "no tip (no tip text or visual)"
             )
-        for number, tip in enumerate(tips, start=2):
-            if not (tip.subheadline or tip.chat or tip.diagram):
-                problems.append(
-                    f"{name}.slides[{number}]: give the concrete how or an example in "
-                    "subheadline, or show it with a chat or diagram"
-                )
-        words = [_key_words(f"{tip.headline} {tip.subheadline or ''}") for tip in tips]
-        for first in range(len(tips)):
-            for second in range(first + 1, len(tips)):
+        if hook.subheadline and (reason := generic_reason(hook.subheadline)):
+            problems.append(f'{name}.slides[1].subheadline "{hook.subheadline}": {reason}')
+        for number, slide in enumerate(middle, start=2):
+            where = f"{name}.slides[{number}]"
+            line = slide.subheadline or ""
+            reason = generic_reason(line) if line else "give the concrete fact or action"
+            if reason:
+                problems.append(f'{where}.subheadline "{line}": {reason}')
+            if slide.role in ("step", "insight", "example"):
+                missing = automation_reason(_slide_texts(slide))
+                if missing:
+                    problems.append(f"{where}: {missing} (who sends what, when, through which "
+                                    "channel)")
+        words = [_key_words(f"{tip.headline} {tip.subheadline or ''}") for tip in middle]
+        for first in range(len(middle)):
+            for second in range(first + 1, len(middle)):
                 if _overlap(words[first], words[second]) >= SAME_POINT:
                     problems.append(
                         f"{name}.slides[{first + 2}] and slides[{second + 2}] make the same "
-                        "point: give each tip its own idea"
+                        "point: give each slide its own step in the story"
                     )
         rule = system.cta_rules.get(platforms.get(name, brief.platform))
         cta = (last.cta or "").lower()
@@ -80,6 +194,100 @@ def carousel_problems(
         )
         if rule is not None and not fits:
             problems.append(f'{name}.slides[{len(slot.slides)}].cta "{last.cta}": {rule.use}')
+        label = offer_label(offer)
+        last_text = f"{last.headline} {last.cta or ''}".lower()
+        if label and label.lower() not in last_text:
+            problems.append(
+                f'{name}.slides[{len(slot.slides)}]: the call to action names the offer '
+                f'"{label}" (from docs/company/services.md)'
+            )
+    return problems
+
+
+def post_problems(brief: ContentBrief) -> list[str]:
+    """A post's supporting line and key points are specific."""
+    problems = []
+    for name in ("post", "ad"):
+        slot: ImageSlot | None = getattr(brief, name)
+        if slot is None or slot.format == "carousel":
+            continue
+        for field, text in [("subheadline", slot.subheadline or "")] + [
+            (f"points[{n}]", point) for n, point in enumerate(slot.points, start=1)
+        ]:
+            reason = generic_reason(text) if text else None
+            if reason:
+                problems.append(f'{name}.{field} "{text}": {reason}')
+    return problems
+
+
+def offer_label(offer: str) -> str:
+    """The name of the offer: "Free consultation call - book at ..." -> "Free consultation call"."""
+    return re.split(r"\s+[-–—]\s+", offer.strip(), maxsplit=1)[0].strip()
+
+
+def caption_words(caption: Caption, cta: str) -> int:
+    texts = [caption.hook, *caption.takeaways, caption.question, cta]
+    return sum(len(text.split()) for text in texts)
+
+
+def caption_problems(brief: ContentBrief, offer: str = "") -> list[str]:
+    """Captions of 120-200 words; the CTA names the offer from services.md."""
+    captions = {f"captions.{key}": value for key, value in brief.captions.items()}
+    if brief.caption is not None:
+        captions["caption"] = brief.caption
+    problems = []
+    for where, caption in captions.items():
+        count = caption_words(caption, brief.cta)
+        if not CAPTION_MIN_WORDS <= count <= CAPTION_MAX_WORDS:
+            problems.append(
+                f"{where}: {count} words (hook, takeaways, question and cta); write "
+                f"{CAPTION_MIN_WORDS}-{CAPTION_MAX_WORDS}"
+            )
+        for number, takeaway in enumerate(caption.takeaways, start=1):
+            reason = generic_reason(takeaway)
+            if reason:
+                problems.append(f'{where}.takeaways[{number}] "{takeaway}": {reason}')
+    label = offer_label(offer)
+    if label and label.lower() not in brief.cta.lower():
+        problems.append(f'cta: name the offer "{label}" (from docs/company/services.md)')
+    return problems
+
+
+def insight_problems(
+    brief: ContentBrief,
+    research_md: str,
+    articles: dict[str, str],
+) -> list[str]:
+    """At least 6 specific insights, each with its source; their numbers are in that source.
+
+    articles: article ID -> its text (title, summary, content) for the IDs the brief can cite.
+    """
+    problems = []
+    if len(brief.insights) < MIN_INSIGHTS:
+        problems.append(
+            f"insights: list at least {MIN_INSIGHTS} specific findings from the research (actions, "
+            f"how-to steps, example wording, timings, tools, sourced figures); found "
+            f"{len(brief.insights)}"
+        )
+    for number, insight in enumerate(brief.insights, start=1):
+        where = f"insights[{number}]"
+        source = insight.source.strip()
+        text = articles.get(source)
+        if text is None and not (source.startswith("http") and source in research_md):
+            problems.append(
+                f'{where}.source "{source}": use a research article ID (research.md) or a link '
+                "listed in research.md"
+            )
+        reason = generic_reason(insight.text)
+        if reason:
+            problems.append(f'{where} "{insight.text}": {reason}')
+        if text is not None:
+            missing = [n for n in _NUMBER.findall(insight.text) if n not in _NUMBER.findall(text)]
+            if missing:
+                problems.append(
+                    f'{where}: the number(s) {", ".join(missing)} are not in article {source}; '
+                    "a figure must be written in the source it cites"
+                )
     return problems
 
 
@@ -94,22 +302,17 @@ def _texts(brief: ContentBrief) -> Iterable[tuple[str, str]]:
         for field, value in fields.items():
             if value:
                 yield f"{name}.{field}", value
-        for index, step in enumerate(slot.steps, start=1):
-            yield f"{name}.steps[{index}]", step
+        for index, point in enumerate([*slot.points, *slot.steps], start=1):
+            yield f"{name}.points[{index}]", point
         for number, slide in enumerate(slot.slides, start=1):
-            for field, value in (("headline", slide.headline), ("subheadline", slide.subheadline),
-                                 ("cta", slide.cta)):
+            for value in _slide_texts(slide) + [slide.cta or ""]:
                 if value:
-                    yield f"{name}.slides[{number}].{field}", value
-            for bubble in slide.chat:
-                yield f"{name}.slides[{number}].chat", bubble.text
-            for step in slide.diagram:
-                yield f"{name}.slides[{number}].diagram", step
+                    yield f"{name}.slides[{number}]", value
     for key, caption in brief.captions.items():
-        for value in (caption.hook, *caption.lines, caption.question):
+        for value in (caption.hook, *caption.takeaways, caption.question):
             yield f"captions.{key}", value
     if brief.caption is not None:
-        for value in (brief.caption.hook, *brief.caption.lines, brief.caption.question):
+        for value in (brief.caption.hook, *brief.caption.takeaways, brief.caption.question):
             yield "caption", value
     yield "cta", brief.cta
     if brief.reel is not None:
@@ -130,6 +333,8 @@ def proof_problems(brief: ContentBrief, proof: str, research: Iterable[str]) -> 
     problems = []
     for where, text in _texts(brief):
         for match in _RESULT.finditer(text):
+            if _TIMING_BEFORE.search(text[: match.start()]) and "hour" in match.group(0).lower():
+                continue
             numbers = _NUMBER.findall(match.group(0))
             if not all(number in allowed for number in numbers):
                 problems.append(

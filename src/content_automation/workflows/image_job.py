@@ -104,6 +104,7 @@ def run_image_job(
     logger.info("Job %s created in %s", job.job_id, job.folder)
 
     written: list[Path] = []
+    versions: list[str] = []  # which logo version each image got
     try:
         job.est_cost_usd = estimate_cost_usd(request, settings)
         job.start()
@@ -132,12 +133,15 @@ def run_image_job(
                 raw.write_bytes(image.data)
                 written.append(raw)
                 path = job.folder / f"image-{index}.png"
-                path.write_bytes(apply_logo(image.data, logo))
+                final, version = apply_logo(image.data, logo)
+                path.write_bytes(final)
+                versions.append(f"{path.name}: {version}")
             written.append(path)
         finals = [path for path in written if path.parent == job.folder]
         if logo is not None:
             job.notes.append(
-                f"Logo: {logo.describe()}; the images without it are in {RAW_DIR}/."
+                f"Logo: {logo.describe()}; used: {', '.join(versions)}; the images without it "
+                f"are in {RAW_DIR}/."
             )
         # Same ID scheme as reference photos, so a video plan can use it as startImageAssetId.
         job.output_asset_ids = [asset_id_for(path) for path in finals]

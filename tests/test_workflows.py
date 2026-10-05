@@ -91,14 +91,15 @@ def test_person_lifestyle_end_to_end(settings: Settings) -> None:
     assert (data["workflowId"], data["workflowVersion"]) == ("person_lifestyle", "1")
     assert data["identityAssetIds"] == [identity[f"{i}.jpg"] for i in (1, 2, 3, 4)]
     ads = _ids(settings, "creative/facebook_ads")
-    assert data["styleAssetIds"] == [ads["ad03.jpg"], ads["ad07.jpg"], ads["ad11.jpg"]]
+    # An image with the person gets at most one (people- and logo-free) style example.
+    assert data["styleAssetIds"] == [ads["ad07.jpg"]]
     assert data["productAssetIds"] == [] and data["brandAssetIds"] == []
     assert data["request"] == "2 café photos"
     assert data["inputs"]["identitySet"] == "identity/person_01"
     prompt = data["prompt"]
     for expected in (
         "Laughing at a café table", "Images 1-4 - IDENTITY", "Keep this exact person",
-        "Images 5-7 - STYLE", "copy only the look and layout", "Confident and warm",
+        "Image 5 - STYLE", "copy only the look and layout", "Confident and warm",
         "Bright natural light", "Royal Blue #004BA0", "must be in English",
         "do not add any text", "the only person allowed", "No readable text in the scene",
     ):
@@ -138,18 +139,19 @@ def test_social_creative_ad_with_logo_headline_and_default_style(settings: Setti
     data = _details(job.folder)
     assert data["status"] == "completed"
     assert data["brandAssetIds"] == [_ids(settings, "brand/logo")["logo.png"]]
-    # 10 product/style slots: 3 style leaves 7 for the product; the logo is not sent
-    assert len(data["productAssetIds"]) == 7
-    assert len(data["styleAssetIds"]) == 3
-    assert [ref["role"] for ref in data["references"]] == ["product"] * 7 + ["style"] * 3
-    assert data["inputs"]["styleSet"] == "creative/facebook_ads"
-    assert data["inputs"]["variant"] == "ad"
+    # An ad always shows the man: his photos first, then the products. Its style examples are
+    # the masked past ads only (none here), never the originals; the logo is not sent.
+    assert len(data["identityAssetIds"]) == 4
+    assert len(data["productAssetIds"]) == 10
+    assert data["styleAssetIds"] == [] and "styleSet" not in data["inputs"]
+    assert [ref["role"] for ref in data["references"]] == ["identity"] * 4 + ["product"] * 10
+    assert data["inputs"]["variant"] == "ad" and data["inputs"]["layout"] in "ABCD"
     prompt = data["prompt"]
+    assert prompt.startswith("Person: The only person allowed")  # identity block first
     assert "advertisement" in prompt
     assert '"GROW FASTER WITH AI"' in prompt  # headlines are rendered in capitals
-    assert "Images 1-7 - PRODUCT" in prompt
+    assert "Images 1-4 - IDENTITY" in prompt and "Images 5-14 - PRODUCT" in prompt
     assert "BRAND LOGO" not in prompt and "Do not draw any logo" in prompt
-    assert "Images 8-10 - STYLE" in prompt
     assert data["params"]["aspectRatio"] == "1:1"
     # The app pasted the logo; the model's image without it is kept.
     assert (job.folder / "raw" / "image-1.png").is_file()
@@ -260,7 +262,7 @@ def test_style_count_changes_and_is_capped(settings: Settings) -> None:
     )
 
     assert len(one.request.style_refs) == 1
-    assert len(many.request.style_refs) == 3  # provider style limit
+    assert len(many.request.style_refs) == 1  # at most one with the person in the image
     with pytest.raises(WorkflowError, match="does not use --style-count"):
         prepare_workflow(
             "person_service",
@@ -291,7 +293,7 @@ def test_dry_run_with_openrouter_needs_no_key_and_makes_nothing(
     assert result.exit_code == 0, result.output
     for expected in (
         "DRY RUN", "Provider: openrouter", "Provider calls: 3", "Estimated cost: $0.201",
-        "identity (4): identity/person_01/1.jpg", "style (3): creative/facebook_ads/ad03.jpg",
+        "identity (4): identity/person_01/1.jpg", "style (1): creative/facebook_ads/ad07.jpg",
         "Images 1-4 - IDENTITY", "Daily limit: 0 of",
     ):
         assert expected in result.output, expected

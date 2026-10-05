@@ -27,6 +27,7 @@ from content_automation.references import (
 )
 from content_automation.research.store import find_article, number_in_article
 from content_automation.workflows.design_system import (
+    DEFAULT_FORMAT,
     MAX_SOURCE_WORDS,
     DesignChoice,
     DesignSystem,
@@ -48,6 +49,7 @@ from content_automation.workflows.start_images import StartImageError, resolve_s
 from content_automation.workflows.variety import (
     DesignLook,
     DesignPicks,
+    choose_layout,
     choose_look,
     flatten,
     recent_packages,
@@ -55,6 +57,7 @@ from content_automation.workflows.variety import (
 
 AD_VARIANTS = 3  # ads are made as 3 variants unless a count is given
 MAX_REFERENCE_IMAGES = 14  # the image model's limit for all reference images together
+PERSON_STYLE_REFS = 1  # an image with the man gets at most one (people- and logo-free) example
 # --variant is the old name of --kind.
 KIND_BY_VARIANT = {"post": "organic", "ad": "ad", "carousel_slide": "carousel_slide"}
 
@@ -92,6 +95,9 @@ class WorkflowInputs:
     audience_line: str | None = None  # "FOR DENTAL PRACTICES"
     chat: str | None = None  # tip slides: "Customer: ...|Bot: ..."
     diagram: str | None = None  # tip slides: "Step one|Step two|Step three"
+    points: str | None = None  # posts: 3 key points "One|Two|Three"
+    mini_checklist: str | None = None  # tip slides: 3 rows "One|Two|Three"
+    before_after: str | None = None  # tip slides: "Before|After"
     slide: str | None = None  # "N/TOTAL"
     slide_role: str | None = None
     # Variable parts: a pool ID from the design system or own words; picked when left out.
@@ -141,6 +147,9 @@ class WorkflowInputs:
             "audience_line": self.audience_line,
             "chat": self.chat,
             "diagram": self.diagram,
+            "points": self.points,
+            "mini_checklist": self.mini_checklist,
+            "before_after": self.before_after,
         }
         return {name for name, value in values.items() if value not in (None, "", False)}
 
@@ -354,11 +363,41 @@ def _recorded_design(design: DesignChoice, look: DesignLook) -> dict[str, str | 
         "audienceLine": design.audience_line,
         "chat": " | ".join(f"{speaker}: {text}" for speaker, text in design.chat),
         "diagram": " | ".join(design.diagram),
+        "points": " | ".join(design.points),
+        "miniChecklist": " | ".join(design.mini_checklist),
+        "beforeAfter": " | ".join(design.before_after),
         "slide": "/".join(str(part) for part in design.slide) if design.slide else None,
         "slideRole": design.slide_role,
         **look.ids(),
     }
     return {name: value for name, value in values.items() if value}
+
+
+def _with_layout(
+    inputs: WorkflowInputs,
+    system: DesignSystem,
+    kind: str | None,
+    history: list[DesignPicks],
+) -> WorkflowInputs:
+    """Without --layout, a design that shows the man rotates through its layout letters."""
+    format_id = inputs.format or ("carousel" if kind == "carousel_slide" else DEFAULT_FORMAT)
+    spec = system.formats.get(format_id)  # type: ignore[call-overload]
+    if spec is None or inputs.layout or not spec.layouts:
+        return inputs
+    seed = "|".join([format_id, inputs.headline or "", inputs.subheadline or "", inputs.stat or ""])
+    if format_id == "carousel":
+        number, _, total = (inputs.slide or "1/1").partition("/")
+        middle = number.strip() not in ("1", total.strip())
+        if inputs.slide_role == "tip" or (not inputs.slide_role and middle):
+            return inputs  # a middle slide shows no person and has no layout
+        seed = f"carousel|{total.strip()}"  # the first and last slides share one layout
+    options = [
+        letter for letter in spec.layouts
+        if not (inputs.pose and system.layouts[letter].split_poses)
+    ]
+    if inputs.visual and "A" in options:
+        options = ["A"]  # the system visual belongs to layout A
+    return replace(inputs, layout=choose_layout(options or list(spec.layouts), history, seed))
 
 
 def prepare_workflow(
@@ -388,13 +427,14 @@ def prepare_workflow(
     if spec.designed:
         system = load_design_system(settings.design_system_file)
         kind = inputs.kind or (KIND_BY_VARIANT[inputs.variant] if inputs.variant else None)
-        design = _check_source(resolve_design(inputs, system, kind=kind), settings)
-        identity_set = _design_identity_set(design, inputs, settings)
-        aspect = _design_aspect(design, system, inputs.aspect_ratio)
         if inputs.history is not None:
             history = inputs.history
         else:
             history = flatten(recent_packages(settings.packages_dir))
+        inputs = _with_layout(inputs, system, kind, history)
+        design = _check_source(resolve_design(inputs, system, kind=kind), settings)
+        identity_set = _design_identity_set(design, inputs, settings)
+        aspect = _design_aspect(design, system, inputs.aspect_ratio)
         seed = _variety_seed(design)
         look = choose_look(
             design,
@@ -445,6 +485,7 @@ def prepare_workflow(
             fits.style_refs,
             capabilities.max_style_refs,
             total_left,
+            PERSON_STYLE_REFS if design.person else fits.style_refs,
         )
         names = [inputs.style_set] if inputs.style_set else fits.style_sets
         style, style_sets = select_rotating_style_refs(
@@ -461,7 +502,8 @@ def prepare_workflow(
         style_set = inputs.style_set or spec.default_style_set
         if style_set and "style" in spec.ref_categories:
             wanted = min(
-                inputs.style_count or DEFAULT_STYLE_COUNT, capabilities.max_style_refs, total_left
+                inputs.style_count or DEFAULT_STYLE_COUNT, capabilities.max_style_refs, total_left,
+                PERSON_STYLE_REFS if person_shown else DEFAULT_STYLE_COUNT,
             )
             if wanted > 0:
                 style = select_style_refs(style_set, wanted, root, person=person_shown)

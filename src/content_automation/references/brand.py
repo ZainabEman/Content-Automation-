@@ -1,4 +1,8 @@
-"""Brand profile stored at REFERENCES_DIR/brand/brand.json."""
+"""Brand profile: BRAND_FILE (default config/brand.json, tracked in git).
+
+Older setups keep it at REFERENCES_DIR/brand/brand.json (git-ignored); that file is used only
+when the tracked one does not exist.
+"""
 
 from pathlib import Path
 from typing import Literal
@@ -8,7 +12,7 @@ from pydantic import ConfigDict, Field, ValidationError
 from content_automation.core.config import load_settings
 from content_automation.core.files import CamelModel
 
-BRAND_FILE = Path("brand") / "brand.json"
+BRAND_FILE = Path("brand") / "brand.json"  # the old place, inside REFERENCES_DIR
 
 
 class BrandProfileError(ValueError):
@@ -50,7 +54,16 @@ class BrandProfile(_BrandModel):
 
 
 def brand_path(root: Path | None = None) -> Path:
-    base = root if root is not None else load_settings(create_directories=False).references_dir
+    """The tracked brand file if it exists, else the old one inside the references folder.
+
+    The tracked file belongs to the configured REFERENCES_DIR; another folder (a test, a second
+    library) uses its own brand/brand.json.
+    """
+    settings = load_settings(create_directories=False, require_credentials=False)
+    configured = root is None or root.resolve() == settings.references_dir.resolve()
+    if configured and settings.brand_file.is_file():
+        return settings.brand_file
+    base = root if root is not None else settings.references_dir
     return base / BRAND_FILE
 
 

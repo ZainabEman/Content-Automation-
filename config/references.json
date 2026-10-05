@@ -1,0 +1,1701 @@
+{
+  "about": "Tracked reference settings: style tags (people, logo; set by viewing each image with `ca refs tag`), primary identity photos (`ca refs primary`) and the logo areas `ca refs mask` covers. The photos themselves stay in the git-ignored assets/reference/.",
+  "primary": {
+    "identity/person_01": [
+      "1.jpg",
+      "2.jpg",
+      "6.jpg",
+      "7.jpg"
+    ]
+  },
+  "tags": {
+    "creative/carousels/carousel_01/_frames/No 1__1.jpg": {
+      "assetId": "774f22e18863",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 1__2.jpg": {
+      "assetId": "c583760c45c2",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 1__3.jpg": {
+      "assetId": "a240a875df4a",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 2_1.jpg": {
+      "assetId": "c9d912f4929f",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 2_2.jpg": {
+      "assetId": "2167486c0379",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 2_3.jpg": {
+      "assetId": "af721aa952d4",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 3_1.jpg": {
+      "assetId": "8d27ba8bf8bf",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 3_2.jpg": {
+      "assetId": "554560813574",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 3_3.jpg": {
+      "assetId": "6e6ca00c9767",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 4_1.jpg": {
+      "assetId": "8d875b636d70",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 4_2.jpg": {
+      "assetId": "30b49c085d51",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 4_3.jpg": {
+      "assetId": "5b4620955b41",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 5_1.jpg": {
+      "assetId": "2b42da01f803",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 5_2.jpg": {
+      "assetId": "d6255bd4d070",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 5_3.jpg": {
+      "assetId": "9a9c1b689a38",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 6_1.jpg": {
+      "assetId": "1efeecfc7776",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 6_2.jpg": {
+      "assetId": "0c4137e30713",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 6_3.jpg": {
+      "assetId": "265b1df99cb6",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 7_1.jpg": {
+      "assetId": "19f38d216356",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 7_2.jpg": {
+      "assetId": "7ca611215a6f",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 7_3.jpg": {
+      "assetId": "824c00a38aea",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_01/_frames/No 8_1.jpg": {
+      "assetId": "2a51de5b0125",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_01/_frames/No 8_2.jpg": {
+      "assetId": "76415bded267",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_01/_frames/No 8_3.jpg": {
+      "assetId": "64300e8d0eb7",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_02/_frames/no 1_1.jpg": {
+      "assetId": "4fd510295306",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 1_2.jpg": {
+      "assetId": "042b881e9055",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 1_3.jpg": {
+      "assetId": "e7eb4ce645c0",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 2_1.jpg": {
+      "assetId": "fe56d0c5e2fb",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 2_2.jpg": {
+      "assetId": "d046275b6b88",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 2_3.jpg": {
+      "assetId": "3e44774e7d58",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 3_1.jpg": {
+      "assetId": "a34b6dff40c8",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 3_2.jpg": {
+      "assetId": "e34fce43da6f",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 3_3.jpg": {
+      "assetId": "b58bf00fc679",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 4_1.jpg": {
+      "assetId": "7d3255b0c8c9",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 4_2.jpg": {
+      "assetId": "0a811777fc3a",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 4_3.jpg": {
+      "assetId": "24ef5abb0b1c",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 5_1.jpg": {
+      "assetId": "18077521b41c",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 5_2.jpg": {
+      "assetId": "e4e6b49feb30",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 5_3.jpg": {
+      "assetId": "c4e51c9c95f0",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 6_1.jpg": {
+      "assetId": "766f93882d7e",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 6_2.jpg": {
+      "assetId": "df2366fd4c2d",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 6_3.jpg": {
+      "assetId": "7a567bce81f1",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 7_1.jpg": {
+      "assetId": "d34c888ba26d",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 7_2.jpg": {
+      "assetId": "c3e75d8e2a63",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 7_3.jpg": {
+      "assetId": "9db7e10e2bbd",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_02/_frames/no 8_1.jpg": {
+      "assetId": "8e0a071c525a",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_02/_frames/no 8_2.jpg": {
+      "assetId": "4071700ce9fe",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_02/_frames/no 8_3.jpg": {
+      "assetId": "d250a9893df2",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_03/_frames/no 1_1.jpg": {
+      "assetId": "4f07cf93e886",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 1_2.jpg": {
+      "assetId": "31005989e310",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 1_3.jpg": {
+      "assetId": "673fa85408dc",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 2_1.jpg": {
+      "assetId": "8898cbb97dbb",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 2_2.jpg": {
+      "assetId": "b169418f93b9",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 2_3.jpg": {
+      "assetId": "55a2fccd3f55",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 3_1.jpg": {
+      "assetId": "24fa88474590",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 3_2.jpg": {
+      "assetId": "e76d0f45bda0",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 3_3.jpg": {
+      "assetId": "c38616be646f",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 4_1.jpg": {
+      "assetId": "13132ec5ef7c",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 4_2.jpg": {
+      "assetId": "2533f2398491",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 4_3.jpg": {
+      "assetId": "dc4f3c6993a5",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 5_1.jpg": {
+      "assetId": "3ddfbb48949b",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 5_2.jpg": {
+      "assetId": "6f8606543fc2",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 5_3.jpg": {
+      "assetId": "4c9ae4beccbe",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 6_1.jpg": {
+      "assetId": "409498be2a06",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 6_2.jpg": {
+      "assetId": "59a2fb3e0b18",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 6_3.jpg": {
+      "assetId": "cf59907592ed",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 7_1.jpg": {
+      "assetId": "83977b30befb",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 7_2.jpg": {
+      "assetId": "2d2f7610b8a1",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 7_3.jpg": {
+      "assetId": "5ebbcf60f44b",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_03/_frames/no 8_1.jpg": {
+      "assetId": "358e0de9231c",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_03/_frames/no 8_2.jpg": {
+      "assetId": "b6d6e6a64325",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_03/_frames/no 8_3.jpg": {
+      "assetId": "04b9d26ad663",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_04/_frames/no 1_1.jpg": {
+      "assetId": "e802ded929f0",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 1_2.jpg": {
+      "assetId": "7050f6d364e9",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 1_3.jpg": {
+      "assetId": "b7e00de3d006",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 2_1.jpg": {
+      "assetId": "71529f57693a",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_04/_frames/no 2_2.jpg": {
+      "assetId": "14a226f317e1",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_04/_frames/no 2_3.jpg": {
+      "assetId": "726f6c2d954b",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_04/_frames/no 3_1.jpg": {
+      "assetId": "b6f4b7c3348a",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 3_2.jpg": {
+      "assetId": "8058c8034318",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 3_3.jpg": {
+      "assetId": "1c15379dc703",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 4_1.jpg": {
+      "assetId": "74ecd8189274",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 4_2.jpg": {
+      "assetId": "a1bd9983c2c0",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 4_3.jpg": {
+      "assetId": "510c65ff4d5a",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 5_1.jpg": {
+      "assetId": "a5238e185334",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 5_2.jpg": {
+      "assetId": "e0dfd5d38565",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 5_3.jpg": {
+      "assetId": "6af505a406fc",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 6_1.jpg": {
+      "assetId": "63ab5c0ff4c4",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 6_2.jpg": {
+      "assetId": "28f699785ee7",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 6_3.jpg": {
+      "assetId": "31b132a7f71e",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 7_1.jpg": {
+      "assetId": "93cd6c3b1bb9",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 7_2.jpg": {
+      "assetId": "fa87938669f4",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 7_3.jpg": {
+      "assetId": "07c15a33a4f8",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/_frames/no 8_1.jpg": {
+      "assetId": "d7380cd30c7c",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_04/_frames/no 8_2.jpg": {
+      "assetId": "4204d0d7fc09",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_04/_frames/no 8_3.jpg": {
+      "assetId": "1c983ceb7f30",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..1_1.jpg": {
+      "assetId": "58cdfb0061e3",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..1_2.jpg": {
+      "assetId": "9b60250a8af9",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..1_3.jpg": {
+      "assetId": "5f6b99c8241d",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..2_1.jpg": {
+      "assetId": "ec12f17ef1ba",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..2_2.jpg": {
+      "assetId": "a0f26e471a21",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..2_3.jpg": {
+      "assetId": "1dbe73a0ca36",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..3_1.jpg": {
+      "assetId": "acf7af72aa77",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..3_2.jpg": {
+      "assetId": "85031d493681",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..3_3.jpg": {
+      "assetId": "310ec4c07b3c",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..4_1.jpg": {
+      "assetId": "3aadc9e00b7f",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..4_2.jpg": {
+      "assetId": "bd0be612c8e6",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..4_3.jpg": {
+      "assetId": "68cc5e8bb019",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..5_1.jpg": {
+      "assetId": "c74c83e87687",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..5_2.jpg": {
+      "assetId": "78d7f7e444e5",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..5_3.jpg": {
+      "assetId": "a55e2a3819aa",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..6_1.jpg": {
+      "assetId": "2b818a33fcfb",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..6_2.jpg": {
+      "assetId": "02446a64b997",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..6_3.jpg": {
+      "assetId": "d08230588ad7",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..7_1.jpg": {
+      "assetId": "be23ee273b41",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..7_2.jpg": {
+      "assetId": "ab655a4d0ca6",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..7_3.jpg": {
+      "assetId": "91658543039e",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..8_1.jpg": {
+      "assetId": "a3c2fc403beb",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..8_2.jpg": {
+      "assetId": "32117e365fea",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_04/day 9 carasuals/_frames/day 9..8_3.jpg": {
+      "assetId": "4be35ebd37a4",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_05/_frames/1_1.jpg": {
+      "assetId": "4b05ecf8c6ef",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/1_2.jpg": {
+      "assetId": "da0622840f76",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/1_3.jpg": {
+      "assetId": "6cf53eb299ea",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/2_1.jpg": {
+      "assetId": "871a946f8ffd",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/2_2.jpg": {
+      "assetId": "14df3f720d21",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/2_3.jpg": {
+      "assetId": "564ccd35f1ff",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/3_1.jpg": {
+      "assetId": "03054b0d51e3",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/3_2.jpg": {
+      "assetId": "c3eeb603b09b",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/3_3.jpg": {
+      "assetId": "234112a784ea",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/4_1.jpg": {
+      "assetId": "fb835c63f870",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/4_2.jpg": {
+      "assetId": "14070bae3b6f",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/4_3.jpg": {
+      "assetId": "447d04d96fd4",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/5_1.jpg": {
+      "assetId": "dcebbb125bc3",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/5_2.jpg": {
+      "assetId": "ca4e906faa93",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/5_3.jpg": {
+      "assetId": "95c9624c22d0",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/6_1.jpg": {
+      "assetId": "cf871f2860d9",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/6_2.jpg": {
+      "assetId": "709ec567e5e6",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/6_3.jpg": {
+      "assetId": "ef9f94f4e03b",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/7_1.jpg": {
+      "assetId": "0ec57f9425c1",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/7_2.jpg": {
+      "assetId": "858d1efea72c",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/7_3.jpg": {
+      "assetId": "395e7c5a622e",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_05/_frames/8_1.jpg": {
+      "assetId": "0283eefeab77",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_05/_frames/8_2.jpg": {
+      "assetId": "83bdc6e892c7",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_05/_frames/8_3.jpg": {
+      "assetId": "b20b676fe766",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_06/_frames/1_1.jpg": {
+      "assetId": "38350bba0b3f",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/1_2.jpg": {
+      "assetId": "65311a7f65be",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/1_3.jpg": {
+      "assetId": "87b9703b6807",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/2_1.jpg": {
+      "assetId": "c05bd8b003c9",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/2_2.jpg": {
+      "assetId": "ad806d78a0c1",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/2_3.jpg": {
+      "assetId": "59d53da1500e",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/3_1.jpg": {
+      "assetId": "f11b62653cef",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/3_2.jpg": {
+      "assetId": "28df1033dc62",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/3_3.jpg": {
+      "assetId": "013482423f29",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/4_1.jpg": {
+      "assetId": "a102eecbe94d",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/4_2.jpg": {
+      "assetId": "9b0687e85122",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/4_3.jpg": {
+      "assetId": "556a8ef05517",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/5_1.jpg": {
+      "assetId": "dad189e0c13e",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/5_2.jpg": {
+      "assetId": "4fb845e46778",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/5_3.jpg": {
+      "assetId": "f92b92474034",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/6_1.jpg": {
+      "assetId": "645f25a48b81",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/6_2.jpg": {
+      "assetId": "284f287930e0",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/6_3.jpg": {
+      "assetId": "4896cfd2acd6",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/7_1.jpg": {
+      "assetId": "ab644463dd25",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/7_2.jpg": {
+      "assetId": "4e6695d4a068",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/7_3.jpg": {
+      "assetId": "6ef71929ad52",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_06/_frames/8_1.jpg": {
+      "assetId": "58d76253ff34",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_06/_frames/8_2.jpg": {
+      "assetId": "cd4a6d7dfe1c",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_06/_frames/8_3.jpg": {
+      "assetId": "963a5d3d6af3",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_07/_frames/1 animation_1.jpg": {
+      "assetId": "8623f4631f8c",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/_frames/1 animation_2.jpg": {
+      "assetId": "a9d0f0955a33",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/_frames/1 animation_3.jpg": {
+      "assetId": "263cb6af2ffa",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/_frames/2animation_1.jpg": {
+      "assetId": "0a4487d6fe0a",
+      "people": true,
+      "logo": true
+    },
+    "creative/carousels/carousel_07/_frames/2animation_2.jpg": {
+      "assetId": "d3c33c47d4c6",
+      "people": true,
+      "logo": true
+    },
+    "creative/carousels/carousel_07/_frames/2animation_3.jpg": {
+      "assetId": "ee2a4fca2a97",
+      "people": true,
+      "logo": true
+    },
+    "creative/carousels/carousel_07/_frames/3animation_1.jpg": {
+      "assetId": "470d21db47c5",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_07/_frames/3animation_2.jpg": {
+      "assetId": "edf47ce64e89",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_07/_frames/3animation_3.jpg": {
+      "assetId": "fb448d834838",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_07/_frames/4animationscvb_1.jpg": {
+      "assetId": "836f6703ce75",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/_frames/4animationscvb_2.jpg": {
+      "assetId": "b2cbf0a94ed4",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/_frames/4animationscvb_3.jpg": {
+      "assetId": "317e1064391c",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/_frames/5 animation_1.jpg": {
+      "assetId": "c6caa159d110",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_07/_frames/5 animation_2.jpg": {
+      "assetId": "60301a9a6b26",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_07/_frames/5 animation_3.jpg": {
+      "assetId": "f2cf9697efd0",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/_frames/6 animation_1.jpg": {
+      "assetId": "eff5d6492b9e",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/_frames/6 animation_2.jpg": {
+      "assetId": "fd24bb033f0f",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/_frames/6 animation_3.jpg": {
+      "assetId": "5889a4da55f7",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/_frames/7 animation_1.jpg": {
+      "assetId": "06b19d3a669d",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/_frames/7 animation_2.jpg": {
+      "assetId": "986eb80fc612",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/_frames/7 animation_3.jpg": {
+      "assetId": "7898cc3e6179",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/_frames/8 animation_1.jpg": {
+      "assetId": "0966828252f8",
+      "people": true,
+      "logo": true
+    },
+    "creative/carousels/carousel_07/_frames/8 animation_2.jpg": {
+      "assetId": "64ee84a035f6",
+      "people": true,
+      "logo": true
+    },
+    "creative/carousels/carousel_07/_frames/8 animation_3.jpg": {
+      "assetId": "fd3fca61f5b4",
+      "people": true,
+      "logo": true
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/1 animation day 8_1.jpg": {
+      "assetId": "4f707ac98056",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/1 animation day 8_2.jpg": {
+      "assetId": "8fde976a61be",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/1 animation day 8_3.jpg": {
+      "assetId": "01b996cade5c",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/2 animation day 8_1.jpg": {
+      "assetId": "d692480ff714",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/2 animation day 8_2.jpg": {
+      "assetId": "97638e895348",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/2 animation day 8_3.jpg": {
+      "assetId": "001375d9d6ed",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/3 animation day 8_1.jpg": {
+      "assetId": "dba0efaf5193",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/3 animation day 8_2.jpg": {
+      "assetId": "bfd3ba31c816",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/3 animation day 8_3.jpg": {
+      "assetId": "ed1572ff9813",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/4 animation day 8_1.jpg": {
+      "assetId": "e10f5130fc62",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/4 animation day 8_2.jpg": {
+      "assetId": "8970e5167020",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/4 animation day 8_3.jpg": {
+      "assetId": "e95c0dde28da",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/5 animation day 8_1.jpg": {
+      "assetId": "8d1474364d6f",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/5 animation day 8_2.jpg": {
+      "assetId": "7ae6f76f16fc",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/5 animation day 8_3.jpg": {
+      "assetId": "9c324c91344d",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/6 animation day 8_1.jpg": {
+      "assetId": "5df4f8d1899d",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/6 animation day 8_2.jpg": {
+      "assetId": "770a23953623",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/6 animation day 8_3.jpg": {
+      "assetId": "0c34d490028b",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/7 animation day 8_1.jpg": {
+      "assetId": "4622e85e7f1d",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/7 animation day 8_2.jpg": {
+      "assetId": "0d4a55b1818c",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/7 animation day 8_3.jpg": {
+      "assetId": "e42902838f8d",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/8 animation day 8_1.jpg": {
+      "assetId": "44f84992badf",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/8 animation day 8_2.jpg": {
+      "assetId": "665b90b82b42",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_07/day 8 carasuals/_frames/8 animation day 8_3.jpg": {
+      "assetId": "8f99246fbf48",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_08/_frames/day 9..1_1.jpg": {
+      "assetId": "58cdfb0061e3",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..1_2.jpg": {
+      "assetId": "9b60250a8af9",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..1_3.jpg": {
+      "assetId": "5f6b99c8241d",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..2_1.jpg": {
+      "assetId": "ec12f17ef1ba",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..2_2.jpg": {
+      "assetId": "a0f26e471a21",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..2_3.jpg": {
+      "assetId": "1dbe73a0ca36",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..3_1.jpg": {
+      "assetId": "acf7af72aa77",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..3_2.jpg": {
+      "assetId": "85031d493681",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..3_3.jpg": {
+      "assetId": "310ec4c07b3c",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..4_1.jpg": {
+      "assetId": "3aadc9e00b7f",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..4_2.jpg": {
+      "assetId": "bd0be612c8e6",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..4_3.jpg": {
+      "assetId": "68cc5e8bb019",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..5_1.jpg": {
+      "assetId": "c74c83e87687",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_08/_frames/day 9..5_2.jpg": {
+      "assetId": "78d7f7e444e5",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_08/_frames/day 9..5_3.jpg": {
+      "assetId": "a55e2a3819aa",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_08/_frames/day 9..6_1.jpg": {
+      "assetId": "2b818a33fcfb",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..6_2.jpg": {
+      "assetId": "02446a64b997",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..6_3.jpg": {
+      "assetId": "d08230588ad7",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..7_1.jpg": {
+      "assetId": "be23ee273b41",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..7_2.jpg": {
+      "assetId": "ab655a4d0ca6",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/day 9..7_3.jpg": {
+      "assetId": "91658543039e",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_08/_frames/last day 9..8_1.jpg": {
+      "assetId": "5b807a01952a",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_08/_frames/last day 9..8_2.jpg": {
+      "assetId": "298112219fb9",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_08/_frames/last day 9..8_3.jpg": {
+      "assetId": "cc87ea6c5d19",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_09/_frames/day 10..1_1.jpg": {
+      "assetId": "f0675a263444",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..1_2.jpg": {
+      "assetId": "0bc7a12a7ad6",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..1_3.jpg": {
+      "assetId": "47fb1b14ed60",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..2_1.jpg": {
+      "assetId": "c32b9958580e",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..2_2.jpg": {
+      "assetId": "9b5d8002fee3",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..2_3.jpg": {
+      "assetId": "7f73c0d13d1b",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..3_1.jpg": {
+      "assetId": "9274b95976bc",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..3_2.jpg": {
+      "assetId": "c52cc0c01969",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..3_3.jpg": {
+      "assetId": "6d28b122f393",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..4_1.jpg": {
+      "assetId": "415976858658",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..4_2.jpg": {
+      "assetId": "aeb7483e34b4",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..4_3.jpg": {
+      "assetId": "21bd6b5c95f9",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..5_1.jpg": {
+      "assetId": "653d79de3792",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..5_2.jpg": {
+      "assetId": "dbdee6923916",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..5_3.jpg": {
+      "assetId": "6b4ca6210e60",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..6_1.jpg": {
+      "assetId": "a2223f5fb3ab",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..6_2.jpg": {
+      "assetId": "ab5f8a4d4f74",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..6_3.jpg": {
+      "assetId": "a3869b5151eb",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..7_1.jpg": {
+      "assetId": "64a3a34e49ae",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..7_2.jpg": {
+      "assetId": "b870a2bcc428",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..7_3.jpg": {
+      "assetId": "c2d2c06bb2f3",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_09/_frames/day 10..8_1.jpg": {
+      "assetId": "a61ee2d3b1cd",
+      "people": true,
+      "logo": true
+    },
+    "creative/carousels/carousel_09/_frames/day 10..8_2.jpg": {
+      "assetId": "6b74219a56a4",
+      "people": true,
+      "logo": true
+    },
+    "creative/carousels/carousel_09/_frames/day 10..8_3.jpg": {
+      "assetId": "6ca4f03104d1",
+      "people": true,
+      "logo": true
+    },
+    "creative/carousels/carousel_10/_frames/day 11..1_1.jpg": {
+      "assetId": "e51a8a3000ac",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..1_2.jpg": {
+      "assetId": "eabf81f202d5",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..1_3.jpg": {
+      "assetId": "8fc15ed1cde0",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..2_1.jpg": {
+      "assetId": "66ea4875ba6e",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..2_2.jpg": {
+      "assetId": "833a5bce6cd7",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..2_3.jpg": {
+      "assetId": "8df67889760a",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..3_1.jpg": {
+      "assetId": "b8257de67332",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..3_2.jpg": {
+      "assetId": "352ffd9dac2c",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..3_3.jpg": {
+      "assetId": "613300199653",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..4_1.jpg": {
+      "assetId": "af7245fc1ee7",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..4_2.jpg": {
+      "assetId": "bf5d2f6ff5d4",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..4_3.jpg": {
+      "assetId": "36f146ce06a7",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..5_1.jpg": {
+      "assetId": "0c2723271753",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..5_2.jpg": {
+      "assetId": "fcda0f976f27",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..5_3.jpg": {
+      "assetId": "7222c813f94c",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..6_1.jpg": {
+      "assetId": "cbe99d81e691",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..6_2.jpg": {
+      "assetId": "f43fc9d6831d",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..6_3.jpg": {
+      "assetId": "a1a0eb9ae862",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..7_1.jpg": {
+      "assetId": "a8731adca365",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..7_2.jpg": {
+      "assetId": "6c4c18fe8936",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..7_3.jpg": {
+      "assetId": "8c6a452377ac",
+      "people": true,
+      "logo": false
+    },
+    "creative/carousels/carousel_10/_frames/day 11..8_1.jpg": {
+      "assetId": "663d9f19d792",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_10/_frames/day 11..8_2.jpg": {
+      "assetId": "ef6b44ec35bb",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_10/_frames/day 11..8_3.jpg": {
+      "assetId": "c5c9d06be277",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_11/_frames/day 12..1_1.jpg": {
+      "assetId": "fe20502fbdea",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..1_2.jpg": {
+      "assetId": "1fd7d53f0156",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..1_3.jpg": {
+      "assetId": "c032a618ace5",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..2_1.jpg": {
+      "assetId": "a3d2a76b5ba9",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..2_2.jpg": {
+      "assetId": "260af1e0d60b",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..2_3.jpg": {
+      "assetId": "3dafaf91f6b6",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..3_1.jpg": {
+      "assetId": "2f2f806386c5",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_11/_frames/day 12..3_2.jpg": {
+      "assetId": "8fb02c5e8130",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_11/_frames/day 12..3_3.jpg": {
+      "assetId": "113ef3293681",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_11/_frames/day 12..4_1.jpg": {
+      "assetId": "f6411b31df9d",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..4_2.jpg": {
+      "assetId": "1f85b6b2077b",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..4_3.jpg": {
+      "assetId": "290a68a00ead",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..5_1.jpg": {
+      "assetId": "b7a87a965341",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..5_2.jpg": {
+      "assetId": "f8316f630fe3",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..5_3.jpg": {
+      "assetId": "609eb7585e0a",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..6_1.jpg": {
+      "assetId": "58dec4b0c2d2",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..6_2.jpg": {
+      "assetId": "ada5d4ecaaa7",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..6_3.jpg": {
+      "assetId": "d52b7c765dd5",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..7_1.jpg": {
+      "assetId": "5eb9221045df",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..7_2.jpg": {
+      "assetId": "a4a3e0f406d6",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..7_3.jpg": {
+      "assetId": "9d151e8de8e8",
+      "people": false,
+      "logo": false
+    },
+    "creative/carousels/carousel_11/_frames/day 12..8_1.jpg": {
+      "assetId": "cc3b297e871f",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_11/_frames/day 12..8_2.jpg": {
+      "assetId": "3b53056cfd13",
+      "people": false,
+      "logo": true
+    },
+    "creative/carousels/carousel_11/_frames/day 12..8_3.jpg": {
+      "assetId": "7b6e78e4b1d6",
+      "people": false,
+      "logo": true
+    },
+    "creative/facebook_ads/01.jpg": {
+      "assetId": "1c61fbdc2638",
+      "people": false,
+      "logo": true
+    },
+    "creative/facebook_ads/02.jpg": {
+      "assetId": "568db25df7d0",
+      "people": true,
+      "logo": true
+    },
+    "creative/facebook_ads/03.jpg": {
+      "assetId": "c5a56206c2db",
+      "people": true,
+      "logo": true
+    },
+    "creative/facebook_ads/04.png": {
+      "assetId": "a5a61737cc08",
+      "people": true,
+      "logo": true
+    },
+    "creative/facebook_ads/05.jpg": {
+      "assetId": "a15a3832b44e",
+      "people": false,
+      "logo": true
+    },
+    "creative/facebook_ads/06.jpg": {
+      "assetId": "919c5e26ebaf",
+      "people": true,
+      "logo": true
+    },
+    "creative/facebook_ads_masked/01.png": {
+      "assetId": "c8366c84a40a",
+      "people": false,
+      "logo": false
+    },
+    "creative/facebook_ads_masked/02.png": {
+      "assetId": "9c2c3e1d9e06",
+      "people": true,
+      "logo": false
+    },
+    "creative/facebook_ads_masked/03.png": {
+      "assetId": "43de85dcdddc",
+      "people": true,
+      "logo": false
+    },
+    "creative/facebook_ads_masked/04.png": {
+      "assetId": "d6c440339b69",
+      "people": true,
+      "logo": false
+    },
+    "creative/facebook_ads_masked/05.png": {
+      "assetId": "293917c35af0",
+      "people": false,
+      "logo": false
+    },
+    "creative/facebook_ads_masked/06.png": {
+      "assetId": "2bb123664151",
+      "people": true,
+      "logo": false
+    }
+  },
+  "masks": [
+    {
+      "source": "creative/facebook_ads",
+      "target": "creative/facebook_ads_masked",
+      "files": {
+        "01.jpg": [
+          [
+            0.01,
+            0.012,
+            0.2,
+            0.095
+          ],
+          [
+            0.505,
+            0.205,
+            0.61,
+            0.315
+          ],
+          [
+            0.645,
+            0.25,
+            0.765,
+            0.3
+          ]
+        ],
+        "02.jpg": [
+          [
+            0.81,
+            0.012,
+            0.99,
+            0.085
+          ]
+        ],
+        "03.jpg": [
+          [
+            0.77,
+            0.012,
+            0.985,
+            0.1
+          ]
+        ],
+        "04.png": [
+          [
+            0.01,
+            0.012,
+            0.2,
+            0.095
+          ]
+        ],
+        "05.jpg": [
+          [
+            0.76,
+            0.025,
+            0.94,
+            0.115
+          ]
+        ],
+        "06.jpg": [
+          [
+            0.82,
+            0.008,
+            0.99,
+            0.065
+          ]
+        ]
+      }
+    }
+  ]
+}

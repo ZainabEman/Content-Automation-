@@ -28,8 +28,10 @@ Format = Literal["post", "carousel", "ad", "reel"]
 ImageRef = Literal[
     "post-1", "post-2", "post-3", "post-4", "post-5", "post-6", "post-7",
     "carousel-1", "carousel-2", "carousel-3", "carousel-4", "carousel-5", "carousel-6",
-    "carousel-7", "ad-1", "ad-2", "ad-3",
+    "carousel-7", "carousel-8", "ad-1", "ad-2", "ad-3",
 ]
+# The carousel story, in order: hook -> problem -> steps or insights -> example or result -> cta.
+StoryRole = Literal["hook", "problem", "step", "insight", "example", "result", "cta"]
 PLATFORMS: tuple[Platform, ...] = ("instagram", "facebook", "linkedin")
 FORMATS: tuple[Format, ...] = ("post", "carousel", "ad", "reel")
 ASPECT_BY_PLATFORM = {"instagram": "4:5", "facebook": "4:5", "linkedin": "1:1"}
@@ -40,9 +42,12 @@ SLOT_KINDS: dict[str, tuple[Kind, ...]] = {
     "carousel": ("carousel_slide",),
     "ad": ("ad",),
 }
-MIN_SLIDES, MAX_SLIDES = 3, 7  # a carousel: hook, at least one tip, call to action
+MIN_SLIDES, MAX_SLIDES = 6, 8  # a carousel story, chosen by content (default 7)
+DEFAULT_SLIDES = 7
 MAX_REEL_SEC = 90
 MIN_HASHTAGS, MAX_HASHTAGS = 3, 5
+MIN_TAKEAWAYS, MAX_TAKEAWAYS = 3, 5
+MIN_INSIGHTS = 6
 _PLACEHOLDER = re.compile(r"<[^<>]{2,}>")
 
 
@@ -66,16 +71,25 @@ class ChatBubble(_BriefModel):
     text: str = Field(min_length=1)
 
 
-class SlideSlot(_BriefModel):
-    """One slide of a carousel: the first is the hook (with the man), the last has the CTA."""
+class BeforeAfter(_BriefModel):
+    before: str = Field(min_length=1)
+    after: str = Field(min_length=1)
 
+
+class SlideSlot(_BriefModel):
+    """One slide of a carousel story: the first (hook) and the last (cta) show the man; the
+    slides between are information visuals without people."""
+
+    role: StoryRole | None = None  # where the slide is in the story
     headline: str = Field(min_length=1)
     highlight: list[str] = Field(default_factory=list, max_length=2)  # headline words
-    subheadline: str | None = None  # tip slides: the concrete how or an example
+    subheadline: str | None = None  # middle slides: the concrete fact or action
     sub_highlight: str | None = None
-    visual: str | None = None  # tip slides: what the icon shows
-    chat: list[ChatBubble] = Field(default_factory=list, max_length=3)  # tip slides
-    diagram: list[str] = Field(default_factory=list, max_length=4)  # tip slides: workflow
+    visual: str | None = None  # not on middle slides: they use one of the four visuals below
+    chat: list[ChatBubble] = Field(default_factory=list, max_length=3)  # middle slides
+    diagram: list[str] = Field(default_factory=list, max_length=4)  # middle slides: workflow
+    checklist: list[str] = Field(default_factory=list, max_length=3)  # middle: 3-row checklist
+    before_after: BeforeAfter | None = None  # middle slides: before / after
     cta: str | None = None  # last slide only: the button label
     cta_icon: CtaIconId | None = None
 
@@ -89,7 +103,7 @@ class ImageSlot(_BriefModel):
 
     format: FormatId = DEFAULT_FORMAT
     kind: Kind | None = None  # default: post -> organic (carousel: carousel_slide), ad -> ad
-    layout: LayoutId | None = None  # format ad: required; news: B or C to show the man
+    layout: LayoutId | None = None  # A, B, C or D; left out, it rotates between packages
     pose: str | None = None  # a pose from the pools; picked when left out
     audience_line: str | None = None  # "FOR DENTAL PRACTICES" (statement, stat, checklist, hook)
     headline: str | None = None
@@ -103,7 +117,8 @@ class ImageSlot(_BriefModel):
     stat: str | None = None  # format stat: the one big number
     source: str | None = None  # format stat (required) and news: the research article ID
     source_name: str | None = None  # format stat: "Source: <this>" (default: the article's)
-    steps: list[str] = Field(default_factory=list, max_length=5)  # format checklist
+    points: list[str] = Field(default_factory=list, max_length=3)  # post: 3 key points
+    steps: list[str] = Field(default_factory=list, max_length=5)  # old briefs only
     slides: list[SlideSlot] = Field(default_factory=list, max_length=MAX_SLIDES)  # carousel
     slide: str | None = None  # a single carousel slide instead of "slides": "N/TOTAL"
     slide_role: SlideRole | None = None
@@ -114,11 +129,21 @@ class ImageSlot(_BriefModel):
 
 
 class Caption(_BriefModel):
-    """The post text, in this order; the cta with the link and the hashtags follow it."""
+    """The post text, in this order; the cta with the offer, the link and the hashtags follow.
+
+    Hook, takeaways, question and cta together are 120-200 words (checked by the dry run).
+    """
 
     hook: str = Field(min_length=1)  # line 1
-    lines: list[str] = Field(min_length=2, max_length=3)  # short: problem -> solution
+    takeaways: list[str] = Field(min_length=MIN_TAKEAWAYS, max_length=MAX_TAKEAWAYS)
     question: str = Field(min_length=1)  # one question that invites comments
+
+
+class Insight(_BriefModel):
+    """A specific, usable finding from the research, written before the content."""
+
+    text: str = Field(min_length=1)  # an action, how-to step, example wording, timing, tool...
+    source: str = Field(min_length=1)  # a research article ID or a link listed in research.md
 
 
 class ReelScene(_BriefModel):
@@ -150,6 +175,7 @@ class ContentBrief(_BriefModel):
     key_points: list[str] = Field(min_length=1)
     identity_set: str | None = None  # default: DEFAULT_IDENTITY_SET
     source_article_ids: list[str] = Field(default_factory=list)
+    insights: list[Insight] = Field(default_factory=list)  # at least 6 (checked by the dry run)
     post: ImageSlot | None = None  # a single designed image (e.g. facebook_post)
     carousel: ImageSlot | None = None  # format carousel with its slides (instagram_carousel)
     ad: ImageSlot | None = None
@@ -235,13 +261,11 @@ def brief_problems(
             problems.append('ad.format must be "ad" (headline, subheadline and CTA button)')
         if name == "carousel" and image.format != "carousel":
             problems.append('carousel.format must be "carousel"')
-        if image.format == "ad" and image.layout is None:
-            problems.append(f"{name}.layout: choose A, B, C or D")
         if image.format == "carousel":
             if image.slide is None and not MIN_SLIDES <= len(image.slides) <= MAX_SLIDES:
                 problems.append(
-                    f"{name}.slides: a carousel has {MIN_SLIDES}-{MAX_SLIDES} slides "
-                    "(hook, tips, call to action)"
+                    f"{name}.slides: a carousel has {MIN_SLIDES}-{MAX_SLIDES} slides (hook, "
+                    "problem, steps or insights, example or result, call to action)"
                 )
         elif image.slides:
             problems.append(f'{name}.slides is only for "format": "carousel"')

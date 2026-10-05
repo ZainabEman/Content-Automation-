@@ -40,71 +40,85 @@ photos of people who have agreed to this use.
   Four kinds are kept separate: `identity` (the person), `product`, `brand` (logos), and
   `creative` (past ads and carousels, used only as **style** examples, never as the person's face).
 - **Style tags**: every style example is tagged once, by looking at it: does it show people
-  (a person, face, hand or human figure) and does it show a logo? The tags are saved in each
-  set's `set.json` (`"people"`, `"logo"`) and survive a rescan. On 2026-10-04 all 318 were
-  tagged: 197 show neither, 51 show people, 62 show a logo. For a new style image: look at it,
-  then `uv run ca refs tag --asset <id> --people yes|no --logo yes|no` (`uv run ca refs list`
-  shows how many are still untagged).
+  (a person, face, hand or human figure) and does it show a logo? On 2026-10-04 all 318 were
+  tagged: 197 show neither, 51 show people, 62 show a logo. The tags are kept in git in
+  `config/references.json` (with the primary photos and the mask areas below), so another
+  computer gets them after `uv run ca refs scan`; the photos themselves stay out of git. For a
+  new style image: look at it, then `uv run ca refs tag --asset <id> --people yes|no --logo
+  yes|no` (`uv run ca refs list` shows how many are still untagged).
+- **Masked past ads**: the 6 past Facebook ads are the quality bar, but each shows the logo.
+  `uv run ca refs mask` makes copies with the logo areas covered (and the WhatsApp marks on
+  ad 01) in `creative/facebook_ads_masked/`; posts and ads use only these copies, never the
+  originals. Images with the man use only the two copies without people (01 and 05).
 - **Primary photos**: for each person, the 4 best photos are marked "primary". These are
-  the ones sent to the image model.
-- **Brand profile** (`brand.json`): colours, fonts, tone and do/don't rules, drafted from the
-  brand style guide PDF for you to check.
+  the ones sent first to the image model.
+- **Brand profile** (`config/brand.json`, in git): colours, fonts, tone and do/don't rules,
+  drafted from the brand style guide PDF. Read on 2026-10-05; the guide's rules are enforced on
+  every format (see "Brand guide rules" below).
 - **Video frames**: carousel videos are turned into still frames (3 per video) so they can be
   used as style examples.
 - **Three workflows** that turn a short scene description into a full prompt: they add the
   right reference photos, say what each photo is for (the person, a product, or style only),
-  and add the brand rules from `brand.json` automatically. Any text in an image is in English.
+  and add the brand rules automatically. Any text in an image is in English.
 - **Design system** (`config/design_system.json`), in three parts:
   - a fixed **core** that is always on: the brand colours (named by role: background,
-    accent/glow, highlight, text; the actual colours come from `brand.json`), the fonts, the
-    empty logo corner, the identity rules, "no readable text on screens or signs" and the
-    text-accuracy rules;
+    accent/glow, highlight, text; the actual colours come from `brand.json`), the two fonts,
+    the brand guide rules (colours, type, spacing), the empty logo corner, the identity rules,
+    "no readable text on screens or signs" and the text-accuracy rules;
   - **pools** of things that vary: 16 scenes (office by day or night, studio, cafe, city street,
     home desk, conference stage, co-working space, reception desk, clinic, shop, a real estate
     office, a staged home interior, a house front, two abstract backgrounds), 6 wardrobes
-    (smart-casual to suit), props, decor, hologram styles and poses. Scenes made for one trade
-    (reception desk, clinic, shop, the three real estate scenes) are used only when the topic
-    names that trade, so a real estate post never gets a clinic-style reception;
-  - seven post **formats** (see "Designed graphics"). The glass text panel, holograms, decor and
-    props are optional parts: each format shows only the ones it lists.
-- **Variety**: what you do not set (scene, wardrobe, props, decor, pose) is picked from the pools
-  and avoids what the last 5 content packages used. The same request always gets the same picks,
-  so a dry run shows what the real run will use. The picks are saved in `details.json`
-  (`inputs`) and, for packages, in `package.json` (`picks`). The style examples rotate too: ads
-  use up to 3 past ads (`creative/facebook_ads`); carousels use the 13 demo carousels in
-  `creative/carousels`, picked by slide role (slide 1 of a demo for the hook, its last slide for
-  the call to action, the slides between for tips); other formats use none. Within one carousel
-  all slides share one scene, decor and palette, and slides 2+ also attach slide 1's image
-  (the version without the logo). Style examples with a logo are never sent, and images that
-  show the man get only examples with no people and no logo (or none: today no past ad
-  qualifies, since all 6 show the logo and 4 show people).
-- **Consistent person (compulsory)**: any human in any image, slide or video is the person from
-  `DEFAULT_IDENTITY_SET`. Every design that shows him (format ad with layout B, C or D, news with
-  a person, person photo, carousel hook slide) and every video gets all his reference photos; a
-  clear error stops it if they are missing. The prompt tells the model to keep exactly that face,
-  hair, skin tone and age, that he is the only person, and not to beautify him or add glasses, a
-  beard or accessories. Designs without him say: no people, faces or human figures. His photos
-  are attached first (primary photos first) and the prompt says he is the only person allowed:
-  any person, face or logo in another reference image is ignored. His face is never described
-  in words and never taken from style examples or slide 1; the 14-image limit never drops his
-  photos. `details.json` records `personShown`, `identityRefs` and `references` (every image
-  sent, in order, with its tags).
+    (smart-casual to suit), props, decor, hologram styles (posts use topic UI: chat, CRM card,
+    calendar) and poses. Scenes made for one trade are used only when the topic names it;
+  - the post **formats** (see "Designed graphics"): one premium post family for Facebook posts,
+    the ad, the carousel and the person photo.
+- **Brand guide rules** (from the PDF, on every image): only Royal Blue #004BA0, Sky Blue
+  #69BFF8, Medium Gray #969595 and White, with their tints and shades, and blue paired with
+  silver/metallic accents as in the logo; photo scenes graded cool to match. Exactly two type
+  styles, identical on every image of a set: Futura Bold for headlines, the audience line and
+  big numbers, Futura Medium for everything else; never condensed or decorative fonts and never
+  the Good Times logo font. Even margins of about 6% on every side, a simple grid, no clutter.
+  The logo: the approved version that contrasts with the background (see "Logo" below).
+- **Variety**: what you do not set (layout A-D, scene, wardrobe, props, decor, pose) is picked
+  from the pools and avoids what the last 5 content packages used; Facebook posts also rotate
+  their content type. Variety never removes design. The same request always gets the same
+  picks, so a dry run shows what the real run will use. The picks are saved in `details.json`
+  (`inputs`) and, for packages, in `package.json` (`picks`). Style examples: posts and ads use
+  the masked past ads; carousels use the 13 demo carousels, picked by slide role. Examples with
+  a logo are never sent; an image with the man gets at most one example, with no people and no
+  logo. Within one carousel all slides share one design, and slides 2+ attach slide 1's image
+  (the version without the logo).
+- **The person (compulsory)**: he is in every Facebook post, every ad variant and the first
+  and last carousel slides; the middle carousel slides are information visuals without people.
+  Any human in any image or video is the person from `DEFAULT_IDENTITY_SET`. The identity block
+  comes first in the prompt and his photos are attached first (primary photos first): keep
+  exactly that face, hair, skin tone and age, he is the only person allowed, any person, face
+  or logo in another reference image is ignored. His face is never described in words; the
+  14-image limit never drops his photos. `details.json` records `personShown`, `identityRefs`
+  and `references` (every image sent, in order, with its tags).
 - **Person check** (content packages): each image with the man is made on its own and the build
   stops after it. Codex looks at it beside two of his primary photos. If he clearly differs
   (hair, build, facial hair, age) it records `uv run ca job review <job folder> --fail "..."`,
-  shows you the image and asks before making it again (with the cost); otherwise `--pass` and
-  the build goes on. The result is saved in `details.json` (`reviews`). A slide 1 that failed is
-  never used for the later slides.
-- **Logo, pasted by the app**: the image model is never asked to draw the logo (it used to invent
-  one). The prompt keeps the top-right corner empty, and the app pastes the real logo file there
-  at one fixed size and place on every image: 20% of the width, a small margin from the top and
-  right edge (on 9:16 just below the top safe zone). The file is `logoFile` in `brand.json` and
-  must have a transparent background (now `logo (1).png`; `cFkuqb.jpg` has a white background).
-  The model's own image is kept in the job's `raw/` folder.
-- **Exact text only**: the image shows only the texts you give (headline, subheadline, CTA label,
-  big number, steps, icon labels, slide number), exactly as written and in the language of
-  `brand.json`.
-- **Readable, on-brand, for someone**: every design fills the canvas with text sized for a phone, sets headlines in the brand heading font from `brand.json` (never condensed), and shows the website from `services.md` as a small footer. Statement, stat and checklist posts and the carousel hook carry a small audience line (`--audience-line "For dental practices"`). Carousel tip slides can show the automation: `--chat "Customer: ...|Bot: ..."` (2-3 bubbles) or `--diagram "Visitor asks|Chatbot answers|Lead in CRM"`. The scene is picked by relevance to the topic first (reception desk, clinic, shop, office, ...), then rotated.
+  shows you the image and asks before making it again (with the cost); otherwise `--pass`.
+  A slide 1 that failed is never used for the later slides.
+- **Set check** (content packages): when every image of a carousel or an ad set exists, the
+  build stops once more. Codex compares images 2+ with the first one: the same two fonts and
+  sizes, the same colours, the same layout family. A mismatch is recorded with `uv run ca job
+  review <job folder> --check set --fail "..."`, shown to you, and made again only after you
+  agree; only that image is made again. Both checks are saved in `details.json` (`reviews`).
+- **Logo, pasted by the app**: the image model never draws a logo. The prompt keeps the
+  top-right corner empty, and the app pastes the logo at one fixed size and place on every
+  image: 20% of the width, a small margin from the top and right edge (on 9:16 just below the
+  top safe zone). The guide's approved versions are used by contrast: on a dark corner the
+  white "dark logo" (the same lettering in white, made from the logo's own shape, no effects),
+  on a light corner the full colour. The file is `logoFile` in `config/brand.json`, a PNG with a
+  transparent background (`logo (1).png`). The model's own image is kept in the job's `raw/`.
+- **Exact text only**: the image shows only the texts you give (headline, supporting line, key
+  points, CTA label, big number, source line, chat, diagram, checklist and before/after texts),
+  exactly as written. No slide numbers or counts on carousels.
+- **Readable, on-brand, for someone**: every design fills the canvas with text sized for a
+  phone and shows the website from `services.md` as a small footer. Posts and the carousel hook
+  carry a small audience line (`--audience-line "For dental practices"`).
 - **Real numbers only**: a `stat` post is refused unless its number is written in the saved
   research article you name as its source.
 - **Services, not products**: `person_service` shows the person delivering one of the
@@ -179,7 +193,7 @@ Pick sharp, well-lit photos where the face is clearly visible, ideally from diff
 
 ### Check brand.json
 
-Open `assets/reference/brand/brand.json` in any text editor, or run `uv run ca brand show`.
+Open `config/brand.json` (it is in git) in any text editor, or run `uv run ca brand show`.
 Fix anything wrong, remove each item from `needsReview` once you have checked it, and change
 `"status": "draft"` to `"status": "approved"` when you are happy. `logoFile` is the file in
 `brand/logo/` that the app pastes onto every design; it must be a PNG with a transparent
@@ -214,13 +228,19 @@ else is refused with a message that names what to change.
 
 | Format | What it shows | Texts | Person | CTA button |
 |---|---|---|---|---|
-| `ad` | Headline, subheadline and button in the glass panel, with holograms | `--headline` (max 6 words), `--subheadline`, `--cta`; optional `--icons`, `--visual` | With layout B, C or D | Yes |
-| `statement` | One bold sentence, large, on the background | `--headline` (the sentence, max 12 words) | No | No |
-| `stat` | One big number and one context line | `--stat "58%"`, `--subheadline` (context), `--source <articleId>` | No | No |
-| `news` | The news in one line, then "What it means" | `--headline` (max 14 words), `--subheadline`; optional `--source` | Only with `--layout B` or `C` | No |
-| `carousel` | One slide: hook (slide 1), tips, call to action (last slide) | `--slide N/TOTAL`, `--headline`; optional `--subheadline`, `--visual` (tip icon); `--cta` on the last slide only | Slide 1 only | Last slide only |
-| `person_photo` | The man in a scene, no panel, logo only | Optional `--headline` of 0–3 words | Yes | No |
-| `checklist` | A title and 3–5 numbered steps with icons | `--headline` (title), `--steps "One\|Two\|Three"` | No | No |
+| `ad` | Headline, subheadline and button in the glass panel, with holograms | `--headline` (max 6 words), `--subheadline`, `--cta`; optional `--icons`, `--visual` (layout A) | Yes | Yes |
+| `statement` | Premium post: a claim or insight and 3 key points | `--audience-line`, `--headline` (max 10 words), `--subheadline`, `--points "A\|B\|C"` | Yes | No |
+| `stat` | Premium post: one big number with its source line | `--audience-line`, `--headline`, `--subheadline`, `--stat "58%"`, `--source <articleId>`, optional `--source-name` | Yes | No |
+| `checklist` | Premium post: a task in 3 numbered steps | `--audience-line`, `--headline` (max 8 words), `--subheadline`, `--points "A\|B\|C"` | Yes | No |
+| `news` | Premium post: the news, what it means, 3 things to do | `--headline` (max 14 words), `--subheadline`, `--points`; optional `--source`, `--audience-line` | Yes | No |
+| `carousel` | One slide: first (hook), middle (information visual), last (call to action) | `--slide N/TOTAL`, `--headline`; middle slides: `--subheadline` (max 18 words) and one of `--chat`, `--diagram`, `--mini-checklist`, `--before-after`; `--cta` on the last slide only | First and last slides | Last slide only |
+| `person_photo` | The man in a scene, no panel (single images only) | Optional `--headline` of 0–3 words | Yes | No |
+
+Statement, stat, checklist and news are content types of **one premium post layout** (every
+Facebook post): the man integrated in a topic-relevant scene with depth and brand lighting, a
+glass panel with the audience line, headline and one supporting line, then the 3 key points
+with icons (or the stat with its source), topic UI (chat, CRM card, calendar), and the footer.
+The old flat versions (text on a plain background) are retired.
 
 A `stat` number must be written in the research article given as `--source` (the IDs are in a
 package's `research.md` or in `uv run ca research digest`); otherwise the request is refused.
@@ -230,7 +250,7 @@ Then the details:
 | Choice | Options | How to pick |
 |---|---|---|
 | `--kind` | `organic` (default), `ad`, `story` | **Organic** = educational; a soft CTA where the format has one ("Learn more", "Read now"). **Ad** (only with format `ad`) = one message, one offer, one CTA; offer words (free, analysis, demo, in 15 minutes); at most one proof number and only if it is real (from `docs/company/services.md`); short text; 3 variants. **Story** = 9:16 with the top and bottom 13% kept free of text and logo. |
-| `--layout` (format `ad`) | `A`, `B`, `C`, `D` | **A** text left + system visual right, no person (product or feature). **B** text left + person right, **C** person left + text right (trust and authority; alternate B and C between posts). **D** before/after split: the same person stressed on the left, relaxed on the right (pain vs gain). |
+| `--layout` (posts and ads; leave it out to rotate) | `A`, `B`, `C`, `D` | All four show the man. **A** text left + a system visual with the man beside it (product or feature). **B** text left + person right, **C** person left + text right (trust and authority). **D** before/after split: the same person stressed on the left, relaxed on the right (pain vs gain). |
 | `--headline` + `--highlight` | 1–2 highlight words from the headline | Format `ad`: use one formula: contrast, pair, principle, question, idiom twist or promise (examples in `config/design_system.json`). Shown in capitals (not in `news`). |
 | `--subheadline` + `--sub-highlight` | one short sentence; one highlight word | Format `ad`: always fill it. |
 | `--cta` + `--cta-icon` | button label; `arrow`, `calendar`, `play` | The icon follows the action: arrow (learn/try/analyze), calendar (book), play (demo); it is chosen from the label unless you set it. |
@@ -268,11 +288,11 @@ is used, and a name that is not the article's publisher is refused.
    ```
 6. "A stat post with the 58% from the AEO article"
    ```
-   uv run ca image --workflow social_creative --format stat --stat "58%" --source <articleId> --subheadline "<what the article says the 58% measures>" --count 3 --request "A stat post with the 58% from the AEO article"
+   uv run ca image --workflow social_creative --format stat --stat "58%" --source <articleId> --source-name "<publisher>" --audience-line "For marketing teams" --headline "<what the number means>" --subheadline "<what it measures and what to do about it>" --count 3 --request "A stat post with the 58% from the AEO article"
    ```
 7. "A checklist post: how to set up lead follow-up"
    ```
-   uv run ca image --workflow social_creative --format checklist --headline "Set Up Lead Follow-Up" --steps "Capture every inquiry in one place|Answer the first question with a chatbot|Send a follow-up within one day" --count 3 --request "A checklist post: how to set up lead follow-up"
+   uv run ca image --workflow social_creative --format checklist --audience-line "For dental practices" --headline "Set Up Lead Follow-Up" --subheadline "Every web form lead gets an SMS within 5 minutes and a CRM task." --points "Route web forms into one CRM inbox|Send an SMS reply within 5 minutes|Email a follow-up on day 2" --count 3 --request "A checklist post: how to set up lead follow-up"
    ```
 8. "A photo of me in a cafe for Instagram, no text"
    ```
@@ -296,7 +316,8 @@ is used, and a name that is not the article's publisher is refused.
 - `--product`: for `social_creative` only, a product photo set (if you ever add one).
 - `--format`, `--kind`, `--layout`, `--pose`, `--scene`, `--wardrobe`, `--props`, `--headline`,
   `--highlight`, `--subheadline`, `--sub-highlight`, `--cta`, `--cta-icon`, `--icons`,
-  `--visual`, `--stat`, `--source`, `--steps`, `--slide`, `--slide-role`: for `social_creative`
+  `--visual`, `--stat`, `--source`, `--source-name`, `--points`, `--audience-line`, `--chat`,
+  `--diagram`, `--mini-checklist`, `--before-after`, `--slide`, `--slide-role`: for `social_creative`
   only (see "Designed graphics" above). `--variant` is the old name of `--kind` (`post` =
   `organic`); `--logo` is no longer needed there.
 - `--set` with `social_creative`: only to show a different person than `DEFAULT_IDENTITY_SET`.

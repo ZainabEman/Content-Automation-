@@ -89,9 +89,9 @@ file in between (the steps are in the skill `.agents/skills/make-content/SKILL.m
 
 | You say | You get |
 | --- | --- |
-| "facebook post", "fb post" | `facebook_post`: 1 designed image in a format that rotates (statement, stat, news, person photo, checklist) |
-| "facebook ad", "fb ad" | `facebook_ad`: 3 variants of one ad |
-| "insta post", "instagram post", "ig post", "insta carousel", "instagram carousel", "ig carousel" | `instagram_carousel`: 5 slides (hook with you, 3 tips, call to action) |
+| "facebook post", "fb post" | `facebook_post`: 1 premium image with you; its content type rotates (statement, stat, checklist, news) |
+| "facebook ad", "fb ad" | `facebook_ad`: 3 variants of one ad, each with you |
+| "insta post", "instagram post", "ig post", "insta carousel", "instagram carousel", "ig carousel" | `instagram_carousel`: 6-8 slides (default 7), one story: hook (with you), problem, steps or insights, example or result, call to action (with you) |
 | "video", "reel", "insta reel", "facebook video" | `reel_short`: a 9:16 video up to 90 s |
 | "ugc ad" | `ugc_ad`: a UGC-style video ad up to 60 s |
 | "podcast clip" | `podcast_clip`: your avatar speaks the script, up to 90 s |
@@ -105,7 +105,8 @@ with no deliverables (research and text only) and get them later; until then not
    `uv run ca content start --research-file research/newsletters/<date>_content-list.json --idea 3`
    uses a newsletter idea instead (no scraping; its sources are saved as research articles).
    `--deliverables "insta post, reel"` is added only if you already named them; otherwise Codex
-   writes `content.md` (angle, key message, key points, draft caption, source) and asks what to
+   writes `content.md` (first at least 6 specific insights from the research, each with its
+   source; then angle, key message, key points, draft caption, sources) and asks what to
    make, then runs `uv run ca content set "<folder>" --deliverables "<names>"`. It creates
    `outputs/content/YYYY-MM-DD_<topic>/` with:
    - `research.md`: the best-matching articles with links;
@@ -117,17 +118,29 @@ with no deliverables (research and text only) and get them later; until then not
    `format`; see "Designed graphics" in the [Images guide](module-1-images.md). A brief without
    `format` is an `ad` (headline, subheadline, CTA button), so older briefs keep working. A
    `stat` post must name the research article its number comes from (`source`); if the number
-   is not written in that article, the build refuses. A `carousel` post lists its `slides`.
-   Scene, wardrobe and props are normally left out: they are picked so that they differ from
-   the last 5 packages, and the picks are saved in `package.json`. The caption has
-   a fixed shape: `hook` (line 1), 2–3 short `lines` (problem → solution), one `question` to
-   get comments, the `cta` with the `link`, and 3–5 English hashtags including `#BrandedGenius`.
+   is not written in that article, the build refuses. A `carousel` lists its `slides`, each
+   with its `role` in the story (hook, problem, step or insight, example or result, cta); every
+   middle slide has a heading of at most 6 words, one specific line of at most 18 words, and
+   one visual (`chat`, `diagram`, `checklist` or `beforeAfter`). The brief also lists the
+   `insights` (at least 6, each with its source). Layout, scene, wardrobe and props are
+   normally left out: they are picked so that they differ from the last 5 packages, and the
+   picks are saved in `package.json`. The caption has a fixed shape: `hook` (line 1), 3–5
+   specific `takeaways`, one `question` to get comments, the `cta` with the offer and the
+   `link`, and 3–5 English hashtags including `#BrandedGenius`; 120–200 words.
    To pre-fill the link, add a line `Website: https://…` to `docs/company/services.md`.
 3. `uv run ca content build "<folder>" --dry-run` checks `brief.json` (every problem is listed)
-   and shows the cost. Codex waits for your OK.
+   and shows the count and cost. It refuses generic lines (no channel, tool, timing, number or
+   example wording), middle slides that do not say who sends what, when and through which
+   channel, a story out of order, captions outside 120–200 words, a CTA without the offer, and
+   numbers without a source. Codex waits for your OK.
 4. `uv run ca content build "<folder>"` makes only the named parts:
-   - **Instagram carousel**: one image per slide (`post-1.png` is the hook slide);
+   - **Facebook post**: one premium image with you;
+   - **Instagram carousel**: one image per slide (`carousel-1.png` is the hook slide);
    - **Facebook ad**: 3 ad variants (one message, one offer, one CTA; same branding);
+   - after each image with you the build stops for the **person check**, and once a carousel
+     or ad set is complete for the **set check** (every image against the first: fonts,
+     colours, layout family). Codex records each check and asks you before anything is made
+     again;
    - **video** (reel, UGC ad or podcast clip): made with `VIDEO_PROVIDER` / `AVATAR_PROVIDER`
      from `.env`; its first frame is the first post image when there is one. The dry run shows
      the video's provider and credits, and Codex waits for your OK as for images. If a provider
@@ -136,8 +149,8 @@ with no deliverables (research and text only) and get them later; until then not
      exactly what to set. `uv run ca video resume "<job folder>"` or another build finishes it;
    - `post.md` (the caption ready to paste, source links) and an updated `package.json`.
 
-   Designed images are made at 2K: 5 images cost about $0.51 with OpenRouter (a 5-slide
-   carousel plus 3 ad variants: about $0.81). If a carousel stops part-way, the next build
+   Designed images are made at 2K, about $0.10 each with OpenRouter: a post, a 7-slide
+   carousel and 3 ad variants are 11 images, about $1.11. If a carousel stops part-way, the next build
    makes only the missing slides.
 
    Each part is saved as soon as it is done. If one part fails or waits (for example the video,

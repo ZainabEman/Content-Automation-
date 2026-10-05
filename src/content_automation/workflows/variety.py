@@ -30,13 +30,14 @@ RECENT_PACKAGES = 5  # the picks of this many newest packages are avoided
 RECENT_FORMATS = 3  # a suggested format differs from those of this many newest packages
 PACKAGE_FILE = "package.json"
 CUSTOM = "custom"  # given in the user's own words instead of a pool ID
-PICK_NAMES = ("format", "scene", "wardrobe", "props", "decor", "holograms", "pose")
+PICK_NAMES = ("format", "layout", "scene", "wardrobe", "props", "decor", "holograms", "pose")
 
 
 class DesignPicks(CamelModel):
     """What one design used from the pools; saved in details.json and package.json."""
 
     format: str | None = None
+    layout: str | None = None
     scene: str | None = None
     wardrobe: str | None = None
     props: str | None = None
@@ -181,6 +182,18 @@ def _pick(
     return Pick(key, pool[key].description)
 
 
+def choose_layout(options: list[str], history: list[DesignPicks], seed: str) -> str:
+    """A layout letter the newest packages did not use (else the one used longest ago).
+
+    All layouts show the man, so posts and ads vary by layout instead of losing him.
+    """
+    used = [picks.layout for picks in history if picks.layout]
+    fresh = [letter for letter in options if letter not in used]
+    if fresh:
+        return _rng(f"{seed}|layout").choice(fresh)
+    return max(options, key=used.index)
+
+
 def choose_look(
     design: DesignChoice,
     system: DesignSystem,
@@ -248,7 +261,11 @@ def choose_look(
             else None
         ),
         holograms=(
-            _pick(pools.holograms, holograms, used=used("holograms"), seed=f"{seed}|holograms")
+            _pick(
+                pools.holograms, holograms, used=used("holograms"), seed=f"{seed}|holograms",
+                # Posts show topic UI (chat, CRM card, calendar), not abstract AI symbols.
+                relevant=lambda entry: spec.family == "post" and "ui" in entry.tags,
+            )
             if "holograms" in spec.elements
             else None
         ),

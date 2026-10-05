@@ -34,7 +34,9 @@ class Settings(BaseSettings):
     )
 
     user_name: str = Field(default="User", min_length=1)
-    references_dir: Path = Path("assets/reference")
+    references_dir: Path = Path("assets/reference")  # photos: git-ignored
+    brand_file: Path = Path("config/brand.json")  # tracked; fallback: <references>/brand/
+    references_file: Path = Path("config/references.json")  # tracked tags, primaries, masks
     company_file: Path = Path("docs/company/services.md")
     output_dir: Path = Path("outputs/jobs")
     research_dir: Path = Path("research")

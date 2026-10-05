@@ -95,9 +95,13 @@ Put the files in these folders inside the project (create them if needed):
 | `assets/reference/identity/person_01/` | 4–10 clear photos of the person (face visible, at least 512 px). Only photos of people who agreed to this use. |
 | `assets/reference/brand/logo/` | the logo as a PNG with a transparent background (the app pastes it onto every design) |
 | `assets/reference/creative/facebook_ads/` | a few past ads, used as style examples |
-| `assets/reference/brand/brand.json` | colours, fonts, tone and rules (already there for Branded Genius) |
+| `assets/reference/creative/facebook_ads/` | the 6 past ads (masked copies are made from them; see below) |
 
-Then ask Codex: **"Run uv run ca refs scan."** More detail: [Module 1 guide](guides/module-1-images.md).
+Then ask Codex: **"Run uv run ca refs frames, uv run ca refs scan and uv run ca refs mask."**
+The photos stay out of git, but what was decided about them comes with the project: the brand
+profile (`config/brand.json`) and the style tags, primary photos and logo areas to cover
+(`config/references.json`) are applied by the scan, and `ca refs mask` makes the logo-free
+copies of the past ads. More detail: [Module 1 guide](guides/module-1-images.md).
 
 ## 7. Check everything
 

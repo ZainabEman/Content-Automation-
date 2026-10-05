@@ -1,15 +1,15 @@
 {
   "deliverables": {
     "facebook_post": {
-      "label": "Facebook post: 1 designed image in a non-ad format (rotates between packages)",
+      "label": "Facebook post: 1 premium image with the person; content type statement, stat, checklist or news (rotates between packages)",
       "part": "post",
       "platform": "facebook",
-      "formats": ["statement", "stat", "news", "person_photo", "checklist"],
+      "formats": ["statement", "stat", "checklist", "news"],
       "images": 1,
       "aliases": ["facebook post", "fb post"]
     },
     "facebook_ad": {
-      "label": "Facebook ad: 3 variants of one ad (headline, subheadline, CTA button)",
+      "label": "Facebook ad: 3 variants of one ad with the person (headline, subheadline, CTA button)",
       "part": "ad",
       "platform": "facebook",
       "format": "ad",
@@ -17,11 +17,11 @@
       "aliases": ["facebook ad", "fb ad"]
     },
     "instagram_carousel": {
-      "label": "Instagram carousel: 5 slides (hook, 3 tips, call to action)",
+      "label": "Instagram carousel: 6-8 slides (default 7), one story: hook, problem, steps or insights, example or result, call to action",
       "part": "carousel",
       "platform": "instagram",
       "format": "carousel",
-      "slides": 5,
+      "slides": 7,
       "aliases": [
         "insta post", "instagram post", "ig post",
         "insta carousel", "instagram carousel", "ig carousel"

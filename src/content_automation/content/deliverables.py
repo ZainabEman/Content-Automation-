@@ -51,7 +51,8 @@ class Deliverable(_Model):
     format: FormatId | None = None  # a fixed design format
     formats: list[FormatId] = Field(default_factory=list)  # or: formats to rotate between
     images: int = Field(default=1, ge=1, le=4)  # image options per job (carousel: per slide)
-    slides: int | None = Field(default=None, ge=MIN_SLIDES, le=MAX_SLIDES)  # carousels
+    # Carousels: the template's slide count; a brief may use 6-8 (chosen by content).
+    slides: int | None = Field(default=None, ge=MIN_SLIDES, le=MAX_SLIDES)
     workflow: VideoWorkflow | None = None  # videos
     aliases: list[str] = Field(min_length=1)
 
@@ -190,10 +191,10 @@ class DeliverableCatalog(_Model):
                 problems.append(
                     f"{item.part}.format must be {' or '.join(allowed)} ({item.label})"
                 )
-            elif item.slides is not None and len(slot.slides) != item.slides:
+            elif item.slides is not None and not MIN_SLIDES <= len(slot.slides) <= MAX_SLIDES:
                 problems.append(
-                    f"{item.part}.slides: {key} needs exactly {item.slides} slides "
-                    f"(found {len(slot.slides)})"
+                    f"{item.part}.slides: {key} has {MIN_SLIDES}-{MAX_SLIDES} slides, chosen by "
+                    f"the content (default {item.slides}); found {len(slot.slides)}"
                 )
         return problems
 

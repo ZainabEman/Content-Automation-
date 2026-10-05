@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from PIL import Image, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
 
 from content_automation.ai.image import ReferenceImage
 from content_automation.core.config import load_settings
@@ -28,6 +28,13 @@ from content_automation.references.models import (
     RefAsset,
     ReferenceSet,
     RefType,
+)
+from content_automation.references.tracked import (
+    TrackedReferences,
+    TrackedTag,
+    load_tracked,
+    save_tracked,
+    tracked_for,
 )
 
 SUPPORTED_SUFFIXES = frozenset({".jpg", ".jpeg", ".png", ".webp"})
@@ -99,6 +106,7 @@ def scan(root: Path | None = None) -> ScanReport:
             report.warnings.append(f"File '{child.name}' ignored: put it inside a set folder.")
 
     now = datetime.now(UTC)
+    tracked = load_tracked(tracked_for(root))
     for ref_type in REF_TYPES:
         type_dir = root / ref_type
         if not type_dir.is_dir():
@@ -128,7 +136,7 @@ def scan(root: Path | None = None) -> ScanReport:
                     stale.unlink()
                     report.warnings.append(f"{relative}: no images left, old set.json removed.")
                 continue
-            report.sets.append(_scan_set(folder, relative, ref_type, files, now))
+            report.sets.append(_scan_set(folder, relative, ref_type, files, now, tracked))
     return report
 
 
@@ -165,9 +173,26 @@ def _load_previous(folder: Path) -> dict[str, RefAsset]:
     return {asset.asset_id: asset for asset in previous.ok_assets}
 
 
+def _tracked_tag(
+    tracked: TrackedReferences, set_id: str, name: str, asset_id: str
+) -> TrackedTag | None:
+    """The tracked tag of a file: the same file, or one the tool made (frames, masked copies)."""
+    tag = tracked.tags.get(f"{set_id}/{name}")
+    if tag is None:
+        return None
+    made_by_tool = name.startswith(f"{FRAMES_DIR}/") or set_id in tracked.mask_targets()
+    return tag if tag.asset_id == asset_id or made_by_tool else None
+
+
 def _scan_set(
-    folder: Path, set_id: str, ref_type: RefType, files: list[str], now: datetime
+    folder: Path,
+    set_id: str,
+    ref_type: RefType,
+    files: list[str],
+    now: datetime,
+    tracked: TrackedReferences | None = None,
 ) -> ReferenceSet:
+    tracked = tracked or TrackedReferences()
     previous = _load_previous(folder)
     resized_dir = folder / RESIZED_DIR
     assets: list[RefAsset] = []
@@ -185,9 +210,16 @@ def _scan_set(
             if ref_type == "identity":
                 asset.primary = old.primary
             asset.people, asset.logo = old.people, old.logo  # tags survive a rescan
+        tag = _tracked_tag(tracked, set_id, name, asset_id) if asset.status == "ok" else None
+        if tag is not None:  # the tracked settings win: another machine gets the same tags
+            asset.people, asset.logo = tag.people, tag.logo
         assets.append(asset)
 
     ok_assets = [asset for asset in assets if asset.status == "ok"]
+    chosen = tracked.primary.get(set_id)
+    if ref_type == "identity" and chosen:
+        for asset in ok_assets:
+            asset.primary = asset.file in chosen
     if ref_type == "identity" and not any(asset.primary for asset in ok_assets):
         for asset in ok_assets[:PRIMARY_COUNT]:
             asset.primary = True
@@ -352,6 +384,10 @@ def set_primary(set_id: str, files: list[str], root: Path | None = None) -> Refe
     for asset in ref_set.assets:
         asset.primary = asset.file in names
     ref_set.save()
+    file = tracked_for(root)
+    tracked = load_tracked(file)
+    tracked.primary[ref_set.set_id] = names
+    save_tracked(tracked, file)
     return ref_set
 
 
@@ -382,16 +418,22 @@ def tag_assets(
         raise ReferenceLibraryError("Give at least one asset ID (see set.json or the dry run).")
     tagged: list[str] = []
     found: set[str] = set()
+    file = tracked_for(root)
+    tracked = load_tracked(file)
     for ref_set in list_sets(None, root):
         changed = False
         for asset in ref_set.ok_assets:
             if asset.asset_id in wanted:
                 asset.people, asset.logo = people, logo
-                tagged.append(f"{ref_set.set_id}/{asset.file}")
+                name = f"{ref_set.set_id}/{asset.file}"
+                tagged.append(name)
+                tracked.tags[name] = TrackedTag(asset_id=asset.asset_id, people=people, logo=logo)
                 found.add(asset.asset_id)
                 changed = True
         if changed:
             ref_set.save()
+    if found:
+        save_tracked(tracked, file)  # kept in git, so another machine gets the same tags
     missing = sorted(wanted - found)
     if missing:
         raise ReferenceLibraryError(
@@ -643,6 +685,75 @@ def select_logo_ref(
         path=ref_set.folder / match.file,
         source=f"{ref_set.set_id}/{match.file}",
     )
+
+
+def _cover(image: Image.Image, box: list[float]) -> None:
+    """Fill one box with a smooth patch blended from its border, so the area underneath (a
+    logo) is gone and the background flows through."""
+    width, height = image.size
+    left, top = max(1, round(box[0] * width)), max(1, round(box[1] * height))
+    right, bottom = min(width - 1, round(box[2] * width)), min(height - 1, round(box[3] * height))
+    if right - left < 2 or bottom - top < 2:
+        return
+    smooth = image.filter(ImageFilter.GaussianBlur(3))  # border samples without noise
+
+    def px(x: int, y: int) -> tuple[int, int, int]:
+        value = smooth.getpixel((x, y))
+        assert isinstance(value, tuple)
+        return int(value[0]), int(value[1]), int(value[2])
+
+    span_x, span_y = right - left, bottom - top
+    upper = [px(x, top - 1) for x in range(left, right)]
+    lower = [px(x, bottom) for x in range(left, right)]
+    side_l = [px(left - 1, y) for y in range(top, bottom)]
+    side_r = [px(right, y) for y in range(top, bottom)]
+    c00, c10 = px(left - 1, top - 1), px(right, top - 1)
+    c01, c11 = px(left - 1, bottom), px(right, bottom)
+    patch = Image.new("RGB", (span_x, span_y))
+    for j in range(span_y):
+        v = (j + 0.5) / span_y
+        for i in range(span_x):
+            u = (i + 0.5) / span_x
+            patch.putpixel((i, j), tuple(
+                round(
+                    (1 - v) * upper[i][c] + v * lower[i][c] + (1 - u) * side_l[j][c]
+                    + u * side_r[j][c]
+                    - ((1 - u) * (1 - v) * c00[c] + u * (1 - v) * c10[c]
+                       + (1 - u) * v * c01[c] + u * v * c11[c])
+                )
+                for c in range(3)
+            ))
+    image.paste(patch.filter(ImageFilter.GaussianBlur(1)), (left, top))
+
+
+def mask_copies(root: Path | None = None) -> list[str]:
+    """Make the masked copies listed in the tracked settings (logos covered); returns their
+    "<set ID>/<file>" names. Run `scan` afterwards to register them."""
+    root = _root(root)
+    file = tracked_for(root)
+    tracked = load_tracked(file)
+    made: list[str] = []
+    for spec in tracked.masks:
+        source = load_set(spec.source, root)
+        target = root / spec.target
+        target.mkdir(parents=True, exist_ok=True)
+        by_file = {asset.file: asset for asset in source.ok_assets}
+        for name, boxes in spec.files.items():
+            original = by_file.get(name)
+            if original is None:
+                raise ReferenceLibraryError(f"{spec.source}/{name} is not a usable image.")
+            with Image.open(source.folder / name) as opened:
+                image = ImageOps.exif_transpose(opened).convert("RGB")
+            for box in boxes:
+                _cover(image, box)
+            copy = target / f"{Path(name).stem}.png"
+            image.save(copy, format="PNG", optimize=True)
+            key = f"{spec.target}/{copy.name}"
+            people = original.people if original.people is not None else True
+            tracked.tags[key] = TrackedTag(asset_id=asset_id_for(copy), people=people, logo=False)
+            made.append(key)
+    save_tracked(tracked, file)
+    return made
 
 
 def assets_by_type(root: Path | None = None) -> dict[RefType, list[ReferenceImage]]:

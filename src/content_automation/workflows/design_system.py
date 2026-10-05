@@ -26,7 +26,7 @@ ColorRole = Literal["background", "accent", "highlight", "text"]
 ElementId = Literal["textPanel", "holograms", "decor", "props"]
 TextField = Literal[
     "headline", "subheadline", "cta", "icons", "visual", "stat", "steps", "audience_line", "chat",
-    "diagram",
+    "diagram", "points", "mini_checklist", "before_after",
 ]
 PersonRule = Literal["never", "layout", "always"]
 KINDS: tuple[Kind, ...] = ("organic", "ad", "story", "carousel_slide")
@@ -39,8 +39,10 @@ SLIDE_ROLES: tuple[SlideRole, ...] = ("hook", "tip", "cta")
 COLOR_ROLES: tuple[ColorRole, ...] = ("background", "accent", "highlight", "text")
 TEXT_FIELDS: tuple[TextField, ...] = (
     "headline", "subheadline", "cta", "icons", "visual", "stat", "steps", "audience_line", "chat",
-    "diagram",
+    "diagram", "points", "mini_checklist", "before_after",
 )
+# A middle carousel slide shows exactly one of these visuals.
+SLIDE_VISUALS: tuple[TextField, ...] = ("chat", "diagram", "mini_checklist", "before_after")
 DEFAULT_FORMAT: FormatId = "ad"  # designs without a format keep the headline + CTA design
 MAX_HIGHLIGHT_WORDS = 2
 ICON_LABELS_MIN, ICON_LABELS_MAX = 3, 4
@@ -52,6 +54,10 @@ MAX_AUDIENCE_WORDS = 6
 MAX_SOURCE_WORDS = 4
 CHAT_MIN, CHAT_MAX, MAX_BUBBLE_WORDS = 2, 3, 14
 DIAGRAM_MIN, DIAGRAM_MAX, MAX_DIAGRAM_WORDS = 3, 4, 4
+POINTS, MAX_POINT_WORDS = 3, 8  # a post's key points
+CHECKLIST_ROWS, MAX_CHECKLIST_WORDS = 3, 6  # a middle slide's mini checklist
+MAX_BEFORE_AFTER_WORDS = 12
+MIDDLE_HEADLINE_WORDS, MIDDLE_LINE_WORDS = 6, 18  # a middle slide's heading and supporting line
 SPEAKERS = ("customer", "bot")
 STEP_SEPARATOR = "|"
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -85,12 +91,22 @@ class TextRules(_DesignModel):
     no_lettering: str = Field(min_length=1)  # when nothing else may carry letters
 
 
+class BrandRules(_DesignModel):
+    """The brand guide's rules, enforced on every format."""
+
+    colours: str = Field(min_length=1)
+    typography: str = Field(min_length=1)  # "{heading}" and "{body}" are the brand fonts
+    spacing: str = Field(min_length=1)
+
+
 class Core(_DesignModel):
     """Always on, whatever the format."""
 
     color_roles: dict[ColorRole, ColorRoleSpec]
     fonts: str = Field(min_length=1)
     heading_font: str = Field(min_length=1)  # "{font}" is the brand heading font
+    body_font: str = Field(min_length=1)  # "{font}" is the brand body (sub-heading) font
+    brand_rules: BrandRules
     layout: str = Field(min_length=1)  # fill the canvas, phone-readable text
     footer: str = Field(min_length=1)  # where the handle or website goes
     audience_line: str = Field(min_length=1)  # how the "FOR ..." line looks
@@ -109,6 +125,7 @@ class Typography(_DesignModel):
     subheadline_highlight: str = Field(min_length=1)  # added only with a sub-highlight word
     stat: str = Field(min_length=1)
     steps: str = Field(min_length=1)
+    points: str = Field(min_length=1)
 
 
 class CtaIcon(_DesignModel):
@@ -173,6 +190,8 @@ class FormatSpec(_DesignModel):
     style_sets: list[str] = Field(default_factory=list)  # creative sets (or folders) that fit
     style_by_role: bool = False  # carousels: hook, tip or cta examples by slide position
     style_refs: int = Field(default=3, ge=0, le=3)  # 0 = no style images
+    family: Literal["post"] | None = None  # "post": a content type of the premium post family
+    numbered_points: bool = False  # the key points are numbered steps
 
 
 class KindSpec(_DesignModel):
@@ -183,10 +202,23 @@ class KindSpec(_DesignModel):
 
 class CarouselSpec(_DesignModel):
     slides: dict[SlideRole, str]
-    chat: str = Field(min_length=1)  # how a tip slide shows a chat example
-    diagram: str = Field(min_length=1)  # how a tip slide shows a workflow diagram
-    navigation: str = Field(min_length=1)
+    chat: str = Field(min_length=1)  # how a middle slide shows a chat example
+    diagram: str = Field(min_length=1)  # how a middle slide shows a workflow diagram
+    checklist: str = Field(min_length=1)  # a 3-row mini checklist
+    before_after: str = Field(min_length=1)  # a before/after comparison
+    navigation: str = Field(min_length=1)  # the swipe cue; no slide numbers
+    series: str = Field(min_length=1)  # every slide shares one design
+    story: dict[str, str] = Field(default_factory=dict)  # story role -> what that slide says
     demos: dict[str, str] = Field(default_factory=dict)  # where the examples are, their structure
+
+
+class PostFamily(_DesignModel):
+    """The premium layout every Facebook post uses; the formats are its content types."""
+
+    use: str = Field(min_length=1)
+    composition: str = Field(min_length=1)
+    points: str = Field(min_length=1)  # the content block: 3 key points with icons
+    stat: str = Field(min_length=1)  # the content block: the big number and its source
 
 
 class CtaRule(_DesignModel):
@@ -211,6 +243,7 @@ class DesignSystem(_DesignModel):
     formats: dict[FormatId, FormatSpec]
     kinds: dict[Kind, KindSpec]
     carousel: CarouselSpec
+    post_family: PostFamily
     cta_rules: dict[str, CtaRule] = Field(default_factory=dict)  # platform -> rule
     headline_formulas: dict[str, str] = Field(default_factory=dict)  # name -> example
     rules: DesignRules
@@ -243,6 +276,9 @@ class DesignSystem(_DesignModel):
             (self.core.text.only, "{language}", "core.text.only"),
             (self.core.text.lettering, "{lettering}", "core.text.lettering"),
             (self.core.heading_font, "{font}", "core.headingFont"),
+            (self.core.body_font, "{font}", "core.bodyFont"),
+            (self.core.brand_rules.typography, "{heading}", "core.brandRules.typography"),
+            (self.core.brand_rules.typography, "{body}", "core.brandRules.typography"),
         ):
             if placeholder not in text:
                 missing.append(f"{placeholder} in {where}")
@@ -300,6 +336,9 @@ class DesignFields(Protocol):
     audience_line: str | None
     chat: str | None
     diagram: str | None
+    points: str | None
+    mini_checklist: str | None
+    before_after: str | None
     slide: str | None
     slide_role: str | None
 
@@ -328,7 +367,10 @@ class DesignChoice:
     audience_line: str | None = None  # "FOR DENTAL PRACTICES"
     chat: tuple[tuple[str, str], ...] = ()  # (speaker, text): a tip slide's chat example
     diagram: tuple[str, ...] = ()  # a tip slide's workflow steps
-    slide: tuple[int, int] | None = None  # (number, total)
+    points: tuple[str, ...] = ()  # a post's 3 key points
+    mini_checklist: tuple[str, ...] = ()  # a middle slide's 3 checklist rows
+    before_after: tuple[str, ...] = ()  # a middle slide's (before, after)
+    slide: tuple[int, int] | None = None  # (number, total); never shown on the image
     slide_role: SlideRole | None = None
 
     @property
@@ -395,6 +437,8 @@ def _layout(
     format_id: FormatId,
     slide: tuple[int, int] | None,
 ) -> tuple[LayoutId | None, SlideRole | None]:
+    """The layout letter (None: picked later for variety, or none for a middle slide) and the
+    carousel slide role."""
     spec = system.formats[format_id]
     given = _choice(fields.layout, LAYOUTS, "--layout") if fields.layout else None
     if format_id == "carousel":
@@ -405,16 +449,19 @@ def _layout(
             role = "hook"
         else:
             role = "cta" if slide[0] == slide[1] else "tip"
-        if role != "hook":
+        if role == "tip":
             if given is not None:
                 raise WorkflowError(
-                    f"A carousel {role} slide has no layout letter; remove --layout."
+                    "A middle carousel slide shows no person and has no layout letter; remove "
+                    "--layout."
                 )
             return None, role
         layout = given or spec.default_layout
         if layout is None or layout not in spec.layouts:
             options = " or ".join(spec.layouts)
-            raise WorkflowError(f"A carousel hook slide shows the person: use --layout {options}.")
+            raise WorkflowError(
+                f"The first and last carousel slides show the person: use --layout {options}."
+            )
         return layout, role
     if slide is not None or fields.slide_role:
         raise WorkflowError("--slide and --slide-role are for --format carousel.")
@@ -427,9 +474,6 @@ def _layout(
                 else f"--format {format_id} has no layout letter; remove --layout."
             )
         return given, None
-    with_person = [key for key in spec.layouts if system.layouts[key].person]
-    if fields.identity_set and with_person:
-        return with_person[0], None
     return spec.default_layout, None
 
 
@@ -473,6 +517,9 @@ def resolve_design(
     audience_line = _clean(fields.audience_line)
     chat = parse_chat(fields.chat)
     diagram = split_list(fields.diagram, STEP_SEPARATOR)
+    points = split_list(fields.points, STEP_SEPARATOR)
+    mini_checklist = split_list(fields.mini_checklist, STEP_SEPARATOR)
+    before_after = split_list(fields.before_after, STEP_SEPARATOR)
     given: dict[TextField, bool] = {
         "headline": headline is not None,
         "subheadline": subheadline is not None,
@@ -484,6 +531,9 @@ def resolve_design(
         "audience_line": audience_line is not None,
         "chat": bool(chat),
         "diagram": bool(diagram),
+        "points": bool(points),
+        "mini_checklist": bool(mini_checklist),
+        "before_after": bool(before_after),
     }
     allowed = {*spec.required, *spec.optional}
     unused = [name for name in TEXT_FIELDS if given[name] and name not in allowed]
@@ -506,13 +556,62 @@ def resolve_design(
             )
         if role != "hook" and audience_line is not None:
             raise WorkflowError("Only the hook slide has --audience-line.")
-        if role != "tip" and (chat or diagram or visual):
+        visuals = [name for name in SLIDE_VISUALS if given[name]]
+        if role != "tip" and (visuals or visual):
             raise WorkflowError(
-                "--visual, --chat and --diagram belong on tip slides; the hook and the last "
-                "slide carry no tip content."
+                "--chat, --diagram, --mini-checklist and --before-after belong on the middle "
+                "slides; the first and last slides carry no tip content."
             )
-    if sum(bool(item) for item in (visual, chat, diagram)) > 1:
-        raise WorkflowError("Give one tip visual: --chat, --diagram or --visual.")
+        if role == "tip":
+            if visual is not None:
+                raise WorkflowError(
+                    "A middle slide shows information, not an icon: use --chat, --diagram, "
+                    "--mini-checklist or --before-after instead of --visual."
+                )
+            if len(visuals) != 1:
+                raise WorkflowError(
+                    "A middle slide has exactly one visual that adds information: --chat, "
+                    "--diagram, --mini-checklist (3 rows) or --before-after."
+                )
+            if subheadline is None:
+                raise WorkflowError(
+                    "A middle slide needs --subheadline: one line with the concrete fact or action."
+                )
+            if headline is not None and len(headline.split()) > MIDDLE_HEADLINE_WORDS:
+                raise WorkflowError(
+                    f"A middle slide's heading has at most {MIDDLE_HEADLINE_WORDS} words."
+                )
+            if len(subheadline.split()) > MIDDLE_LINE_WORDS:
+                raise WorkflowError(
+                    f"A middle slide's supporting line has at most {MIDDLE_LINE_WORDS} words."
+                )
+    if sum(bool(item) for item in (visual, chat, diagram, mini_checklist, before_after)) > 1:
+        raise WorkflowError(
+            "Give one visual: --chat, --diagram, --mini-checklist, --before-after or --visual."
+        )
+    if points and (
+        len(points) != POINTS or any(len(point.split()) > MAX_POINT_WORDS for point in points)
+    ):
+        raise WorkflowError(
+            f"--points takes exactly {POINTS} short key points (at most {MAX_POINT_WORDS} words "
+            f'each) separated by "{STEP_SEPARATOR}".'
+        )
+    if mini_checklist and (
+        len(mini_checklist) != CHECKLIST_ROWS
+        or any(len(row.split()) > MAX_CHECKLIST_WORDS for row in mini_checklist)
+    ):
+        raise WorkflowError(
+            f"--mini-checklist takes exactly {CHECKLIST_ROWS} rows of at most "
+            f'{MAX_CHECKLIST_WORDS} words, separated by "{STEP_SEPARATOR}".'
+        )
+    if before_after and (
+        len(before_after) != 2
+        or any(len(part.split()) > MAX_BEFORE_AFTER_WORDS for part in before_after)
+    ):
+        raise WorkflowError(
+            f'--before-after takes "<before>{STEP_SEPARATOR}<after>", each at most '
+            f"{MAX_BEFORE_AFTER_WORDS} words."
+        )
     if chat and not CHAT_MIN <= len(chat) <= CHAT_MAX:
         raise WorkflowError(f"--chat takes {CHAT_MIN}-{CHAT_MAX} bubbles.")
     if any(len(text.split()) > MAX_BUBBLE_WORDS for _, text in chat):
@@ -541,10 +640,9 @@ def resolve_design(
             )
         if pose not in system.pools.poses:
             raise WorkflowError(f"--pose must be one of: {', '.join(system.pools.poses)}.")
-    if visual is not None and person:
+    if visual is not None and role is None and layout not in ("A", None):
         raise WorkflowError(
-            "--visual is the system visual of layout A (or the icon of a carousel tip slide); "
-            "designs that show the person do not use it."
+            "--visual is the system visual of layout A; layouts B, C and D do not use it."
         )
 
     highlight = split_list(fields.highlight)
@@ -627,6 +725,9 @@ def resolve_design(
         audience_line=audience_line,
         chat=chat,
         diagram=diagram,
+        points=points,
+        mini_checklist=mini_checklist,
+        before_after=before_after,
         slide=slide,
         slide_role=role,
     )

@@ -50,6 +50,9 @@ class JobStep(CamelModel):
 
 
 ReviewResult = Literal["pass", "fail"]
+# person: is it the identity person? set: does it match the first image of its set (fonts,
+# colours, layout family)?
+ReviewCheck = Literal["person", "set"]
 
 
 class JobReference(CamelModel):
@@ -63,9 +66,10 @@ class JobReference(CamelModel):
 
 
 class ImageReview(CamelModel):
-    """The person check of one output image: is it the identity person?"""
+    """A check of one output image: the person check or the set check."""
 
     image: str  # e.g. image-1.png
+    check: ReviewCheck = "person"
     result: ReviewResult
     note: str | None = None  # what differs (hair, build, facial hair, age) or who accepted it
     reviewed_at: datetime = Field(default_factory=lambda: _utc_now())
@@ -229,18 +233,26 @@ class Job(CamelModel):
         )
         return ids
 
-    def review(self, image: str) -> ImageReview | None:
-        """The newest person check of one output image, if any."""
-        found = [review for review in self.reviews if review.image == image]
+    def review(self, image: str, check: ReviewCheck = "person") -> ImageReview | None:
+        """The newest check of one kind for one output image, if any."""
+        found = [r for r in self.reviews if r.image == image and r.check == check]
         return found[-1] if found else None
 
-    def add_review(self, image: str, result: ReviewResult, note: str | None = None) -> None:
+    def add_review(
+        self,
+        image: str,
+        result: ReviewResult,
+        note: str | None = None,
+        check: ReviewCheck = "person",
+    ) -> None:
         if self.status != "completed":
             raise JobStateError(f"Only a completed job can be reviewed; this one is {self.status}.")
         if image not in self.outputs:
             outputs = ", ".join(self.outputs) or "none"
             raise JobStateError(f"{image} is not an output of this job (outputs: {outputs}).")
-        self.reviews.append(ImageReview(image=image, result=result, note=note or None))
+        self.reviews.append(
+            ImageReview(image=image, check=check, result=result, note=note or None)
+        )
         self.save()
 
     def waiting_steps(self) -> list[JobStep]:

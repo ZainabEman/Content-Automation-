@@ -22,12 +22,15 @@ from content_automation.media.assemble import text_support
 from content_automation.references import (
     BrandProfileError,
     ReferenceLibraryError,
+    ReferenceSet,
+    brand_path,
     list_sets,
     load_brand,
     load_company,
     select_logo_ref,
     untagged_style_refs,
 )
+from content_automation.references.tracked import load_tracked, tracked_for
 from content_automation.research.collectors import USER_AGENT
 from content_automation.research.models import SourcesError, load_sources
 from content_automation.workflows.design_system import DesignSystemError, load_design_system
@@ -232,6 +235,7 @@ def _references(settings: Settings) -> list[Check]:
                             "Add photos to assets/reference/identity/person_01/ and run "
                             "`uv run ca refs scan`."))
     checks.append(_logo(settings))
+    checks.append(_tracked(settings, sets))
     if any(s.type == "creative" and s.ok_assets for s in sets):
         untagged = untagged_style_refs(settings.references_dir)
         if untagged:
@@ -245,6 +249,26 @@ def _references(settings: Settings) -> list[Check]:
         checks.append(Check("warn", "Style examples", "none",
                             "Add past ads to assets/reference/creative/facebook_ads/ and rescan."))
     return checks
+
+
+def _tracked(settings: Settings, sets: list[ReferenceSet]) -> Check:
+    """Tags, primaries and masks are tracked in git; the masked copies must exist."""
+    try:
+        tracked = load_tracked(tracked_for(settings.references_dir))
+    except ValueError as error:
+        return Check("fail", "Reference settings", f"{settings.references_file}: {error}",
+                     "Restore config/references.json from git.")
+    if not settings.references_file.is_file():
+        return Check("warn", "Reference settings", f"{settings.references_file} not found",
+                     "Restore config/references.json from git (style tags, primaries, masks).")
+    ids = {s.set_id for s in sets if s.ok_assets}
+    missing = sorted(spec.target for spec in tracked.masks if spec.target not in ids)
+    if missing:
+        return Check("warn", "Masked past ads", f"not made yet: {', '.join(missing)}",
+                     "Run: uv run ca refs mask")
+    return Check("ok", "Reference settings",
+                 f"{len(tracked.tags)} style tags, {len(tracked.masks)} masked set(s) in "
+                 f"{settings.references_file}")
 
 
 def _logo(settings: Settings) -> Check:
@@ -269,7 +293,13 @@ def _brand_and_company(settings: Settings) -> list[Check]:
     checks = []
     try:
         brand = load_brand(settings.references_dir)
-        checks.append(Check("ok", "brand.json", f"{brand.brand_name} ({brand.status})"))
+        where = brand_path(settings.references_dir)
+        if where == settings.brand_file:
+            checks.append(Check("ok", "brand.json",
+                                f"{brand.brand_name} ({brand.status}), {where}"))
+        else:
+            checks.append(Check("warn", "brand.json", f"read from {where} (not in git)",
+                                f"Move it to {settings.brand_file} so every machine has it."))
     except BrandProfileError as error:
         checks.append(Check("fail", "brand.json", str(error),
                             "Restore assets/reference/brand/brand.json (see the Module 1 guide)."))

@@ -59,9 +59,9 @@ You can also ask for single images, videos or research (see the guides).
 | `uv run ca image …` | One image job (see the [Images guide](guides/module-1-images.md)). |
 | `uv run ca video --plan <file> [--dry-run]` / `uv run ca video resume <job>` | One video job (see the [Video guide](guides/module-2-video.md)). |
 | `uv run ca job status\|complete\|fail\|review <job> …` | Job records, video steps done by Codex, and the person check of an image. |
-| `uv run ca refs scan\|list\|frames\|primary\|tag` | Reference photo library (`tag`: people/logo tags of a style image). |
+| `uv run ca refs scan\|list\|frames\|primary\|tag\|mask` | Reference photo library (`tag`: people/logo tags of a style image; `mask`: logo-free copies of the past ads). |
 | `uv run ca env set HEYGEN_AVATAR_ID\|HEYGEN_VOICE_ID <id>` | Sets one HeyGen ID line in `.env` (never shows the file). |
-| `uv run ca brand show` | Summary of `brand.json`. |
+| `uv run ca brand show` | Summary of `config/brand.json`. |
 | `uv run ca hello` | Shows the settings (keys hidden). |
 
 ## Folders
@@ -71,7 +71,8 @@ You can also ask for single images, videos or research (see the guides).
 | `outputs/content/` | Content packages, one folder per topic and day (`PACKAGES_DIR`). |
 | `outputs/jobs/` | Every single image or video job with its `details.json` (`OUTPUT_DIR`). |
 | `research/` | Collected articles and run reports (`RESEARCH_DIR`). |
-| `assets/reference/` | Your photos, logo, style examples and `brand.json`. |
+| `assets/reference/` | Your photos, logo and style examples (not in git). |
+| `config/brand.json`, `config/references.json` | The brand profile; the style tags, primary photos and logo areas to cover (in git). |
 | `config/sources.json` | The news sites to read. |
 | `config/deliverables.json` | What can be asked for by name (insta post, facebook ad, reel, ...). |
 | `config/design_system.json` | The look of designed graphics: layouts, poses, text rules. |
@@ -111,7 +112,7 @@ All choices are lines in `.env`; nothing else changes.
 
 - **Package**: one folder with everything for one topic (images, video, post text, sources).
 - **Brief** (`brief.json`): Codex's plan for a package: designs (layout, texts), reel, caption.
-- **Design system**: the fixed look of our graphics; colours, fonts and logo come from `brand.json`.
+- **Design system**: the fixed look of our graphics; colours, fonts and logo come from `config/brand.json`, and the brand guide's rules apply to every format.
 - **Job**: one image or video request, with its record `details.json`.
 - **Mock**: a free stand-in that makes placeholders, for trying things out.
 - **Plugin**: an app installed in Codex (Gmail, Higgsfield, HeyGen) that Codex uses with your account.

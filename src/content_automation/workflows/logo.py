@@ -4,19 +4,29 @@ One fixed size and place on every image: the logo is LOGO_WIDTH of the image wid
 if it would be taller than MAX_HEIGHT of the image height), with MARGIN of the image width
 to the top and right edges. On 9:16 images it sits just below the top safe zone. The prompt
 keeps that corner clear (design_system.json core.logo).
+
+The brand guide approves a full-colour logo and a "dark logo" with white lettering, and asks
+for the version that contrasts with the background: on a dark corner the white version is
+pasted (made from the logo's own shape, no other change), on a light corner the full colour.
 """
 
 import io
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageStat, UnidentifiedImageError
 
 LOGO_WIDTH = 0.20  # share of the image width
 MAX_HEIGHT = 0.09  # share of the image height
 MARGIN = 0.04  # share of the image width, to the top and right edges
 STORY_TOP = 0.13  # 9:16: the top safe zone (design_system.json kinds.story)
 MIN_TRANSPARENT = 0.05  # share of transparent pixels that marks a transparent background
+DARK_BELOW = 0.55  # mean brightness (0-1) under the logo below which the white version is used
+# The white version keeps only the solid lettering: soft shadows in the file would show as a
+# glow, and the guide allows no effects on the logo.
+_SOLID_FROM, _SOLID_SPAN = 190, 50
+LogoVersion = Literal["white", "full colour"]
 
 
 class LogoError(ValueError):
@@ -31,8 +41,9 @@ class LogoOverlay:
 
     def describe(self) -> str:
         return (
-            f"{self.source} pasted by the app at the top right, {LOGO_WIDTH:.0%} of the width "
-            "(not drawn by the image model)"
+            f"{self.source} pasted by the app at the top right, {LOGO_WIDTH:.0%} of the width, "
+            "white version on dark corners and full colour on light ones (not drawn by the "
+            "image model)"
         )
 
 
@@ -73,14 +84,34 @@ def logo_box(size: tuple[int, int], logo_size: tuple[int, int]) -> tuple[int, in
     return width - margin - target_w, top, target_w, target_h
 
 
-def apply_logo(data: bytes, overlay: LogoOverlay) -> bytes:
-    """Paste the logo onto one generated image; returns PNG bytes."""
+def white_version(logo: Image.Image) -> Image.Image:
+    """The guide's dark logo: the same lettering in white, without shadows or effects."""
+    alpha = logo.getchannel("A").point(
+        lambda value: max(0, min(255, (value - _SOLID_FROM) * 255 // _SOLID_SPAN))
+    )
+    white = Image.new("RGBA", logo.size, (255, 255, 255, 0))
+    white.putalpha(alpha)
+    return white
+
+
+def corner_brightness(image: Image.Image, box: tuple[int, int, int, int]) -> float:
+    left, top, width, height = box
+    region = image.convert("L").crop((left, top, left + width, top + height))
+    return float(ImageStat.Stat(region).mean[0]) / 255
+
+
+def apply_logo(data: bytes, overlay: LogoOverlay) -> tuple[bytes, LogoVersion]:
+    """Paste the contrasting logo version onto one generated image; returns PNG bytes."""
     logo = load_logo(overlay.path)
     with Image.open(io.BytesIO(data)) as source:
         image = source.convert("RGBA")
-    left, top, width, height = logo_box(image.size, logo.size)
-    resized = logo.resize((width, height), Image.Resampling.LANCZOS)
-    image.alpha_composite(resized, (left, top))
+    box = logo_box(image.size, logo.size)
+    version: LogoVersion = (
+        "white" if corner_brightness(image, box) < DARK_BELOW else "full colour"
+    )
+    chosen = white_version(logo) if version == "white" else logo
+    left, top, width, height = box
+    image.alpha_composite(chosen.resize((width, height), Image.Resampling.LANCZOS), (left, top))
     buffer = io.BytesIO()
     image.convert("RGB").save(buffer, format="PNG", optimize=True)
-    return buffer.getvalue()
+    return buffer.getvalue(), version

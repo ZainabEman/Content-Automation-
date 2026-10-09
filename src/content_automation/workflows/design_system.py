@@ -217,6 +217,7 @@ class PostFamily(_DesignModel):
 
     use: str = Field(min_length=1)
     composition: str = Field(min_length=1)
+    composition_no_person: str = Field(min_length=1)  # a LinkedIn post without the man
     points: str = Field(min_length=1)  # the content block: 3 key points with icons
     stat: str = Field(min_length=1)  # the content block: the big number and its source
 
@@ -341,6 +342,7 @@ class DesignFields(Protocol):
     before_after: str | None
     slide: str | None
     slide_role: str | None
+    no_person: bool  # post formats only: leave the man out (a LinkedIn post)
 
 
 @dataclass(frozen=True)
@@ -501,9 +503,16 @@ def resolve_design(
     spec = system.formats[format_id]
     slide = _parse_slide(fields.slide)
     layout, role = _layout(fields, system, format_id, slide)
+    if fields.no_person:
+        if spec.family != "post":
+            raise WorkflowError(f"--format {format_id} always shows the person.")
+        if fields.layout:
+            raise WorkflowError("A post without the person has no layout letter; remove --layout.")
+        layout = None
     layout_spec = system.layouts[layout] if layout is not None else None
-    person = spec.person == "always" or (
-        spec.person == "layout" and layout_spec is not None and layout_spec.person
+    person = not fields.no_person and (
+        spec.person == "always"
+        or (spec.person == "layout" and layout_spec is not None and layout_spec.person)
     )
     posed = person and not (layout_spec is not None and layout_spec.split_poses)
 

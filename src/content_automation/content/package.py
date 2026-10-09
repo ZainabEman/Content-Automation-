@@ -57,6 +57,7 @@ from content_automation.content.deliverables import (
 )
 from content_automation.content.quality import (
     CAPTION_MAX_WORDS,
+    CAPTION_MAX_WORDS_BY_PLATFORM,
     CAPTION_MIN_WORDS,
     caption_problems,
     carousel_problems,
@@ -145,6 +146,7 @@ _IMAGE_ERRORS = (
 # waiting = video steps are with Codex; review = an image waits for the person check
 ItemStatus = Literal["pending", "done", "waiting", "failed", "review"]
 IDENTITY_PHOTOS_TO_COMPARE = 2  # primary photos shown beside an image at the person check
+DONE_STATUS = "draft"  # package.json status once every part is made
 
 
 class PackageItem(CamelModel):
@@ -163,16 +165,30 @@ class PackageItem(CamelModel):
     updated_at: datetime | None = None
 
 
+class UploadRecord(CamelModel):
+    """One file copied to storage by `ca drive sync`: its ID and link, or upload_failed."""
+
+    provider: str  # drive or mock: a mock upload never counts as a Drive one
+    status: Literal["uploaded", "upload_failed"]
+    file_id: str | None = None
+    link: str | None = None
+    error: str | None = None
+    updated_at: datetime | None = None
+
+
 class ContentPackage(CamelModel):
     """PACKAGES_DIR/<folder>/package.json"""
 
     package_id: str
+    content_id: str | None = None  # the calendar row's Content ID (Drive folder name)
+    research_source: str | None = None  # the calendar row's Research source (tracker)
     topic: str
     deliverables: list[str] = Field(default_factory=list)  # exactly what the user named
     platform: str
     formats: list[str]
     status: str = "brief needed"
     items: dict[str, PackageItem] = Field(default_factory=dict)
+    uploads: dict[str, UploadRecord] = Field(default_factory=dict)  # by file in the package
     source_article_ids: list[str] = Field(default_factory=list)
     total_cost_usd: float | None = None
     reviewer: str | None = None
@@ -186,6 +202,7 @@ class PackageResult:
     folder: Path
     lines: list[str] = field(default_factory=list)
     package: ContentPackage | None = None
+    estimated_usd: float | None = None  # dry run: the image cost still to spend
 
 
 # ----------------------------------------------------------------------------- start
@@ -670,9 +687,21 @@ def _brief_template(
             for number in range(1, MIN_INSIGHTS + 1)
         ],
     }
+    linkedin = [key for key, item in chosen.items() if item.platform == "linkedin"]
+    if linkedin:
+        template["_help"]["linkedin"] = (
+            f"{', '.join(linkedin)}: the premium post layout at 1:1. The man is shown by "
+            'default; set "post.person": false only when the topic fits without him (the dry '
+            'run then says "no person"). Caption: professional tone (clear and specific, no '
+            "slang or emoji), the hook as one line on line 1, hook, takeaways, question and cta "
+            f"together {CAPTION_MIN_WORDS}-{CAPTION_MAX_WORDS_BY_PLATFORM['linkedin']} words, "
+            f"{MIN_HASHTAGS}-{MAX_HASHTAGS} hashtags including {brand_tag}."
+        )
     post = by_part.get("post")
     if post is not None:
         template["post"] = _slot_template("post", suggested or post.format or "statement")
+        if post.platform == "linkedin":
+            template["post"]["person"] = True
     carousel = by_part.get("carousel")
     if carousel is not None:
         template["carousel"] = _slot_template(
@@ -742,8 +771,8 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
     if problems:  # format rules, a stat without a research source, ...: nothing is made
         raise BriefError(problems)
     if dry_run:
-        lines = _dry_run_lines(folder, brief, package, plans, settings)
-        return PackageResult(folder, lines, package)
+        lines, total = _dry_run_lines(folder, brief, package, plans, settings)
+        return PackageResult(folder, lines, package, estimated_usd=total)
 
     lines = []
     check: list[str] = []
@@ -816,8 +845,8 @@ def _quality_problems(brief: ContentBrief, settings: Settings, folder: Path) -> 
     problems += insight_problems(
         brief, research_md.read_text(encoding="utf-8") if research_md.is_file() else "", articles
     )
-    problems += post_problems(brief) + caption_problems(brief, offer)
-    platforms: dict[str, str] = {}
+    platforms: dict[str, str] = {}  # brief part -> platform
+    caption_platforms: dict[str, str] = {}  # deliverable -> platform
     if brief.deliverables:
         try:
             catalog = load_deliverables(settings.deliverables_file)
@@ -825,8 +854,10 @@ def _quality_problems(brief: ContentBrief, settings: Settings, folder: Path) -> 
                 item = catalog.deliverables.get(key)
                 if item is not None and item.platform:
                     platforms[item.brief_format] = item.platform
+                    caption_platforms[key] = item.platform
         except DeliverableError:
             pass  # reported by the deliverable checks
+    problems += post_problems(brief) + caption_problems(brief, offer, caption_platforms)
     try:
         system = load_design_system(settings.design_system_file)
         problems = carousel_problems(brief, system, platforms, offer) + problems
@@ -880,6 +911,7 @@ def _slot_inputs(
         audience_line=slot.audience_line,
         slide=slot.slide,
         slide_role=slot.slide_role,
+        no_person=slot.person is False,
         scene=slot.scene,
         wardrobe=slot.wardrobe,
         props=slot.props,
@@ -1324,7 +1356,7 @@ def _status(brief: ContentBrief, package: ContentPackage) -> str:
             missing.append(f"{LABELS[kind]}: check pending")
         elif state == "failed":
             missing.append(f"{LABELS[kind]} failed")
-    return "draft" if not missing else "draft — " + ", ".join(missing)
+    return DONE_STATUS if not missing else f"{DONE_STATUS} — " + ", ".join(missing)
 
 
 def _item_line(kind: str, item: PackageItem) -> str:
@@ -1340,7 +1372,7 @@ def _dry_run_lines(
     package: ContentPackage,
     plans: dict[str, _ImagePlan],
     settings: Settings,
-) -> list[str]:
+) -> tuple[list[str], float]:
     lines = [
         "DRY RUN: nothing is made and nothing is spent.",
         f"Package: {folder}",
@@ -1377,6 +1409,8 @@ def _dry_run_lines(
             picks = lead.picks.model_dump(exclude={"format", "style_refs"}, exclude_none=True)
         look = ", ".join(f"{name} {value}" for name, value in picks.items()) or "-"
         person = "the man shown" if lead.inputs.get("personShown") else "no person"
+        if slot.person is False:
+            person = "no person (left out by the writer: the topic fits without him)"
         lines.append(
             f"{names[kind]}: {images} x {request.aspect_ratio} {request.image_size} "
             f'(format {slot.format}{layout}), "{title}"; picked: {look}; '
@@ -1418,7 +1452,7 @@ def _dry_run_lines(
         f"Estimated image cost: ${total:.3f} ({settings.image_provider}). "
         "Run again without --dry-run to build."
     )
-    return lines
+    return lines, round(total, 6)
 
 
 def _part_names(brief: ContentBrief, settings: Settings) -> dict[str, str]:
@@ -1543,4 +1577,21 @@ def _save(folder: Path, package: ContentPackage) -> None:
     atomic_write_text(folder / PACKAGE_FILE, text)
 
 
-__all__ = ["BriefError", "PackageResult", "build_package", "start_package"]
+def load_package(folder: Path) -> ContentPackage:
+    """package.json of a package folder; OSError or ValueError when missing or invalid."""
+    return ContentPackage.model_validate_json((folder / PACKAGE_FILE).read_text(encoding="utf-8"))
+
+
+def save_package(folder: Path, package: ContentPackage) -> None:
+    _save(folder, package)
+
+
+__all__ = [
+    "DONE_STATUS",
+    "BriefError",
+    "PackageResult",
+    "build_package",
+    "load_package",
+    "save_package",
+    "start_package",
+]

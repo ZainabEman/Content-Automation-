@@ -250,7 +250,8 @@ def _layout_section(
     if spec.family == "post":
         family = system.post_family
         block = family.stat if design.stat else family.points
-        lines = [f"Post layout family: {family.composition}", spec.composition, block]
+        composition = family.composition if design.person else family.composition_no_person
+        lines = [f"Post layout family: {composition}", spec.composition, block]
     else:
         lines = [f"Post format ({design.format}): {spec.composition}"]
     if design.slide_role is not None:

@@ -13,9 +13,29 @@ from content_automation.ai.avatar import AvatarError
 from content_automation.ai.image import ASPECT_RATIOS, ImageError, ImageRequest
 from content_automation.ai.video import VideoError
 from content_automation.content.brief import BriefError
+from content_automation.content.calendar import (
+    CalendarError,
+    Decision,
+    calendar_packages,
+    calendar_path,
+    check_calendar,
+    generate_rows,
+    new_calendar,
+    parse_rows,
+    read_calendar,
+    set_status,
+    show_lines,
+    week_label,
+)
 from content_automation.content.deliverables import DeliverableError, load_deliverables
-from content_automation.content.package import build_package, set_deliverables, start_package
+from content_automation.content.package import (
+    DONE_STATUS,
+    build_package,
+    set_deliverables,
+    start_package,
+)
 from content_automation.content.research_input import ResearchInputError, load_idea
+from content_automation.content.tracking import TrackerError, status_lines
 from content_automation.core.agent_steps import record_agent_output, request_path
 from content_automation.core.config import ConfigurationError, Settings, load_settings
 from content_automation.core.files import atomic_write_text
@@ -45,6 +65,20 @@ from content_automation.research.run import (
 )
 from content_automation.research.run import collect as collect_research
 from content_automation.research.run import digest as research_digest_articles
+from content_automation.storage import (
+    EXPORT_NAME,
+    FOLDERS,
+    ROOT_FOLDER,
+    AutoSync,
+    StorageError,
+    StorageNotSetUpError,
+    SyncResult,
+    export_tracker,
+    get_storage,
+    sync_calendar,
+    sync_package,
+    tracker_lines,
+)
 from content_automation.workflows.dry_run import dry_run_lines
 from content_automation.workflows.image_job import run_image_job
 from content_automation.workflows.image_workflows import (
@@ -74,12 +108,26 @@ research_app = typer.Typer(no_args_is_help=True, help="News research: collect an
 content_app = typer.Typer(
     no_args_is_help=True, help="Content packages: research, brief, images, reel, post text."
 )
+calendar_app = typer.Typer(
+    no_args_is_help=True, help="Content calendar: calendar/<YYYY-Www>.csv (free, nothing made)."
+)
+drive_app = typer.Typer(
+    no_args_is_help=True,
+    help="Drive folders and uploads (STORAGE_PROVIDER: mock or drive). A script, not a plugin.",
+)
+tracking_app = typer.Typer(
+    no_args_is_help=True,
+    help="Content Tracker (Google Sheet; mock: tracking.csv): statuses and a CSV export.",
+)
 app.add_typer(refs_app, name="refs")
 app.add_typer(brand_app, name="brand")
 app.add_typer(job_app, name="job")
 app.add_typer(video_app, name="video")
 app.add_typer(research_app, name="research")
 app.add_typer(content_app, name="content")
+app.add_typer(calendar_app, name="calendar")
+app.add_typer(drive_app, name="drive")
+app.add_typer(tracking_app, name="tracking")
 app.add_typer(env_app, name="env")
 # The only .env lines a command may set: IDs chosen by the user in a plugin, never keys.
 ENV_SETTABLE = ("HEYGEN_AVATAR_ID", "HEYGEN_VOICE_ID")
@@ -988,6 +1036,287 @@ def content_build(
     for name in sorted(path.relative_to(folder).as_posix() for path in folder.rglob("*")
                        if path.is_file() and not path.name.startswith(".")):
         typer.echo(f"  {name}")
+    if package.status == DONE_STATUS:  # every part made: upload the images and MP4s
+        for line in AutoSync(settings)(folder):
+            typer.echo(line)
+
+
+WeekOption = Annotated[
+    str, typer.Option(help='The ISO week: "next" (default), "this" or e.g. 2026-W42.')
+]
+
+
+@calendar_app.command("new")
+def calendar_new(
+    week: WeekOption = "next",
+    topic: Annotated[
+        list[str] | None, typer.Option(help="A user topic; repeat for more. Fills slots first.")
+    ] = None,
+    idea: Annotated[
+        list[int] | None,
+        typer.Option(min=1, help="An idea number from the newest newsletter content list."),
+    ] = None,
+    article: Annotated[
+        list[str] | None, typer.Option(help="An article ID from `ca research digest`.")
+    ] = None,
+    replace: Annotated[
+        bool, typer.Option("--replace", help="Make the week again (only if all rows are Proposed).")
+    ] = False,
+) -> None:
+    """Propose the week's calendar: the cadence slots filled with ideas, all rows Proposed.
+
+    Picks go first (topics, ideas, articles), then the newest list and the scraper digest.
+    """
+    _utf8_output()
+    settings = _settings(check_keys=False)
+    try:
+        label = week_label(week)
+        catalog = load_deliverables(settings.deliverables_file)
+        path, lines = new_calendar(
+            settings, catalog, label,
+            topics=topic or [], idea_numbers=idea or [], article_ids=article or [],
+            replace=replace,
+        )
+        rows = read_calendar(path)
+    except (CalendarError, DeliverableError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from None
+    for line in [*lines, *show_lines(rows)]:
+        typer.echo(line)
+    typer.echo(sync_calendar(path, settings))
+
+
+@calendar_app.command("check")
+def calendar_check(week: WeekOption = "next") -> None:
+    """Check the week's calendar: dates, platforms, content types, sources, repeated topics."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        label = week_label(week)
+        catalog = load_deliverables(settings.deliverables_file)
+        problems = check_calendar(
+            calendar_path(settings, label), label, catalog, settings.research_dir
+        )
+    except (CalendarError, DeliverableError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from None
+    if problems:
+        typer.echo(f"Calendar {label}: {len(problems)} problem(s):")
+        for problem in problems:
+            typer.echo(f"- {problem}")
+        raise typer.Exit(code=1)
+    typer.echo(f"Calendar {label} is OK.")
+
+
+@calendar_app.command("show")
+def calendar_show(week: WeekOption = "next") -> None:
+    """Show the week's calendar as a Markdown table."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        label = week_label(week)
+        path = calendar_path(settings, label)
+        rows = read_calendar(path)
+    except CalendarError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from None
+    typer.echo(f"Calendar {label}: {path}")
+    for line in show_lines(rows):
+        typer.echo(line)
+
+
+@calendar_app.command("approve")
+def calendar_approve(
+    rows: Annotated[list[str], typer.Argument(help='"all" (every Proposed row) or e.g. 1 3 5.')],
+    week: WeekOption = "next",
+) -> None:
+    """Approve rows: Proposed or Rejected -> Approved. A Generated row never changes."""
+    _calendar_decision(rows, week, "Approved")
+
+
+@calendar_app.command("reject")
+def calendar_reject(
+    rows: Annotated[list[str], typer.Argument(help="Row numbers, e.g. 2.")],
+    week: WeekOption = "next",
+) -> None:
+    """Reject rows: Proposed or Approved -> Rejected. A Generated row never changes."""
+    _calendar_decision(rows, week, "Rejected")
+
+
+def _calendar_decision(rows: list[str], week: str, status: Decision) -> None:
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        label = week_label(week)
+        numbers = parse_rows(rows, allow_all=status == "Approved")
+        lines = set_status(calendar_path(settings, label), numbers, status)
+    except CalendarError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from None
+    for line in lines:
+        typer.echo(line)
+    typer.echo(sync_calendar(calendar_path(settings, label), settings))
+
+
+@calendar_app.command("generate")
+def calendar_generate(
+    week: WeekOption = "next",
+    build: Annotated[
+        bool,
+        typer.Option(
+            "--build",
+            help="Build the ready rows (costs money): only after the user said ok to the "
+            "combined dry run.",
+        ),
+    ] = False,
+) -> None:
+    """Approved rows: stage 1 (free) and one combined dry run; --build makes them.
+
+    Failed rows stay Approved, are listed at the end and are never retried by themselves.
+    Each package the build finishes is uploaded (Drive sync), then the calendar copy.
+    """
+    _utf8_output()
+    settings = _settings(check_keys=False)
+    if build:
+        configure_logging(settings)
+    try:
+        label = week_label(week)
+        catalog = load_deliverables(settings.deliverables_file)
+        lines, failed = generate_rows(
+            settings, catalog, label, build=build, after_build=AutoSync(settings)
+        )
+    except (CalendarError, DeliverableError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from None
+    for line in lines:
+        typer.echo(line)
+    typer.echo(sync_calendar(calendar_path(settings, label), settings))
+    if failed:
+        typer.echo(f"{len(failed)} row(s) not done (they stay Approved; not retried):")
+        for line in failed:
+            typer.echo(f"- {line}")
+        raise typer.Exit(code=1)
+
+
+@drive_app.command("setup")
+def drive_setup() -> None:
+    """Sign in to Google once (browser), then find or make the Drive folders and tracker.
+
+    Content Automation/{LinkedIn,Facebook,Instagram,Calendar} and the "Content Tracker"
+    Google Sheet; the main folder is shared as editor with DRIVE_SHARE_WITH (no public
+    links). Safe to run again: an existing tracker is never formatted again.
+    """
+    _utf8_output()
+    settings = _settings(check_keys=False)
+    try:
+        link = get_storage(settings, provider="drive", sign_in=True).ensure_folders()
+    except (StorageError, StorageNotSetUpError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"Drive is set up: {ROOT_FOLDER}/{{{','.join(FOLDERS)}}} + Content Tracker")
+    typer.echo(f"Main folder: {link}")
+    shared = [email.strip() for email in settings.drive_share_with.split(",") if email.strip()]
+    typer.echo(f"Editors: {', '.join(shared)}" if shared else "Shared with: nobody (private)")
+    if settings.storage_provider != "drive":
+        typer.echo("Next: set STORAGE_PROVIDER=drive in .env; until then uploads go to "
+                   f"{settings.drive_mock_dir} (mock).")
+
+
+@drive_app.command("sync")
+def drive_sync(
+    folders: Annotated[
+        list[Path] | None,
+        typer.Argument(help="Package folders (default: every package named in a calendar)."),
+    ] = None,
+) -> None:
+    """Upload finished images and MP4s to <Platform>/<Content ID>/ ("sync drive").
+
+    Files already uploaded are skipped; failed or missing ones are tried again. Then each
+    finished, fully uploaded package gets its Content Tracker row (upsert by Content ID; the
+    manager's columns are never written again). Without folders it also refreshes this and
+    next week's calendar copies.
+    """
+    _utf8_output()
+    settings = _settings(check_keys=False)
+    targets = folders or calendar_packages(settings)
+    failed: list[str] = []
+    synced: list[tuple[Path, SyncResult]] = []
+    try:
+        catalog = load_deliverables(settings.deliverables_file)
+        storage = get_storage(settings)
+        for folder in targets:
+            try:
+                result = sync_package(folder, storage, catalog)
+            except (OSError, ValueError):
+                failed.append(f"{folder}: no readable package.json")
+                continue
+            except StorageError as error:
+                failed.append(f"{folder}: {error}")
+                continue
+            for line in result.lines:
+                typer.echo(line)
+            failed += [f"{folder.name}/{line}" for line in result.failed]
+            synced.append((folder, result))
+    except DeliverableError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from None
+    except (StorageNotSetUpError, StorageError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    for line in tracker_lines(storage, synced):
+        typer.echo(line)
+    if not targets:
+        typer.echo("No packages to sync: no calendar names a package yet.")
+    if not folders:
+        for label in (week_label("this"), week_label("next")):
+            if calendar_path(settings, label).is_file():
+                typer.echo(sync_calendar(calendar_path(settings, label), settings))
+    if failed:
+        typer.echo(f"{len(failed)} upload(s) failed (local files kept; sync drive again to retry):")
+        for line in failed:
+            typer.echo(f"- {line}")
+        raise typer.Exit(code=1)
+
+
+@tracking_app.command("export")
+def tracking_export(
+    out: Annotated[
+        Path, typer.Option(help="Where to save the CSV on this computer.")
+    ] = Path("outputs/content-tracker.csv"),
+) -> None:
+    """Save the Content Tracker as CSV here and as "Content Tracker.csv" in the main folder.
+
+    The Drive copy is read-only and replaced in place; edits belong in the Sheet itself.
+    """
+    _utf8_output()
+    settings = _settings(check_keys=False)
+    try:
+        uploaded = export_tracker(get_storage(settings), out)
+    except OSError as error:
+        typer.echo(f"Could not write {out} ({type(error).__name__}).", err=True)
+        raise typer.Exit(code=1) from None
+    except (StorageNotSetUpError, StorageError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"Saved: {out.resolve()}")
+    typer.echo(f"{EXPORT_NAME} ({settings.storage_provider}): {uploaded.link}")
+
+
+@tracking_app.command("show")
+def tracking_show() -> None:
+    """Counts per Approval status and Publishing status, one line each ("show tracker")."""
+    _utf8_output()
+    settings = _settings(check_keys=False)
+    try:
+        storage = get_storage(settings)
+        lines = status_lines(storage.read_tracker())
+        link = storage.tracker_link()
+    except (StorageNotSetUpError, StorageError, TrackerError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"Content Tracker ({settings.storage_provider}): {link}")
+    for line in lines:
+        typer.echo(line)
 
 
 @app.command()

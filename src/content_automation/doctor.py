@@ -33,6 +33,7 @@ from content_automation.references import (
 from content_automation.references.tracked import load_tracked, tracked_for
 from content_automation.research.collectors import USER_AGENT
 from content_automation.research.models import SourcesError, load_sources
+from content_automation.storage import drive_setup_problem
 from content_automation.workflows.design_system import DesignSystemError, load_design_system
 from content_automation.workflows.logo import LogoError, load_logo
 
@@ -66,6 +67,7 @@ def run_checks(env_file: Path = Path(".env")) -> list[Check]:
         return checks
     checks += _keys(settings)
     checks += _providers(settings)
+    checks.append(_drive(settings))
     checks += _skills()
     checks += _config_files(settings)
     checks += _ffmpeg()
@@ -157,6 +159,23 @@ def _providers(settings: Settings) -> list[Check]:
     else:
         checks.append(Check("ok", "News scraper", settings.scraper_provider))
     return checks
+
+
+def _drive(settings: Settings) -> Check:
+    """Local files only (client JSON, token, folder and tracker IDs); Google is not called."""
+    setup = ("Enable the Google Drive API and the Google Sheets API in Google Cloud, save the "
+             f"OAuth Desktop client JSON as {settings.secrets_dir}/google_oauth_client.json, "
+             "run uv run ca drive setup (docs/SETUP-CODEX.md section 9)")
+    if settings.storage_provider == "mock":
+        return Check("warn", "Drive", f"mock: files and tracking.csv in "
+                     f"{settings.drive_mock_dir} (fake links)", f"For Google Drive: {setup}, "
+                     "then set STORAGE_PROVIDER=drive in .env.")
+    problem = drive_setup_problem(settings)
+    if problem:
+        return Check("warn", "Drive", f"{problem}; builds stay local", f"{setup}.")
+    shared = settings.drive_share_with.strip() or "nobody (private)"
+    return Check("ok", "Drive", "set up: folders and Content Tracker (Drive + Sheets API); "
+                 f"IDs in {settings.secrets_dir}; editors: {shared}")
 
 
 def _skills() -> list[Check]:

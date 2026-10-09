@@ -1,0 +1,9 @@
+{
+  "slots": [
+    {"weekday": "mon", "deliverable": "linkedin_post"},
+    {"weekday": "tue", "deliverable": "facebook_post"},
+    {"weekday": "wed", "deliverable": "linkedin_post"},
+    {"weekday": "thu", "deliverable": "facebook_post"},
+    {"weekday": "fri", "deliverable": "instagram_carousel"}
+  ]
+}

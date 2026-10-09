@@ -54,6 +54,9 @@ You can also ask for single images, videos or research (see the guides).
 | `uv run ca content start --topic "…" \| --research-file <list.json> --idea N [--deliverables "<names>"]` | Stage 1: research + package folder (deliverables optional). |
 | `uv run ca content set <folder> --deliverables "<names>"` | Stage 2: name the deliverables; writes the brief template for exactly those. |
 | `uv run ca content build <folder> [--dry-run]` | Makes what is missing in a package (or shows the cost). |
+| `uv run ca calendar new\|check\|show\|approve\|reject\|generate [--week next]` | The week's content calendar: propose, check, approve or reject rows, generate the approved ones (see the [Calendar and Drive guide](guides/module-4-calendar-drive.md)). |
+| `uv run ca drive setup` / `uv run ca drive sync [<folder>]` | One-time Google sign-in, folders and Content Tracker; upload finished files and update the tracker. |
+| `uv run ca tracking show\|export` | Content Tracker status counts; CSV copy (local + "Content Tracker.csv" in Drive). |
 | `uv run ca research collect` | Collects new articles from the sites in `config/sources.json`. |
 | `uv run ca research digest [--topic "…"] [--days 14] [--limit 10]` | Lists saved articles, ranked by topic if given. |
 | `uv run ca image …` | One image job (see the [Images guide](guides/module-1-images.md)). |
@@ -71,6 +74,8 @@ You can also ask for single images, videos or research (see the guides).
 | `outputs/content/` | Content packages, one folder per topic and day (`PACKAGES_DIR`). |
 | `outputs/jobs/` | Every single image or video job with its `details.json` (`OUTPUT_DIR`). |
 | `research/` | Collected articles and run reports (`RESEARCH_DIR`). |
+| `calendar/` | The weekly content calendars, `<YYYY-Www>.csv` (not in git). |
+| `outputs/drive/` | Stand-in for Google Drive while `STORAGE_PROVIDER=mock` (folders + `tracking.csv`). |
 | `assets/reference/` | Your photos, logo and style examples (not in git). |
 | `config/brand.json`, `config/references.json` | The brand profile; the style tags, primary photos and logo areas to cover (in git). |
 | `config/sources.json` | The news sites to read. |
@@ -84,6 +89,7 @@ You can also ask for single images, videos or research (see the guides).
 - [Module 1: Images](guides/module-1-images.md)
 - [Module 2: Video](guides/module-2-video.md)
 - [Module 3: Research and content packages](guides/module-3-research.md)
+- [Module 4: Calendar, Google Drive and the Content Tracker](guides/module-4-calendar-drive.md)
 - [Guide template](guides/_TEMPLATE.md)
 - [Pre-Codex check](PRE-CODEX-CHECK.md): what was checked before Codex testing, and what only Codex can check
 
@@ -107,6 +113,7 @@ All choices are lines in `.env`; nothing else changes.
 | Avatar clips | `AVATAR_PROVIDER` | `heygen-plugin` (Codex plugin), `mock` or `none` |
 | Voiceover | `VOICE_PROVIDER` | `none` (MVP) |
 | News | `SCRAPER_PROVIDER` | `free` (our own scraper) or `mock` |
+| Files and tracker | `STORAGE_PROVIDER` | `drive` (Google Drive + Content Tracker Sheet) or `mock` (`outputs/drive/`) |
 
 ## Glossary
 
@@ -123,5 +130,6 @@ All choices are lines in `.env`; nothing else changes.
 ## For developers
 
 - Plans: [Module 1](prd/module-1.md), [Module 2](prd/module-2.md), [Module 3](prd/module-3.md),
-  [blueprint](blueprints/blueprint.md), [progress log](PROGRESS.md).
+  [blueprint](blueprints/blueprint.md), [progress log v1](PROGRESS-v1.md).
+- v2: [PRD](PRD.md), [progress log v2](PROGRESS.md).
 - Python 3.13 with uv: `uv sync`, then `uv run ca --help`. Keys stay in `.env` only.

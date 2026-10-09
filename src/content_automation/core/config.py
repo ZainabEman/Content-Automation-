@@ -16,6 +16,8 @@ VoiceProvider = Literal["none", "mock", "elevenlabs"]
 # "free" (default): our own scraper (RSS + article pages); no paid API, no account.
 ScraperProvider = Literal["free", "mock"]
 DesignSize = Literal["1K", "2K", "4K"]
+# "mock" (default): the Drive layout in a local folder; "drive": Google Drive (`ca drive setup`).
+StorageProvider = Literal["mock", "drive"]
 
 
 class ConfigurationError(ValueError):
@@ -42,6 +44,8 @@ class Settings(BaseSettings):
     research_dir: Path = Path("research")
     packages_dir: Path = Path("outputs/content")
     deliverables_file: Path = Path("config/deliverables.json")  # names the user can ask for
+    calendar_file: Path = Path("config/calendar.json")  # weekly cadence: weekday -> deliverable
+    calendar_dir: Path = Path("calendar")  # calendar/<YYYY-Www>.csv: git-ignored
 
     image_provider: ImageProvider = "mock"
     image_model: str = Field(default="google/gemini-3.1-flash-image", min_length=1)
@@ -72,6 +76,11 @@ class Settings(BaseSettings):
     research_max_items_per_source: int = Field(default=25, gt=0)
     research_lookback_days: int = Field(default=30, gt=0)
 
+    storage_provider: StorageProvider = "mock"
+    drive_share_with: str = ""  # comma-separated emails: editors of the main Drive folder
+    secrets_dir: Path = Path(".secrets")  # OAuth client, token, Drive folder IDs: git-ignored
+    drive_mock_dir: Path = Path("outputs/drive")  # STORAGE_PROVIDER=mock writes here
+
     def summary_lines(self) -> tuple[str, ...]:
         """Return non-secret settings suitable for local CLI output."""
         return (
@@ -84,6 +93,7 @@ class Settings(BaseSettings):
             f"Avatar: {self.avatar_provider} ({self.avatar_model})",
             f"Voice: {self.voice_provider} ({self.voice_model})",
             f"Research: {self.scraper_provider} (sources: {self.sources_file})",
+            f"Storage: {self.storage_provider}",
             "Credential values: hidden",
         )
 

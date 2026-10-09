@@ -617,6 +617,7 @@
   "postFamily": {
     "use": "every Facebook post: one premium layout family; statement, stat, checklist and news are its content types",
     "composition": "A premium social post in the quality of the brand's past ads: the man integrated in a topic-relevant scene with depth (softly blurred background, a few foreground props) and brand lighting (cool blue key light, sky-blue rim light); a dark translucent glass panel holds the audience line, the headline and one supporting line, then the content block; topic-relevant hologram or UI elements (a chat window, a CRM card, a calendar) float near him; the footer at the bottom. No flat single-colour background and no large empty areas.",
+    "compositionNoPerson": "A premium social post in the quality of the brand's past ads, with no person in it: a topic-relevant scene with depth (softly blurred background, a few foreground props) and brand lighting (cool blue key light, sky-blue rim light); a dark translucent glass panel holds the audience line, the headline and one supporting line, then the content block; topic-relevant hologram or UI elements (a chat window, a CRM card, a calendar) float in the scene; the footer at the bottom. No flat single-colour background and no large empty areas.",
     "points": "Content block: the 3 key points listed below, one per line, each with its icon.",
     "stat": "Content block: the one big number, huge and bold in the highlight colour, with the small source line directly under it."
   }

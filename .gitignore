@@ -11,6 +11,8 @@ __pycache__/
 .coverage
 htmlcov/
 /research/
+/calendar/
 /packages/
 .uv-cache/
 .pytest-tmp/
+.secrets/

@@ -122,6 +122,9 @@ class ImageSlot(_BriefModel):
     slides: list[SlideSlot] = Field(default_factory=list, max_length=MAX_SLIDES)  # carousel
     slide: str | None = None  # a single carousel slide instead of "slides": "N/TOTAL"
     slide_role: SlideRole | None = None
+    # LinkedIn post only: false leaves the man out when the topic fits ("no person" in the
+    # dry run); left out, he is shown as in every other post.
+    person: bool | None = None
     # A pool ID from the design system or own words; picked for variety when left out.
     scene: str | None = None
     wardrobe: str | None = None
@@ -131,7 +134,8 @@ class ImageSlot(_BriefModel):
 class Caption(_BriefModel):
     """The post text, in this order; the cta with the offer, the link and the hashtags follow.
 
-    Hook, takeaways, question and cta together are 120-200 words (checked by the dry run).
+    Hook, takeaways, question and cta together are 120-200 words, 120-250 for LinkedIn
+    (checked by the dry run).
     """
 
     hook: str = Field(min_length=1)  # line 1
@@ -269,6 +273,10 @@ def brief_problems(
                 )
         elif image.slides:
             problems.append(f'{name}.slides is only for "format": "carousel"')
+        if image.person is False and (name != "post" or brief.platform != "linkedin"):
+            problems.append(
+                f'{name}.person: only a LinkedIn post may leave the person out; remove "person"'
+            )
         if image.stat is not None and image.source not in brief.source_article_ids:
             problems.append(
                 f"{name}.source: a stat needs the ID of the research article its number comes "

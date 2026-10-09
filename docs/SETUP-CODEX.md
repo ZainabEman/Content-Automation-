@@ -117,8 +117,41 @@ set yet; Codex helps you choose them when the first HeyGen video is made).
 Codex uses three plugins: **Gmail** (read-only, for "show content"), **Higgsfield** (video clips)
 and **HeyGen** (your avatar). Install and sign in to them in Codex; nothing goes into `.env`
 except the provider names above. Details: [Higgsfield and HeyGen plugins](guides/module-2-video.md#higgsfield-and-heygen-plugins).
+Optional: the **Google Drive** plugin, read-only, to look up files, links and the Content
+Tracker. Uploads and tracker updates never use it; they go through `ca drive` and `ca tracking`.
 
-## 9. Try it: example requests
+## 9. Google Drive and the Content Tracker (optional)
+
+Finished images and videos go to Google Drive (`Content Automation/LinkedIn`, `Facebook`,
+`Instagram`, `Calendar`), and each finished post gets a row in the **Content Tracker** Google
+Sheet, where the social media manager sets Approval status, Publishing status and Publication
+date. Until this is set up, everything is saved in `outputs/drive/` instead (`STORAGE_PROVIDER=mock`).
+
+In Google Cloud (console.cloud.google.com), signed in with the Google account that should own
+the folders:
+
+1. Create a project, e.g. "Content Automation".
+2. **APIs & Services → Library**: enable the **Google Drive API** and the **Google Sheets API**.
+3. **Google Auth Platform → Get started** (the OAuth consent screen): app name, support email,
+   Audience **External** (or **Internal** with Google Workspace), contact email, **Create**.
+4. **Data Access → Add or remove scopes**: tick `https://www.googleapis.com/auth/drive.file`
+   (it covers Drive and Sheets, only for files the app made) and save.
+5. **Audience**: click **Publish app** (no review is needed for this scope), or add your account
+   as a **Test user**; in testing mode the sign-in expires after 7 days and step 8 must be repeated.
+6. **Clients → Create client**: Application type **Desktop app**, **Create**, **Download JSON**.
+7. Save the file in this project as `.secrets/google_oauth_client.json` (the folder is git-ignored;
+   never paste its contents into a chat).
+8. Optional: in `.env`, set `DRIVE_SHARE_WITH=` to the manager's email (comma-separated for
+   several); they get editor access to the main folder, and nothing is made public. Then ask
+   Codex: **"Run uv run ca drive setup."** A browser opens once for the Google sign-in; the
+   folders and the Content Tracker are made.
+9. In `.env`, set `STORAGE_PROVIDER=drive`, then run `uv run ca doctor` (the Drive line should say "set up").
+
+After that, every finished package is uploaded and added to the tracker by itself. Say
+**"sync drive"** to retry failed uploads, **"show tracker"** for the status counts and
+**"export tracker"** for a CSV copy.
+
+## 10. Try it: example requests
 
 Type these into Codex (one at a time):
 

@@ -24,6 +24,7 @@ from content_automation.workflows.design_system import DesignSystem
 
 SAME_POINT = 0.6  # tips whose key words overlap this much make the same point
 CAPTION_MIN_WORDS, CAPTION_MAX_WORDS = 120, 200
+CAPTION_MAX_WORDS_BY_PLATFORM = {"linkedin": 250}  # LinkedIn shows longer professional text
 _WORD = re.compile(r"[a-z0-9]+")
 _STOP = frozenset({
     "a", "an", "and", "are", "as", "at", "be", "by", "can", "for", "from", "get", "how", "in",
@@ -230,19 +231,26 @@ def caption_words(caption: Caption, cta: str) -> int:
     return sum(len(text.split()) for text in texts)
 
 
-def caption_problems(brief: ContentBrief, offer: str = "") -> list[str]:
-    """Captions of 120-200 words; the CTA names the offer from services.md."""
+def caption_problems(
+    brief: ContentBrief, offer: str = "", platforms: dict[str, str] | None = None
+) -> list[str]:
+    """Captions of 120-200 words (LinkedIn 120-250, hook on one line); the CTA names the
+    offer from services.md. platforms: deliverable -> platform (default: the brief's)."""
     captions = {f"captions.{key}": value for key, value in brief.captions.items()}
     if brief.caption is not None:
         captions["caption"] = brief.caption
     problems = []
     for where, caption in captions.items():
+        platform = (platforms or {}).get(where.removeprefix("captions."), brief.platform)
+        maximum = CAPTION_MAX_WORDS_BY_PLATFORM.get(platform, CAPTION_MAX_WORDS)
         count = caption_words(caption, brief.cta)
-        if not CAPTION_MIN_WORDS <= count <= CAPTION_MAX_WORDS:
+        if not CAPTION_MIN_WORDS <= count <= maximum:
             problems.append(
                 f"{where}: {count} words (hook, takeaways, question and cta); write "
-                f"{CAPTION_MIN_WORDS}-{CAPTION_MAX_WORDS}"
+                f"{CAPTION_MIN_WORDS}-{maximum}"
             )
+        if platform == "linkedin" and "\n" in caption.hook.strip():
+            problems.append(f"{where}.hook: one line (LinkedIn shows it before \"see more\")")
         for number, takeaway in enumerate(caption.takeaways, start=1):
             reason = generic_reason(takeaway)
             if reason:

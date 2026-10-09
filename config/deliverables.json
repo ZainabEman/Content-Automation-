@@ -16,6 +16,14 @@
       "images": 3,
       "aliases": ["facebook ad", "fb ad"]
     },
+    "linkedin_post": {
+      "label": "LinkedIn post: 1 square image (1:1) with the person by default; content type statement, stat, checklist or news",
+      "part": "post",
+      "platform": "linkedin",
+      "formats": ["statement", "stat", "checklist", "news"],
+      "images": 1,
+      "aliases": ["linkedin post", "li post"]
+    },
     "instagram_carousel": {
       "label": "Instagram carousel: 6-8 slides (default 7), one story: hook, problem, steps or insights, example or result, call to action",
       "part": "carousel",

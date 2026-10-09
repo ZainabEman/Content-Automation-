@@ -10,6 +10,8 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
     "elevenlabs>=2.70.0",
     "feedparser>=6.0.14",
+    "google-api-python-client>=2.150",
+    "google-auth-oauthlib>=1.2",
     "httpx>=0.28.1",
     "imageio-ffmpeg>=0.5",
     "pillow>=11",
@@ -45,7 +47,14 @@ strict = true
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-module = ["imageio_ffmpeg", "feedparser"]
+module = [
+    "imageio_ffmpeg",
+    "feedparser",
+    "googleapiclient.*",
+    "google_auth_oauthlib.*",
+    "httplib2",
+    "oauthlib.*",
+]
 ignore_missing_imports = true
 
 [tool.ruff]

@@ -100,6 +100,7 @@ class WorkflowInputs:
     before_after: str | None = None  # tip slides: "Before|After"
     slide: str | None = None  # "N/TOTAL"
     slide_role: str | None = None
+    no_person: bool = False  # post formats only: leave the man out (a LinkedIn post)
     # Variable parts: a pool ID from the design system or own words; picked when left out.
     scene: str | None = None
     wardrobe: str | None = None
@@ -382,7 +383,7 @@ def _with_layout(
     """Without --layout, a design that shows the man rotates through its layout letters."""
     format_id = inputs.format or ("carousel" if kind == "carousel_slide" else DEFAULT_FORMAT)
     spec = system.formats.get(format_id)  # type: ignore[call-overload]
-    if spec is None or inputs.layout or not spec.layouts:
+    if spec is None or inputs.layout or not spec.layouts or inputs.no_person:
         return inputs
     seed = "|".join([format_id, inputs.headline or "", inputs.subheadline or "", inputs.stat or ""])
     if format_id == "carousel":

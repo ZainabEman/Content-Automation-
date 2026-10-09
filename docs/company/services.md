@@ -23,3 +23,4 @@ Proof: 4.9 rating from 9 Google reviews; clients mention time saved, clear commu
 Content rules: English only; never invent results, statistics, prices or client names.
 
 website: https://brandedgenius.de
+Offer: Free consultation call - book at brandedgenius.de

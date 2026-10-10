@@ -84,6 +84,16 @@ def logo_box(size: tuple[int, int], logo_size: tuple[int, int]) -> tuple[int, in
     return width - margin - target_w, top, target_w, target_h
 
 
+def logo_zone(size: tuple[int, int]) -> tuple[int, int, int, int]:
+    """The corner the largest possible logo takes, plus MARGIN around it: left, top, right,
+    bottom in pixels. App-rendered text must stay out of it."""
+    width, height = size
+    margin = round(width * MARGIN)
+    top = margin + (round(height * STORY_TOP) if height / width > 1.5 else 0)
+    left = width - margin - round(width * LOGO_WIDTH) - margin
+    return left, 0, width, top + round(height * MAX_HEIGHT) + margin
+
+
 def white_version(logo: Image.Image) -> Image.Image:
     """The guide's dark logo: the same lettering in white, without shadows or effects."""
     alpha = logo.getchannel("A").point(

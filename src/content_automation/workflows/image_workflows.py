@@ -46,6 +46,11 @@ from content_automation.workflows.registry import (
     get_workflow,
 )
 from content_automation.workflows.start_images import StartImageError, resolve_start_image
+from content_automation.workflows.text_overlay import (
+    TextOverlay,
+    prepare_text_overlay,
+    use_text_overlay,
+)
 from content_automation.workflows.variety import (
     DesignLook,
     DesignPicks,
@@ -161,6 +166,7 @@ class PreparedWorkflow:
     request: ImageRequest
     product_refs: list[ReferenceImage] = field(default_factory=list)
     logo: LogoOverlay | None = None  # pasted by the app after generation; never sent
+    text: TextOverlay | None = None  # rendered by the app before the logo (no-text providers)
     references: list[JobReference] = field(default_factory=list)  # in the order attached
     inputs: dict[str, str | bool] = field(default_factory=dict)
     picks: DesignPicks | None = None  # designs: what was used from the pools
@@ -455,7 +461,18 @@ def prepare_workflow(
     want_logo = inputs.logo or spec.designed
 
     identity: list[ReferenceImage] = []
-    if identity_set:
+    lora_identity = capabilities.identity_prompt is not None
+    if identity_set and lora_identity:
+        # A trained identity (LoRA): no photos are sent; the prompt names him by trigger word.
+        if not spec.designed:
+            raise WorkflowError(
+                f"{spec.workflow_id} describes the person through identity photos, but "
+                f"IMAGE_PROVIDER={settings.image_provider} uses a trained LoRA: use "
+                "--workflow social_creative or IMAGE_PROVIDER=openrouter."
+            )
+        recorded["identity"] = "trained LoRA (no identity photos sent)"
+        recorded["identitySet"] = load_set(identity_set, root).set_id
+    elif identity_set:
         # Primary photos first, capped by IMAGE_IDENTITY_REFS_MAX and the provider's limit.
         identity_max = min(capabilities.max_identity_refs, settings.image_identity_refs_max)
         identity = _identity_refs(identity_set, identity_max, design, settings)
@@ -550,6 +567,13 @@ def prepare_workflow(
         series=len(series),
     )
     company = load_company(settings.company_file)
+    text: TextOverlay | None = None
+    if design is not None and system is not None and use_text_overlay(
+        settings.text_overlay, capabilities.draws_text
+    ):
+        # Checked now (zones, fonts, every text fits), so a problem stops before any cost.
+        text = prepare_text_overlay(design, system, brand, company, aspect_ratio=aspect)
+        recorded["textOverlay"] = text.describe()
     picks: DesignPicks | None = None
     if design is not None and system is not None:
         prompt = build_design_prompt(
@@ -562,6 +586,8 @@ def prepare_workflow(
             details=scene_prompt if inputs.scene else None,
             company=company,
             logo=logo is not None,
+            text_areas=text.areas() if text is not None else None,
+            identity_text=capabilities.identity_prompt,
         )
         picks = DesignPicks.from_recorded(recorded, [ref.asset_id for ref in style])
     else:
@@ -577,12 +603,14 @@ def prepare_workflow(
         identity_refs=identity,
         object_refs=product,
         style_refs=style + series,
+        person=person_shown,
     )
     return PreparedWorkflow(
         spec=spec,
         request=request,
         product_refs=product,
         logo=logo,
+        text=text,
         references=job_references(request, series),
         inputs=recorded,
         picks=picks,
@@ -590,8 +618,12 @@ def prepare_workflow(
     )
 
 
-def run_workflow(workflow_id: str, inputs: WorkflowInputs, settings: Settings) -> Job:
-    """Prepare the workflow (fails early on bad inputs), then run it as an image job."""
+def run_workflow(
+    workflow_id: str, inputs: WorkflowInputs, settings: Settings, *, cold_start: bool = True
+) -> Job:
+    """Prepare the workflow (fails early on bad inputs), then run it as an image job.
+
+    cold_start=False: it follows another job of the same build on a warm worker."""
     prepared = prepare_workflow(workflow_id, inputs, settings)
     return run_image_job(
         prepared.request,
@@ -605,5 +637,7 @@ def run_workflow(workflow_id: str, inputs: WorkflowInputs, settings: Settings) -
         brand_asset_ids=prepared.brand_asset_ids,
         inputs=prepared.inputs,
         logo=prepared.logo,
+        text=prepared.text,
         references=prepared.references,
+        cold_start=cold_start,
     )

@@ -38,6 +38,7 @@ class MockImageProvider:
         image_sizes=frozenset(IMAGE_SIZES),
         est_cost_usd_per_image={size: 0.0 for size in IMAGE_SIZES},
         max_images_per_call=4,
+        draws_text=True,  # stands in for the default provider; TEXT_OVERLAY=always tests it
     )
 
     def generate(self, request: ImageRequest, model: str) -> ImageResult:

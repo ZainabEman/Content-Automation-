@@ -1,0 +1,53 @@
+{
+  "identitySet": "identity/person_01",
+  "extraFolder": "extra",
+  "consentFile": "CONSENT.md",
+  "captionsFile": "captions.json",
+  "defaultCaption": "a man",
+  "minPhotos": 9,
+  "recommendedPhotos": 15,
+  "minSide": 768,
+  "trainSide": 1024,
+  "duplicateDistance": 6,
+  "pod": {
+    "gpu": "L40S 48 GB Pod (Secure Cloud)",
+    "pricePerHourUsd": 1.09,
+    "priceSource": "https://www.runpod.io/pricing (checked 2026-10-10)",
+    "setupHours": 0.5,
+    "podVolume": "/workspace",
+    "serverlessVolume": "/runpod-volume",
+    "datasets": "lora/datasets",
+    "output": "lora/output",
+    "loras": "models/loras"
+  },
+  "models": {
+    "qwen": {
+      "workflow": "qwen_image_2512",
+      "arch": "qwen_image",
+      "nameOrPath": "Qwen/Qwen-Image-2512",
+      "assistantLoraPath": "",
+      "quantize": "qfloat8",
+      "steps": 2000,
+      "rank": 16,
+      "lr": 0.0001,
+      "trainingHours": 2.0,
+      "sampleGuidance": 3,
+      "sampleSteps": 25,
+      "source": "AI Toolkit config/examples/train_lora_qwen_image_24gb.yaml (Qwen-Image base) defaults; arch and nameOrPath for 2512 unconfirmed"
+    },
+    "zimage": {
+      "workflow": "z_image_turbo",
+      "arch": "zimage",
+      "nameOrPath": "Tongyi-MAI/Z-Image-Turbo",
+      "assistantLoraPath": "ostris/zimage_turbo_training_adapter/zimage_turbo_training_adapter_v1.safetensors",
+      "quantize": "",
+      "steps": 2000,
+      "rank": 16,
+      "lr": 0.0001,
+      "trainingHours": 1.0,
+      "sampleGuidance": 1,
+      "sampleSteps": 8,
+      "source": "Same defaults as the Qwen example; arch and the training adapter file name unconfirmed (UI preset: Z-Image Turbo w/ Training Adapter)"
+    }
+  }
+}

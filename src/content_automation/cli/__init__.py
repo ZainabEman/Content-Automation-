@@ -43,15 +43,26 @@ from content_automation.core.jobs import DETAILS_FILE, Job, JobStateError, Revie
 from content_automation.core.limits import DailyLimitError
 from content_automation.core.log import configure_logging
 from content_automation.doctor import run_checks
+from content_automation.lora import (
+    LoraError,
+    ModelKey,
+    newest_dataset,
+    prepare_dataset,
+    set_lora,
+    training_config,
+)
 from content_automation.references import (
     REF_TYPES,
     BrandProfileError,
     ReferenceLibraryError,
+    brand_path,
     extract_frames,
     list_sets,
     load_brand,
+    load_company,
     mask_copies,
     scan,
+    select_logo_ref,
     set_primary,
     tag_assets,
 )
@@ -79,6 +90,7 @@ from content_automation.storage import (
     sync_package,
     tracker_lines,
 )
+from content_automation.workflows.design_system import load_design_system, resolve_design
 from content_automation.workflows.dry_run import dry_run_lines
 from content_automation.workflows.image_job import run_image_job
 from content_automation.workflows.image_workflows import (
@@ -87,7 +99,13 @@ from content_automation.workflows.image_workflows import (
     prepare_workflow,
     run_workflow,
 )
+from content_automation.workflows.logo import LogoError, LogoOverlay, apply_logo
 from content_automation.workflows.registry import DEFAULT_STYLE_COUNT, WorkflowError
+from content_automation.workflows.text_overlay import (
+    SAMPLE_TEXTS,
+    apply_text,
+    prepare_text_overlay,
+)
 from content_automation.workflows.video_job import (
     agent_checklist,
     pending_lines,
@@ -119,6 +137,14 @@ tracking_app = typer.Typer(
     no_args_is_help=True,
     help="Content Tracker (Google Sheet; mock: tracking.csv): statuses and a CSV export.",
 )
+overlay_app = typer.Typer(
+    no_args_is_help=True,
+    help="Text the app renders for image providers that draw no text (local and free).",
+)
+lora_app = typer.Typer(
+    no_args_is_help=True,
+    help="The person's LoRA for ComfyUI: dataset, AI Toolkit config, trained file (local, free).",
+)
 app.add_typer(refs_app, name="refs")
 app.add_typer(brand_app, name="brand")
 app.add_typer(job_app, name="job")
@@ -128,6 +154,8 @@ app.add_typer(content_app, name="content")
 app.add_typer(calendar_app, name="calendar")
 app.add_typer(drive_app, name="drive")
 app.add_typer(tracking_app, name="tracking")
+app.add_typer(overlay_app, name="overlay")
+app.add_typer(lora_app, name="lora")
 app.add_typer(env_app, name="env")
 # The only .env lines a command may set: IDs chosen by the user in a plugin, never keys.
 ENV_SETTABLE = ("HEYGEN_AVATAR_ID", "HEYGEN_VOICE_ID")
@@ -423,6 +451,7 @@ def _dry_run(workflow: str | None, inputs: WorkflowInputs, settings: Settings) -
         workflow=f"{prepared.spec.workflow_id} (v{prepared.spec.version})",
         product_refs=prepared.product_refs,
         logo=prepared.logo,
+        text=prepared.text,
     )
     if prepared.picks is not None:  # what the design takes from the pools (saved with the job)
         picks = prepared.picks.model_dump(exclude={"style_refs"}, exclude_none=True)
@@ -1315,6 +1344,137 @@ def tracking_show() -> None:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from None
     typer.echo(f"Content Tracker ({settings.storage_provider}): {link}")
+    for line in lines:
+        typer.echo(line)
+
+
+@overlay_app.command("preview")
+def overlay_preview(
+    format_id: Annotated[
+        str,
+        typer.Option("--format", help=f"One of: {', '.join(SAMPLE_TEXTS)}."),
+    ],
+    image: Annotated[Path, typer.Option(help="Any picture to put the sample text on.")],
+    layout: Annotated[
+        str | None, typer.Option(help="A-D (default: the format's first layout).")
+    ] = None,
+    no_person: Annotated[
+        bool, typer.Option("--no-person", help="A LinkedIn post without the person.")
+    ] = False,
+    out: Annotated[
+        Path | None, typer.Option(help="Where to save the PNG (default: outputs/overlay-preview/).")
+    ] = None,
+) -> None:
+    """Render sample text (the brief template's fields at their word limits), then the logo,
+    onto an image, to check the text zones. Local and free: no provider call."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        sample = SAMPLE_TEXTS.get(format_id)
+        if sample is None:
+            raise WorkflowError(f"--format must be one of: {', '.join(SAMPLE_TEXTS)}.")
+        system = load_design_system(settings.design_system_file)
+        spec = system.formats[format_id]  # type: ignore[index]
+        chosen = None if no_person or not spec.layouts else (
+            layout or spec.default_layout or spec.layouts[0]
+        )
+        inputs = WorkflowInputs(format=format_id, layout=chosen, no_person=no_person)
+        for name, value in sample.items():
+            setattr(inputs, name, value)
+        design = resolve_design(inputs, system, kind="ad" if format_id == "ad" else None)
+        has_brand = brand_path(settings.references_dir).is_file()
+        brand = load_brand(settings.references_dir) if has_brand else None
+        text = prepare_text_overlay(design, system, brand, load_company(settings.company_file))
+        data, notes = apply_text(image.read_bytes(), text)
+        try:
+            ref = select_logo_ref(
+                settings.references_dir, preferred=brand.logo_file if brand else None
+            )
+            logo = LogoOverlay(path=ref.path, source=ref.source, asset_id=ref.asset_id)
+            data, version = apply_logo(data, logo)
+            logo_line = f"Logo: {version} ({ref.source})"
+        except (ReferenceLibraryError, LogoError) as error:
+            logo_line = f"Logo: not pasted ({error})"
+        target = out or Path("outputs/overlay-preview") / (
+            f"{image.stem}-{format_id}-{chosen or 'none'}.png"
+        )
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    except (WorkflowError, BrandProfileError, OSError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"Saved: {target.resolve()}")
+    typer.echo(f"Format {format_id}, layout {chosen or 'none'}: {text.panel.label}")
+    typer.echo(f"Text: {text.describe()}")
+    typer.echo(f"Scrims: {'; '.join(notes) or 'none needed'}")
+    typer.echo(logo_line)
+
+
+LoraModel = Annotated[str, typer.Argument(help="qwen (Qwen-Image-2512) or zimage (Z-Image Turbo).")]
+
+
+def _lora_model(value: str) -> ModelKey:
+    if value not in ("qwen", "zimage"):
+        typer.echo("The model must be qwen or zimage.", err=True)
+        raise typer.Exit(code=2)
+    return "qwen" if value == "qwen" else "zimage"
+
+
+@lora_app.command("prepare")
+def lora_prepare(
+    keep: Annotated[
+        list[str] | None,
+        typer.Option(help="A photo (e.g. 7.jpg or extra/a.jpg) whose face the detector missed, "
+                     "checked by eye; repeat for more."),
+    ] = None,
+) -> None:
+    """Check consent and photos, write the training dataset zip to outputs/lora/ (free).
+
+    Refused without CONSENT.md in the identity folder, or with fewer than 9 usable photos.
+    """
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        result = prepare_dataset(settings, keep=keep)
+    except LoraError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    for line in result.lines:
+        typer.echo(line)
+
+
+@lora_app.command("config")
+def lora_config(
+    model: Annotated[str, typer.Option(help="qwen (Qwen-Image-2512) or zimage (Z-Image Turbo).")],
+    dataset: Annotated[
+        Path | None, typer.Option(help="The dataset zip (default: the newest in outputs/lora/).")
+    ] = None,
+) -> None:
+    """Write the AI Toolkit YAML for one model and show the Pod cost estimate (free)."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        _, lines = training_config(settings, _lora_model(model), dataset or newest_dataset())
+    except LoraError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    for line in lines:
+        typer.echo(line)
+
+
+@lora_app.command("set")
+def lora_set(
+    model: LoraModel,
+    filename: Annotated[str, typer.Argument(help="The LoRA file name in models/loras/.")],
+) -> None:
+    """Point config/comfyui.json at the trained LoRA, so images with the person are allowed."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        lines = set_lora(settings, _lora_model(model), filename)
+    except LoraError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
     for line in lines:
         typer.echo(line)
 

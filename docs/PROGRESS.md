@@ -19,14 +19,12 @@
 
 ## Phase 2
 
-- [ ] ComfyUI audit: hardware, local vs cloud, cost.
-- [ ] Decide the model, the identity method and the licence.
-- [ ] ComfyUI API connection.
-- [ ] Identity workflow with Roman's 9 photos.
-- [ ] Logo compositing.
-- [ ] Identity check + retry.
-- [ ] Nano Banana fallback switch.
-- [ ] AGENTS.md / docs update.
+- [x] Step 1 – Audit + decision: hardware, local vs cloud, models, identity method, licences, cost (`docs/PHASE2-DECISION.md`).
+- [x] Step 2 – Text overlay renderer + prompt change (free).
+- [x] Step 3 – ComfyUI adapter + RunPod client + workflow JSON for both models (free, no calls).
+- [x] Step 4 – LoRA tooling for AI Toolkit on a RunPod Pod (built free; run only after consent + "ok").
+- [ ] Step 5 – Comparison run + model choice (paid, after "ok").
+- [ ] Step 6 – Wiring: person check + retry, Nano Banana fallback switch, AGENTS.md/docs.
 
 ## Phase 4 test list
 
@@ -44,6 +42,11 @@ Deferred from Phase 1 (no tests until Phase 4):
 - [ ] `ca tracking export` (local CSV + read-only "Content Tracker.csv" replaced in place) and `ca tracking show`.
 - [ ] LinkedIn caption checks (120–250 words, hook on line 1, 3–5 hashtags incl. #BrandedGenius).
 - [ ] "No person" LinkedIn image (`post.person: false`): flagged in the dry run, no identity photos, no person check.
+
+Deferred from Phase 2:
+
+- [ ] Nano Banana prompts byte-identical with the overlay off (compare real prompts before/after Phase 2).
+- [ ] ComfyUI upscale quality: model size (e.g. 1104×1376) → target (2K, 1638×2048) with Pillow Lanczos; optional upscale node (`upscaleNode`) against Lanczos only.
 
 ## Decisions
 
@@ -63,3 +66,17 @@ Approved 2026-10-10 (after the Step 1 audit).
 - Step 3: `Package` is written at stage 1 (it links the row to its package); the row turns Generated when package.json says `draft` (every part made). `generate` = stage 1 + combined dry run (free); `generate --build` builds each ready row once; rows waiting for a person/set check continue with `ca content build`; failed rows are skipped and reported. "No person" = brief `post.person: false` (LinkedIn only) → design without the man (`postFamily.compositionNoPerson`, no layout letter, no identity photos, no person check).
 - Step 4: `storage/` (`STORAGE_PROVIDER` mock = `outputs/drive/` with fake links, the default; drive = Drive API, Google libraries imported lazily). `ca drive setup` is the only browser step (token and folder IDs in `.secrets/`); `ca drive sync [folders]` defaults to every calendar package plus this/next week's calendar copy. package.json gains `contentId` (stamped by `ca calendar generate`; otherwise the folder name is the Drive folder) and `uploads` (per file: provider, ID, link or `upload_failed`). Auto-sync only when a package is complete (`draft`); in-review images are never uploaded. Calendar copy after new/approve/reject/generate, read-only via a Drive content restriction. A same-name file already in the target folder is updated, never duplicated.
 - Step 5: `content/tracking.py` holds the merge rules for both providers: columns found by header (extra columns and a new order survive), upsert by Content ID, only changed workflow cells written, Pending/Pending/blank only on a new row, rows never deleted. Drive: `ca drive setup` makes and formats the Sheet once (frozen bold header, dropdowns, date validation + yyyy-mm-dd, wrapped Caption); a Sheet found by name is never re-formatted; the tab is tracked by sheetId. A row is written only for a complete package whose files all uploaded; others are listed as "Tracker waits for". Ad versions: one block per ad image (`— Version N —`, image, headline/subheadline/button, caption); package.json gains `researchSource` (stamped with the Content ID). `ca tracking export` (default `outputs/content-tracker.csv` + read-only "Content Tracker.csv" in the main folder) and `ca tracking show`. Google Cloud steps in `docs/SETUP-CODEX.md` section 9; PRD §5 deviation line updated to the Sheets API.
+
+Phase 2 – approved 2026-10-10 (after the Step 1 audit; details and links in `docs/PHASE2-DECISION.md`).
+
+- Ad text: the app renders the headline, subheadline and CTA button as an overlay after generation (like the logo); the model prompt asks for clean space for the text and no lettering. Font: Futura files from `assets/fonts/` when present (brand.json: Futura Bold headings, Futura Medium sub-headings); `assets/fonts/` does not exist yet, so the fallback is Jost (Google Fonts `ofl/jost`, SIL Open Font License 1.1, variable weight). Scope: see the next line.
+- Model: Qwen-Image-2512 vs Z-Image Turbo (both Apache 2.0 per the audit), each with a character LoRA; a small comparison after training picks the winner on Roman's likeness first, then cost. Qwen-Image-2512's own licence page: `apache-2.0` (checked 2026-10-10, before training).
+- Identity: character LoRA from the photos in `assets/reference/identity/person_01/`, trained with Ostris AI Toolkit on a temporary RunPod Pod that writes to the Serverless endpoint's network volume (changed 2026-10-10). No InsightFace-based tools (PuLID, InstantID, IP-Adapter FaceID, ReActor/inswapper).
+- Check: the existing Codex vision person check + redo-with-cost flow stays unchanged; a dlib score is later and optional.
+- Execution: RunPod Serverless ComfyUI worker, called from a script through `IMAGE_PROVIDER=comfyui` (new adapter in `ai/image/providers/`). Nano Banana (`openrouter`) stays the default until Phase 4 passes.
+- Budget: one-time ≤ $25 (LoRA training + comparison); every paid run still needs the user's "ok" on the exact cost first.
+- Handled by the user: Roman's written consent (`CONSENT.md` in the identity folder), RunPod API key + endpoint ID in `.env`, Futura licence check.
+- Overlay scope (answered 2026-10-10): every image from a provider that draws no text (ComfyUI): Facebook posts, Facebook ads and all LinkedIn formats; Nano Banana keeps its model-drawn text. Provider capability `draws_text` (openrouter and mock true; comfyui false in Step 3) + `TEXT_OVERLAY=auto|always|never` (default auto). Phase 3 reuses the renderer for carousel slides.
+- Step 2: `workflows/text_overlay.py` (Pillow): base image → text → logo. Zones per format in design_system.json `textOverlay` (panel per layout A/B/C → left/right, D → bottom, no person → left; footer strip), wrap then shrink within the size range, an error instead of cut text, checked in the dry run before any cost; zones may not reach the logo corner (`logo.logo_zone`); scrim (dark shade of the background colour) when the measured contrast is below the zone's minimum. Prompt with the overlay: no text/letters/logos, calm negative space in the named areas, no typography or font lines; without it byte-identical. Fonts: `assets/fonts/` Jost Regular–ExtraBold + OFL.txt; families `["Futura", "Jost"]`, so Futura files dropped in win (other font files are git-ignored). `ca overlay preview --format <name> --image <file> [--layout X | --no-person]` (free) writes `outputs/overlay-preview/`.
+- Step 3: adapter `ai/image/providers/comfyui.py` (next to openrouter.py, registry name `comfyui`) + RunPod client `providers/runpod.py`: async `/run`, poll `/status` (`pollSeconds`), cancel at `timeoutSeconds`; no retry and no fallback, errors end with "switch with IMAGE_PROVIDER=openrouter". `IMAGE_MODEL` = workflow (`qwen_image_2512` | `z_image_turbo`); `config/comfyui/workflows/<name>.json` (API format) + `<name>.map.json` (node/input per prompt, negative, seed, width, height, steps, cfg, lora_name, lora_strength; `loraBypass` for no-person images: the LoRA node is removed). Identity = LoRA: `capabilities.identity_prompt` (trigger word from config) replaces the photo identity block, no reference images are sent; photo workflows with a person are refused under comfyui. Sizes: model size per aspect (multiples of 16, ~1.5 MP) → `targetLongSide` per IMAGE_DESIGN_SIZE with Lanczos. Cost: `config/comfyui.json` (48 GB serverless $0.000486/s, seconds per image, cold start + idle per request) → dry run "estimate" + cost basis; details.json `providerMetrics` (delayTimeMs, executionTimeMs, seeds) and `actualCostUsd` from RunPod times; build summary shows actual vs estimate per part (package.json `estCostUsd`). Job time budget follows `timeoutSeconds`. `ca doctor` checks RUNPOD_* and the ComfyUI config. Guide: `docs/guides/runpod-comfyui.md`. Worker 5.11.0 format in PHASE2-DECISION.md. Step 5: compare node settings with the official templates.
+- Step 4: `ca lora prepare` (refused without `CONSENT.md`: Name, Date, Scope training + upload; photos from person_01/ + extra/: one face (OpenCV 4.x Haar frontal + profile, `--keep` for a face checked by eye), ≥768 px short side, no duplicates (sha256 + dHash); <9 refused, <15 warned; upright, EXIF stripped, short side 1024, captions `r0man_bg, <captions.json or "a man">`) → `outputs/lora/dataset_<date>.zip`. `ca lora config --model qwen|zimage` → AI Toolkit YAML (example defaults, Pod paths `/workspace/lora/...`) + estimate (L40S $1.09/h × hours from `config/lora.json`). `ca lora set <model> <file>` → `loraName` in comfyui.json. Trigger word `r0man_bg` in comfyui.json; `idleSeconds` 15. Cost fix: provider capability `batch_images` (comfyui): a package build makes all images back-to-back, then the person checks (one per build; Nano Banana keeps its stop-after-each-image flow); the estimate counts one cold start per build; the RunPod actual is (delay + execution) × price. New dependency: opencv-python-headless (<5, Apache 2.0). Guide section 7 "Train Roman's LoRA on RunPod".

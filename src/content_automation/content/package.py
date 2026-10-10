@@ -30,7 +30,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from content_automation.ai.avatar import AvatarError
-from content_automation.ai.image import ImageError, estimate_cost_usd
+from content_automation.ai.image import ImageError, estimate_cost_usd, get_provider
 from content_automation.ai.video import VideoError
 from content_automation.content.brief import (
     ASPECT_BY_PLATFORM,
@@ -160,7 +160,8 @@ class PackageItem(CamelModel):
     files: list[str] = Field(default_factory=list)  # relative to the package folder
     image_refs: list[str] = Field(default_factory=list)  # "<jobId>/<file>" per image
     image_folders: list[str] = Field(default_factory=list)  # the job folder of each image
-    cost_usd: float | None = None
+    cost_usd: float | None = None  # actual (provider-reported) where known, else the estimate
+    est_cost_usd: float | None = None  # the estimate for the same jobs: shown beside the actual
     error: str | None = None
     updated_at: datetime | None = None
 
@@ -776,15 +777,21 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
 
     lines = []
     check: list[str] = []
+    waiting: list[str] = []  # a warm batch: the checks of every part, after all are made
+    batch = _batch(settings)
     for kind, plan in plans.items():
         package.items[kind], check = _make_images(
-            kind, plan, folder, settings, package.items.get(kind)
+            kind, plan, folder, settings, package.items.get(kind), batch
         )
         lines.append(_item_line(kind, package.items[kind]))
         _save(folder, package)
-        if check:  # an image with the person waits for the person check: build nothing more
+        if check and not batch.warm:  # the person check stops the build: build nothing more
             lines += check
             break
+        waiting += check  # warm batch: every part first (one cold start), then the checks
+    if waiting:
+        lines += waiting
+        check = waiting
     if brief.reel is not None and not check:
         item = package.items.get("reel")
         if item is None or item.status != "done":
@@ -1132,15 +1139,40 @@ def _set_lines(
     return lines
 
 
+@dataclass
+class _Batch:
+    """One build's image jobs. warm (provider batch_images, ComfyUI): every image of the
+    package is made back-to-back on one warm worker, then the person checks follow; only the
+    first job counts the cold start."""
+
+    warm: bool = False
+    cold: bool = True  # the next job may meet a cold worker
+
+
+def _batch(settings: Settings) -> _Batch:
+    try:
+        warm = get_provider(settings.image_provider, settings).capabilities.batch_images
+    except ImageError:  # reported by the image plans
+        warm = False
+    return _Batch(warm=warm)
+
+
 def _make_images(
-    kind: str, plan: _ImagePlan, folder: Path, settings: Settings, previous: PackageItem | None
+    kind: str,
+    plan: _ImagePlan,
+    folder: Path,
+    settings: Settings,
+    previous: PackageItem | None,
+    batch: _Batch | None = None,
 ) -> tuple[PackageItem, list[str]]:
     """Make the part's missing images; the lines are a check that stops the build.
 
-    Person check: right after each image with the man. Set check: once every image of a set
-    exists, each one against the first. A failed image is made again (after the user agreed)
-    in its own place; the others are kept.
+    Person check: right after each image with the man (a warm batch: after all of them, see
+    _Batch). Set check: once every image of a set exists, each one against the first. A failed
+    image is made again (after the user agreed) in its own place; the others are kept.
     """
+    batch = batch or _Batch()
+    unchecked: list[int] = []  # a warm batch: images with the person, checked afterwards
     now = datetime.now(UTC)
     keep = previous is not None and previous.status in ("failed", "review") and bool(
         previous.image_refs
@@ -1164,12 +1196,14 @@ def _make_images(
             # Later slides attach slide 1 (it passed the person check): one scene and design.
             inputs = replace(inputs, first_slide=item.image_refs[0])
         try:
-            job = run_workflow("social_creative", inputs, settings)
+            job = run_workflow("social_creative", inputs, settings, cold_start=batch.cold)
         except _IMAGE_ERRORS as error:
             item.status, item.error = "failed", str(error)
             return item, []
+        batch.cold = False
         item.job_id, item.job_folder = job.job_id, str(job.folder)
         item.job_ids.append(job.job_id)
+        item.est_cost_usd = _add_cost(item.est_cost_usd, job.est_cost_usd)
         if job.status != "completed":
             item.status, item.error = "failed", job.error
             item.cost_usd = _add_cost(item.cost_usd, job.actual_cost_usd)
@@ -1189,10 +1223,20 @@ def _make_images(
         item.cost_usd = _add_cost(item.cost_usd, cost)
         if item.picks is None:
             item.picks = DesignPicks.from_recorded(job.inputs, job.style_asset_ids)
-        if job.inputs.get("personShown") is True:
+        if job.inputs.get("personShown") is True and batch.warm:
+            unchecked.append(position)
+        elif job.inputs.get("personShown") is True:
             item.status = "review"
             item.error = f"person check pending: {item.files[position]}"
             return item, _person_lines(item, position, folder, settings)
+    if unchecked:  # a warm batch: all images are made; now the person checks, one per build
+        item.status = "review"
+        item.error = "person check pending: " + ", ".join(item.files[p] for p in unchecked)
+        lines = _person_lines(item, unchecked[0], folder, settings)
+        if len(unchecked) > 1:
+            later = ", ".join(item.files[p] for p in unchecked[1:])
+            lines.append(f"  Then the next build shows the next check ({later}).")
+        return item, lines
     if len(plan.jobs) > 1:
         pending = [
             position for position in range(1, len(plan.jobs))
@@ -1360,10 +1404,14 @@ def _status(brief: ContentBrief, package: ContentPackage) -> str:
 
 
 def _item_line(kind: str, item: PackageItem) -> str:
+    cost = ""
+    if item.cost_usd and item.est_cost_usd is not None:  # estimate vs actual, every build
+        cost = f" (${item.cost_usd:.4f}; estimate ${item.est_cost_usd:.4f})"
+    elif item.cost_usd:
+        cost = f" (${item.cost_usd:.4f})"
     if item.status == "done":
-        cost = f" (${item.cost_usd:.4f})" if item.cost_usd else ""
         return f"{LABELS[kind]}: done{cost}: {', '.join(item.files)}"
-    return f"{LABELS[kind]}: {item.status}" + (f": {item.error}" if item.error else "")
+    return f"{LABELS[kind]}: {item.status}{cost}" + (f": {item.error}" if item.error else "")
 
 
 def _dry_run_lines(
@@ -1381,6 +1429,7 @@ def _dry_run_lines(
     ]
     total = 0.0
     names = _part_names(brief, settings)
+    batch = _batch(settings)  # a warm batch counts one cold start for the whole package
     for kind in IMAGE_SLOTS:
         item = package.items.get(kind)
         plan = plans.get(kind)
@@ -1392,7 +1441,10 @@ def _dry_run_lines(
             lines.append(f"{names[kind]}: cannot be made yet: {plan.error}")
             continue
         todo = [plan.prepared[position] for position in _todo(plan, item, settings)]
-        cost = sum(estimate_cost_usd(prepared.request, settings) for prepared in todo)
+        cost = 0.0
+        for prepared in todo:
+            cost += estimate_cost_usd(prepared.request, settings, cold_start=batch.cold)
+            batch.cold = False
         total += cost
         lead = plan.prepared[0]
         request = lead.request
@@ -1430,10 +1482,17 @@ def _dry_run_lines(
             which = "each image" if len(checked) == len(plan.prepared) else (
                 f"images {' and '.join(map(str, checked))}"
             )
-            lines.append(
-                f"  person check: the build stops after {which} so Codex can compare each with "
-                "his photos before anything else is made"
-            )
+            if batch.warm:
+                lines.append(
+                    f"  person check: for {which}, after every image of the package is made "
+                    "back-to-back on one warm GPU worker; one check per build, and a failed "
+                    "image is made again only after the user agrees"
+                )
+            else:
+                lines.append(
+                    f"  person check: the build stops after {which} so Codex can compare each "
+                    "with his photos before anything else is made"
+                )
         if len(plan.prepared) > 1:
             lines.append(
                 "  set check: when all images exist, the build stops once more so Codex can "
@@ -1452,6 +1511,12 @@ def _dry_run_lines(
         f"Estimated image cost: ${total:.3f} ({settings.image_provider}). "
         "Run again without --dry-run to build."
     )
+    try:
+        basis = get_provider(settings.image_provider, settings).capabilities.cost_basis
+    except ImageError:  # already reported with the image parts above
+        basis = ""
+    if basis:  # GPU time (ComfyUI): an estimate; the build shows estimate vs actual
+        lines.insert(-1, f"Image cost basis: {basis}")
     return lines, round(total, 6)
 
 

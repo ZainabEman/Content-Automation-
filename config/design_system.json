@@ -620,5 +620,95 @@
     "compositionNoPerson": "A premium social post in the quality of the brand's past ads, with no person in it: a topic-relevant scene with depth (softly blurred background, a few foreground props) and brand lighting (cool blue key light, sky-blue rim light); a dark translucent glass panel holds the audience line, the headline and one supporting line, then the content block; topic-relevant hologram or UI elements (a chat window, a CRM card, a calendar) float in the scene; the footer at the bottom. No flat single-colour background and no large empty areas.",
     "points": "Content block: the 3 key points listed below, one per line, each with its icon.",
     "stat": "Content block: the one big number, huge and bold in the highlight colour, with the small source line directly under it."
+  },
+  "textOverlay": {
+    "fonts": {
+      "folder": "assets/fonts",
+      "families": ["Futura", "Jost"],
+      "weights": {
+        "medium": ["Medium", "Book"],
+        "bold": ["Bold", "Demi"],
+        "extrabold": ["ExtraBold", "Heavy", "Bold"]
+      }
+    },
+    "baseWidth": 1080,
+    "minContrast": 4.5,
+    "backgroundShade": 0.45,
+    "scrim": {"color": "background", "opacity": 0.72, "padding": 24, "radius": 22},
+    "button": {"fill": "background", "outline": "accent", "outlineWidth": 3, "padX": 28, "padY": 16, "radius": 18},
+    "panels": {
+      "left": {"box": [0.06, 0.18, 0.52, 0.89], "label": "the left side of the frame"},
+      "right": {"box": [0.48, 0.18, 0.94, 0.89], "label": "the right side of the frame"},
+      "bottom": {"box": [0.05, 0.54, 0.95, 0.89], "label": "the lower part of the frame"},
+      "caption": {"box": [0.05, 0.84, 0.60, 0.90], "label": "a small strip in the lower left corner"}
+    },
+    "layoutPanels": {"A": "left", "B": "left", "C": "right", "D": "bottom", "none": "left"},
+    "footer": {"field": "footer", "box": [0.25, 0.925, 0.75, 0.975], "align": "center", "valign": "middle", "size": [16, 22], "weight": "medium"},
+    "prompt": {
+      "noText": "Do not render any text at all: no words, letters, numbers, labels, buttons, captions, logos, wordmarks, monograms or watermarks anywhere, including on screens, holograms, props, signs and clothing. The app adds all text afterwards.",
+      "space": "Keep these areas as clean, calm negative space for that text: {areas}. There the scene is smooth, darker and evenly lit (soft blur or a plain background) with no face, hands, props, holograms, decor, panels, boxes, frames or busy detail.",
+      "canvas": "Fill the whole canvas with the scene; apart from the text areas, no large empty areas.",
+      "post": "A premium social post in the quality of the brand's past ads: the man integrated in a topic-relevant scene with depth (softly blurred background, a few foreground props) and brand lighting (cool blue key light, sky-blue rim light); topic-relevant hologram or UI elements (a chat window, a CRM card, a calendar) float near him, away from the text areas. No flat single-colour background.",
+      "postNoPerson": "A premium social post in the quality of the brand's past ads, with no person in it: a topic-relevant scene with depth (softly blurred background, a few foreground props) and brand lighting (cool blue key light, sky-blue rim light); topic-relevant hologram or UI elements (a chat window, a CRM card, a calendar) float in the scene, away from the text areas. No flat single-colour background.",
+      "compositions": {
+        "ad": "A premium tech-style graphic with a rich composition; the layout decides where the man and, in layout A, the system visual stand, and the text areas stay calm.",
+        "person_photo": "A photorealistic photo of the man in the scene, like a professional portrait or lifestyle shot with natural depth of field. No text panel and no graphics over the photo."
+      },
+      "layouts": {
+        "A": "On the right a large floating system visual (a chat window, CRM card or calendar) with the man beside it, gesturing towards it; the left side stays calm for the text.",
+        "B": "The man on the right; the left side stays calm for the text.",
+        "C": "The man on the left; the right side stays calm for the text.",
+        "D": "Before/after diagonal split: on the left the man stressed at a dark, cluttered desk; on the right the same man relaxed in a bright office; a round button with a double-chevron arrow shape sits in the middle of the split. The lower part stays calm for the text, below both faces."
+      }
+    },
+    "formats": {
+      "ad": {
+        "zones": [
+          {"field": "headline", "box": [0, 0, 1, 0.42], "maxLines": 4, "size": [44, 88], "weight": "bold", "lineHeight": 1.08, "minContrast": 3},
+          {"field": "subheadline", "box": [0, 0.46, 1, 0.68], "maxLines": 3, "size": [24, 38], "weight": "medium", "lineHeight": 1.25},
+          {"field": "icons", "box": [0, 0.70, 1, 0.77], "size": [18, 26], "weight": "medium", "color": "accent"},
+          {"field": "cta", "box": [0, 0.80, 1, 1], "valign": "bottom", "size": [24, 34], "weight": "bold", "scrim": "never"}
+        ]
+      },
+      "statement": {
+        "zones": [
+          {"field": "audience_line", "box": [0, 0, 1, 0.06], "size": [18, 26], "weight": "bold", "color": "accent"},
+          {"field": "headline", "box": [0, 0.08, 1, 0.42], "maxLines": 4, "size": [40, 76], "weight": "bold", "lineHeight": 1.08, "minContrast": 3},
+          {"field": "subheadline", "box": [0, 0.45, 1, 0.60], "maxLines": 3, "size": [22, 32], "weight": "medium", "lineHeight": 1.25},
+          {"field": "points", "box": [0, 0.63, 1, 1], "maxLines": 6, "size": [20, 30], "weight": "medium", "lineHeight": 1.25}
+        ]
+      },
+      "stat": {
+        "zones": [
+          {"field": "audience_line", "box": [0, 0, 1, 0.06], "size": [18, 26], "weight": "bold", "color": "accent"},
+          {"field": "headline", "box": [0, 0.08, 1, 0.36], "maxLines": 3, "size": [36, 68], "weight": "bold", "lineHeight": 1.08, "minContrast": 3},
+          {"field": "stat", "box": [0, 0.38, 1, 0.62], "size": [90, 200], "weight": "extrabold", "color": "highlight", "lineHeight": 1, "minContrast": 3},
+          {"field": "source_line", "box": [0, 0.63, 1, 0.69], "size": [16, 22], "weight": "medium"},
+          {"field": "subheadline", "box": [0, 0.72, 1, 1], "maxLines": 3, "size": [22, 32], "weight": "medium", "lineHeight": 1.25}
+        ]
+      },
+      "news": {
+        "zones": [
+          {"field": "audience_line", "box": [0, 0, 1, 0.06], "size": [18, 26], "weight": "bold", "color": "accent"},
+          {"field": "headline", "box": [0, 0.08, 1, 0.42], "maxLines": 3, "size": [36, 64], "weight": "bold", "lineHeight": 1.1, "minContrast": 3},
+          {"field": "subheadline", "box": [0, 0.45, 1, 0.60], "maxLines": 3, "size": [22, 32], "weight": "medium", "lineHeight": 1.25},
+          {"field": "points", "box": [0, 0.63, 1, 1], "maxLines": 6, "size": [20, 30], "weight": "medium", "lineHeight": 1.25}
+        ]
+      },
+      "checklist": {
+        "zones": [
+          {"field": "audience_line", "box": [0, 0, 1, 0.06], "size": [18, 26], "weight": "bold", "color": "accent"},
+          {"field": "headline", "box": [0, 0.08, 1, 0.42], "maxLines": 4, "size": [40, 76], "weight": "bold", "lineHeight": 1.08, "minContrast": 3},
+          {"field": "subheadline", "box": [0, 0.45, 1, 0.60], "maxLines": 3, "size": [22, 32], "weight": "medium", "lineHeight": 1.25},
+          {"field": "points", "box": [0, 0.63, 1, 1], "maxLines": 6, "size": [20, 30], "weight": "medium", "lineHeight": 1.25}
+        ]
+      },
+      "person_photo": {
+        "panel": "caption",
+        "zones": [
+          {"field": "headline", "box": [0, 0, 1, 1], "valign": "middle", "size": [20, 30], "weight": "bold"}
+        ]
+      }
+    }
   }
 }

@@ -22,6 +22,7 @@ MAX_COUNT = 4
 _ADAPTERS: dict[str, str] = {
     "mock": "content_automation.ai.image.providers.mock",
     "openrouter": "content_automation.ai.image.providers.openrouter",
+    "comfyui": "content_automation.ai.image.providers.comfyui",
 }
 
 
@@ -84,6 +85,9 @@ class ImageRequest(BaseModel):
     identity_refs: list[ReferenceImage] = Field(default_factory=list)
     object_refs: list[ReferenceImage] = Field(default_factory=list)  # products
     style_refs: list[ReferenceImage] = Field(default_factory=list)  # creative
+    # The identity person is shown. Providers with a trained identity (identity_prompt) apply
+    # it only then; the others get identity_refs instead.
+    person: bool = False
 
 
 class GeneratedImage(BaseModel):
@@ -97,6 +101,9 @@ class ImageResult(BaseModel):
     model: str
     provider_request_ids: list[str] = Field(default_factory=list)
     cost_usd: float | None = None  # actual charge, when the provider reports it
+    # Provider-reported numbers kept in the job record, e.g. RunPod delayTimeMs and
+    # executionTimeMs, and the seed of each image.
+    metrics: dict[str, float] = Field(default_factory=dict)
 
 
 class ProviderCapabilities(BaseModel):
@@ -114,6 +121,21 @@ class ProviderCapabilities(BaseModel):
     max_count: int = MAX_COUNT
     max_images_per_call: int = 1  # count N may take several provider calls
     est_cost_usd_per_image: dict[str, float] = Field(default_factory=dict)
+    # The model renders on-image text (headline, CTA) itself; False: the app overlays it
+    # (workflows/text_overlay.py, TEXT_OVERLAY=auto).
+    draws_text: bool = True
+    # Added once per request on top of the per-image price (e.g. a GPU cold start).
+    est_cost_usd_per_request: float = 0.0
+    cost_basis: str = ""  # how the estimate is made, shown in the dry run; "" = provider price
+    # A trained identity (LoRA): the prompt text that calls it up. Then no identity photos
+    # are sent and max_identity_refs is 0.
+    identity_prompt: str | None = None
+    # The adapter's own time budget per image (a provider that is polled); None: the
+    # IMAGE_TIMEOUT_MS based budget.
+    timeout_s: float | None = None
+    # Make every image of a package back-to-back (one GPU cold start), then the person checks;
+    # False: the build stops for the person check after each image with the person.
+    batch_images: bool = False
 
 
 class ImageProvider(Protocol):
@@ -171,11 +193,16 @@ def validate_request(request: ImageRequest, capabilities: ProviderCapabilities) 
         raise ImageRequestError("Request exceeds provider limits: " + "; ".join(problems) + ".")
 
 
-def estimate_cost_usd(request: ImageRequest, settings: Settings | None = None) -> float:
+def estimate_cost_usd(
+    request: ImageRequest, settings: Settings | None = None, *, cold_start: bool = True
+) -> float:
+    """cold_start=False: a request that follows another one on a warm worker, so the
+    per-request cost (est_cost_usd_per_request) is not counted again."""
     settings = settings or load_settings(require_credentials=False)
     capabilities = get_provider(settings.image_provider, settings).capabilities
     per_image = capabilities.est_cost_usd_per_image.get(request.image_size, 0.0)
-    return round(per_image * request.count, 4)
+    per_request = capabilities.est_cost_usd_per_request if cold_start else 0.0
+    return round(per_image * request.count + per_request, 4)
 
 
 def generate_image(request: ImageRequest, settings: Settings | None = None) -> ImageResult:

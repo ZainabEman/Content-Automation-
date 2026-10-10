@@ -58,6 +58,7 @@ def capabilities_for(identity_max: int) -> ProviderCapabilities:
         image_sizes=frozenset(IMAGE_SIZES),
         max_images_per_call=1,
         est_cost_usd_per_image=EST_COST_USD_PER_IMAGE,
+        draws_text=True,  # Nano Banana draws the headline, CTA and points itself
     )
 
 

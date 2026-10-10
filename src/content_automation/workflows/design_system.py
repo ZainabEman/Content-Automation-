@@ -235,6 +235,135 @@ class DesignRules(_DesignModel):
     ad: list[str] = Field(min_length=1)
 
 
+# The texts the app renders itself (workflows/text_overlay.py) for providers that draw no text.
+ZoneField = Literal[
+    "audience_line", "headline", "subheadline", "stat", "source_line", "points", "cta", "icons",
+    "footer",
+]
+Box = tuple[float, float, float, float]  # left, top, right, bottom as shares (0-1)
+ScrimMode = Literal["auto", "always", "never"]
+
+
+def _box_problem(box: Box) -> str | None:
+    left, top, right, bottom = box
+    if not (0 <= left < right <= 1 and 0 <= top < bottom <= 1):
+        return f"{list(box)} (needs 0 <= left < right <= 1 and 0 <= top < bottom <= 1)"
+    return None
+
+
+class OverlayFonts(_DesignModel):
+    """Font files in `folder`, by family in priority order: the first family with a file for
+    a weight wins, so brand files (Futura) dropped in later replace the fallback (Jost)."""
+
+    folder: str = Field(min_length=1)
+    families: list[str] = Field(min_length=1)
+    weights: dict[str, list[str]] = Field(min_length=1)  # weight -> style names, best first
+
+
+class Scrim(_DesignModel):
+    """The soft panel drawn behind a zone whose background is too busy or too light."""
+
+    color: ColorRole = "background"
+    opacity: float = Field(default=0.72, gt=0, le=1)
+    padding: int = Field(default=24, ge=0)  # px at baseWidth
+    radius: int = Field(default=22, ge=0)
+
+
+class ButtonStyle(_DesignModel):
+    fill: ColorRole = "background"
+    outline: ColorRole = "accent"
+    outline_width: int = Field(default=3, ge=0)
+    pad_x: int = Field(default=28, ge=0)
+    pad_y: int = Field(default=16, ge=0)
+    radius: int = Field(default=18, ge=0)
+
+
+class TextZone(_DesignModel):
+    """One text: its box (shares of the panel; the footer: of the canvas) and how it fits."""
+
+    field: ZoneField
+    box: Box
+    align: Literal["left", "center", "right"] = "left"
+    valign: Literal["top", "middle", "bottom"] = "top"
+    max_lines: int = Field(default=1, ge=1)
+    size: tuple[int, int]  # smallest and largest font size, px at baseWidth
+    weight: str = Field(min_length=1)  # a key of fonts.weights
+    color: ColorRole = "text"
+    highlight: ColorRole = "highlight"  # highlight words
+    marker: ColorRole = "accent"  # list bullets and numbers
+    line_height: float = Field(default=1.2, gt=0.8, le=2)
+    scrim: ScrimMode = "auto"
+    min_contrast: float | None = Field(default=None, ge=1, le=21)  # default: minContrast
+
+
+class OverlayPanel(_DesignModel):
+    box: Box  # shares of the canvas
+    label: str = Field(min_length=1)  # how the prompt names this area
+
+
+class OverlayFormat(_DesignModel):
+    zones: list[TextZone] = Field(min_length=1)
+    panel: str | None = None  # a fixed panel; None: the layout's panel (layoutPanels)
+
+
+class OverlayPrompt(_DesignModel):
+    """What the prompt says instead of the text, typography and text-panel lines."""
+
+    no_text: str = Field(min_length=1)
+    space: str = Field(min_length=1)  # "{areas}" names the areas kept clear
+    canvas: str = Field(min_length=1)
+    post: str = Field(min_length=1)  # the post family composition, without its text
+    post_no_person: str = Field(min_length=1)
+    compositions: dict[FormatId, str] = Field(default_factory=dict)  # replaces the format's
+    layouts: dict[LayoutId, str] = Field(default_factory=dict)  # replaces the layout's
+
+
+class TextOverlaySpec(_DesignModel):
+    fonts: OverlayFonts
+    base_width: int = Field(default=1080, ge=100)  # the canvas width that sizes refer to
+    min_contrast: float = Field(default=4.5, ge=1, le=21)
+    # Share of black mixed into the background colour: core.colorRoles.background is used
+    # "as a deep, dark shade of it" (scrims and button fills).
+    background_shade: float = Field(default=0.45, ge=0, lt=1)
+    scrim: Scrim = Field(default_factory=Scrim)
+    button: ButtonStyle = Field(default_factory=ButtonStyle)
+    panels: dict[str, OverlayPanel] = Field(min_length=1)
+    layout_panels: dict[str, str]  # layout letter, or "none" (no layout) -> panel
+    footer: TextZone
+    prompt: OverlayPrompt
+    formats: dict[FormatId, OverlayFormat] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _check(self) -> Self:
+        problems = []
+        for name, panel in self.panels.items():
+            if (box := _box_problem(panel.box)) is not None:
+                problems.append(f"panels.{name}.box {box}")
+        for key, panel_name in self.layout_panels.items():
+            if panel_name not in self.panels:
+                problems.append(f"layoutPanels.{key}: no panel {panel_name}")
+        zones = [("footer", self.footer)] + [
+            (f"formats.{format_id}.zones.{zone.field}", zone)
+            for format_id, spec in self.formats.items()
+            for zone in spec.zones
+        ]
+        for where, zone in zones:
+            if (box := _box_problem(zone.box)) is not None:
+                problems.append(f"{where}.box {box}")
+            if not 0 < zone.size[0] <= zone.size[1]:
+                problems.append(f"{where}.size (needs 0 < smallest <= largest)")
+            if zone.weight not in self.fonts.weights:
+                problems.append(f"{where}.weight: {zone.weight} is not in fonts.weights")
+        for format_id, spec in self.formats.items():
+            if spec.panel is not None and spec.panel not in self.panels:
+                problems.append(f"formats.{format_id}.panel: no panel {spec.panel}")
+        if "{areas}" not in self.prompt.space:
+            problems.append("{areas} in prompt.space")
+        if problems:
+            raise ValueError("textOverlay: " + "; ".join(problems))
+        return self
+
+
 class DesignSystem(_DesignModel):
     core: Core
     typography: Typography
@@ -248,6 +377,7 @@ class DesignSystem(_DesignModel):
     cta_rules: dict[str, CtaRule] = Field(default_factory=dict)  # platform -> rule
     headline_formulas: dict[str, str] = Field(default_factory=dict)  # name -> example
     rules: DesignRules
+    text_overlay: TextOverlaySpec | None = None  # for image providers that draw no text
 
     @model_validator(mode="after")
     def _check_complete(self) -> Self:

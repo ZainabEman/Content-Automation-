@@ -16,3 +16,7 @@ htmlcov/
 .uv-cache/
 .pytest-tmp/
 .secrets/
+# Licensed brand fonts (e.g. Futura) stay local; only the OFL fallback (Jost) is tracked.
+/assets/fonts/*
+!/assets/fonts/Jost-*.ttf
+!/assets/fonts/OFL.txt

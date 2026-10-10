@@ -1,0 +1,16 @@
+{
+  "inputs": {
+    "prompt": {"node": "6", "input": "text"},
+    "negative": {"node": "7", "input": "text"},
+    "seed": {"node": "9", "input": "seed"},
+    "width": {"node": "8", "input": "width"},
+    "height": {"node": "8", "input": "height"},
+    "steps": {"node": "9", "input": "steps"},
+    "cfg": {"node": "9", "input": "cfg"},
+    "lora_name": {"node": "4", "input": "lora_name"},
+    "lora_strength": {"node": "4", "input": "strength_model"}
+  },
+  "loraBypass": {"node": "5", "input": "model", "source": ["1", 0]},
+  "decode": "10",
+  "save": "11"
+}

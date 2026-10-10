@@ -1,0 +1,59 @@
+{
+  "gpu": "RunPod Serverless 48 GB class (L40, L40S, RTX 6000 Ada)",
+  "pricePerSecondUsd": 0.000486,
+  "priceSource": "https://www.runpod.io/pricing (checked 2026-10-10): 48 GB serverless $1.75/h",
+  "coldStartSeconds": 90,
+  "idleSeconds": 15,
+  "pollSeconds": 3,
+  "timeoutSeconds": 600,
+  "targetLongSide": {
+    "1K": 1024,
+    "2K": 2048,
+    "4K": 4096
+  },
+  "sizes": {
+    "1:1": [
+      1248,
+      1248
+    ],
+    "4:5": [
+      1104,
+      1376
+    ],
+    "9:16": [
+      928,
+      1664
+    ],
+    "16:9": [
+      1664,
+      928
+    ]
+  },
+  "triggerWord": "r0man_bg",
+  "loraStrength": 1.0,
+  "identityPrompt": "Person: {trigger}, the only person allowed in this image; nobody else appears. He is that exact person: same face, facial structure, hairline and hair, skin tone and age. Do not beautify, idealize or change him. Do not add glasses, a beard or accessories he does not have.",
+  "upscaleNode": {
+    "enabled": false,
+    "model": ""
+  },
+  "workflows": {
+    "qwen_image_2512": {
+      "workflow": "config/comfyui/workflows/qwen_image_2512.json",
+      "mapping": "config/comfyui/workflows/qwen_image_2512.map.json",
+      "secondsPerImage": 75,
+      "steps": 50,
+      "cfg": 4.0,
+      "loraName": "<the person's Qwen-Image-2512 LoRA file, set in Phase 2 Step 4>",
+      "negative": "text, letters, words, watermark, logo, blurry, low quality, deformed hands, extra fingers, distorted face, cartoon, illustration"
+    },
+    "z_image_turbo": {
+      "workflow": "config/comfyui/workflows/z_image_turbo.json",
+      "mapping": "config/comfyui/workflows/z_image_turbo.map.json",
+      "secondsPerImage": 12,
+      "steps": 8,
+      "cfg": 1.0,
+      "loraName": "<the person's Z-Image Turbo LoRA file, set in Phase 2 Step 4>",
+      "negative": ""
+    }
+  }
+}

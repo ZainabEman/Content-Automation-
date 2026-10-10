@@ -11,6 +11,7 @@ from content_automation.ai.image import (
     ReferenceImage,
     estimate_cost_usd,
     generate_image,
+    get_provider,
 )
 from content_automation.core.config import Settings
 from content_automation.core.jobs import Job, JobParams, JobReference, create_job
@@ -19,6 +20,7 @@ from content_automation.core.log import get_logger, mask_secrets, secret_values
 from content_automation.core.retry import call_with_retry
 from content_automation.references import asset_id_for
 from content_automation.workflows.logo import LogoOverlay, apply_logo
+from content_automation.workflows.text_overlay import TextOverlay, apply_text
 
 _EXTENSIONS = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
 RAW_DIR = "raw"  # the model's image before the logo is pasted (slide 1 for later slides)
@@ -68,10 +70,15 @@ def run_image_job(
     inputs: dict[str, str | bool] | None = None,
     logo: LogoOverlay | None = None,
     references: list[JobReference] | None = None,
+    text: TextOverlay | None = None,
+    cold_start: bool = True,
 ) -> Job:
     """Run one image job and return its record (status completed or failed).
 
-    logo: pasted onto every image; the image without it is kept in raw/.
+    cold_start=False: the job follows another one on a warm worker (a package build), so the
+    estimate leaves out the per-request cost.
+    text: rendered onto every image first (providers that draw no text), then the logo.
+    logo: pasted onto every image; the image without it (and without the text) is kept in raw/.
     Raises DailyLimitError before any job or provider call when the limit is hit.
     Mock images are free and do not count toward the limit.
     """
@@ -105,12 +112,18 @@ def run_image_job(
 
     written: list[Path] = []
     versions: list[str] = []  # which logo version each image got
+    scrims: list[str] = []  # where the text overlay added a scrim
     try:
-        job.est_cost_usd = estimate_cost_usd(request, settings)
+        job.est_cost_usd = estimate_cost_usd(request, settings, cold_start=cold_start)
         job.start()
         # A safety net above the adapter's own limits: each image may take a full
-        # IMAGE_TIMEOUT_MS call per attempt, plus short waits between retries.
-        per_image_s = (settings.image_timeout_ms / 1000 + 5) * (settings.image_max_retries + 1)
+        # IMAGE_TIMEOUT_MS call per attempt, plus short waits between retries. A polled
+        # provider (ComfyUI on RunPod) brings its own budget and cancels the job itself.
+        budget = get_provider(settings.image_provider, settings).capabilities.timeout_s
+        if budget is not None:
+            per_image_s = budget + 30
+        else:
+            per_image_s = (settings.image_timeout_ms / 1000 + 5) * (settings.image_max_retries + 1)
         result = call_with_retry(
             lambda: generate_image(request, settings=settings),
             timeout_s=(per_image_s + 30) * request.count,
@@ -122,9 +135,10 @@ def run_image_job(
         job.provider_request_ids = result.provider_request_ids
         job.model = result.model
         job.actual_cost_usd = result.cost_usd
+        job.provider_metrics = result.metrics
         for index, image in enumerate(result.images, start=1):
             extension = _EXTENSIONS.get(image.mime_type, "png")
-            if logo is None:
+            if logo is None and text is None:
                 path = job.folder / f"image-{index}.{extension}"
                 path.write_bytes(image.data)
             else:
@@ -133,11 +147,20 @@ def run_image_job(
                 raw.write_bytes(image.data)
                 written.append(raw)
                 path = job.folder / f"image-{index}.png"
-                final, version = apply_logo(image.data, logo)
+                final = image.data
+                if text is not None:  # order: base image, text overlay, logo
+                    final, notes = apply_text(final, text)
+                    scrims += [f"{path.name}: {note}" for note in notes]
+                if logo is not None:
+                    final, version = apply_logo(final, logo)
+                    versions.append(f"{path.name}: {version}")
                 path.write_bytes(final)
-                versions.append(f"{path.name}: {version}")
             written.append(path)
         finals = [path for path in written if path.parent == job.folder]
+        if text is not None:
+            job.notes.append(
+                f"Text: {text.describe()}; scrims: {'; '.join(scrims) or 'none needed'}."
+            )
         if logo is not None:
             job.notes.append(
                 f"Logo: {logo.describe()}; used: {', '.join(versions)}; the images without it "

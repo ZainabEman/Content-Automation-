@@ -6,7 +6,8 @@ from typing import Literal
 from pydantic import Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ImageProvider = Literal["mock", "openrouter"]
+# comfyui: ComfyUI on a RunPod Serverless endpoint (config/comfyui.json; IMAGE_MODEL = workflow).
+ImageProvider = Literal["mock", "openrouter", "comfyui"]
 # "none": no provider is set; a content package then keeps its video pending.
 # Agent providers are Codex plugins: Codex makes the clip, the app records it.
 VideoProvider = Literal["none", "mock", "higgsfield-plugin"]
@@ -16,6 +17,9 @@ VoiceProvider = Literal["none", "mock", "elevenlabs"]
 # "free" (default): our own scraper (RSS + article pages); no paid API, no account.
 ScraperProvider = Literal["free", "mock"]
 DesignSize = Literal["1K", "2K", "4K"]
+# Who renders on-image text: "auto" = the app, only for providers that draw no text (ComfyUI);
+# "always" = the app; "never" = the image model.
+TextOverlayMode = Literal["auto", "always", "never"]
 # "mock" (default): the Drive layout in a local folder; "drive": Google Drive (`ca drive setup`).
 StorageProvider = Literal["mock", "drive"]
 
@@ -54,9 +58,14 @@ class Settings(BaseSettings):
     image_max_retries: int = Field(default=1, ge=0, le=5)
     image_identity_refs_max: int = Field(default=4, ge=1, le=14)
     image_design_size: DesignSize = "2K"  # designed graphics (social_creative); photos stay 1K
+    text_overlay: TextOverlayMode = "auto"
     design_system_file: Path = Path("config/design_system.json")
     default_identity_set: str = Field(default="identity/person_01", min_length=1)
     openrouter_api_key: SecretStr | None = None
+    comfyui_config_file: Path = Path("config/comfyui.json")  # GPU price, workflows, LoRA
+    lora_config_file: Path = Path("config/lora.json")  # dataset checks, AI Toolkit training
+    runpod_api_key: SecretStr | None = None
+    runpod_endpoint_id: str | None = None  # the worker-comfyui Serverless endpoint
 
     video_provider: VideoProvider = "mock"
     video_model: str = Field(default="mock", min_length=1)
@@ -133,6 +142,11 @@ def load_settings(
         settings.openrouter_api_key
     ):
         missing.append("OPENROUTER_API_KEY")
+    if settings.image_provider == "comfyui":
+        if not _secret_is_set(settings.runpod_api_key):
+            missing.append("RUNPOD_API_KEY")
+        if not (settings.runpod_endpoint_id or "").strip():
+            missing.append("RUNPOD_ENDPOINT_ID")
     if settings.voice_provider == "elevenlabs" and not _secret_is_set(
         settings.elevenlabs_api_key
     ):

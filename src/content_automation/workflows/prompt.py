@@ -26,6 +26,7 @@ from content_automation.workflows.design_system import (
     ColorRole,
     DesignChoice,
     DesignSystem,
+    OverlayPrompt,
     TextField,
 )
 from content_automation.workflows.registry import WorkflowSpec
@@ -245,15 +246,22 @@ def _layout_section(
     system: DesignSystem,
     counts: RefCounts,
     details: str | None,
+    overlay: OverlayPrompt | None = None,
 ) -> str:
     spec = system.formats[design.format]
-    if spec.family == "post":
+    if spec.family == "post" and overlay is not None:  # the app renders the text block
+        composition = overlay.post if design.person else overlay.post_no_person
+        lines = [f"Post layout family: {composition}"]
+    elif spec.family == "post":
         family = system.post_family
         block = family.stat if design.stat else family.points
         composition = family.composition if design.person else family.composition_no_person
         lines = [f"Post layout family: {composition}", spec.composition, block]
     else:
-        lines = [f"Post format ({design.format}): {spec.composition}"]
+        composition = spec.composition
+        if overlay is not None:
+            composition = overlay.compositions.get(design.format, composition)
+        lines = [f"Post format ({design.format}): {composition}"]
     if design.slide_role is not None:
         slide = system.carousel.slides[design.slide_role]
         lines.append(f"Carousel slide ({_SLIDE_PLACES[design.slide_role]}): {slide}")
@@ -261,7 +269,10 @@ def _layout_section(
         lines.append(f"Carousel navigation: {system.carousel.navigation}")
     if design.layout is not None:
         layout = system.layouts[design.layout]
-        lines.append(f"Layout {design.layout} ({layout.use}): {layout.description}")
+        description = layout.description
+        if overlay is not None:
+            description = overlay.layouts.get(design.layout, description)
+        lines.append(f"Layout {design.layout} ({layout.use}): {description}")
         if layout.split_poses:
             left, right = (system.pools.poses[pose].description for pose in layout.split_poses)
             lines.append(f"Poses: left half: {left}; right half: {right}.")
@@ -359,14 +370,19 @@ def _design_section(
     brand: BrandProfile | None,
     footer: str | None,
     logo: bool,
+    overlay: OverlayPrompt | None = None,
 ) -> str:
-    """Only what this format shows: the panel, holograms, decor and props are optional."""
+    """Only what this format shows: the panel, holograms, decor and props are optional.
+
+    overlay: the app renders the text, so no text panel, typography, button, icon row or footer.
+    """
     spec = system.formats[design.format]
     elements = system.elements
-    lines = [f"- Canvas: {system.core.layout}"]
-    if "textPanel" in spec.elements:
+    lines = [f"- Canvas: {system.core.layout if overlay is None else overlay.canvas}"]
+    if "textPanel" in spec.elements and overlay is None:
         lines.append(f"- Text panel: {elements.text_panel}")
-    lines += _typography(design, system, brand)
+    if overlay is None:
+        lines += _typography(design, system, brand)
     if design.chat:
         lines.append(f"- Chat example: {system.carousel.chat}")
     if design.diagram:
@@ -375,7 +391,7 @@ def _design_section(
         lines.append(f"- Mini checklist: {system.carousel.checklist}")
     if design.before_after:
         lines.append(f"- Before / after: {system.carousel.before_after}")
-    if design.cta and design.cta_icon:
+    if design.cta and design.cta_icon and overlay is None:
         button = elements.cta_button
         icon = button.icons[design.cta_icon].icon
         cta = f"- CTA button: {button.description} Icon: {icon}. {button.pointer}"
@@ -385,7 +401,7 @@ def _design_section(
         if design.person and elements.holograms_person:
             holograms += f" {elements.holograms_person}"
         lines.append(holograms)
-    if design.icons:
+    if design.icons and overlay is None:
         lines.append(f"- Icon row: {elements.icon_row}")
     if look.decor is not None:
         lines.append(f"- Decor: {_sentence(look.decor.text)}")
@@ -393,7 +409,7 @@ def _design_section(
         lines.append(f"- Props: {_sentence(look.props.text)}")
     if logo:
         lines.append(f"- Logo corner: {system.core.logo}")
-    if footer:
+    if footer and overlay is None:
         story = bool(system.kinds[design.kind].safe_zone)
         safe = " Keep it just above the bottom safe zone." if story else ""
         lines.append(f"- Footer: {system.core.footer}{safe}")
@@ -401,8 +417,12 @@ def _design_section(
 
 
 def _brand_section(
-    brand: BrandProfile | None, system: DesignSystem, company: CompanyProfile | None
+    brand: BrandProfile | None,
+    system: DesignSystem,
+    company: CompanyProfile | None,
+    overlay: bool = False,
 ) -> str | None:
+    """overlay: the model draws no text, so the fonts and the type rule are left out."""
     lines = []
     if company is not None and company.name:
         lines.append(f"- Company: {company.name}, {first_sentence(company.summary)}")
@@ -423,7 +443,7 @@ def _brand_section(
                 "- Other brand colours, for small details only: "
                 + ", ".join(f"{c.name} {c.hex}" for c in others)
             )
-        if brand.fonts:
+        if brand.fonts and not overlay:
             fonts = [f"{f.name} ({f.usage})" if f.usage else f.name for f in brand.fonts]
             lines.append(f"- Fonts: {'; '.join(fonts)}. {system.core.fonts}")
         avoid = [rule for rule in brand.dont if _not_about_logo(rule)]
@@ -433,15 +453,13 @@ def _brand_section(
     typography = rules.typography.replace("{heading}", heading_font(brand)).replace(
         "{body}", body_font(brand)
     )
-    lines += [
-        f"- Colour rule: {rules.colours}",
-        f"- Type rule: {typography}",
-        f"- Spacing rule: {rules.spacing}",
-    ]
+    lines.append(f"- Colour rule: {rules.colours}")
+    if not overlay:
+        lines.append(f"- Type rule: {typography}")
+    lines.append(f"- Spacing rule: {rules.spacing}")
     name = f" ({brand.brand_name})" if brand is not None else ""
-    return f"Brand{name} guide, on every image: use only these colours and fonts.\n" + "\n".join(
-        lines
-    )
+    used = "colours" if overlay else "colours and fonts"
+    return f"Brand{name} guide, on every image: use only these {used}.\n" + "\n".join(lines)
 
 
 def _is_split(design: DesignChoice, system: DesignSystem) -> bool:
@@ -449,14 +467,24 @@ def _is_split(design: DesignChoice, system: DesignSystem) -> bool:
 
 
 def _identity_section(
-    design: DesignChoice, look: DesignLook, system: DesignSystem, count: int
+    design: DesignChoice,
+    look: DesignLook,
+    system: DesignSystem,
+    count: int,
+    identity_text: str | None = None,
 ) -> str:
-    """The face comes from the photos only; nothing here describes his features."""
+    """The face comes from the photos only; nothing here describes his features.
+
+    identity_text: a provider with a trained identity (LoRA) names him by trigger word instead.
+    """
     identity = system.core.identity
-    images = (
-        "identity reference image 1" if count == 1 else f"identity reference images 1–{count}"
-    )
-    text = "Person: " + " ".join(identity.rules).replace("{images}", images)
+    if identity_text is not None:
+        text = identity_text
+    else:
+        images = (
+            "identity reference image 1" if count == 1 else f"identity reference images 1–{count}"
+        )
+        text = "Person: " + " ".join(identity.rules).replace("{images}", images)
     if look.wardrobe is not None:
         text += f" Wardrobe: {_sentence(look.wardrobe.text)}"
     if _is_split(design, system):
@@ -571,19 +599,37 @@ def build_design_prompt(
     details: str | None = None,
     company: CompanyProfile | None = None,
     logo: bool = True,
+    text_areas: str | None = None,
+    identity_text: str | None = None,
 ) -> str:
     """Designed graphics (social_creative): the format, the picked look and the fixed core.
 
     logo: the app pastes the logo afterwards, so the prompt keeps its corner empty.
+    text_areas: the app renders the text (workflows/text_overlay.py), so the prompt asks for
+    no text at all and calm negative space in these areas (design_system.json textOverlay).
+    Without it the prompt is unchanged: the model draws the text.
+    identity_text: the person comes from a trained LoRA (no photos), named by trigger word.
     """
+    overlay: OverlayPrompt | None = None
+    if text_areas is not None and system.text_overlay is not None:
+        overlay = system.text_overlay.prompt
+    if overlay is None or text_areas is None:
+        text = _text_section(design, look, system, counts, brand, company)
+    else:
+        text = f"Text: {overlay.no_text} {overlay.space.replace('{areas}', text_areas)}"
+    footer = footer_text(company)
     sections = [
         # The identity block comes first, so the person is read before anything else.
-        _identity_section(design, look, system, counts.identity) if design.person else None,
+        (
+            _identity_section(design, look, system, counts.identity, identity_text)
+            if design.person
+            else None
+        ),
         _format_section(design, system, aspect_ratio),
-        _layout_section(design, look, system, counts, details),
-        _design_section(design, look, system, counts, brand, footer_text(company), logo),
-        _brand_section(brand, system, company),
-        _text_section(design, look, system, counts, brand, company),
+        _layout_section(design, look, system, counts, details, overlay),
+        _design_section(design, look, system, counts, brand, footer, logo, overlay),
+        _brand_section(brand, system, company, overlay is not None),
+        text,
         _reference_section(counts),
     ]
     return "\n\n".join(section for section in sections if section)

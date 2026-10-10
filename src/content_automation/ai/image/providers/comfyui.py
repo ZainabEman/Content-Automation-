@@ -1,0 +1,454 @@
+"""ComfyUI image adapter: a workflow in ComfyUI API format, run on a RunPod Serverless
+endpoint with runpod-workers/worker-comfyui (providers/runpod.py).
+
+IMAGE_MODEL names the workflow in config/comfyui.json (qwen_image_2512 or z_image_turbo). Each
+workflow is an API-format JSON plus a mapping file naming the node and input of every value the
+app sets (prompt, negative, seed, width, height, steps, cfg, lora_name, lora_strength): values
+are filled through the mapping, never by string replacement.
+
+Identity: the person's trained LoRA. No reference images are sent (all reference limits are 0);
+the prompt names the person by the LoRA trigger word (capabilities.identity_prompt). An image
+without the person bypasses the LoRA node. Text: the model draws none (draws_text False), so
+the app overlays it (workflows/text_overlay.py).
+
+Size: each aspect ratio has a model-friendly size (multiples of 16, about 1-1.6 MP); the result
+is scaled to the target size (long side per IMAGE_DESIGN_SIZE) with Pillow Lanczos, optionally
+after an upscale-model node added to the workflow (upscaleNode in the config).
+
+Cost: estimated from GPU time (price per second x seconds per image, plus cold start and idle
+once per request; a package build sends its images back-to-back, batch_images, so it pays one
+cold start). The actual cost is computed from RunPod's delayTime + executionTime (queue time
+counts too) and kept with the job. No retry, and never a fallback to another provider: that
+would spend money nobody approved.
+"""
+
+import base64
+import binascii
+import copy
+import io
+import json
+import secrets
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Literal, Self
+
+from PIL import Image, UnidentifiedImageError
+from pydantic import ConfigDict, Field, ValidationError, model_validator
+
+from content_automation.ai.image import (
+    AspectRatio,
+    GeneratedImage,
+    ImageProviderError,
+    ImageRequest,
+    ImageResult,
+    ImageSize,
+    ImageTimeoutError,
+    ProviderCapabilities,
+)
+from content_automation.ai.image.providers.runpod import SWITCH, RunPodClient, RunPodJob
+from content_automation.core.config import Settings
+from content_automation.core.files import CamelModel
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[5]
+DEFAULT_CONFIG = Path("config/comfyui.json")
+MappedValue = Literal[
+    "prompt", "negative", "seed", "width", "height", "steps", "cfg", "lora_name", "lora_strength"
+]
+MAPPED: tuple[MappedValue, ...] = (
+    "prompt", "negative", "seed", "width", "height", "steps", "cfg", "lora_name", "lora_strength"
+)
+_UPSCALE_LOADER, _UPSCALE = "900", "901"  # node IDs added when upscaleNode is enabled
+
+
+class _Model(CamelModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class WorkflowConfig(_Model):
+    workflow: Path  # API-format JSON
+    mapping: Path  # node IDs and inputs of the MAPPED values
+    seconds_per_image: float = Field(gt=0)  # GPU seconds, warm worker (the cost estimate)
+    steps: int = Field(ge=1)
+    cfg: float = Field(gt=0)
+    lora_name: str = Field(min_length=1)  # in models/loras on the network volume
+    negative: str = ""
+
+
+class UpscaleNode(_Model):
+    enabled: bool = False
+    model: str = ""  # in models/upscale_models on the network volume
+
+
+class ComfyUIConfig(_Model):
+    gpu: str = Field(min_length=1)
+    price_per_second_usd: float = Field(gt=0)
+    price_source: str = ""
+    cold_start_seconds: float = Field(ge=0)
+    idle_seconds: float = Field(ge=0)  # the endpoint's idle timeout, billed after each job
+    poll_seconds: float = Field(gt=0)
+    timeout_seconds: float = Field(gt=0)  # then the RunPod job is cancelled
+    target_long_side: dict[ImageSize, int]
+    sizes: dict[AspectRatio, tuple[int, int]]  # what the model renders, multiples of 16
+    trigger_word: str = Field(min_length=1)
+    lora_strength: float = Field(ge=0, le=2)
+    identity_prompt: str = Field(min_length=1)  # "{trigger}" is the trigger word
+    upscale_node: UpscaleNode = Field(default_factory=UpscaleNode)
+    workflows: dict[str, WorkflowConfig] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _check(self) -> Self:
+        problems = [
+            f"sizes.{aspect} (multiples of 16)"
+            for aspect, (width, height) in self.sizes.items()
+            if width % 16 or height % 16 or width <= 0 or height <= 0
+        ]
+        if "{trigger}" not in self.identity_prompt:
+            problems.append("{trigger} in identityPrompt")
+        if self.upscale_node.enabled and not self.upscale_node.model.strip():
+            problems.append("upscaleNode.model (needed when enabled)")
+        if problems:
+            raise ValueError("missing or invalid " + ", ".join(problems))
+        return self
+
+
+class NodeInput(_Model):
+    node: str = Field(min_length=1)
+    input: str = Field(min_length=1)
+
+
+class LoraBypass(_Model):
+    """Without the person: this input takes `source` (the base model) and the LoRA node goes."""
+
+    node: str = Field(min_length=1)
+    input: str = Field(min_length=1)
+    source: tuple[str, int]
+
+
+class WorkflowMapping(_Model):
+    inputs: dict[MappedValue, NodeInput]
+    lora_bypass: LoraBypass
+    decode: str = Field(min_length=1)  # the VAE decode node (an upscale node follows it)
+    save: str = Field(min_length=1)  # the SaveImage node
+
+
+@dataclass(frozen=True)
+class LoadedWorkflow:
+    name: str
+    spec: WorkflowConfig
+    graph: dict[str, Any]
+    mapping: WorkflowMapping
+
+
+def is_unset(value: str) -> bool:
+    """A placeholder like "<set in Step 4>" or an empty value."""
+    return not value.strip() or value.strip().startswith("<")
+
+
+def _resolve(path: Path) -> Path:
+    return path if path.is_absolute() or path.exists() else _PROJECT_ROOT / path
+
+
+def _problems(error: ValidationError) -> str:
+    return "; ".join(sorted({
+        ".".join(str(part) for part in issue["loc"]) or str(issue["msg"])
+        for issue in error.errors(include_url=False)
+    }))
+
+
+def load_config(path: Path = DEFAULT_CONFIG) -> ComfyUIConfig:
+    file = _resolve(path)
+    try:
+        return ComfyUIConfig.model_validate_json(file.read_text(encoding="utf-8"))
+    except OSError:
+        raise ImageProviderError(
+            f"ComfyUI config not found: {path}. Restore config/comfyui.json or set "
+            "COMFYUI_CONFIG_FILE in .env."
+        ) from None
+    except ValidationError as error:
+        raise ImageProviderError(f"{file.name} is invalid; check: {_problems(error)}.") from None
+
+
+def load_workflow(config: ComfyUIConfig, name: str) -> LoadedWorkflow:
+    """The workflow JSON and its mapping; every mapped node and input must exist."""
+    spec = config.workflows.get(name)
+    if spec is None:
+        raise ImageProviderError(
+            f"IMAGE_MODEL={name} is not a ComfyUI workflow; set IMAGE_MODEL to one of: "
+            f"{', '.join(config.workflows)} (config/comfyui.json)."
+        )
+    try:
+        graph = json.loads(_resolve(spec.workflow).read_text(encoding="utf-8"))
+        mapping = WorkflowMapping.model_validate_json(
+            _resolve(spec.mapping).read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError) as error:
+        detail = _problems(error) if isinstance(error, ValidationError) else type(error).__name__
+        raise ImageProviderError(
+            f"ComfyUI workflow {name} cannot be read ({spec.workflow}, {spec.mapping}): {detail}."
+        ) from None
+    if not isinstance(graph, dict):
+        raise ImageProviderError(f"{spec.workflow} is not a ComfyUI API-format workflow.")
+    problems = [f"{key} -> {target.node}.{target.input}" for key, target in mapping.inputs.items()
+                if not _has_input(graph, target.node, target.input)]
+    problems += [f"{key} (not mapped)" for key in MAPPED if key not in mapping.inputs]
+    bypass = mapping.lora_bypass
+    if not _has_input(graph, bypass.node, bypass.input) or bypass.source[0] not in graph:
+        problems.append(f"loraBypass -> {bypass.node}.{bypass.input} from {bypass.source[0]}")
+    problems += [f"{label} node {node}" for label, node in
+                 (("decode", mapping.decode), ("save", mapping.save)) if node not in graph]
+    if problems:
+        raise ImageProviderError(
+            f"{spec.mapping} does not match {spec.workflow}: {', '.join(problems)}."
+        )
+    return LoadedWorkflow(name=name, spec=spec, graph=graph, mapping=mapping)
+
+
+def _has_input(graph: dict[str, Any], node: str, name: str) -> bool:
+    found = graph.get(node)
+    return isinstance(found, dict) and isinstance(found.get("inputs"), dict) and (
+        name in found["inputs"]
+    )
+
+
+def build_graph(
+    workflow: LoadedWorkflow,
+    config: ComfyUIConfig,
+    *,
+    prompt: str,
+    width: int,
+    height: int,
+    seed: int,
+    person: bool,
+) -> dict[str, Any]:
+    """A copy of the workflow with the values set through the mapping."""
+    graph = copy.deepcopy(workflow.graph)
+    spec, mapping = workflow.spec, workflow.mapping
+    values: dict[MappedValue, Any] = {
+        "prompt": prompt,
+        "negative": spec.negative,
+        "seed": seed,
+        "width": width,
+        "height": height,
+        "steps": spec.steps,
+        "cfg": spec.cfg,
+        "lora_name": spec.lora_name,
+        "lora_strength": config.lora_strength,
+    }
+    lora_node = mapping.inputs["lora_name"].node
+    for key, value in values.items():
+        target = mapping.inputs[key]
+        if person or target.node != lora_node:
+            graph[target.node]["inputs"][target.input] = value
+    if not person:  # no identity: the base model goes straight on, the LoRA node goes
+        bypass = mapping.lora_bypass
+        graph[bypass.node]["inputs"][bypass.input] = list(bypass.source)
+        del graph[lora_node]
+    if config.upscale_node.enabled:
+        graph[_UPSCALE_LOADER] = {
+            "class_type": "UpscaleModelLoader",
+            "inputs": {"model_name": config.upscale_node.model},
+        }
+        graph[_UPSCALE] = {
+            "class_type": "ImageUpscaleWithModel",
+            "inputs": {"upscale_model": [_UPSCALE_LOADER, 0], "image": [mapping.decode, 0]},
+        }
+        graph[mapping.save]["inputs"]["images"] = [_UPSCALE, 0]
+    return graph
+
+
+def target_size(aspect_ratio: str, long_side: int) -> tuple[int, int]:
+    """The delivered size: the long side from IMAGE_DESIGN_SIZE, the exact aspect ratio."""
+    width, height = (int(part) for part in aspect_ratio.split(":"))
+    if width >= height:
+        return long_side, round(long_side * height / width)
+    return round(long_side * width / height), long_side
+
+
+def capabilities_for(config: ComfyUIConfig, model: str) -> ProviderCapabilities:
+    spec = config.workflows.get(model)
+    seconds = spec.seconds_per_image if spec else max(
+        workflow.seconds_per_image for workflow in config.workflows.values()
+    )
+    price = config.price_per_second_usd
+    per_image = round(price * seconds, 6)
+    per_request = round(price * (config.cold_start_seconds + config.idle_seconds), 6)
+    return ProviderCapabilities(
+        max_identity_refs=0,  # the identity is the LoRA
+        max_object_refs=0,
+        max_style_refs=0,
+        max_total_refs=0,
+        aspect_ratios=frozenset(config.sizes),
+        image_sizes=frozenset(config.target_long_side),
+        max_images_per_call=1,
+        est_cost_usd_per_image={size: per_image for size in config.target_long_side},
+        est_cost_usd_per_request=per_request,
+        cost_basis=(
+            f"estimate: {config.gpu} at ${price:.6f}/s; {seconds:g} s per image ({model}) + "
+            f"{config.cold_start_seconds:g} s cold start + {config.idle_seconds:g} s idle per "
+            "request"
+        ),
+        draws_text=False,
+        identity_prompt=config.identity_prompt.replace("{trigger}", config.trigger_word),
+        timeout_s=config.timeout_seconds,
+        batch_images=True,  # a package's images back-to-back on one warm worker
+    )
+
+
+class ComfyUIImageProvider:
+    name = "comfyui"
+
+    def __init__(
+        self,
+        config: ComfyUIConfig,
+        model: str,
+        *,
+        api_key: str | None,
+        endpoint_id: str | None,
+        client: RunPodClient | None = None,
+    ) -> None:
+        self._config = config
+        self.capabilities = capabilities_for(config, model)
+        self._api_key = api_key
+        self._endpoint_id = endpoint_id
+        self._client = client
+
+    def generate(self, request: ImageRequest, model: str) -> ImageResult:
+        workflow = load_workflow(self._config, model)
+        if request.identity_refs or request.object_refs or request.style_refs:
+            raise ImageProviderError(
+                "ComfyUI workflows take no reference images; the identity is the LoRA."
+            )
+        if request.person and (
+            is_unset(workflow.spec.lora_name) or is_unset(self._config.trigger_word)
+        ):
+            raise ImageProviderError(
+                f"The person's LoRA for {model} is not set yet (loraName and triggerWord in "
+                f"config/comfyui.json, Phase 2 Step 4). Nothing was sent. {SWITCH}"
+            )
+        client = self._client or self._new_client()
+        width, height = self._config.sizes[request.aspect_ratio]
+        size = target_size(request.aspect_ratio, self._config.target_long_side[request.image_size])
+        images: list[GeneratedImage] = []
+        request_ids: list[str] = []
+        metrics: dict[str, float] = {
+            "modelWidth": width, "modelHeight": height, "delayTimeMs": 0.0, "executionTimeMs": 0.0,
+        }
+        cost = 0.0
+        for index in range(1, request.count + 1):
+            seed = secrets.randbelow(2**32)
+            metrics[f"seed{index}"] = seed
+            graph = build_graph(
+                workflow, self._config, prompt=request.prompt, width=width, height=height,
+                seed=seed, person=request.person,
+            )
+            label = f"Image {index} of {request.count}"
+            try:
+                job = client.run(graph)
+            except ImageTimeoutError as error:  # billed up to the cancel at most
+                error.args = (f"{label}: {error}",)
+                error.cost_usd = round(
+                    cost + self._config.price_per_second_usd * self._config.timeout_seconds, 6
+                )
+                raise
+            except ImageProviderError as error:
+                error.args = (f"{label}: {error}",)
+                error.cost_usd = round(cost, 6) or None
+                raise
+            request_ids.append(job.job_id)
+            cost += self._cost(job)
+            metrics["delayTimeMs"] += job.delay_ms
+            metrics["executionTimeMs"] += job.execution_ms
+            if job.status != "COMPLETED":
+                raise ImageProviderError(
+                    f"{label}: RunPod job {job.job_id} ended {job.status}: "
+                    f"{job.error or 'no details'}. {SWITCH}",
+                    cost_usd=round(cost, 6),
+                )
+            try:
+                images.append(_image(client, job, size))
+            except ImageProviderError as error:
+                error.args = (f"{label}: {error}",)
+                error.cost_usd = round(cost, 6)
+                raise
+        return ImageResult(
+            images=images,
+            provider=self.name,
+            model=model,
+            provider_request_ids=request_ids,
+            cost_usd=round(cost, 6),
+            metrics=metrics,
+        )
+
+    def _new_client(self) -> RunPodClient:
+        if not self._api_key or not self._endpoint_id:
+            raise ImageProviderError(
+                "RUNPOD_API_KEY and RUNPOD_ENDPOINT_ID must be set in .env to use "
+                "IMAGE_PROVIDER=comfyui (see docs/guides/runpod-comfyui.md)."
+            )
+        return RunPodClient(
+            self._api_key,
+            self._endpoint_id,
+            poll_s=self._config.poll_seconds,
+            timeout_s=self._config.timeout_seconds,
+        )
+
+    def _cost(self, job: RunPodJob) -> float:
+        """GPU seconds from RunPod's times: delay (queue + cold start, so an upper bound) plus
+        execution. The idle time after a package's last image is in the estimate only."""
+        seconds = (job.delay_ms + job.execution_ms) / 1000
+        return self._config.price_per_second_usd * seconds
+
+
+def _image(client: RunPodClient, job: RunPodJob, size: tuple[int, int]) -> GeneratedImage:
+    """The first output image, scaled to the delivered size with Lanczos, as PNG."""
+    warnings = f" (worker: {'; '.join(job.warnings)})" if job.warnings else ""
+    if not job.images:
+        raise ImageProviderError(
+            f"RunPod job {job.job_id} finished without an image{warnings}. {SWITCH}"
+        )
+    item = job.images[0]
+    data = item.get("data")
+    if not isinstance(data, str) or not data:
+        raise ImageProviderError(f"RunPod job {job.job_id} returned an empty image{warnings}.")
+    if item.get("type") == "s3_url":
+        raw = client.download(data)
+    else:
+        try:
+            raw = base64.b64decode(data.split(",", 1)[-1], validate=True)
+        except (binascii.Error, ValueError):
+            raise ImageProviderError(
+                f"RunPod job {job.job_id} returned image data that is not valid base64."
+            ) from None
+    try:
+        with Image.open(io.BytesIO(raw)) as source:
+            image = source.convert("RGB")
+    except (OSError, UnidentifiedImageError):
+        raise ImageProviderError(
+            f"RunPod job {job.job_id} returned data that is not a valid image."
+        ) from None
+    if image.size != size:
+        image = image.resize(size, Image.Resampling.LANCZOS)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG", optimize=True)
+    return GeneratedImage(data=buffer.getvalue(), mime_type="image/png")
+
+
+def create_provider(settings: Settings | None = None) -> ComfyUIImageProvider:
+    """Loads config/comfyui.json; an IMAGE_MODEL that names no workflow stops here."""
+    config = load_config(settings.comfyui_config_file if settings else DEFAULT_CONFIG)
+    if settings is None:
+        return ComfyUIImageProvider(
+            config, next(iter(config.workflows)), api_key=None, endpoint_id=None
+        )
+    if settings.image_model not in config.workflows:
+        raise ImageProviderError(
+            f"IMAGE_MODEL={settings.image_model} is not a ComfyUI workflow; set IMAGE_MODEL to "
+            f"one of: {', '.join(config.workflows)} (config/comfyui.json)."
+        )
+    key = settings.runpod_api_key.get_secret_value().strip() if settings.runpod_api_key else ""
+    return ComfyUIImageProvider(
+        config,
+        settings.image_model,
+        api_key=key or None,
+        endpoint_id=(settings.runpod_endpoint_id or "").strip() or None,
+    )

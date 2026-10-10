@@ -13,6 +13,7 @@ from content_automation.ai.image import (
 from content_automation.core.config import Settings
 from content_automation.core.limits import images_generated_on
 from content_automation.workflows.logo import LogoOverlay
+from content_automation.workflows.text_overlay import TextOverlay
 
 
 def _yes_no(value: bool | None) -> str:
@@ -37,6 +38,7 @@ def dry_run_lines(
     workflow: str,
     product_refs: list[ReferenceImage] | None = None,
     logo: LogoOverlay | None = None,
+    text: TextOverlay | None = None,
 ) -> list[str]:
     """Validate the request against the provider's limits and describe it.
 
@@ -55,6 +57,13 @@ def dry_run_lines(
         f"Provider calls: {calls}",
         f"Estimated cost: ${total:.3f} ({request.count} x ${per_image:.3f})",
     ]
+    if capabilities.cost_basis:  # GPU time, not a price list: say how it was estimated
+        per_request = capabilities.est_cost_usd_per_request
+        lines[-1] = (
+            f"Estimated cost: ${total:.3f} (estimate: {request.count} x ${per_image:.3f} + "
+            f"${per_request:.3f} per request)"
+        )
+        lines.append(f"Cost basis: {capabilities.cost_basis}")
     if settings.image_provider != "mock":
         used = images_generated_on(settings.output_dir, date.today())
         lines.append(
@@ -67,7 +76,8 @@ def dry_run_lines(
         _refs_line("product", product_refs or []),
         _refs_line("style", request.style_refs, tags=True),
         f"Logo: {logo.describe() if logo else 'none'}",
-        "Final prompt:",
-        request.prompt,
     ]
+    if text is not None:  # only when the app renders the text (TEXT_OVERLAY)
+        lines.append(f"Text: {text.describe()}")
+    lines += ["Final prompt:", request.prompt]
     return lines

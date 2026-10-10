@@ -183,7 +183,12 @@ are **unverified**:
 - **Training:** AI Toolkit's example defaults (rank 16, 2000 steps, lr 1e-4, adamw8bit, a
   checkpoint and samples every 250 steps, all checkpoints kept). Low-VRAM options: float8
   transformer and text encoder, `low_vram`, cached latents and text embeddings.
-  - It uses fp16 on the T4/P100, which have no native bf16, and bf16 on newer GPUs.
+  - Precision (fixed 2026-10-10): never fp16. The first Kaggle run used fp16 on the T4,
+    Z-Image overflowed, AI Toolkit turned the NaN loss into 0 at every step and nothing
+    was learned. Now bf16 (emulated on the T4, so slower) after a short GPU test, else
+    fp32. It stops if the loss is 0/NaN for the first 30 steps, and it resumes from the
+    newest checkpoint that learned something (in `/kaggle/working` or an attached
+    earlier output).
   - It stops itself after 9 h and zips everything, and retries once at 512/768 px if memory
     runs out before the first checkpoint.
   - It reads the arch name from the cloned toolkit and takes the newest adapter file from

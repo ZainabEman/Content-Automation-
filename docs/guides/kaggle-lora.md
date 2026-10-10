@@ -57,6 +57,11 @@ and their outputs **Private** on Kaggle, and never publish them.
 - **"No dataset …":** the dataset is not attached (step 5), or it has fewer than 9 photos.
 - **Out of GPU memory:** if this happens before the first checkpoint, the notebook retries once
   at 512/768 px. `status.json` notes it.
+- **"loss was 0/NaN for the first 30 steps":** the run stopped itself after a few minutes
+  instead of wasting hours. Send `status.json` and `train_log.txt` to Codex.
+- **Continue a run that hit the time limit:** in a new version, also add the earlier
+  version's output (Add Input → Notebook Output). The notebook continues from its newest
+  checkpoint that learned something.
 - **"The LoRA does not fit this model":** the test notebook could not match the LoRA to the
   model. It prints example names; send them to Codex.
 - **Weekly GPU hours used up:** wait for Kaggle's weekly reset. A training run takes up to

@@ -150,6 +150,116 @@ Provider capability `draws_text` + `TEXT_OVERLAY=auto|always|never` (default aut
   - The 48 GB GPU, with qfloat8 for Qwen and no 3-bit accuracy recovery adapter (that adapter
     was made for Qwen-Image base), is my choice.
 
+## Free LoRA training and likeness test on Kaggle (checked 2026-10-10)
+
+**Decision:** the LoRA is trained and likeness-tested free on Kaggle
+(`notebooks/kaggle_train_lora.ipynb`, `notebooks/kaggle_test_lora.ipynb`, guide
+`docs/guides/kaggle-lora.md`). Image generation stays on RunPod Serverless later (needs credit).
+`ca lora train-remote` remains the paid alternative.
+
+**Model:**
+
+- **Z-Image Turbo only.**
+  - Two AI Toolkit guides (third-party) give at least 16 GB VRAM without offloading, and
+    10–12 GB with offloading, float8 and low-VRAM mode.
+  - musubi-tuner's official docs recommend 12 GB or more for image LoRAs (fp8, block swap).
+    For Turbo they advise the De-Turbo model, or Turbo with Ostris' training adapter.
+- **Qwen-Image-2512 (20B) does not fit 16 GB:** AI Toolkit's smallest Qwen config is the 24 GB
+  one. A Qwen LoRA would need a paid GPU with 24 GB or more, so Step 5 starts with the
+  Kaggle-trained Z-Image LoRA.
+
+**Kaggle limits.** Kaggle's docs page did not load, so these come from secondary sources and
+are **unverified**:
+
+- GPU: T4 x2 or P100, 16 GB each.
+- About 30 GPU hours per week and about 12 h per session, including committed "Save & Run All"
+  runs.
+- Internet needs a verified phone number.
+- About 20 GB of saved output in `/kaggle/working`.
+- Datasets are read-only under `/kaggle/input`; private datasets can be attached.
+
+**The notebooks:**
+
+- **Training:** AI Toolkit's example defaults (rank 16, 2000 steps, lr 1e-4, adamw8bit, a
+  checkpoint and samples every 250 steps, all checkpoints kept). Low-VRAM options: float8
+  transformer and text encoder, `low_vram`, cached latents and text embeddings.
+  - It uses fp16 on the T4/P100, which have no native bf16, and bf16 on newer GPUs.
+  - It stops itself after 9 h and zips everything, and retries once at 512/768 px if memory
+    runs out before the first checkpoint.
+  - It reads the arch name from the cloned toolkit and takes the newest adapter file from
+    `ostris/zimage_turbo_training_adapter`.
+- **Test:** diffusers `ZImagePipeline`, 8 steps, no CFG, 1024 px, 6 fixed prompts × strength
+  0.7/0.9/1.0 with fixed seeds, a contact sheet. It loads the LoRA through diffusers, or
+  merges it directly into the weights; it stops if fewer than 90% of the layers match.
+- `ca lora prepare` already writes what the training notebook expects: one folder of
+  `NN.jpg` + `NN.txt`, each caption starting with the trigger word. No change was needed.
+
+**Unverified:**
+
+- No source shows Z-Image LoRA training on a Kaggle or Colab T4. The risks are fp16 stability
+  and speed; the time per step is unknown.
+- AI Toolkit's Z-Image arch name, and whether diffusers reads AI Toolkit's LoRA format.
+- Kaggle's terms on **commercial use of trained outputs**. The terms page did not load. Read
+  https://www.kaggle.com/terms before using the LoRA in production.
+- Licences that are confirmed: Z-Image Turbo Apache 2.0, AI Toolkit MIT.
+
+Sources: https://github.com/kohya-ss/musubi-tuner/blob/main/docs/zimage.md,
+https://www.runcomfy.com/trainer/ai-toolkit/z-image-turbo-lora-training,
+https://neurocanvas.net/blog/zimage-lora-training-guide/,
+https://atlassc.net/2026/02/05/run-ai-toolkit-on-google-colab-to-train-loras,
+https://huggingface.co/datasets/John6666/forum3 (z_image_turbo_colab_kaggle_1.md).
+
+## Remote LoRA training: `ca lora train-remote` (RunPod docs checked 2026-10-10)
+
+**Chosen path (simplest reliable):**
+
+1. Upload to the network volume through its S3-compatible API.
+2. Create the Pod with the REST API; its start command is a script on the volume.
+3. The Pod terminates itself; this computer watches it and terminates it on every failure.
+
+**Confirmed in the RunPod docs:**
+
+- **Pods (REST v1, `https://rest.runpod.io/v1`, bearer auth):**
+  - `POST /pods` takes `templateId`, `gpuTypeIds` (e.g. `NVIDIA L40S`), `cloudType`,
+    `networkVolumeId`, `volumeMountPath` (`/workspace`), `containerDiskInGb`, `dataCenterIds`,
+    `dockerStartCmd` (overrides the image's start command) and `env`.
+  - The response has `id`, `desiredStatus` (RUNNING, EXITED or TERMINATED), `costPerHr` and
+    `adjustedCostPerHr`.
+  - Also used: `GET /pods/{podId}`, `GET /pods`, `DELETE /pods/{podId}` and
+    `GET /networkvolumes/{networkVolumeId}`.
+- **Network volume S3 API:**
+  - The endpoint is `https://s3api-<datacenter>.runpod.io/`, the region is the datacenter ID
+    and the bucket is the volume ID.
+  - Keys: RunPod console → Credentials → S3 API Keys (access key `user_...`, secret `rps_...`,
+    shown once).
+  - Supported: PutObject (under 500 MB), GetObject, ListObjectsV2, HeadObject, DeleteObject,
+    CopyObject and multipart; no pre-signed URLs.
+  - Available in 15 datacenters (listed in the guide, section 1).
+- **Inside a Pod:** `RUNPOD_POD_ID` and a "Pod-scoped" `RUNPOD_API_KEY`. `runpodctl pod delete
+  <pod-id>` deletes a Pod.
+
+**Unverified:**
+
+- What the Pod-scoped key may do, and so whether a Pod can delete itself with it. The script
+  tries `runpodctl pod delete`, the older `runpodctl remove pod`, then the REST call, every
+  minute. This computer terminates the Pod in any case: at the hard limit, on Ctrl+C or an
+  error, or 5 minutes after the script reports it has finished.
+- Whether `runpodctl` is in the AI Toolkit image.
+- Where AI Toolkit lives in the template's image; the script searches for `run.py`.
+- Whether `dockerStartCmd` fully replaces the template's own start.
+- The response format of `GET /pods` (assumed to be a list).
+- The real cost: the Pod's `costPerHr` × the time it existed. That is an approximation; the
+  RunPod billing page has the exact amount.
+
+**Safety:**
+
+- **One Pod at a time:** the local `train.json` plus the account's Pods named `ca-lora-...`.
+- **Hard limit:** `remote.maxHours` (4 h); the Pod's own `timeout` ends 10 minutes earlier.
+- **Failure on the Pod:** the Pod terminates itself.
+- **Ctrl+C or any error while watching** terminates the Pod. Three failed polls in a row count
+  as an error.
+- `ca lora status` and `ca lora stop`.
+
 ## RunPod worker-comfyui (checked 2026-10-10)
 
 - Release used: **5.11.0** (released 21 Sep; the releases page shows no year). It checks every

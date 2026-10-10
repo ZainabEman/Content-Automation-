@@ -20,6 +20,16 @@
     "output": "lora/output",
     "loras": "models/loras"
   },
+  "remote": {
+    "templateId": "0fqzfjy6f3",
+    "gpuTypeIds": ["NVIDIA L40S"],
+    "cloudType": "SECURE",
+    "containerDiskGb": 150,
+    "maxHours": 4.0,
+    "pollSeconds": 30,
+    "finishGraceSeconds": 300,
+    "namePrefix": "ca-lora"
+  },
   "models": {
     "qwen": {
       "workflow": "qwen_image_2512",

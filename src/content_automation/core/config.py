@@ -66,6 +66,11 @@ class Settings(BaseSettings):
     lora_config_file: Path = Path("config/lora.json")  # dataset checks, AI Toolkit training
     runpod_api_key: SecretStr | None = None
     runpod_endpoint_id: str | None = None  # the worker-comfyui Serverless endpoint
+    # `ca lora train-remote`: the network volume both the Pod and the endpoint use, and its
+    # S3 API key (RunPod console → Credentials → S3 API Keys).
+    runpod_network_volume_id: str | None = None
+    runpod_s3_access_key: SecretStr | None = None
+    runpod_s3_secret_key: SecretStr | None = None
 
     video_provider: VideoProvider = "mock"
     video_model: str = Field(default="mock", min_length=1)

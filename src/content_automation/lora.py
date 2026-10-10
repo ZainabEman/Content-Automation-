@@ -92,6 +92,19 @@ class TrainSpec(_Model):
     source: str = ""
 
 
+class RemoteSpec(_Model):
+    """`ca lora train-remote`: the Pod the tool creates, watches and terminates."""
+
+    template_id: str = Field(min_length=1)  # AI Toolkit's official RunPod template
+    gpu_type_ids: list[str] = Field(min_length=1)
+    cloud_type: Literal["SECURE", "COMMUNITY"] = "SECURE"
+    container_disk_gb: int = Field(ge=50)  # the base models are downloaded here
+    max_hours: float = Field(gt=0)  # hard limit: then the Pod is terminated
+    poll_seconds: float = Field(ge=5)
+    finish_grace_seconds: float = Field(ge=60)  # finished but still running: terminate then
+    name_prefix: str = Field(min_length=1)  # Pods named so belong to this tool
+
+
 class LoraConfig(_Model):
     identity_set: str = Field(min_length=1)
     extra_folder: str = "extra"
@@ -104,6 +117,7 @@ class LoraConfig(_Model):
     train_side: int = Field(ge=256)
     duplicate_distance: int = Field(ge=0, le=64)
     pod: PodSpec
+    remote: RemoteSpec
     models: dict[ModelKey, TrainSpec]
 
 
@@ -156,7 +170,8 @@ def check_consent(folder: Path, name: str) -> str:
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", fields.get("date", "")):
         problems.append("Date (YYYY-MM-DD)")
     scope = fields.get("scope", "").casefold()
-    if "training" not in scope or "upload" not in scope:
+    # "train(ing)" plus an upload or cloud service: training on cloud GPUs means uploading.
+    if "train" not in scope or not ("upload" in scope or "cloud" in scope):
         problems.append("Scope (must cover training and cloud upload)")
     if problems:
         raise LoraError(f"Refused: {path.name} is missing {', '.join(problems)}. {template}")
@@ -393,10 +408,25 @@ def newest_dataset(out_dir: Path = OUT_DIR) -> Path:
     return found[-1]
 
 
+def job_name(settings: Settings, model: ModelKey) -> str:
+    """The AI Toolkit job name: also the trained file's name, e.g. r0man_bg_qwen_image_2512."""
+    config = load_lora_config(settings.lora_config_file)
+    return f"{_trigger(_comfyui(settings))}_{config.models[model].workflow}"
+
+
 def training_config(
-    settings: Settings, model: ModelKey, dataset: Path, *, out_dir: Path = OUT_DIR
+    settings: Settings,
+    model: ModelKey,
+    dataset: Path,
+    *,
+    out_dir: Path = OUT_DIR,
+    run_id: str | None = None,
 ) -> tuple[Path, list[str]]:
-    """Write the AI Toolkit YAML for one model; returns its path and the lines to show."""
+    """Write the AI Toolkit YAML for one model; returns its path and the lines to show.
+
+    run_id (`ca lora train-remote`): the run trains into lora/output/<run_id>/, so an earlier
+    run's checkpoints are never resumed or overwritten.
+    """
     config = load_lora_config(settings.lora_config_file)
     comfyui = _comfyui(settings)
     trigger = _trigger(comfyui)
@@ -409,6 +439,10 @@ def training_config(
     job = f"{trigger}_{spec.workflow}"
     dataset_dir = f"{pod.pod_volume}/{pod.datasets}/{dataset.stem}"
     output_dir = f"{pod.pod_volume}/{pod.output}"
+    on_pod = f"{pod.pod_volume}/lora/{job}.yaml"
+    if run_id is not None:
+        output_dir += f"/{run_id}"
+        on_pod = f"{pod.pod_volume}/lora/runs/{run_id}/{job}.yaml"
     model_lines = [
         f"        name_or_path: {_q(spec.name_or_path)}",
         f"        arch: {_q(spec.arch)}",
@@ -429,7 +463,7 @@ def training_config(
     yaml = "\n".join([
         f"# AI Toolkit LoRA config for {spec.workflow}, written by `ca lora config`.",
         f"# Defaults: {spec.source}.",
-        f"# Run on the Pod: python run.py {pod.pod_volume}/lora/{job}.yaml",
+        f"# Run on the Pod: python run.py {on_pod}",
         "job: extension",
         "config:",
         f"  name: {_q(job)}",

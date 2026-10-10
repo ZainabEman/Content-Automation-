@@ -46,11 +46,18 @@ from content_automation.doctor import run_checks
 from content_automation.lora import (
     LoraError,
     ModelKey,
+    load_lora_config,
     newest_dataset,
     prepare_dataset,
     set_lora,
     training_config,
 )
+from content_automation.lora_remote import plan as remote_plan
+from content_automation.lora_remote import result_lines
+from content_automation.lora_remote import start as remote_start
+from content_automation.lora_remote import status as remote_status
+from content_automation.lora_remote import stop as remote_stop
+from content_automation.lora_remote import watch as remote_watch
 from content_automation.references import (
     REF_TYPES,
     BrandProfileError,
@@ -1477,6 +1484,73 @@ def lora_set(
         raise typer.Exit(code=1) from None
     for line in lines:
         typer.echo(line)
+
+
+@lora_app.command("train-remote")
+def lora_train_remote(
+    model: Annotated[str, typer.Option(help="qwen, zimage or both.")] = "both",
+    yes: Annotated[
+        bool, typer.Option("--yes", help="The user said ok to the estimate: start the Pod.")
+    ] = False,
+) -> None:
+    """Train the LoRA on a temporary RunPod Pod in one command (paid: needs --yes).
+
+    Without --yes: consent, dataset and the cost estimate only (free). With --yes: upload to
+    the network volume, create the Pod, watch it (samples to outputs/lora/<model>/samples/) and
+    terminate it at the hard limit, on Ctrl+C or on any error.
+    """
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        chosen = remote_plan(settings, model, typer.echo)
+        for line in chosen.lines:
+            typer.echo(line)
+        if not yes:
+            typer.echo(
+                "Nothing started. Show this estimate to the user; only after their \"ok\": "
+                f"uv run ca lora train-remote --model {model} --yes"
+            )
+            return
+        config = load_lora_config(settings.lora_config_file)
+        run, rest, store = remote_start(settings, chosen, typer.echo)
+        run = remote_watch(run, rest, store, typer.echo, config=config)
+    except KeyboardInterrupt:
+        typer.echo("Stopped with Ctrl+C; the Pod was terminated (`uv run ca lora status`).",
+                   err=True)
+        raise typer.Exit(code=130) from None
+    except LoraError as error:
+        typer.echo(str(error), err=True)
+        typer.echo("If a Pod was started it has been terminated; check: uv run ca lora status",
+                   err=True)
+        raise typer.Exit(code=1) from None
+    for line in result_lines(run):
+        typer.echo(line)
+    if not run.status.startswith("done"):
+        raise typer.Exit(code=1)
+
+
+@lora_app.command("status")
+def lora_status() -> None:
+    """The latest remote training run: Pod state, progress, new samples, cost so far."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        remote_status(settings, typer.echo)
+    except LoraError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+
+
+@lora_app.command("stop")
+def lora_stop() -> None:
+    """Terminate this tool's training Pod now (billing stops) and record the run as stopped."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        remote_stop(settings, typer.echo)
+    except LoraError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
 
 
 @app.command()

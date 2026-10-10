@@ -13,8 +13,10 @@ Items marked **unverified** were not confirmed on an official page; check them w
 
 RunPod → Storage → New Network Volume.
 
-- **Region:** one that offers 48 GB GPUs (L40, L40S, RTX 6000 Ada) for Serverless. The endpoint
-  must be in the same region.
+- **Region:** one that offers 48 GB GPUs (L40, L40S, RTX 6000 Ada) for Serverless and L40S Pods,
+  and that supports the volume S3 API, which `ca lora train-remote` needs. Supported (2026-10-10):
+  EU-CZ-1, EU-RO-1, EUR-IS-1, EUR-NO-1, US-CA-2, US-GA-2, US-IL-1, US-KS-2, US-MD-1, US-MO-1,
+  US-MO-2, US-NC-1, US-NC-2, US-NE-1, US-WA-1. The endpoint must be in the same region.
 - **Size:** 75 GB. The models are about 50 GB together (estimate), plus the LoRAs and some room.
   The cost is $0.07 per GB per month, so about $5.25 a month.
 
@@ -124,9 +126,10 @@ for each model, the cold start and the idle time.
 - **Nano Banana instead:** set `IMAGE_PROVIDER=openrouter` yourself, then run a new dry run for
   the cost. The app never falls back on its own.
 
-## 7. Train Roman's LoRA on RunPod
+## 7. Train Roman's LoRA on RunPod (manual fallback)
 
-This uses Ostris AI Toolkit (MIT) on a temporary Pod that writes to the same network volume.
+The normal way is one command: section 8. These manual steps are the fallback. Both use Ostris
+AI Toolkit (MIT) on a temporary Pod that writes to the same network volume.
 Do it only after the written consent is on file and the cost estimate from step 3 has an "ok".
 
 1. Put `CONSENT.md` in `assets/reference/identity/person_01/`, with `Name:`, `Date:` (YYYY-MM-DD)
@@ -168,3 +171,72 @@ Do it only after the written consent is on file and the cost estimate from step 
     (and `uv run ca lora set zimage r0man_bg_z_image_turbo.safetensors`).
 15. Run `uv run ca doctor`. It should show "ComfyUI LoRA: r0man_bg_…". Then do the Step 5
     comparison (paid, after "ok").
+
+## 8. One-command training (`ca lora train-remote`)
+
+Codex runs this when you say "train lora". It does the Pod work from section 7 by itself.
+
+**Once, in the RunPod console:**
+
+1. Add credit.
+2. Create the network volume (section 1) in a datacenter that supports the S3 API.
+3. Create an API key with read/write access to Pods and network volumes.
+4. Create an S3 API key: Credentials → S3 API Keys.
+
+Then put these in `.env`:
+
+```
+RUNPOD_API_KEY=...
+RUNPOD_NETWORK_VOLUME_ID=...   # the volume's ID
+RUNPOD_S3_ACCESS_KEY=...       # user_... (your RunPod user ID)
+RUNPOD_S3_SECRET_KEY=...       # rps_... (shown only once)
+```
+
+`uv run ca doctor` then shows "LoRA training (ca lora train-remote): network volume and S3 key
+set".
+
+**Each training:**
+
+1. `uv run ca lora train-remote --model both` (or `qwen` / `zimage`). This is free. It checks the
+   consent, makes the dataset if there is none, and shows the estimate: the GPU price per hour ×
+   (setup + training hours per model), plus the cap at the hard limit (`remote.maxHours` in
+   `config/lora.json`, 4 h).
+2. After your "ok": run the same command with `--yes`. In order, it:
+   1. uploads the dataset, the AI Toolkit YAMLs and a start script to the network volume
+      through its S3 API;
+   2. creates one Pod from the AI Toolkit template: L40S, the volume at `/workspace`, the
+      script as start command;
+   3. shows the Pod's progress, downloads new sample images to
+      `outputs/lora/<model>/samples/<run>/step_<n>/`, and records everything in
+      `outputs/lora/runs/<run>/train.json` (the cost is the Pod's hourly rate × the time it
+      existed).
+3. On the Pod, the script trains the models one after another into `lora/output/<run>/`. It
+   copies every checkpoint and the final LoRA to `models/loras/<run>_<file>`, writes its status,
+   and terminates the Pod.
+4. At the end it prints the sample folders and one `uv run ca lora set <model> <file>` command
+   per checkpoint. Look at the samples and pick the one most like Roman.
+
+**Safety:**
+
+- **One Pod at a time.** A run that is still active, or any Pod named `ca-lora-...`, blocks a
+  new one.
+- **Hard limit.** This computer terminates the Pod at `maxHours`. The Pod's own limit ends 10
+  minutes earlier.
+- **Ctrl+C and errors.** Ctrl+C or any error while watching terminates the Pod. Three failed
+  status checks in a row count as an error.
+- **Failure on the Pod.** If training fails on the Pod, it terminates itself.
+- **Stuck after finishing.** If the Pod reports it is finished but is still running 5 minutes
+  later, this computer terminates it.
+- `uv run ca lora status` shows a run, also after this computer was closed: Pod state, hours,
+  the cost so far, new samples. `uv run ca lora stop` terminates the Pod now.
+
+**Unverified (check on the first run):**
+
+- whether the Pod's own `RUNPOD_API_KEY` may delete the Pod (it tries `runpodctl pod delete`,
+  then the REST API, every minute);
+- whether `runpodctl` is in the AI Toolkit image;
+- where the toolkit lives in the image (the script searches for `run.py`);
+- whether the start command fully replaces the template's own start.
+
+If the Pod cannot terminate itself, this computer still does, as long as `train-remote` is
+running or `ca lora status` / `ca lora stop` is used.

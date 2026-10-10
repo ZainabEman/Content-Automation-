@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "A local, traceable foundation for AI-assisted content workflows."
 requires-python = ">=3.13,<3.14"
 dependencies = [
+    "boto3>=1.43.111",
     "elevenlabs>=2.70.0",
     "feedparser>=6.0.14",
     "google-api-python-client>=2.150",
@@ -55,6 +56,8 @@ module = [
     "google_auth_oauthlib.*",
     "httplib2",
     "oauthlib.*",
+    "boto3",
+    "botocore.*",
 ]
 ignore_missing_imports = true
 

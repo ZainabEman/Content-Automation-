@@ -120,6 +120,20 @@ def _keys(settings: Settings) -> list[Check]:
         level: Level = "fail" if comfyui and not is_set else "ok"
         fix = "Add it to .env (see docs/guides/runpod-comfyui.md)." if level == "fail" else ""
         checks.append(Check(level, name, f"set: {'yes' if is_set else 'no'}", fix))
+    training = [
+        name for name, value in (
+            ("RUNPOD_NETWORK_VOLUME_ID", (settings.runpod_network_volume_id or "").strip()),
+            ("RUNPOD_S3_ACCESS_KEY", _is_set(settings.runpod_s3_access_key)),
+            ("RUNPOD_S3_SECRET_KEY", _is_set(settings.runpod_s3_secret_key)),
+        ) if not value
+    ]
+    if training:
+        checks.append(Check("warn", "LoRA training (ca lora train-remote)",
+                            f"not set: {', '.join(training)}",
+                            "See docs/guides/runpod-comfyui.md, section 8."))
+    else:
+        checks.append(Check("ok", "LoRA training (ca lora train-remote)",
+                            "network volume and S3 key set"))
     if settings.voice_provider == "elevenlabs":
         elevenlabs = _is_set(settings.elevenlabs_api_key)
         checks.append(Check("ok" if elevenlabs else "fail", "ELEVENLABS_API_KEY",

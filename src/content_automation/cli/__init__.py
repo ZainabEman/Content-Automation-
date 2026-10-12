@@ -31,6 +31,7 @@ from content_automation.content.deliverables import DeliverableError, load_deliv
 from content_automation.content.package import (
     DONE_STATUS,
     build_package,
+    carousel_slide_texts,
     set_deliverables,
     start_package,
 )
@@ -99,9 +100,10 @@ from content_automation.storage import (
     tracker_lines,
 )
 from content_automation.workflows.carousel_design import load_carousel_design
+from content_automation.workflows.carousel_motion import render as render_carousel
+from content_automation.workflows.carousel_plugin import clips_check, record_attempt, stills_check
 from content_automation.workflows.carousel_render import PREVIEW_DIR, extract_style
 from content_automation.workflows.carousel_render import preview as carousel_preview_slides
-from content_automation.workflows.carousel_stills import record_attempt, stills_check
 from content_automation.workflows.design_system import load_design_system, resolve_design
 from content_automation.workflows.dry_run import dry_run_lines
 from content_automation.workflows.image_job import run_image_job
@@ -155,8 +157,8 @@ overlay_app = typer.Typer(
 )
 carousel_app = typer.Typer(
     no_args_is_help=True,
-    help="Animated Instagram carousel: style frames, previews, still records and checks "
-    "(local, free).",
+    help="Animated Instagram carousel: style frames, previews, plugin records, checks and the "
+    "final MP4s (local, free).",
 )
 lora_app = typer.Typer(
     no_args_is_help=True,
@@ -1443,6 +1445,19 @@ def carousel_style() -> None:
         typer.echo(line)
 
 
+def _carousel_brand(settings: Settings) -> tuple[str, LogoOverlay | None]:
+    """The carousel language (brand.json carousel.language) and the logo, if one is usable."""
+    has_brand = brand_path(settings.references_dir).is_file()
+    brand = load_brand(settings.references_dir) if has_brand else None
+    try:
+        ref = select_logo_ref(settings.references_dir, preferred=brand.logo_file if brand else None)
+    except ReferenceLibraryError as error:
+        typer.echo(f"Logo: not pasted ({error})")
+        ref = None
+    logo = LogoOverlay(path=ref.path, source=ref.source, asset_id=ref.asset_id) if ref else None
+    return (brand.carousel.language if brand else "en"), logo
+
+
 @carousel_app.command("preview")
 def carousel_preview(
     topic: Annotated[str, typer.Option(help="The topic the sample text and still prompts use.")],
@@ -1459,17 +1474,7 @@ def carousel_preview(
     try:
         design = load_carousel_design(settings.carousel_design_file)
         system = load_design_system(settings.design_system_file)
-        has_brand = brand_path(settings.references_dir).is_file()
-        brand = load_brand(settings.references_dir) if has_brand else None
-        language = brand.carousel.language if brand else "en"
-        logo: LogoOverlay | None = None
-        try:
-            ref = select_logo_ref(
-                settings.references_dir, preferred=brand.logo_file if brand else None
-            )
-            logo = LogoOverlay(path=ref.path, source=ref.source, asset_id=ref.asset_id)
-        except ReferenceLibraryError as error:
-            typer.echo(f"Logo: not pasted ({error})")
+        language, logo = _carousel_brand(settings)
         target = out or PREVIEW_DIR / slugify(topic)
         lines = carousel_preview_slides(design, system, topic, language, logo, target)
     except (WorkflowError, BrandProfileError, MediaError, OSError) as error:
@@ -1487,28 +1492,36 @@ def carousel_preview(
 @carousel_app.command("record")
 def carousel_record(
     folder: Annotated[Path, typer.Argument(help="The package folder.")],
-    still: Annotated[int, typer.Option(help="The slide number of the request (still_NN).")],
+    still: Annotated[
+        int | None, typer.Option(help="The slide number of a still request (still_NN).")
+    ] = None,
+    clip: Annotated[
+        int | None, typer.Option(help="The slide number of a clip request (clip_NN).")
+    ] = None,
     credits: Annotated[
         float | None, typer.Option(help="Credits the plugin reported for this attempt.")
     ] = None,
     provider_job_id: Annotated[str | None, typer.Option(help="The plugin's job ID.")] = None,
     file: Annotated[
         Path | None,
-        typer.Option(help="The saved image, if it is not at the request's outputPath already."),
+        typer.Option(help="The saved file, if it is not at the request's outputPath already."),
     ] = None,
     error: Annotated[
-        str | None, typer.Option(help="The plugin failed: the reason (no image recorded).")
+        str | None, typer.Option(help="The plugin failed: the reason (no file recorded).")
     ] = None,
 ) -> None:
-    """Record one plugin attempt for a still request: the image or the error, and the credits
-    used. Says whether a retry is left inside the approved max. Local and free."""
+    """Record one plugin attempt for a still or clip request: the file or the error, and the
+    credits used. Says whether a retry is left inside the approved max. Local and free."""
     _utf8_output()
+    if (still is None) == (clip is None):
+        typer.echo("Give exactly one of --still N or --clip N.", err=True)
+        raise typer.Exit(code=2)
     settings = _settings(dry_run=True)
     try:
         design = load_carousel_design(settings.carousel_design_file)
         lines = record_attempt(
-            folder, still, design, credits=credits, provider_job_id=provider_job_id,
-            file=file, error=error,
+            folder, "still" if still is not None else "clip", still or clip or 0, design,
+            credits=credits, provider_job_id=provider_job_id, file=file, error=error,
         )
     except (WorkflowError, ValidationError, OSError) as failure:
         typer.echo(str(failure), err=True)
@@ -1523,12 +1536,56 @@ def carousel_stills_check(
 ) -> None:
     """Check every slide still: it exists, is 1:1 at 1080x1080 (cropped and resized if
     needed), is not blank and leaves the text area calm. A failed still is asked for once more
-    inside the approved max, then it gets the local background. Local and free."""
+    inside the approved max, then it gets the local background. When all are settled, it
+    writes the clip requests. Local and free."""
     _utf8_output()
     settings = _settings(dry_run=True)
     try:
         lines = stills_check(folder, load_carousel_design(settings.carousel_design_file))
     except (WorkflowError, ValidationError, MediaError, OSError) as failure:
+        typer.echo(str(failure), err=True)
+        raise typer.Exit(code=1) from None
+    for line in lines:
+        typer.echo(line)
+
+
+@carousel_app.command("clips-check")
+def carousel_clips_check(
+    folder: Annotated[Path, typer.Argument(help="The package folder.")],
+) -> None:
+    """Check every clip: it decodes, lasts at least 4.5 s, moves, and keeps the text area calm.
+    A failed clip is asked for once more inside the approved max, then that slide gets the
+    local animation. Local and free."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        lines = clips_check(folder, load_carousel_design(settings.carousel_design_file))
+    except (WorkflowError, ValidationError, MediaError, OSError) as failure:
+        typer.echo(str(failure), err=True)
+        raise typer.Exit(code=1) from None
+    for line in lines:
+        typer.echo(line)
+
+
+@carousel_app.command("render")
+def carousel_render(
+    folder: Annotated[Path, typer.Argument(help="The package folder.")],
+) -> None:
+    """Make carousel/final/slide_01.mp4 ... (1080x1080, 24 fps, 5.0 s, H.264, silent) and
+    slide_NN.png: the plugin clip or the local animation, the static text on top, and the
+    Like/Share/Save row and logo on the last slide; then the set check (report only). Local
+    and free."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        design = load_carousel_design(settings.carousel_design_file)
+        system = load_design_system(settings.design_system_file)
+        language, logo = _carousel_brand(settings)
+        lines = render_carousel(
+            folder, design, system, carousel_slide_texts(folder), language, logo
+        )
+    except (WorkflowError, BriefError, BrandProfileError, ValidationError, MediaError,
+            OSError) as failure:
         typer.echo(str(failure), err=True)
         raise typer.Exit(code=1) from None
     for line in lines:

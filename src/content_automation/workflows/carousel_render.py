@@ -32,14 +32,14 @@ from content_automation.workflows.design_system import (
     OverlayPanel,
     ZoneField,
 )
-from content_automation.workflows.logo import LogoError, LogoOverlay, apply_logo, logo_zone
+from content_automation.workflows.logo import LogoError, LogoOverlay, logo_zone, paste_logo
 from content_automation.workflows.text_overlay import (
     TextOverlay,
     TextOverlayError,
     ZoneText,
-    apply_text,
     place_texts,
     resolve_fonts,
+    text_layer,
 )
 
 RGB = tuple[int, int, int]
@@ -82,54 +82,86 @@ def _png(image: Image.Image) -> bytes:
 # --- Background layer ------------------------------------------------------------------------
 
 
+class Background:
+    """The app-drawn background, made once and animated per frame: navy lifted behind the
+    illustration and a dot-grid mark at the top left (static), and the particle wave along the
+    bottom, which loops once per slide (t = 0 and t = the slide length give the same frame).
+    Only the wave band is drawn again for each frame."""
+
+    def __init__(self, design: CarouselDesign) -> None:
+        self.design = design
+        width, height = self.size = (design.canvas.width, design.canvas.height)
+        palette, spec = design.palette, design.background
+        self.glow, self.crest = _color(palette.glow), _color(palette.crest)
+        # Radial lift centred behind the illustration: 0 there, 255 towards the edges.
+        lift = Image.radial_gradient("L").resize(
+            (2 * width, 2 * height), Image.Resampling.BILINEAR
+        )
+        centre_x, centre_y = round(width * 0.62), round(height * 0.5)
+        lift = lift.crop((width - centre_x, height - centre_y, 2 * width - centre_x,
+                          2 * height - centre_y)).point(lambda value: min(255, value * 3 // 2))
+        base = Image.composite(
+            Image.new("RGB", self.size, _color(palette.background)),
+            Image.new("RGB", self.size, _color(palette.navy)),
+            lift,
+        )
+        marks = Image.new("RGB", self.size, (0, 0, 0))
+        draw = ImageDraw.Draw(marks)
+        columns, rows = spec.dot_grid
+        step, dot = width * 0.016, max(1.0, width / 540)
+        for column in range(columns):
+            for row in range(rows):
+                x, y = width * 0.045 + column * step, height * 0.045 + row * step
+                draw.ellipse(
+                    (x - dot, y - dot, x + dot, y + dot), fill=_mix(self.glow, self.crest, 0.6)
+                )
+        self.base = self._glowing(base, marks)
+        reach = height * spec.amplitude + spec.dot_size[1] + 3 * spec.glow_radius
+        self.top = max(0, int(height * spec.wave_top - reach))
+
+    def _glowing(self, image: Image.Image, dots: Image.Image) -> Image.Image:
+        radius = self.design.background.glow_radius
+        if radius:
+            halo = dots.filter(ImageFilter.GaussianBlur(radius))
+            image = ImageChops.screen(ImageChops.screen(image, halo), halo)
+        return ImageChops.screen(image, dots)
+
+    def wave(self, t: float) -> Image.Image:
+        """The wave band at second t: glowing dots on black (from self.top down)."""
+        design, spec = self.design, self.design.background
+        width, height = self.size
+        dots = Image.new("RGB", (width, height - self.top), (0, 0, 0))
+        draw = ImageDraw.Draw(dots)
+        phase = 2 * math.pi * t / design.timing.seconds_per_slide
+        far, near = spec.dot_size
+        for row in range(spec.rows):
+            depth = row / (spec.rows - 1)  # 0 = the far crest, 1 = the bottom edge
+            base = height * (spec.wave_top + (1.02 - spec.wave_top) * depth**1.5) - self.top
+            amplitude = height * spec.amplitude * (1 - 0.45 * depth)
+            radius = far + (near - far) * depth
+            color = _mix(self.glow, self.crest, (1 - depth) ** 4)
+            light = 0.25 + 0.75 * (1 - depth) ** 2.2
+            spread = 1.05 + 0.6 * depth  # nearer rows reach past the edges
+            for column in range(spec.columns):
+                across = column / (spec.columns - 1)
+                x = width * (0.5 + (across - 0.5) * spread)
+                wave = (math.sin(2 * math.pi * 1.1 * across + phase + depth * 2.4)
+                        + 0.5 * math.sin(2 * math.pi * 0.45 * across - phase + depth * 1.3)) / 1.5
+                y = base + amplitude * wave
+                fill = _scaled(color, light * (0.75 + 0.25 * wave))
+                draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=fill)
+        return self._glowing(Image.new("RGB", dots.size, (0, 0, 0)), dots)
+
+    def frame(self, t: float = 0.0) -> Image.Image:
+        image = self.base.copy()
+        band = image.crop((0, self.top, *self.size))
+        image.paste(ImageChops.screen(band, self.wave(t)), (0, self.top))
+        return image
+
+
 def background(design: CarouselDesign, t: float = 0.0) -> Image.Image:
-    """The background at second t: navy lifted behind the illustration, a dot-grid mark at the
-    top left and the particle wave, which loops once per slide (t = 0 and t = the slide
-    length give the same frame)."""
-    width, height = design.canvas.width, design.canvas.height
-    palette, spec = design.palette, design.background
-    size = (width, height)
-    # Radial lift centred behind the illustration: 0 there, 255 towards the edges.
-    lift = Image.radial_gradient("L").resize((2 * width, 2 * height), Image.Resampling.BILINEAR)
-    centre_x, centre_y = round(width * 0.62), round(height * 0.5)
-    lift = lift.crop((width - centre_x, height - centre_y, 2 * width - centre_x,
-                      2 * height - centre_y)).point(lambda value: min(255, value * 3 // 2))
-    image = Image.composite(
-        Image.new("RGB", size, _color(palette.background)),
-        Image.new("RGB", size, _color(palette.navy)),
-        lift,
-    )
-    dots = Image.new("RGB", size, (0, 0, 0))
-    draw = ImageDraw.Draw(dots)
-    glow, crest = _color(palette.glow), _color(palette.crest)
-    phase = 2 * math.pi * t / design.timing.seconds_per_slide
-    far, near = spec.dot_size
-    for row in range(spec.rows):
-        depth = row / (spec.rows - 1)  # 0 = the far crest, 1 = the bottom edge
-        base = height * (spec.wave_top + (1.02 - spec.wave_top) * depth**1.5)
-        amplitude = height * spec.amplitude * (1 - 0.45 * depth)
-        radius = far + (near - far) * depth
-        color = _mix(glow, crest, (1 - depth) ** 4)
-        light = 0.25 + 0.75 * (1 - depth) ** 2.2
-        spread = 1.05 + 0.6 * depth  # nearer rows reach past the edges
-        for column in range(spec.columns):
-            across = column / (spec.columns - 1)
-            x = width * (0.5 + (across - 0.5) * spread)
-            wave = (math.sin(2 * math.pi * 1.1 * across + phase + depth * 2.4)
-                    + 0.5 * math.sin(2 * math.pi * 0.45 * across - phase + depth * 1.3)) / 1.5
-            y = base + amplitude * wave
-            fill = _scaled(color, light * (0.75 + 0.25 * wave))
-            draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=fill)
-    columns, rows = spec.dot_grid
-    step, dot = width * 0.016, max(1.0, width / 540)
-    for column in range(columns):
-        for row in range(rows):
-            x, y = width * 0.045 + column * step, height * 0.045 + row * step
-            draw.ellipse((x - dot, y - dot, x + dot, y + dot), fill=_mix(glow, crest, 0.6))
-    if spec.glow_radius:
-        halo = dots.filter(ImageFilter.GaussianBlur(spec.glow_radius))
-        image = ImageChops.screen(ImageChops.screen(image, halo), halo)
-    return ImageChops.screen(image, dots)
+    """The background at second t (see Background)."""
+    return Background(design).frame(t)
 
 
 # --- Like / Share / Save row -----------------------------------------------------------------
@@ -260,6 +292,35 @@ def slide_overlay(slide: SlideText, design: CarouselDesign, system: DesignSystem
         colors=slide_colors(design),
         fonts=resolve_fonts(design.fonts, used),
     )
+
+
+def slide_layer(
+    slide: SlideText,
+    design: CarouselDesign,
+    system: DesignSystem,
+    backdrop: Image.Image,
+    language: str,
+    logo: LogoOverlay | None,
+) -> tuple[Image.Image, list[str]]:
+    """The static layer of one slide, on a transparent canvas: the Like/Share/Save row (last
+    slide), the text and the logo (last slide). It goes over the slide's still or its moving
+    clip unchanged; scrims and the logo version are measured on the backdrop (the still).
+    TextOverlayError if the text does not fit; a logo problem becomes a note."""
+    size = (design.canvas.width, design.canvas.height)
+    backdrop = backdrop.convert("RGBA").resize(size)
+    layer = Image.new("RGBA", size, (0, 0, 0, 0))
+    if slide.type == design.structure[-1]:
+        layer.alpha_composite(icon_row(design, language))
+    text, notes = text_layer(
+        slide_overlay(slide, design, system), Image.alpha_composite(backdrop, layer)
+    )
+    layer = Image.alpha_composite(layer, text)
+    if logo is not None and slide.type in design.logo.slide_types:
+        try:
+            notes.append(f"logo {paste_logo(layer, backdrop, logo)}")
+        except LogoError as error:
+            notes.append(f"logo not pasted: {error}")
+    return layer, notes
 
 
 def _overlay_message(error: TextOverlayError, slide: SlideText) -> str:
@@ -407,21 +468,12 @@ def preview(
         seen[slide.type] = seen.get(slide.type, 0) + 1
         final = slide.type == design.structure[-1]
         image = _preview_base(design, frame, final).convert("RGBA")
-        if final:
-            image.alpha_composite(icon_row(design, language))
-        data = _png(image)
-        notes = []
         try:
-            data, scrims = apply_text(data, slide_overlay(slide, design, system))
-            notes += scrims
+            layer, notes = slide_layer(slide, design, system, image, language, logo)
+            image.alpha_composite(layer)
         except TextOverlayError as error:
-            notes.append(f"text not rendered: {_overlay_message(error, slide)}")
-        if logo is not None and slide.type in design.logo.slide_types:
-            try:
-                data, version = apply_logo(data, logo)
-                notes.append(f"logo {version}")
-            except LogoError as error:
-                notes.append(f"logo not pasted: {error}")
+            notes = [f"text not rendered: {_overlay_message(error, slide)}"]
+        data = _png(image)
         target = out / f"slide_{number:02d}.png"
         target.write_bytes(data)
         with Image.open(io.BytesIO(data)) as done:

@@ -1,0 +1,5 @@
+{
+  "about": "Gmail newsletters for the show-content skill (Codex). The search query is exactly label:<label> newer_than:<days>d, with no in:inbox, is:unread or category filters: filtered newsletters may be archived and already read.",
+  "label": "Newsletters",
+  "days": 30
+}

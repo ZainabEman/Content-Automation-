@@ -86,12 +86,13 @@ from content_automation.research.run import collect, topic_digest, topic_note
 from content_automation.research.store import find_article, known_article_ids, load_articles
 from content_automation.workflows.carousel_design import (
     CarouselDesign,
+    SlideText,
     load_carousel_design,
     slides_template,
     writer_help,
 )
+from content_automation.workflows.carousel_plugin import credits_dry_run, write_still_requests
 from content_automation.workflows.carousel_render import fit_problems
-from content_automation.workflows.carousel_stills import stills_dry_run, write_still_requests
 from content_automation.workflows.design_system import (
     STEP_SEPARATOR,
     DesignSystem,
@@ -1512,15 +1513,14 @@ def _animated_dry_run(
     assert brief.carousel is not None
     slides = [slide.text() for slide in brief.carousel.slides]
     lines = [
-        f"{name}: animated carousel, {len(slides)} slides, text checked (limits and fit); "
-        "clips and MP4s follow in Phase 3 Step 4. Layout check (free): uv run ca carousel "
-        f'preview --topic "{brief.topic}"'
+        f"{name}: animated carousel, {len(slides)} slides x 5 s MP4, text checked (limits and "
+        f'fit). Layout check (free): uv run ca carousel preview --topic "{brief.topic}"'
     ]
     try:
         design = load_carousel_design(settings.carousel_design_file)
     except WorkflowError as error:
         return [*lines, f"  stills: {error}"]
-    return lines + stills_dry_run(folder, slides, design)
+    return lines + credits_dry_run(folder, slides, design)
 
 
 def _carousel_stills(
@@ -1536,8 +1536,19 @@ def _carousel_stills(
     except (WorkflowError, MediaError, OSError) as error:
         item.status, item.error = "failed", str(error)
         return item, []
-    item.error = "stills with Codex (make-carousel skill); clips follow in Phase 3 Step 4"
+    item.error = "stills and clips with Codex (make-carousel skill), then ca carousel render"
     return item, lines
+
+
+def carousel_slide_texts(folder: Path) -> list[SlideText]:
+    """The animated carousel's slides from brief.json (checked by the dry run before the
+    "ok"); BriefError if the brief has none."""
+    raw = json.loads((folder / BRIEF_FILE).read_text(encoding="utf-8"))
+    data = {key: value for key, value in raw.items() if not str(key).startswith("_")}
+    brief = ContentBrief.model_validate(data)
+    if brief.carousel is None or not is_animated(brief.carousel):
+        raise BriefError(["brief.json has no animated carousel (slides with a type)"])
+    return [slide.text() for slide in brief.carousel.slides]
 
 
 def _part_names(brief: ContentBrief, settings: Settings) -> dict[str, str]:

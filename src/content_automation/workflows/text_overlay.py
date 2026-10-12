@@ -670,7 +670,7 @@ def _scrim_alpha(
 
 
 def _draw_icon(
-    draw: ImageDraw.ImageDraw, icon: CtaIconId, box: PixelBox, color: RGB, line: int
+    draw: ImageDraw.ImageDraw, icon: CtaIconId, box: PixelBox, color: RGB | int, line: int
 ) -> None:
     left, top, right, bottom = box
     side = right - left
@@ -700,28 +700,38 @@ def _draw_icon(
             draw.line((tip - side * 0.17, middle + dy, tip, middle), fill=color, width=line)
 
 
-def apply_text(data: bytes, overlay: TextOverlay) -> tuple[bytes, list[str]]:
-    """Render the texts onto one generated image (before the logo); returns PNG bytes and
-    notes on the scrims that were added."""
-    with Image.open(io.BytesIO(data)) as source:
-        image = source.convert("RGB")
-    placed = place_texts(overlay, image.size)
+def _paint(layer: Image.Image, color: RGB, mask: Image.Image) -> Image.Image:
+    """`color` with `mask` as its coverage, composited onto a transparent RGBA layer."""
+    if mask.getbbox() is None:
+        return layer
+    paint = Image.new("RGBA", layer.size, (*color, 0))
+    paint.putalpha(mask)
+    return Image.alpha_composite(layer, paint)
+
+
+def text_layer(overlay: TextOverlay, backdrop: Image.Image) -> tuple[Image.Image, list[str]]:
+    """The texts, their scrims and the CTA button on a transparent RGBA layer of the
+    backdrop's size (the scrims are measured on the backdrop), plus notes on the scrims. A
+    static layer like this goes over a moving clip as it is."""
+    image = backdrop.convert("RGB")
+    size = image.size
+    placed = place_texts(overlay, size)
     scale = image.width / overlay.spec.base_width
     style = overlay.spec.scrim
     pad = round(style.padding * scale)
-    mask = Image.new("L", image.size, 0)
+    mask = Image.new("L", size, 0)
     shade = ImageDraw.Draw(mask)
     notes: list[str] = []
     for item in placed:
         zone = item.zone
         if zone.scrim == "never" or zone.field == "cta":
             continue
-        backdrop = _backdrop(image, item.bounds)
+        behind = _backdrop(image, item.bounds)
         needed = overlay.min_contrast(zone)
-        worst = _worst(backdrop, item.colors)
+        worst = _worst(behind, item.colors)
         if zone.scrim == "auto" and worst >= needed:
             continue
-        alpha = _scrim_alpha(backdrop, item.colors, needed, overlay)
+        alpha = _scrim_alpha(behind, item.colors, needed, overlay)
         left, top, right, bottom = item.bounds
         shade.rounded_rectangle(
             (max(0, left - pad), max(0, top - pad), min(image.width, right + pad),
@@ -733,28 +743,45 @@ def apply_text(data: bytes, overlay: TextOverlay) -> tuple[bytes, list[str]]:
             f"scrim behind the {zone.field.replace('_', ' ')} (contrast {worst:.1f}:1, "
             f"needs {needed:g}:1)"
         )
-    if mask.getbbox() is not None:
-        layer = Image.new("RGB", image.size, overlay.colors[style.color])
-        image = Image.composite(layer, image, mask)
-    draw = ImageDraw.Draw(image)
+    layer = _paint(Image.new("RGBA", size, (0, 0, 0, 0)), overlay.colors[style.color], mask)
     button = overlay.spec.button
+    fills, outlines = Image.new("L", size, 0), Image.new("L", size, 0)
     for item in placed:
         if item.button is not None:
-            draw.rounded_rectangle(
-                item.button,
-                radius=round(button.radius * scale),
-                fill=overlay.colors[button.fill],
-                outline=overlay.colors[button.outline],
+            corner = round(button.radius * scale)
+            ImageDraw.Draw(fills).rounded_rectangle(item.button, radius=corner, fill=255)
+            ImageDraw.Draw(outlines).rounded_rectangle(
+                item.button, radius=corner, outline=255,
                 width=round(button.outline_width * scale),
             )
+    layer = _paint(layer, overlay.colors[button.fill], fills)
+    layer = _paint(layer, overlay.colors[button.outline], outlines)
+    masks: dict[RGB, Image.Image] = {}
+
+    def pen(color: RGB) -> ImageDraw.ImageDraw:
+        return ImageDraw.Draw(masks.setdefault(color, Image.new("L", size, 0)))
+
+    for item in placed:
         for x, baseline, text, color in item.runs:
-            draw.text((x, baseline), text, font=item.font, fill=color, anchor="ls")
+            pen(color).text((x, baseline), text, font=item.font, fill=255, anchor="ls")
         for cx, cy, radius, color in item.bullets:
-            draw.ellipse((cx - radius, cy - radius, cx + radius, cy + radius), fill=color)
+            pen(color).ellipse((cx - radius, cy - radius, cx + radius, cy + radius), fill=255)
         if item.icon is not None:
             icon, box = item.icon
             line = max(2, round((box[2] - box[0]) / 11))
-            _draw_icon(draw, icon, box, overlay.colors[item.zone.color], line)
+            _draw_icon(pen(overlay.colors[item.zone.color]), icon, box, 255, line)
+    for color, coverage in masks.items():
+        layer = _paint(layer, color, coverage)
+    return layer, notes
+
+
+def apply_text(data: bytes, overlay: TextOverlay) -> tuple[bytes, list[str]]:
+    """Render the texts onto one generated image (before the logo); returns PNG bytes and
+    notes on the scrims that were added."""
+    with Image.open(io.BytesIO(data)) as source:
+        image = source.convert("RGB")
+    layer, notes = text_layer(overlay, image)
+    image = Image.alpha_composite(image.convert("RGBA"), layer).convert("RGB")
     buffer = io.BytesIO()
     image.save(buffer, format="PNG", optimize=True)
     return buffer.getvalue(), notes

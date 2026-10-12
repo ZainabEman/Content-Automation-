@@ -110,18 +110,25 @@ def corner_brightness(image: Image.Image, box: tuple[int, int, int, int]) -> flo
     return float(ImageStat.Stat(region).mean[0]) / 255
 
 
-def apply_logo(data: bytes, overlay: LogoOverlay) -> tuple[bytes, LogoVersion]:
-    """Paste the contrasting logo version onto one generated image; returns PNG bytes."""
+def paste_logo(target: Image.Image, backdrop: Image.Image, overlay: LogoOverlay) -> LogoVersion:
+    """Paste the logo version that contrasts with the backdrop's corner onto an RGBA target
+    of the same size (the image itself, or a transparent layer over a clip)."""
     logo = load_logo(overlay.path)
-    with Image.open(io.BytesIO(data)) as source:
-        image = source.convert("RGBA")
-    box = logo_box(image.size, logo.size)
+    box = logo_box(target.size, logo.size)
     version: LogoVersion = (
-        "white" if corner_brightness(image, box) < DARK_BELOW else "full colour"
+        "white" if corner_brightness(backdrop, box) < DARK_BELOW else "full colour"
     )
     chosen = white_version(logo) if version == "white" else logo
     left, top, width, height = box
-    image.alpha_composite(chosen.resize((width, height), Image.Resampling.LANCZOS), (left, top))
+    target.alpha_composite(chosen.resize((width, height), Image.Resampling.LANCZOS), (left, top))
+    return version
+
+
+def apply_logo(data: bytes, overlay: LogoOverlay) -> tuple[bytes, LogoVersion]:
+    """Paste the contrasting logo version onto one generated image; returns PNG bytes."""
+    with Image.open(io.BytesIO(data)) as source:
+        image = source.convert("RGBA")
+    version = paste_logo(image, image, overlay)
     buffer = io.BytesIO()
     image.convert("RGB").save(buffer, format="PNG", optimize=True)
     return buffer.getvalue(), version

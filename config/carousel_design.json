@@ -33,7 +33,8 @@
         {"field": "subheadline", "box": [0, 0.72, 1, 1], "maxLines": 4, "size": [24, 32], "weight": "medium", "lineHeight": 1.28}
       ],
       "limits": {"headlineWords": 7, "bodyWords": 16},
-      "illustration": "the topic's hero visual: a glossy white 3D robot or one large glowing neon icon that sums up the topic"
+      "illustration": "the topic's hero visual: a glossy white 3D robot or one large glowing neon icon that sums up the topic",
+      "motion": "the robot turns its head slightly and moves one hand, or the icon pulses and glows"
     },
     "point": {
       "use": "A middle slide with one point: a short headline and the concrete fact or action.",
@@ -42,7 +43,8 @@
         {"field": "subheadline", "box": [0, 0.71, 1, 1], "maxLines": 4, "size": [24, 30], "weight": "medium", "lineHeight": 1.28}
       ],
       "limits": {"headlineWords": 7, "bodyWords": 16, "bodyRequired": true},
-      "illustration": "one visual for this point: a white 3D robot acting it out, or a small group of neon line icons on glass tiles"
+      "illustration": "one visual for this point: a white 3D robot acting it out, or a small group of neon line icons on glass tiles",
+      "motion": "the robot moves its head and hand a little, or the icons pop in gently and pulse"
     },
     "stat": {
       "use": "A middle slide with one big number from a cited research article, what it means and what to do.",
@@ -52,7 +54,8 @@
         {"field": "subheadline", "box": [0, 0.74, 1, 1], "maxLines": 3, "size": [22, 28], "weight": "medium", "lineHeight": 1.28}
       ],
       "limits": {"headlineWords": 6, "bodyWords": 14, "bodyRequired": true, "statChars": 8, "highlightWords": [0, 4]},
-      "illustration": "a holographic chart, gauge or rising bar graph that shows the trend, without any digits"
+      "illustration": "a holographic chart, gauge or rising bar graph that shows the trend, without any digits",
+      "motion": "the bars or the chart line rise a little and glow, the hologram shimmers"
     },
     "list": {
       "use": "A middle slide with 3-4 short steps or items.",
@@ -62,7 +65,8 @@
       ],
       "limits": {"headlineWords": 6, "items": [3, 4], "itemWords": 4},
       "numbered": true,
-      "illustration": "a vertical flow of 3-4 neon line icons in rounded glass tiles joined by glowing arrows, one icon per item"
+      "illustration": "a vertical flow of 3-4 neon line icons in rounded glass tiles joined by glowing arrows, one icon per item",
+      "motion": "the icons light up one after another and the arrows glow in turn"
     },
     "final": {
       "use": "Slide 8: one question that invites comments, a short invitation line, the Like/Share/Save row and the logo.",
@@ -73,7 +77,9 @@
       "limits": {"headlineWords": 8, "bodyWords": 10, "question": true},
       "illustration": "a friendly white 3D robot with a glowing question mark, or neon icons that fit the question",
       "stillNote": "Keep the bottom fifth of the frame calm and dark: an icon row is added there.",
-      "still": "local"
+      "still": "local",
+      "clip": "local",
+      "motion": "the robot nods slightly and the question mark glows"
     }
   },
   "iconRow": {
@@ -121,6 +127,31 @@
       "calibrated": "2026-10-12: the app background scores edges 0.000, std 2.2, p95 0.06 in the text panel; every sample half with text or illustration scores edges >= 0.022 and std >= 31"
     },
     "prompt": "Square 1:1 illustration for one slide of an animated Instagram carousel about \"{topic}\". Subject: {illustration}. Place the subject in the right half of the frame ({area}); keep the left half calm, dark and empty, because text is added there later. Background: deep dark navy ({background} to {navy}) with a glowing blue particle-dot wave along the bottom ({glow}, light-blue crests {crest}), faint bokeh and a few thin glowing arcs. Style: glossy white 3D robots, neon line icons and holographic UI cards and charts in electric blue, soft glow, high contrast, a clean premium tech look like the style references. No people, no faces, no human hands, no text, no letters, no numbers, no logos, no watermarks, no labels on screens or icons."
+  },
+  "clips": {
+    "model": "",
+    "seconds": 5,
+    "estimatedCredits": 35,
+    "attempts": 2,
+    "estimateNote": "unverified: the v1 rate of 91 credits per 13 s (about 7 credits/s, PHASE3-DECISION section 2); set from the plugin listing (section 10)",
+    "prompt": "Animate this image very subtly for {seconds} seconds, like an animated Instagram carousel slide. Only the illustration in the right half moves: {motion}. The glow pulses softly and the blue particles drift slowly. The camera stays completely still: no zoom, no pan, no cut. The left half stays dark, calm and empty. No text, letters, numbers or logos appear, and no people, faces or hands.",
+    "negativePrompt": "text, letters, words, numbers, logos, watermarks, people, faces, human hands, camera movement, zoom, pan, cut, flicker",
+    "check": {
+      "minSeconds": 4.5,
+      "minMotion": 1.5,
+      "maxTextMotion": 3.0,
+      "maxTextBrightnessChange": 6.0,
+      "maxAspectChange": 0.34,
+      "calibrated": "2026-10-12 on the 15 sample clips (4 frames/s, 0-255 grey): illustration motion >= 4.1 in every clip; text panel motion <= 2.5 and brightness change <= 3.2 where the sample text is static (carousel_10 fades its text in: 4-18)"
+    }
+  },
+  "localMotion": {"zoom": 0.04, "glowPulse": 0.12, "waveOpacity": 0.6, "iconPulse": 0.5},
+  "render": {"crf": 18, "preset": "medium"},
+  "setCheck": {
+    "maxBrightnessDiff": 0.08,
+    "maxBrightness": 0.2,
+    "maxOffPalette": 0.15,
+    "calibrated": "2026-10-12: the style frames and preview slides have mean brightness 0.04-0.11 and at most 4% saturated colour outside blue (hue 180-260)"
   },
   "styleFrames": {
     "folder": "assets/reference/creative/carousel_style",

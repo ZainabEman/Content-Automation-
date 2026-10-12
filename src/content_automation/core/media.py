@@ -6,6 +6,7 @@ import re
 import subprocess
 import tempfile
 import textwrap
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -82,6 +83,45 @@ def probe_media(path: Path) -> MediaInfo:
         fps=float(fps.group(1)) if fps else None,
         has_audio=_AUDIO.search(info) is not None,
     )
+
+
+def gray_frames(path: Path, side: int, fps: float) -> list[bytes]:
+    """Square grey frames (centre-cropped, `side` px) sampled at `fps`, for motion checks;
+    each frame is side*side bytes."""
+    data = run_ffmpeg([
+        "-i", str(path), "-an", "-vf",
+        f"fps={fps:g},scale={side}:{side}:force_original_aspect_ratio=increase,"
+        f"crop={side}:{side}",
+        "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1",
+    ])
+    size = side * side
+    return [data[start:start + size] for start in range(0, len(data) - size + 1, size)]
+
+
+def write_video(
+    frames: Iterable[bytes], size: tuple[int, int], fps: int, target: Path, *, crf: int = 10
+) -> None:
+    """Encode raw RGB frames (width*height*3 bytes each) as a silent H.264 MP4."""
+    width, height = size
+    command = [
+        imageio_ffmpeg.get_ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y",
+        "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{width}x{height}", "-r", str(fps),
+        "-i", "pipe:0", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", str(crf),
+        "-pix_fmt", "yuv420p", str(target),
+    ]
+    process = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert process.stdin is not None and process.stderr is not None
+    try:
+        for frame in frames:
+            process.stdin.write(frame)
+        process.stdin.close()
+        detail = process.stderr.read().decode("utf-8", "replace").strip()[-_ERROR_TAIL:]
+        code = process.wait(timeout=_TIMEOUT_S)
+    except (BrokenPipeError, subprocess.TimeoutExpired) as error:
+        process.kill()
+        raise MediaError(f"FFmpeg could not encode {target.name}: {error}") from None
+    if code != 0 or not target.is_file():
+        raise MediaError(f"FFmpeg failed (exit {code}) on {target.name}: {detail}")
 
 
 @functools.cache

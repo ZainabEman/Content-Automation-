@@ -24,6 +24,7 @@ from content_automation.workflows.registry import WorkflowError
 SlideType = Literal["cover", "point", "stat", "list", "final"]
 StillsProvider = Literal["higgsfield", "comfyui"]
 StillSource = Literal["plugin", "local"]  # local: the app-drawn background, no request
+ClipSource = Literal["higgsfield", "local"]  # local: the app's own animation, no request
 ReferenceSupport = Literal["unknown", "yes", "no"]
 MARK = "**"
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -85,6 +86,8 @@ class SlideTypeSpec(_Model):
     illustration: str = Field(min_length=1)  # the still's subject when the writer gives none
     still_note: str = ""  # added to this type's still prompt
     still: StillSource = "plugin"
+    clip: ClipSource = "higgsfield"
+    motion: str = Field(min_length=1)  # what moves in this type's clip
 
 
 class IconLabel(_Model):
@@ -144,6 +147,49 @@ class StillsSpec(_Model):
     prompt: str = Field(min_length=1)  # {topic} {illustration} {area} and the palette colours
 
 
+class ClipCheckSpec(_Model):
+    """`ca carousel clips-check`, measured on grey frames at 4 per second (0-255)."""
+
+    min_seconds: float = Field(gt=0)
+    min_motion: float = Field(ge=0)  # mean change in the illustration area: not frozen
+    max_text_motion: float = Field(gt=0)  # mean change in the text panel: calm
+    max_text_brightness_change: float = Field(gt=0)
+    max_aspect_change: float = Field(ge=0, lt=1)
+    calibrated: str = ""
+
+
+class ClipsSpec(_Model):
+    model: str = ""  # "" = the plugin tool's default video model (section 10)
+    seconds: float = Field(gt=0)
+    estimated_credits: float = Field(ge=0)  # per clip: an estimate until the first paid run
+    attempts: int = Field(default=2, ge=1, le=3)
+    estimate_note: str = ""
+    prompt: str = Field(min_length=1)  # {seconds} {motion}
+    negative_prompt: str = Field(min_length=1)
+    check: ClipCheckSpec
+
+
+class LocalMotion(_Model):
+    """The app's own animation for local slides and fallbacks."""
+
+    zoom: float = Field(ge=0, lt=0.2)  # slow zoom on the still over the slide
+    glow_pulse: float = Field(ge=0, le=1)
+    wave_opacity: float = Field(ge=0, le=1)  # the animated wave over a plugin still
+    icon_pulse: float = Field(ge=0, le=1)  # the final slide's icon row glow
+
+
+class RenderSpec(_Model):
+    crf: int = Field(default=18, ge=0, le=51)
+    preset: str = "medium"
+
+
+class SetCheckSpec(_Model):
+    max_brightness_diff: float = Field(gt=0)  # against slide 1 (mean, 0-1)
+    max_brightness: float = Field(gt=0, le=1)  # the dark navy style
+    max_off_palette: float = Field(ge=0, le=1)  # share of saturated colour outside blue
+    calibrated: str = ""
+
+
 class StyleFrames(_Model):
     folder: str = Field(min_length=1)  # where the extracted frames go
     samples: str = Field(min_length=1)  # the sample carousels (MP4s)
@@ -179,6 +225,10 @@ class CarouselDesign(_Model):
     background: BackgroundSpec
     languages: dict[str, str] = Field(min_length=1)  # code -> name for the writer
     stills: StillsSpec
+    clips: ClipsSpec
+    local_motion: LocalMotion
+    render: RenderSpec = Field(default_factory=RenderSpec)
+    set_check: SetCheckSpec
     style_frames: StyleFrames
     samples: list[SlideText]  # `ca carousel preview` text, one per slide; {topic} = the topic
 
@@ -212,6 +262,10 @@ class CarouselDesign(_Model):
             self.stills.prompt.format(**_PROMPT_FIELDS)
         except (KeyError, IndexError, ValueError):
             problems.append(f"stills.prompt uses only {{{'}, {'.join(_PROMPT_FIELDS)}}}")
+        try:
+            self.clips.prompt.format(seconds="", motion="")
+        except (KeyError, IndexError, ValueError):
+            problems.append("clips.prompt uses only {seconds} and {motion}")
         if problems:
             raise ValueError("; ".join(problems))
         return self
@@ -388,6 +442,13 @@ def still_prompt(design: CarouselDesign, slide: SlideText, topic: str) -> str:
         crest=palette.crest,
     )
     return f"{prompt} {spec.still_note}".strip()
+
+
+def clip_prompt(design: CarouselDesign, slide_type: SlideType) -> str:
+    """The image-to-video prompt: only the right-half illustration moves, subtly."""
+    clips = design.clips
+    motion = design.slide_types[slide_type].motion.rstrip(".")
+    return clips.prompt.format(seconds=f"{clips.seconds:g}", motion=motion)
 
 
 def _limits_text(limits: WriterLimits) -> str:

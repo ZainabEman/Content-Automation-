@@ -184,6 +184,27 @@ Answered 2026-10-12: (1) brand.json `carousel.language`, default `en`; (2) last 
 one retry each, costs in credits; (4) Higgsfield image model now, `stills.provider`
 higgsfield|comfyui for later. Details in `docs/PROGRESS.md` (Phase 3 decisions).
 
+## 10. Higgsfield plugin tools (filled in by Codex on the first run)
+
+Status: **not listed yet.** On the first carousel run, before the dry run, Codex lists the
+Higgsfield plugin's tools in Codex and fills in this table (make-carousel skill, "First run").
+It then sets `stills.model`, `stills.referenceImages` and `stills.estimatedCredits` in
+`config/carousel_design.json`. Until then the skill finds the tools at run time and assumes
+no names.
+
+| Item | Value |
+| --- | --- |
+| Date listed | – |
+| Image tool (name) | – |
+| Image models | – |
+| Sizes / aspect ratios (1:1? 1080x1080 or the closest) | – |
+| Reference images (yes/no, how many, upload or URL) | – |
+| Negative prompt field (yes/no) | – |
+| Credits per image (as the plugin reports) | – |
+| Image-to-video tool (name, for Step 4) | – |
+| Video models, clip lengths, 1:1 support | – |
+| Credits per 5 s clip | – |
+
 ## Sources
 
 - Higgsfield MCP: https://higgsfield.ai/creator-hub/help-center/integrations/what-is-higgsfield-mcp

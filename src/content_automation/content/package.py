@@ -70,6 +70,7 @@ from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
 from content_automation.core.jobs import DETAILS_FILE, Job, ReviewCheck, slugify
 from content_automation.core.limits import DailyLimitError
+from content_automation.core.media import MediaError
 from content_automation.references import (
     BrandProfile,
     BrandProfileError,
@@ -90,6 +91,7 @@ from content_automation.workflows.carousel_design import (
     writer_help,
 )
 from content_automation.workflows.carousel_render import fit_problems
+from content_automation.workflows.carousel_stills import stills_dry_run, write_still_requests
 from content_automation.workflows.design_system import (
     STEP_SEPARATOR,
     DesignSystem,
@@ -752,6 +754,11 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
     if waiting:
         lines += waiting
         check = waiting
+    if brief.carousel is not None and is_animated(brief.carousel) and not check:
+        package.items["carousel"], extra = _carousel_stills(brief, folder, settings)
+        lines.append(_item_line("carousel", package.items["carousel"]))
+        lines += extra
+        _save(folder, package)
     if brief.reel is not None and not check:
         item = package.items.get("reel")
         if item is None or item.status != "done":
@@ -1413,11 +1420,7 @@ def _dry_run_lines(
             if item is not None and item.status == "done":
                 lines.append(f"{names[kind]}: already done ({', '.join(item.files)}); skipped")
             elif kind == "carousel" and brief.carousel and is_animated(brief.carousel):
-                lines.append(
-                    f"{names[kind]}: animated carousel, text checked (limits and fit); stills, "
-                    "clips and MP4s follow in Phase 3 Steps 3-5. Layout check (free): "
-                    f'uv run ca carousel preview --topic "{brief.topic}"'
-                )
+                lines += _animated_dry_run(folder, brief, settings, names[kind])
             continue
         if plan.error is not None or not plan.prepared:
             lines.append(f"{names[kind]}: cannot be made yet: {plan.error}")
@@ -1500,6 +1503,41 @@ def _dry_run_lines(
     if basis:  # GPU time (ComfyUI): an estimate; the build shows estimate vs actual
         lines.insert(-1, f"Image cost basis: {basis}")
     return lines, round(total, 6)
+
+
+def _animated_dry_run(
+    folder: Path, brief: ContentBrief, settings: Settings, name: str
+) -> list[str]:
+    """The animated carousel: its stills (credits per slide, total, max); clips in Step 4."""
+    assert brief.carousel is not None
+    slides = [slide.text() for slide in brief.carousel.slides]
+    lines = [
+        f"{name}: animated carousel, {len(slides)} slides, text checked (limits and fit); "
+        "clips and MP4s follow in Phase 3 Step 4. Layout check (free): uv run ca carousel "
+        f'preview --topic "{brief.topic}"'
+    ]
+    try:
+        design = load_carousel_design(settings.carousel_design_file)
+    except WorkflowError as error:
+        return [*lines, f"  stills: {error}"]
+    return lines + stills_dry_run(folder, slides, design)
+
+
+def _carousel_stills(
+    brief: ContentBrief, folder: Path, settings: Settings
+) -> tuple[PackageItem, list[str]]:
+    """After the "ok": the still requests for Codex (written once) and the local stills."""
+    assert brief.carousel is not None
+    item = PackageItem(status="waiting", updated_at=datetime.now(UTC))
+    slides = [slide.text() for slide in brief.carousel.slides]
+    try:
+        design = load_carousel_design(settings.carousel_design_file)
+        lines = write_still_requests(folder, brief.topic, slides, design)
+    except (WorkflowError, MediaError, OSError) as error:
+        item.status, item.error = "failed", str(error)
+        return item, []
+    item.error = "stills with Codex (make-carousel skill); clips follow in Phase 3 Step 4"
+    return item, lines
 
 
 def _part_names(brief: ContentBrief, settings: Settings) -> dict[str, str]:

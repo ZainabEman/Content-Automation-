@@ -72,7 +72,8 @@
       ],
       "limits": {"headlineWords": 8, "bodyWords": 10, "question": true},
       "illustration": "a friendly white 3D robot with a glowing question mark, or neon icons that fit the question",
-      "stillNote": "Keep the bottom fifth of the frame calm and dark: an icon row is added there."
+      "stillNote": "Keep the bottom fifth of the frame calm and dark: an icon row is added there.",
+      "still": "local"
     }
   },
   "iconRow": {
@@ -103,7 +104,22 @@
   "languages": {"en": "English", "de": "German"},
   "stills": {
     "provider": "higgsfield",
+    "model": "",
+    "referenceImages": "unknown",
     "styleReferences": 2,
+    "estimatedCredits": 5,
+    "usdPerCredit": 0.075,
+    "attempts": 2,
+    "estimateNote": "unverified: PHASE3-DECISION section 6 (about 1-5 credits per image); set model, referenceImages and estimatedCredits from the plugin listing (section 10)",
+    "negativePrompt": "text, letters, words, numbers, captions, labels, logos, watermarks, people, faces, human hands, human figures",
+    "check": {
+      "maxEdgeShare": 0.02,
+      "maxStdDev": 24,
+      "maxBrightness": 0.5,
+      "minStdDev": 6,
+      "maxAspectChange": 0.34,
+      "calibrated": "2026-10-12: the app background scores edges 0.000, std 2.2, p95 0.06 in the text panel; every sample half with text or illustration scores edges >= 0.022 and std >= 31"
+    },
     "prompt": "Square 1:1 illustration for one slide of an animated Instagram carousel about \"{topic}\". Subject: {illustration}. Place the subject in the right half of the frame ({area}); keep the left half calm, dark and empty, because text is added there later. Background: deep dark navy ({background} to {navy}) with a glowing blue particle-dot wave along the bottom ({glow}, light-blue crests {crest}), faint bokeh and a few thin glowing arcs. Style: glossy white 3D robots, neon line icons and holographic UI cards and charts in electric blue, soft glow, high contrast, a clean premium tech look like the style references. No people, no faces, no human hands, no text, no letters, no numbers, no logos, no watermarks, no labels on screens or icons."
   },
   "styleFrames": {

@@ -101,6 +101,7 @@ from content_automation.storage import (
 from content_automation.workflows.carousel_design import load_carousel_design
 from content_automation.workflows.carousel_render import PREVIEW_DIR, extract_style
 from content_automation.workflows.carousel_render import preview as carousel_preview_slides
+from content_automation.workflows.carousel_stills import record_attempt, stills_check
 from content_automation.workflows.design_system import load_design_system, resolve_design
 from content_automation.workflows.dry_run import dry_run_lines
 from content_automation.workflows.image_job import run_image_job
@@ -154,7 +155,8 @@ overlay_app = typer.Typer(
 )
 carousel_app = typer.Typer(
     no_args_is_help=True,
-    help="Animated Instagram carousel: style frames and layout previews (local, free).",
+    help="Animated Instagram carousel: style frames, previews, still records and checks "
+    "(local, free).",
 )
 lora_app = typer.Typer(
     no_args_is_help=True,
@@ -1478,6 +1480,57 @@ def carousel_preview(
         f"{design.canvas.height}, text in {design.language_name(language)}; sample text is "
         f"English): {target.resolve()}"
     )
+    for line in lines:
+        typer.echo(line)
+
+
+@carousel_app.command("record")
+def carousel_record(
+    folder: Annotated[Path, typer.Argument(help="The package folder.")],
+    still: Annotated[int, typer.Option(help="The slide number of the request (still_NN).")],
+    credits: Annotated[
+        float | None, typer.Option(help="Credits the plugin reported for this attempt.")
+    ] = None,
+    provider_job_id: Annotated[str | None, typer.Option(help="The plugin's job ID.")] = None,
+    file: Annotated[
+        Path | None,
+        typer.Option(help="The saved image, if it is not at the request's outputPath already."),
+    ] = None,
+    error: Annotated[
+        str | None, typer.Option(help="The plugin failed: the reason (no image recorded).")
+    ] = None,
+) -> None:
+    """Record one plugin attempt for a still request: the image or the error, and the credits
+    used. Says whether a retry is left inside the approved max. Local and free."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        design = load_carousel_design(settings.carousel_design_file)
+        lines = record_attempt(
+            folder, still, design, credits=credits, provider_job_id=provider_job_id,
+            file=file, error=error,
+        )
+    except (WorkflowError, ValidationError, OSError) as failure:
+        typer.echo(str(failure), err=True)
+        raise typer.Exit(code=1) from None
+    for line in lines:
+        typer.echo(line)
+
+
+@carousel_app.command("stills-check")
+def carousel_stills_check(
+    folder: Annotated[Path, typer.Argument(help="The package folder.")],
+) -> None:
+    """Check every slide still: it exists, is 1:1 at 1080x1080 (cropped and resized if
+    needed), is not blank and leaves the text area calm. A failed still is asked for once more
+    inside the approved max, then it gets the local background. Local and free."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        lines = stills_check(folder, load_carousel_design(settings.carousel_design_file))
+    except (WorkflowError, ValidationError, MediaError, OSError) as failure:
+        typer.echo(str(failure), err=True)
+        raise typer.Exit(code=1) from None
     for line in lines:
         typer.echo(line)
 

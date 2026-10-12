@@ -23,6 +23,8 @@ from content_automation.workflows.registry import WorkflowError
 
 SlideType = Literal["cover", "point", "stat", "list", "final"]
 StillsProvider = Literal["higgsfield", "comfyui"]
+StillSource = Literal["plugin", "local"]  # local: the app-drawn background, no request
+ReferenceSupport = Literal["unknown", "yes", "no"]
 MARK = "**"
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _ICONS = 3  # like, share, save
@@ -82,6 +84,7 @@ class SlideTypeSpec(_Model):
     numbered: bool = False  # list items as 1. 2. 3.
     illustration: str = Field(min_length=1)  # the still's subject when the writer gives none
     still_note: str = ""  # added to this type's still prompt
+    still: StillSource = "plugin"
 
 
 class IconLabel(_Model):
@@ -114,11 +117,30 @@ class BackgroundSpec(_Model):
     dot_grid: tuple[int, int] = (0, 0)  # columns, rows; (0, 0) = no mark
 
 
+class StillCheckSpec(_Model):
+    """`ca carousel stills-check`: thresholds for the text panel (and a blank image)."""
+
+    max_edge_share: float = Field(gt=0, lt=1)  # share of edge pixels: letters, busy detail
+    max_std_dev: float = Field(gt=0)  # brightness spread (0-255): contrast
+    max_brightness: float = Field(gt=0, le=1)  # 95th percentile (0-1): white text stays legible
+    min_std_dev: float = Field(ge=0)  # the illustration area below this = blank
+    max_aspect_change: float = Field(ge=0, lt=1)  # wider or taller than this is not cropped
+    calibrated: str = ""
+
+
 class StillsSpec(_Model):
-    provider: StillsProvider = "higgsfield"  # comfyui later (Z-Image without a LoRA)
-    # Style frames attached to the image request when the image model accepts reference
-    # images (Higgsfield via the plugin: unverified until it is signed in).
+    provider: StillsProvider = "higgsfield"  # comfyui: a stub until RunPod has credit
+    model: str = ""  # "" = the plugin tool's default image model (PHASE3-DECISION section 10)
+    # Style frames go with the request; Codex attaches them only when the image tool accepts
+    # reference images ("unknown" until the plugin listing, section 10).
+    reference_images: ReferenceSupport = "unknown"
     style_references: int = Field(default=2, ge=0, le=3)
+    estimated_credits: float = Field(ge=0)  # per still: an estimate until the first paid run
+    usd_per_credit: float | None = Field(default=None, ge=0)  # shown beside credits
+    attempts: int = Field(default=2, ge=1, le=3)  # per still, the first one included
+    estimate_note: str = ""
+    negative_prompt: str = Field(min_length=1)
+    check: StillCheckSpec
     prompt: str = Field(min_length=1)  # {topic} {illustration} {area} and the palette colours
 
 

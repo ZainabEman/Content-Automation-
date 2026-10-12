@@ -39,9 +39,10 @@ from content_automation.content.tracking import TrackerError, status_lines
 from content_automation.core.agent_steps import record_agent_output, request_path
 from content_automation.core.config import ConfigurationError, Settings, load_settings
 from content_automation.core.files import atomic_write_text
-from content_automation.core.jobs import DETAILS_FILE, Job, JobStateError, ReviewCheck
+from content_automation.core.jobs import DETAILS_FILE, Job, JobStateError, ReviewCheck, slugify
 from content_automation.core.limits import DailyLimitError
 from content_automation.core.log import configure_logging
+from content_automation.core.media import MediaError
 from content_automation.doctor import run_checks
 from content_automation.lora import (
     LoraError,
@@ -97,6 +98,9 @@ from content_automation.storage import (
     sync_package,
     tracker_lines,
 )
+from content_automation.workflows.carousel_design import load_carousel_design
+from content_automation.workflows.carousel_render import PREVIEW_DIR, extract_style
+from content_automation.workflows.carousel_render import preview as carousel_preview_slides
 from content_automation.workflows.design_system import load_design_system, resolve_design
 from content_automation.workflows.dry_run import dry_run_lines
 from content_automation.workflows.image_job import run_image_job
@@ -148,6 +152,10 @@ overlay_app = typer.Typer(
     no_args_is_help=True,
     help="Text the app renders for image providers that draw no text (local and free).",
 )
+carousel_app = typer.Typer(
+    no_args_is_help=True,
+    help="Animated Instagram carousel: style frames and layout previews (local, free).",
+)
 lora_app = typer.Typer(
     no_args_is_help=True,
     help="The person's LoRA for ComfyUI: dataset, AI Toolkit config, trained file (local, free).",
@@ -162,6 +170,7 @@ app.add_typer(calendar_app, name="calendar")
 app.add_typer(drive_app, name="drive")
 app.add_typer(tracking_app, name="tracking")
 app.add_typer(overlay_app, name="overlay")
+app.add_typer(carousel_app, name="carousel")
 app.add_typer(lora_app, name="lora")
 app.add_typer(env_app, name="env")
 # The only .env lines a command may set: IDs chosen by the user in a plugin, never keys.
@@ -1415,6 +1424,62 @@ def overlay_preview(
     typer.echo(f"Text: {text.describe()}")
     typer.echo(f"Scrims: {'; '.join(notes) or 'none needed'}")
     typer.echo(logo_line)
+
+
+@carousel_app.command("style")
+def carousel_style() -> None:
+    """Extract the reference frames of each slide type from the sample carousels (FFmpeg) and
+    write palette.json into the style folder. Local and free."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        lines = extract_style(load_carousel_design(settings.carousel_design_file))
+    except (WorkflowError, MediaError, OSError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    for line in lines:
+        typer.echo(line)
+
+
+@carousel_app.command("preview")
+def carousel_preview(
+    topic: Annotated[str, typer.Option(help="The topic the sample text and still prompts use.")],
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Folder for the stills (default: outputs/carousel-preview/<topic>/)."),
+    ] = None,
+) -> None:
+    """Render all slides as stills: sample text over the sample frames, the Like/Share/Save
+    row and the logo on the last slide, to check the layout before any paid run. Also writes
+    the still prompts. Local and free: no provider or plugin call."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        design = load_carousel_design(settings.carousel_design_file)
+        system = load_design_system(settings.design_system_file)
+        has_brand = brand_path(settings.references_dir).is_file()
+        brand = load_brand(settings.references_dir) if has_brand else None
+        language = brand.carousel.language if brand else "en"
+        logo: LogoOverlay | None = None
+        try:
+            ref = select_logo_ref(
+                settings.references_dir, preferred=brand.logo_file if brand else None
+            )
+            logo = LogoOverlay(path=ref.path, source=ref.source, asset_id=ref.asset_id)
+        except ReferenceLibraryError as error:
+            typer.echo(f"Logo: not pasted ({error})")
+        target = out or PREVIEW_DIR / slugify(topic)
+        lines = carousel_preview_slides(design, system, topic, language, logo, target)
+    except (WorkflowError, BrandProfileError, MediaError, OSError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(
+        f"Carousel preview ({design.slides} slides, {design.canvas.width}x"
+        f"{design.canvas.height}, text in {design.language_name(language)}; sample text is "
+        f"English): {target.resolve()}"
+    )
+    for line in lines:
+        typer.echo(line)
 
 
 LoraModel = Annotated[str, typer.Argument(help="qwen (Qwen-Image-2512) or zimage (Z-Image Turbo).")]

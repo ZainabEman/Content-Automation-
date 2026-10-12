@@ -260,6 +260,9 @@ def _worst(backdrop: tuple[RGB, RGB], colors: tuple[RGB, ...]) -> float:
 class ZoneText:
     paragraphs: tuple[str, ...]  # one for plain text; one per item for a list
     highlight: frozenset[str] = frozenset()  # words in the highlight colour (casefolded)
+    # Word positions (counted across the paragraphs) in the highlight colour: carousel
+    # **word** marks, so only the marked occurrence is coloured.
+    highlight_at: frozenset[int] = frozenset()
     numbered: bool = False  # a list with 1. 2. 3. instead of bullets
     icon: CtaIconId | None = None  # the CTA button's icon
 
@@ -451,7 +454,7 @@ def _overlaps(first: PixelBox, second: PixelBox) -> bool:
 
 def _zone_colors(zone: TextZone, text: ZoneText, colors: dict[ColorRole, RGB]) -> tuple[RGB, ...]:
     found = [colors[zone.color]]
-    if text.highlight:
+    if text.highlight or text.highlight_at:
         found.append(colors[zone.highlight])
     if zone.field == "points" and text.numbered:
         found.append(colors[zone.marker])
@@ -540,6 +543,7 @@ def _fit_text(
         y0 = _y(zone.valign, top, bottom, height)
         baseline = y0 + ascent
         edges: list[float] = []
+        position = 0  # the word's place across the paragraphs (highlight_at)
         for number, lines in enumerate(paragraphs):
             if marks:
                 placed.runs.append((left, baseline, marks[number], colors[zone.marker]))
@@ -552,9 +556,11 @@ def _fit_text(
                 x = _x(zone.align, left + indent, right, _width(words, font))
                 edges += [x - indent, x + _width(words, font)]
                 for word in words:
-                    color = zone.highlight if _word(word) in text.highlight else zone.color
+                    lit = position in text.highlight_at or _word(word) in text.highlight
+                    color = zone.highlight if lit else zone.color
                     placed.runs.append((x, baseline, word, colors[color]))
                     x += font.getlength(word) + font.getlength(" ")
+                    position += 1
                 baseline += line_px
             baseline += gap
         placed.bounds = (

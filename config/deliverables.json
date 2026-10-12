@@ -25,11 +25,11 @@
       "aliases": ["linkedin post", "li post"]
     },
     "instagram_carousel": {
-      "label": "Instagram carousel: 6-8 slides (default 7), one story: hook, problem, steps or insights, example or result, call to action",
+      "label": "Instagram carousel: 8 animated slides (1:1, 5 s each, no people): cover, points, a stat, a list, a closing question",
       "part": "carousel",
       "platform": "instagram",
       "format": "carousel",
-      "slides": 7,
+      "slides": 8,
       "aliases": [
         "insta post", "instagram post", "ig post",
         "insta carousel", "instagram carousel", "ig carousel"

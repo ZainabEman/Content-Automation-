@@ -12,6 +12,7 @@ from typing import Any, Literal
 from pydantic import ConfigDict, Field, ValidationError
 
 from content_automation.core.files import CamelModel
+from content_automation.workflows.carousel_design import SlideText, SlideType
 from content_automation.workflows.design_system import (
     DEFAULT_FORMAT,
     CtaIconId,
@@ -42,8 +43,7 @@ SLOT_KINDS: dict[str, tuple[Kind, ...]] = {
     "carousel": ("carousel_slide",),
     "ad": ("ad",),
 }
-MIN_SLIDES, MAX_SLIDES = 6, 8  # a carousel story, chosen by content (default 7)
-DEFAULT_SLIDES = 7
+MIN_SLIDES, MAX_SLIDES = 6, 8  # a v1 carousel story; the animated carousel has 8
 MAX_REEL_SEC = 90
 MIN_HASHTAGS, MAX_HASHTAGS = 3, 5
 MIN_TAKEAWAYS, MAX_TAKEAWAYS = 3, 5
@@ -92,6 +92,22 @@ class SlideSlot(_BriefModel):
     before_after: BeforeAfter | None = None  # middle slides: before / after
     cta: str | None = None  # last slide only: the button label
     cta_icon: CtaIconId | None = None
+    # The animated carousel (Phase 3, config/carousel_design.json): a slide with a type has no
+    # people; highlight words are marked **word** in headline, body and items.
+    type: SlideType | None = None
+    body: str | None = None
+    stat: str | None = None  # stat slides: the one big number
+    items: list[str] = Field(default_factory=list, max_length=4)  # list slides
+    illustration: str | None = None  # what the text-free still shows on the right half
+
+    def text(self) -> SlideText:
+        """The animated slide (type set) for the carousel design's checks and overlay."""
+        if self.type is None:
+            raise ValueError("a slide without a type is not an animated carousel slide")
+        return SlideText(
+            type=self.type, headline=self.headline, body=self.body, stat=self.stat,
+            items=self.items, illustration=self.illustration,
+        )
 
 
 class ImageSlot(_BriefModel):
@@ -129,6 +145,11 @@ class ImageSlot(_BriefModel):
     scene: str | None = None
     wardrobe: str | None = None
     props: str | None = None
+
+
+def is_animated(slot: ImageSlot) -> bool:
+    """A Phase 3 carousel: its slides carry a type (older briefs keep the v1 carousel)."""
+    return slot.format == "carousel" and any(slide.type for slide in slot.slides)
 
 
 class Caption(_BriefModel):

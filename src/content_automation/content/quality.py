@@ -1,6 +1,8 @@
 """Content checks on brief.json, run by the dry run (nothing is made while one fails).
 
 - Carousel story: hook -> problem -> steps or insights -> example or result -> cta, 6-8 slides.
+- Animated carousel (slides with a type): cover -> point/stat/list -> final question, the
+  writer limits of config/carousel_design.json, and big numbers only from the cited research.
 - Middle slides teach something usable today: specific, never generic, and the step, insight
   and example slides show the automation concretely (a channel or tool and a timing).
 - Posts: the supporting line and the key points are specific too.
@@ -19,7 +21,9 @@ from content_automation.content.brief import (
     ContentBrief,
     ImageSlot,
     SlideSlot,
+    is_animated,
 )
+from content_automation.workflows.carousel_design import CarouselDesign, slide_problems
 from content_automation.workflows.design_system import DesignSystem
 
 SAME_POINT = 0.6  # tips whose key words overlap this much make the same point
@@ -115,7 +119,8 @@ def _carousels(brief: ContentBrief) -> Iterable[tuple[str, ImageSlot]]:
 
 
 def _slide_texts(slide: SlideSlot) -> list[str]:
-    texts = [slide.headline, slide.subheadline or ""]
+    texts = [slide.headline, slide.subheadline or "", slide.body or "", slide.stat or ""]
+    texts += list(slide.items)
     texts += [bubble.text for bubble in slide.chat] + list(slide.diagram) + list(slide.checklist)
     if slide.before_after is not None:
         texts += [slide.before_after.before, slide.before_after.after]
@@ -154,6 +159,8 @@ def carousel_problems(
     platforms = platforms or {}
     problems = []
     for name, slot in _carousels(brief):
+        if is_animated(slot):
+            continue  # animated_carousel_problems
         hook, middle, last = slot.slides[0], slot.slides[1:-1], slot.slides[-1]
         problems += _story_problems(name, slot.slides)
         if not slot.audience_line:
@@ -201,6 +208,33 @@ def carousel_problems(
             problems.append(
                 f'{name}.slides[{len(slot.slides)}]: the call to action names the offer '
                 f'"{label}" (from docs/company/services.md)'
+            )
+    return problems
+
+
+def animated_carousel_problems(
+    brief: ContentBrief, design: CarouselDesign, research: Iterable[str]
+) -> list[str]:
+    """The animated carousel: every slide has a type, the structure and writer limits of
+    carousel_design.json hold, and each big number is written in the cited research."""
+    slot = brief.carousel
+    if slot is None or not is_animated(slot):
+        return []
+    untyped = [number for number, slide in enumerate(slot.slides, start=1) if slide.type is None]
+    if untyped:
+        return [
+            f"carousel.slides[{number}].type: set it ({' -> '.join(design.structure)})"
+            for number in untyped
+        ]
+    slides = [slide.text() for slide in slot.slides]
+    problems = slide_problems(slides, design)
+    allowed = {number for text in research for number in _NUMBER.findall(text)}
+    for number, slide in enumerate(slides, start=1):
+        figures = _NUMBER.findall(slide.stat or "")
+        if any(figure not in allowed for figure in figures):
+            problems.append(
+                f'carousel.slides[{number}].stat "{slide.stat}": the number must be written in '
+                "a research article listed in sourceArticleIds; never invent one"
             )
     return problems
 

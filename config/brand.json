@@ -41,6 +41,7 @@
     }
   ],
   "language": "en",
+  "carousel": {"language": "en"},
   "tone": "confident, clear, data-driven, friendly",
   "audience": "startups, SMEs and growth-focused brands in DACH and internationally (B2B and B2C)",
   "contentPillars": [

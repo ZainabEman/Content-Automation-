@@ -179,6 +179,11 @@ approves the max). Uploading to Drive is not publishing.
 4. **Stills:** Higgsfield image models (now, on the budget) or ComfyUI/Z-Image (when RunPod has
    credit)?
 
+Answered 2026-10-12: (1) brand.json `carousel.language`, default `en`; (2) last slide only;
+(3) the Higgsfield plugin (plan credits, no API key), all requests under the single "ok" with
+one retry each, costs in credits; (4) Higgsfield image model now, `stills.provider`
+higgsfield|comfyui for later. Details in `docs/PROGRESS.md` (Phase 3 decisions).
+
 ## Sources
 
 - Higgsfield MCP: https://higgsfield.ai/creator-hub/help-center/integrations/what-is-higgsfield-mcp

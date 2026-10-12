@@ -34,6 +34,10 @@ class BrandFont(_BrandModel):
     usage: str = ""
 
 
+class BrandCarousel(_BrandModel):
+    language: str = "en"  # the animated carousel's slide text (config/carousel_design.json)
+
+
 class BrandProfile(_BrandModel):
     brand_name: str = Field(min_length=1)
     status: Literal["draft", "approved"] = "draft"
@@ -41,6 +45,7 @@ class BrandProfile(_BrandModel):
     colors: list[BrandColor] = Field(min_length=1)
     fonts: list[BrandFont] = Field(default_factory=list)
     language: str = ""
+    carousel: BrandCarousel = Field(default_factory=BrandCarousel)
     tone: str = ""
     audience: str = ""
     content_pillars: list[str] = Field(default_factory=list)

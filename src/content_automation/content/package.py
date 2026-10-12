@@ -34,19 +34,17 @@ from content_automation.ai.image import ImageError, estimate_cost_usd, get_provi
 from content_automation.ai.video import VideoError
 from content_automation.content.brief import (
     ASPECT_BY_PLATFORM,
-    DEFAULT_SLIDES,
     MAX_HASHTAGS,
-    MAX_SLIDES,
     MAX_TAKEAWAYS,
     MIN_HASHTAGS,
     MIN_INSIGHTS,
-    MIN_SLIDES,
     MIN_TAKEAWAYS,
     STORY_ASPECT,
     BriefError,
     ContentBrief,
     ImageSlot,
     brand_hashtag,
+    is_animated,
     load_brief,
     slot_kind,
 )
@@ -59,6 +57,7 @@ from content_automation.content.quality import (
     CAPTION_MAX_WORDS,
     CAPTION_MAX_WORDS_BY_PLATFORM,
     CAPTION_MIN_WORDS,
+    animated_carousel_problems,
     caption_problems,
     carousel_problems,
     insight_problems,
@@ -84,6 +83,13 @@ from content_automation.research.collectors import CollectorError
 from content_automation.research.models import SourceArticle, SourcesError
 from content_automation.research.run import collect, topic_digest, topic_note
 from content_automation.research.store import find_article, known_article_ids, load_articles
+from content_automation.workflows.carousel_design import (
+    CarouselDesign,
+    load_carousel_design,
+    slides_template,
+    writer_help,
+)
+from content_automation.workflows.carousel_render import fit_problems
 from content_automation.workflows.design_system import (
     STEP_SEPARATOR,
     DesignSystem,
@@ -311,6 +317,14 @@ def _apply_deliverables(
     except WorkflowError as error:
         system = None
         lines.append(f"Design help left out of the template: {error}")
+    carousel_design: CarouselDesign | None = None
+    if any(item.part == "carousel" for item in items):
+        try:
+            carousel_design = load_carousel_design(settings.carousel_design_file)
+            carousel_design.language_name(brand.carousel.language if brand else "en")
+        except WorkflowError as error:
+            lines.append(f"Carousel slides left out of the template: {error}")
+            carousel_design = None
     post = next((item for item in items if item.part == "post"), None)
     suggested: FormatId | None = post.format if post is not None else None
     if system is not None and post is not None and suggested is None:
@@ -327,6 +341,7 @@ def _apply_deliverables(
         brand,
         company,
         system,
+        carousel_design,
         settings.default_identity_set,
         suggested,
     )
@@ -410,9 +425,7 @@ def _research_markdown(topic: str, articles: list[SourceArticle], note: str | No
 def _design_help(system: DesignSystem, suggested: FormatId | None) -> dict[str, Any]:
     """The design system's choices, for the "_help" block of the brief template."""
 
-    def person(key: str, spec: FormatSpec) -> str:
-        if key == "carousel":
-            return "the man on the first and last slides; middle slides without people"
+    def person(spec: FormatSpec) -> str:
         return "always the man" if spec.person != "never" else "no person"
 
     post_types = [key for key, spec in system.formats.items() if spec.family == "post"]
@@ -433,15 +446,15 @@ def _design_help(system: DesignSystem, suggested: FormatId | None) -> dict[str, 
                 "use": spec.use,
                 "required": [*spec.required, *(["source"] if key == "stat" else [])],
                 "optional": spec.optional,
-                "person": person(key, spec),
+                "person": person(spec),
                 "headlineMaxWords": spec.headline_max_words,
             }
             for key, spec in system.formats.items()
+            if key != "carousel"  # the animated carousel has its own block (_help.carousel)
         },
         "layouts": {
             key: f"{layout.use}: {layout.description}" for key, layout in system.layouts.items()
         },
-        "carouselStory": system.carousel.story,
         "pools": {
             name: {key: entry.description for key, entry in pool.items()}
             for name, pool in (
@@ -467,46 +480,7 @@ def _design_help(system: DesignSystem, suggested: FormatId | None) -> dict[str, 
     }
 
 
-_STORY_DEFAULT = {6: ["hook", "problem", "step", "insight", "example", "cta"],
-                  7: ["hook", "problem", "step", "step", "insight", "example", "cta"],
-                  8: ["hook", "problem", "step", "step", "insight", "insight", "example", "cta"]}
-
-
-def _carousel_slides(count: int, cta: str) -> list[dict[str, Any]]:
-    """The story: hook (with the man) -> problem -> steps or insights -> example or result ->
-    cta (with the man). Every middle slide: a heading, one specific line, one visual."""
-    roles = _STORY_DEFAULT.get(count, _STORY_DEFAULT[DEFAULT_SLIDES])
-    line = (
-        "<one line, at most 18 words: who sends what, when, through which channel (or the "
-        "specific fact)>"
-    )
-    visuals: list[dict[str, Any]] = [
-        {"beforeAfter": {"before": "<what happens today, at most 12 words>",
-                         "after": "<what happens with the automation, at most 12 words>"}},
-        {"chat": [
-            {"from": "customer", "text": "<the customer's real message>"},
-            {"from": "bot", "text": "<the automated reply, exact wording>"},
-        ]},
-        {"diagram": ["<trigger>", "<what is sent, by which channel>", "<where it is logged>"]},
-        {"checklist": ["<check 1>", "<check 2>", "<check 3>"]},
-    ]
-    middle = [
-        {"role": role, "headline": f"<{role}: at most 6 words>", "subheadline": line,
-         **visuals[number % len(visuals)]}
-        for number, role in enumerate(roles[1:-1])
-    ]
-    return [
-        {"role": "hook",
-         "headline": "<the problem or the promise for this audience, at most 8 words>",
-         "subheadline": "<one short line>"},
-        *middle,
-        {"role": "cta", "headline": "<the call to action with the offer>", "cta": cta},
-    ]
-
-
-def _slot_template(
-    name: str, format_id: FormatId, slides: int = DEFAULT_SLIDES, last_cta: str = "<label>"
-) -> dict[str, Any]:
+def _slot_template(name: str, format_id: FormatId) -> dict[str, Any]:
     """The fields the format needs, as placeholders."""
     highlight = ["<1-2 words from the headline>"]
     audience = "<FOR WHOM, from the topic, e.g. FOR DENTAL PRACTICES>"
@@ -546,7 +520,6 @@ def _slot_template(
             "source": "<the ID of the article (research.md)>",
             "points": ["<what to do now 1>", "<what to do now 2>", "<what to do now 3>"],
         },
-        "carousel": {"audienceLine": audience, "slides": _carousel_slides(slides, last_cta)},
         "person_photo": {"headline": "<0-3 words, or delete this line>"},
         "checklist": {
             "audienceLine": audience,
@@ -556,18 +529,6 @@ def _slot_template(
         },
     }
     return {"format": format_id, **fields[format_id]}
-
-
-def _platform_cta(
-    system: DesignSystem | None, platform: str | None, company: CompanyProfile | None
-) -> str:
-    """The placeholder for a carousel's last CTA: what works on the platform, with the offer."""
-    rule = system.cta_rules.get(platform or "") if system else None
-    offer = company.offer if company else ""
-    offer_text = f'the offer "{offer}"' if offer else "the offer (ask: services.md has none)"
-    if rule is None:
-        return f"<a short call to action with {offer_text}>"
-    return f"<{rule.use.split('.')[0]}, with {offer_text}>"
 
 
 def _first_frame(formats: Sequence[str]) -> str | None:
@@ -617,10 +578,12 @@ def _brief_template(
     brand: BrandProfile | None,
     company: CompanyProfile | None,
     system: DesignSystem | None,
+    carousel_design: CarouselDesign | None,
     identity_set: str,
     suggested: FormatId | None,
 ) -> dict[str, Any]:
     brand_tag = brand_hashtag(brand.brand_name) if brand else "<#BrandName>"
+    language = brand.carousel.language if brand else "en"
     chosen = {key: catalog.deliverables[key] for key in deliverables}
     by_part = {item.part: item for item in chosen.values()}
     formats = [item.brief_format for item in chosen.values()]
@@ -628,7 +591,8 @@ def _brief_template(
         "_help": {
             "howTo": (
                 f"Save a copy as {BRIEF_FILE} in this folder and replace every <...>. English "
-                "only. Use docs/company/services.md and the brand and design rules below. "
+                "only (carousel slides: _help.carousel.language). Use docs/company/services.md "
+                "and the brand and design rules below. "
                 "Never invent results, statistics, prices or client names. Keep deliverables "
                 "and formats unchanged: build only what the user named. This _help block is "
                 "ignored."
@@ -645,9 +609,10 @@ def _brief_template(
             "formats": {
                 "post": "one premium post image with the man, in the post's content type",
                 "carousel": (
-                    f"{MIN_SLIDES}-{MAX_SLIDES} slides (default {DEFAULT_SLIDES}), one story: "
-                    "hook (with the man) -> problem -> steps or insights -> example or result -> "
-                    "cta (with the man); no slide numbers"
+                    f"{carousel_design.slides} animated slides, no people: "
+                    f"{' -> '.join(carousel_design.structure)} (see _help.carousel)"
+                    if carousel_design
+                    else "config/carousel_design.json could not be read"
                 ),
                 "ad": f"{AD_VARIANTS} variants of one ad: one message, one offer, one CTA",
                 "reel": (
@@ -703,14 +668,9 @@ def _brief_template(
         template["post"] = _slot_template("post", suggested or post.format or "statement")
         if post.platform == "linkedin":
             template["post"]["person"] = True
-    carousel = by_part.get("carousel")
-    if carousel is not None:
-        template["carousel"] = _slot_template(
-            "carousel",
-            "carousel",
-            slides=carousel.slides or DEFAULT_SLIDES,
-            last_cta=_platform_cta(system, carousel.platform, company),
-        )
+    if "carousel" in by_part and carousel_design is not None:
+        template["_help"]["carousel"] = writer_help(carousel_design, language)
+        template["carousel"] = {"format": "carousel", "slides": slides_template(carousel_design)}
     if "ad" in by_part:
         template["ad"] = _slot_template("ad", "ad")
     video = by_part.get("video")
@@ -868,9 +828,23 @@ def _quality_problems(brief: ContentBrief, settings: Settings, folder: Path) -> 
     try:
         system = load_design_system(settings.design_system_file)
         problems = carousel_problems(brief, system, platforms, offer) + problems
+        problems = _animated_problems(brief, system, settings, research) + problems
     except WorkflowError as error:
         problems.append(str(error))
     return problems
+
+
+def _animated_problems(
+    brief: ContentBrief, system: DesignSystem, settings: Settings, research: list[str]
+) -> list[str]:
+    """The animated carousel: structure and writer limits, then that every text fits."""
+    if brief.carousel is None or not is_animated(brief.carousel):
+        return []
+    design = load_carousel_design(settings.carousel_design_file)
+    problems = animated_carousel_problems(brief, design, research)
+    if problems:
+        return problems
+    return fit_problems([slide.text() for slide in brief.carousel.slides], design, system)
 
 
 def _in_brief_words(message: str) -> str:
@@ -993,6 +967,8 @@ def _plan_images(
         item = package.items.get(name)
         if slot is None or (item is not None and item.status == "done"):
             continue
+        if is_animated(slot):
+            continue  # made by the Phase 3 carousel flow, not by image jobs
         earlier = [picks[part] for part in IMAGE_SLOTS[:position] if part in picks]
         jobs = _slot_inputs(name, slot, brief, folder, earlier + others, counts[name])
         plan = _ImagePlan(slot, jobs)
@@ -1436,6 +1412,12 @@ def _dry_run_lines(
         if plan is None:
             if item is not None and item.status == "done":
                 lines.append(f"{names[kind]}: already done ({', '.join(item.files)}); skipped")
+            elif kind == "carousel" and brief.carousel and is_animated(brief.carousel):
+                lines.append(
+                    f"{names[kind]}: animated carousel, text checked (limits and fit); stills, "
+                    "clips and MP4s follow in Phase 3 Steps 3-5. Layout check (free): "
+                    f'uv run ca carousel preview --topic "{brief.topic}"'
+                )
             continue
         if plan.error is not None or not plan.prepared:
             lines.append(f"{names[kind]}: cannot be made yet: {plan.error}")

@@ -51,6 +51,8 @@
 - One caption + hashtags for the whole carousel.
 - Verify real plugin capabilities and credits before fixing settings. Estimate cost from a small test batch before scaling; do not assume the subscription covers unlimited automated generation.
 
+- Notes (decided 2026-10-10, see docs/PHASE3-DECISION.md): no person on any carousel slide (topic visuals only, no person check); a hybrid led by Higgsfield (image-to-video for the illustration slides, local animation for graphic slides; text and logo rendered by the app on top); the style matches the sample carousels in assets/reference/creative/carousels/ (8 slides, 1:1, 5 s); one "ok" covers the full carousel up to Drive and the tracker (max cost with one retry per clip; a clip that fails twice → local animation; stop only if the max would be exceeded); the set check reports and never stops.
+
 ## 5. Google Drive folders and tracking CSV
 
 - Separate output folders: LinkedIn, Facebook, Instagram (inside one main content folder).

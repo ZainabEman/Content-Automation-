@@ -8,7 +8,7 @@
   "recommendedPhotos": 15,
   "minSide": 768,
   "trainSide": 1024,
-  "duplicateDistance": 6,
+  "duplicateDistance": 12,
   "pod": {
     "gpu": "L40S 48 GB Pod (Secure Cloud)",
     "pricePerHourUsd": 1.09,

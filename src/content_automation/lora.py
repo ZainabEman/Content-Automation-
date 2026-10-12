@@ -115,7 +115,7 @@ class LoraConfig(_Model):
     recommended_photos: int = Field(ge=1)
     min_side: int = Field(ge=256)
     train_side: int = Field(ge=256)
-    duplicate_distance: int = Field(ge=0, le=64)
+    duplicate_distance: int = Field(ge=0, le=256)  # bits of the 256-bit hash
     pod: PodSpec
     remote: RemoteSpec
     models: dict[ModelKey, TrainSpec]
@@ -203,13 +203,17 @@ def _photos(folder: Path, extra: str) -> list[Path]:
     return found
 
 
+_HASH_SIDE = 16  # 256-bit difference hash: fine enough to tell apart photos of one session
+
+
 def _dhash(image: Image.Image) -> int:
-    small = image.convert("L").resize((9, 8), Image.Resampling.LANCZOS)
-    pixels = list(small.getdata())
+    side = _HASH_SIDE
+    small = image.convert("L").resize((side + 1, side), Image.Resampling.LANCZOS)
+    pixels = small.tobytes()
     bits = 0
-    for row in range(8):
-        for column in range(8):
-            left, right = pixels[row * 9 + column], pixels[row * 9 + column + 1]
+    for row in range(side):
+        for column in range(side):
+            left, right = pixels[row * (side + 1) + column], pixels[row * (side + 1) + column + 1]
             bits = (bits << 1) | (1 if left > right else 0)
     return bits
 
@@ -388,7 +392,8 @@ def prepare_dataset(
     result.archive = archive
     result.lines.append(
         f"Dataset: {archive.resolve()} ({count} photos + captions, trigger {trigger}). It holds "
-        "the person's photos: upload it only to the RunPod Pod, never elsewhere."
+        "the person's photos: upload it only as a private Kaggle dataset or to the RunPod "
+        "volume, never elsewhere."
     )
     return result
 

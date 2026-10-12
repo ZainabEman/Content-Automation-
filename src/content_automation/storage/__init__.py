@@ -48,7 +48,8 @@ PLATFORM_FOLDERS = PLATFORM_NAMES  # platform -> folder name (and the tracker's 
 CALENDAR_FOLDER = "Calendar"
 FOLDERS = (*PLATFORM_FOLDERS.values(), CALENDAR_FOLDER)
 EXPORT_NAME = f"{TRACKER_NAME}.csv"  # `ca tracking export`, in the main folder
-UPLOAD_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".mp4")  # captions.srt etc. stay local
+# Images, MP4s and a carousel's caption.txt; captions.srt etc. stay local.
+UPLOAD_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".mp4", ".txt")
 NOT_SET_UP = "Drive not set up — run ca drive setup"
 
 # Provider name -> adapter module. Adding a provider = one adapter file + one line here.
@@ -79,7 +80,11 @@ class Storage(Protocol):
         """Find or make the main folder, its four folders and the tracker; its link."""
         ...
 
-    def upload(self, file: Path, platform: str, content_id: str) -> Uploaded: ...
+    def upload(
+        self, file: Path, platform: str, content_id: str, subfolder: str | None = None
+    ) -> Uploaded:
+        """Into <Platform>/<Content ID>/ (or its `subfolder`, e.g. originals/)."""
+        ...
 
     def upload_calendar(self, file: Path) -> Uploaded: ...
 
@@ -141,6 +146,9 @@ def sync_package(folder: Path, storage: Storage, catalog: DeliverableCatalog) ->
         name for item in package.items.values() if item.status == "done"
         for name in item.files if Path(name).suffix.lower() in UPLOAD_SUFFIXES
     )
+    subfolders = {
+        name: sub for item in package.items.values() for name, sub in item.subfolders.items()
+    }
     content_id = package.content_id or package.package_id
     where = f"{platform_folder(package.platform)}/{content_id}"
     result = SyncResult()
@@ -156,7 +164,9 @@ def sync_package(folder: Path, storage: Storage, catalog: DeliverableCatalog) ->
         if record is not None and record.provider == storage.name and record.status == "uploaded":
             kept += 1
             continue
-        call = partial(storage.upload, folder / name, package.platform, content_id)
+        call = partial(
+            storage.upload, folder / name, package.platform, content_id, subfolders.get(name)
+        )
         now = datetime.now(UTC)
         try:
             done = _twice(call, folder / name)

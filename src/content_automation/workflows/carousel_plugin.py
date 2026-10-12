@@ -55,6 +55,7 @@ DECISION_DOC = "docs/PHASE3-DECISION.md"
 TOOLS_SECTION = "section 10"
 Kind = Literal["still", "clip"]
 RequestStatus = Literal["pending", "made", "failed", "passed", "fallback"]
+Stage = Literal["stills", "clips", "render", "done"]
 _FRAME_SIDE, _FRAME_RATE = 180, 4  # clips-check samples grey frames like the calibration
 _OUTPUT = {"still": ("stills", "png"), "clip": ("clips", "mp4")}
 
@@ -135,6 +136,10 @@ class CarouselPlan(_Model):
     estimated_credits: float  # both
     approved_max_credits: float  # both, with every retry: what the "ok" approved
     usd_per_credit: float | None = None
+    stage: Stage = "stills"  # the progress; `ca carousel continue` reads it with the requests
+    rendered_at: datetime | None = None
+    fallbacks: list[str] = Field(default_factory=list)  # "slide 3: local animation (...)"
+    set_check_notes: list[str] = Field(default_factory=list)
     slides: list[PlanSlide]
 
 
@@ -228,6 +233,20 @@ def _planned(design: CarouselDesign, slide_type: SlideType) -> tuple[bool, bool]
     spec = design.slide_types[slide_type]
     still = spec.still == "plugin"
     return still, still and spec.clip == "higgsfield"
+
+
+def planned_credits(
+    package: Path, slides: Sequence[SlideText], design: CarouselDesign
+) -> tuple[float, float]:
+    """The estimate and the max with retries: the approved ones once requests exist."""
+    plan = load_plan(package)
+    if plan is not None:
+        return plan.estimated_credits, plan.approved_max_credits
+    stills, clips = design.stills, design.clips
+    planned = [_planned(design, slide.type) for slide in slides]
+    still_total = sum(still for still, _ in planned) * stills.estimated_credits
+    clip_total = sum(clip for _, clip in planned) * clips.estimated_credits
+    return still_total + clip_total, still_total * stills.attempts + clip_total * clips.attempts
 
 
 def credits_dry_run(
@@ -478,11 +497,13 @@ def _settle(
 
 
 def _reject(path: Path) -> None:
-    """Keep a failed result beside the folder's output, in rejected/."""
+    """Keep a failed result in rejected/ (numbered), so the output path is free again: a file
+    there always means a result that is not checked yet."""
     if path.is_file():
         rejected = path.parent / "rejected"
         rejected.mkdir(exist_ok=True)
-        shutil.move(path, rejected / path.name)
+        number = len(list(rejected.glob(f"{path.stem}_*{path.suffix}"))) + 1
+        shutil.move(path, rejected / f"{path.stem}_{number}{path.suffix}")
 
 
 def _missing(request: PluginRequest) -> Check:
@@ -611,6 +632,7 @@ def stills_check(package: Path, design: CarouselDesign) -> list[str]:
         state, ending, reserved = _settle(request, result, spent, cap, _STILL_AGAIN)
         spent += reserved
         if state == "pending":
+            _reject(still)
             again.append(request.step_id)
         elif state == "passed":
             counts["plugin"] += 1
@@ -628,7 +650,11 @@ def stills_check(package: Path, design: CarouselDesign) -> list[str]:
         f"All {len(plan.slides)} stills ready: {counts['plugin']} from the plugin, "
         f"{counts['local']} local, {counts['fallback']} local fallback."
     )
-    return lines + _write_clip_requests(package, plan, design)
+    lines += _write_clip_requests(package, plan, design)
+    if plan.stage == "stills":
+        plan.stage = "clips" if any(item.clip_request for item in plan.slides) else "render"
+        _save(plan_path(package), plan)
+    return lines
 
 
 # --- Clip requests and check -----------------------------------------------------------------
@@ -781,6 +807,7 @@ def clips_check(package: Path, design: CarouselDesign) -> list[str]:
         state, ending, reserved = _settle(request, result, spent, cap, _CLIP_AGAIN)
         spent += reserved
         if state == "pending":
+            _reject(clip)
             again.append(request.step_id)
         elif state == "passed":
             made += 1
@@ -797,6 +824,9 @@ def clips_check(package: Path, design: CarouselDesign) -> list[str]:
             f"All clips settled: {made} from the plugin, {local} local animation. Next: "
             f'uv run ca carousel render "{package}"'
         )
+        if plan.stage in ("stills", "clips"):
+            plan.stage = "render"
+            _save(plan_path(package), plan)
     return lines
 
 
@@ -850,6 +880,94 @@ def render_sources(package: Path) -> list[SlideSource]:
             plugin_still=plugin_still, note=note,
         ))
     return found
+
+
+def mark_rendered(package: Path, fallbacks: list[str], set_check_notes: list[str]) -> None:
+    """After `ca carousel render`: stage done, with the notes the tracker row carries."""
+    plan = _need_plan(package)
+    plan.stage = "done"
+    plan.rendered_at = _now()
+    plan.fallbacks = fallbacks
+    plan.set_check_notes = set_check_notes
+    _save(plan_path(package), plan)
+
+
+def _unrecorded(requests: Sequence[PluginRequest]) -> list[PluginRequest]:
+    """Pending requests whose output already exists: made, but never recorded."""
+    return [
+        request for request in requests
+        if request.status == "pending" and Path(request.output_path).is_file()
+    ]
+
+
+def continue_lines(package: Path, design: CarouselDesign) -> list[str]:
+    """`ca carousel continue`: where the carousel stopped and the next step. A request that
+    passed (or fell back) is never made again."""
+    plan = _need_plan(package)
+    requests = _requests(package, plan)
+    spent, cap = _spent(requests), plan.approved_max_credits
+    done = sum(request.status in ("passed", "fallback") for request in requests)
+    lines = [
+        f"Carousel {package.name}: stage {plan.stage}; {done} of {len(requests)} requests "
+        f"settled; spent {_credits(spent, design)} of the approved max {_credits(cap, design)}."
+    ]
+    for request in _unrecorded(requests):
+        kind = request.step_id.split("_")[0]
+        lines.append(
+            f"{request.step_id}: a result is saved but not recorded: uv run ca carousel record "
+            f'"{package}" --{kind} {request.slide} --credits <credits the plugin reported>'
+        )
+    stills = [request for request in requests if request.capability == "image"]
+    clips = [request for request in requests if request.capability == "video"]
+    todo = [request for request in requests
+            if request.status == "pending" and request not in _unrecorded(requests)]
+    if spent + sum(request.estimated_credits for request in todo) > cap:
+        lines.append(
+            "STOP: the pending requests could go over the approved max; ask the user before "
+            "making more."
+        )
+        return lines
+    for group, check in ((stills, "stills-check"), (clips, "clips-check")):
+        waiting = [request.step_id for request in todo if request in group]
+        if waiting:
+            lines.append(_next_line(waiting, package, check))
+            return lines
+        if any(request.status in ("made", "failed") for request in group):
+            lines.append(f'Next: uv run ca carousel {check} "{package}"')
+            return lines
+        if group is stills and plan.stage == "stills":
+            lines.append(f'Next: uv run ca carousel stills-check "{package}" (writes the clips)')
+            return lines
+    if plan.stage != "done":
+        lines.append(f'Next: uv run ca carousel render "{package}"')
+    else:
+        lines.append(
+            f"Rendered {plan.rendered_at:%Y-%m-%d %H:%M}. Next: uv run ca carousel finish "
+            f'"{package}" (Drive, tracker, calendar; files already uploaded are skipped)'
+            if plan.rendered_at else f'Next: uv run ca carousel finish "{package}"'
+        )
+    return lines
+
+
+def summary_lines(package: Path, design: CarouselDesign) -> list[str]:
+    """The slides, credits (real against the estimate), fallbacks and set check: 4 lines."""
+    plan = _need_plan(package)
+    requests = _requests(package, plan)
+    clips = sum(
+        request.capability == "video" and request.status == "passed" for request in requests
+    )
+    final = carousel_dir(package) / "final"
+    videos = len(list(final.glob("slide_*.mp4")))
+    return [
+        f"Slides: {videos} MP4 + {len(list(final.glob('slide_*.png')))} PNG "
+        f"({design.timing.seconds_per_slide:g} s, {design.canvas.width}x{design.canvas.height})"
+        f"; {clips} plugin clips, {videos - clips} local animation",
+        f"Credits: {_credits(_spent(requests), design)} real vs estimate "
+        f"{_credits(plan.estimated_credits, design)} (approved max "
+        f"{plan.approved_max_credits:g})",
+        "Fallbacks: " + ("; ".join(plan.fallbacks) or "none"),
+        "Set check: " + ("; ".join(plan.set_check_notes) or "every slide matches"),
+    ]
 
 
 def _spend_line(package: Path, plan: CarouselPlan) -> str:

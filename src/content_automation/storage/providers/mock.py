@@ -52,8 +52,11 @@ class MockStorage:
         self.read_tracker()  # makes tracking.csv with its header
         return self._root.resolve().as_uri()
 
-    def upload(self, file: Path, platform: str, content_id: str) -> Uploaded:
-        return self._copy(file, self._root / platform_folder(platform) / content_id / file.name)
+    def upload(
+        self, file: Path, platform: str, content_id: str, subfolder: str | None = None
+    ) -> Uploaded:
+        folder = self._root / platform_folder(platform) / content_id
+        return self._copy(file, (folder / subfolder if subfolder else folder) / file.name)
 
     def upload_calendar(self, file: Path) -> Uploaded:
         return self._copy(file, self._root / CALENDAR_FOLDER / file.name, read_only=True)

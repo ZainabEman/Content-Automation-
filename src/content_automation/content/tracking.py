@@ -137,9 +137,10 @@ def status_lines(table: Table) -> list[str]:
 
 
 def read_csv_table(path: Path) -> Table:
-    """A CSV file as a table (OSError when it cannot be read)."""
+    """A CSV file as a table (OSError when it cannot be read). Line breaks inside a cell come
+    back as LF (Windows writes them as CRLF), so an unchanged caption compares equal."""
     with path.open(encoding="utf-8-sig", newline="") as handle:
-        return [list(row) for row in csv.reader(handle)]
+        return [[cell.replace("\r\n", "\n") for cell in row] for row in csv.reader(handle)]
 
 
 def table_csv(table: Table) -> str:
@@ -176,6 +177,9 @@ def _caption_cell(brief: ContentBrief, package: ContentPackage, catalog: Deliver
                 for number, file in enumerate(ad.files, start=1)
             ) or text
         blocks.append(text if len(captions) == 1 else f"— {name} —\n{text}")
+    notes = [note for item in package.items.values() for note in item.notes]
+    if notes:  # carousel fallbacks and set-check notes, for the manager
+        blocks.append("Notes: " + "; ".join(notes))
     return "\n\n".join(blocks)
 
 

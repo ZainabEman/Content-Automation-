@@ -20,6 +20,7 @@ from content_automation.content.calendar import (
     calendar_path,
     check_calendar,
     generate_rows,
+    mark_generated,
     new_calendar,
     parse_rows,
     read_calendar,
@@ -32,6 +33,7 @@ from content_automation.content.package import (
     DONE_STATUS,
     build_package,
     carousel_slide_texts,
+    finish_carousel,
     set_deliverables,
     start_package,
 )
@@ -101,7 +103,13 @@ from content_automation.storage import (
 )
 from content_automation.workflows.carousel_design import load_carousel_design
 from content_automation.workflows.carousel_motion import render as render_carousel
-from content_automation.workflows.carousel_plugin import clips_check, record_attempt, stills_check
+from content_automation.workflows.carousel_plugin import (
+    clips_check,
+    continue_lines,
+    record_attempt,
+    stills_check,
+    summary_lines,
+)
 from content_automation.workflows.carousel_render import PREVIEW_DIR, extract_style
 from content_automation.workflows.carousel_render import preview as carousel_preview_slides
 from content_automation.workflows.design_system import load_design_system, resolve_design
@@ -1590,6 +1598,73 @@ def carousel_render(
         raise typer.Exit(code=1) from None
     for line in lines:
         typer.echo(line)
+    _finish_carousel(folder, settings)
+
+
+@carousel_app.command("finish")
+def carousel_finish(
+    folder: Annotated[Path, typer.Argument(help="The package folder.")],
+) -> None:
+    """After the render (`ca carousel render` runs this itself): the package is finished, its
+    files go to Drive Instagram/<Content ID>/ (MP4s, PNGs, caption.txt, originals/), the
+    tracker gets its row, the calendar row becomes Generated; then the summary. Files already
+    uploaded are skipped."""
+    _utf8_output()
+    _finish_carousel(folder, _settings(dry_run=True))
+
+
+@carousel_app.command("continue")
+def carousel_continue(
+    folder: Annotated[Path, typer.Argument(help="The package folder.")],
+) -> None:
+    """Where a carousel stopped (carousel/carousel.json) and the next step. Nothing that passed
+    is made again; it says STOP if the pending requests could go over the approved max."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        lines = continue_lines(folder, load_carousel_design(settings.carousel_design_file))
+    except (WorkflowError, ValidationError, OSError) as failure:
+        typer.echo(str(failure), err=True)
+        raise typer.Exit(code=1) from None
+    for line in lines:
+        typer.echo(line)
+
+
+def _finish_carousel(folder: Path, settings: Settings) -> None:
+    """Package done, Drive sync and tracker, calendar row Generated, the summary (8 lines)."""
+    try:
+        design = load_carousel_design(settings.carousel_design_file)
+        package = finish_carousel(folder, settings)
+        summary = summary_lines(folder, design)
+    except (WorkflowError, BriefError, ValidationError, OSError) as failure:
+        typer.echo(str(failure), err=True)
+        raise typer.Exit(code=1) from None
+    if package.status != DONE_STATUS:
+        typer.echo(f"Status: {package.status} (not uploaded until every part is done)")
+        return
+    sync = AutoSync(settings)(folder)
+    for line in sync:
+        typer.echo(line)
+    calendar_rows = []
+    for path in mark_generated(settings, folder):
+        calendar_rows.append(path.stem)
+        typer.echo(sync_calendar(path, settings))
+    content_id = package.content_id or package.package_id
+    try:
+        drive = get_storage(settings).folder_link(package.platform, content_id)
+    except (StorageError, StorageNotSetUpError) as error:
+        drive = f"not uploaded ({error}); later: uv run ca drive sync \"{folder}\""
+    tracker = next((line for line in sync if line.startswith(("Tracker", "Drive not"))), "")
+    typer.echo("Summary:")
+    for line in [
+        f"Carousel finished: {package.topic} ({content_id})",
+        f"Drive folder: {drive}",
+        *summary,
+        tracker or "Tracker: no row yet (see the lines above)",
+        "Calendar: " + (f"row Generated ({', '.join(calendar_rows)})" if calendar_rows
+                        else "no Approved row for this package"),
+    ][:8]:
+        typer.echo(f"  {line}")
 
 
 LoraModel = Annotated[str, typer.Argument(help="qwen (Qwen-Image-2512) or zimage (Z-Image Turbo).")]

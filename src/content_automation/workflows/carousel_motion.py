@@ -30,6 +30,7 @@ from content_automation.workflows.carousel_design import (
 from content_automation.workflows.carousel_plugin import (
     SlideSource,
     carousel_dir,
+    mark_rendered,
     render_sources,
 )
 from content_automation.workflows.carousel_render import Background, icon_row, slide_layer
@@ -220,6 +221,10 @@ def render(
             f"{picture.name}" + (f"; {'; '.join(notes)}" if notes else "")
         )
     notes = set_check(pictures, design, final / _SET_FILE)
+    fallbacks = [
+        f"slide {source.slide}: {source.note}" for source in sources if "fallback" in source.note
+    ]
+    mark_rendered(package, fallbacks, notes)
     lines.append(
         "Set check: " + ("; ".join(notes) if notes else "every slide matches slide 1 and the style")
         + f" ({final / _SET_FILE})"

@@ -359,6 +359,7 @@ def generate_rows(
     lines: list[str] = []
     failed: list[str] = []
     total = 0.0
+    credits = most = credits_usd = 0.0  # plugin credits (animated carousels) and their $ value
     ready = 0
     for row in approved:
         where = f"Row {row['Row']} ({row['Planned date']}, {row['Content type']})"
@@ -410,6 +411,16 @@ def generate_rows(
             ready += 1
             total += result.estimated_usd or 0.0
             cost = f"about ${result.estimated_usd:.3f}" if not build else "built"
+            if not build and result.estimated_credits:
+                rate = result.usd_per_credit or 0.0
+                credits += result.estimated_credits
+                most += result.max_credits or 0.0
+                credits_usd += result.estimated_credits * rate
+                cost += (
+                    f" + about {result.estimated_credits:g} credits (max "
+                    f"{result.max_credits or 0:g} with retries"
+                    + (f", ≈ ${result.estimated_credits * rate:.2f}" if rate else "") + ")"
+                )
             lines.append(f"{where}: {cost}")
             lines += [f"  {line}" for line in result.lines
                       if not line.startswith(("DRY RUN:", "Estimated image cost:"))]
@@ -424,10 +435,16 @@ def generate_rows(
                 elif failure := _failed_part(result.package):
                     failed.append(f"{where}: {failure}; not retried")
     if not build and ready:
+        plugin = (
+            f" plus about {credits:g} Higgsfield credits (max {most:g} with retries"
+            + (f", ≈ ${credits_usd:.2f}" if credits_usd else "") + ")"
+            if credits else ""
+        )
         lines.append(
             f"Combined dry run: {ready} row(s), about ${total:.3f} in total "
-            f"({settings.image_provider}). Nothing has been made or spent. Only after the user "
-            f"says ok: uv run ca calendar generate --week {label} --build"
+            f"({settings.image_provider}){plugin}. Nothing has been made or spent. Only after "
+            f"the user says ok: uv run ca calendar generate --week {label} --build (a carousel "
+            "then runs end to end with the make-carousel skill)"
         )
     if build and ready:
         lines.append(
@@ -436,6 +453,29 @@ def generate_rows(
             "without the user's yes)."
         )
     return lines, failed
+
+
+def mark_generated(settings: Settings, folder: Path) -> list[Path]:
+    """A finished package's Approved rows become Generated (any week); the changed calendar
+    files, for their Drive copies. The caller checks that the package is finished."""
+    target = folder.resolve()
+    changed: list[Path] = []
+    for path in sorted(settings.calendar_dir.glob("*.csv")):
+        try:
+            rows = read_calendar(path)
+        except CalendarError:
+            continue
+        hits = [
+            row for row in rows
+            if row["Package"] and row["Status"] == "Approved"
+            and Path(row["Package"]).resolve() == target
+        ]
+        for row in hits:
+            row["Status"] = "Generated"
+        if hits:
+            write_calendar(path, rows)
+            changed.append(path)
+    return changed
 
 
 def calendar_packages(settings: Settings) -> list[Path]:

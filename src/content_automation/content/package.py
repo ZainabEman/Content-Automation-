@@ -91,7 +91,13 @@ from content_automation.workflows.carousel_design import (
     slides_template,
     writer_help,
 )
-from content_automation.workflows.carousel_plugin import credits_dry_run, write_still_requests
+from content_automation.workflows.carousel_plugin import (
+    carousel_dir,
+    credits_dry_run,
+    load_plan,
+    planned_credits,
+    write_still_requests,
+)
 from content_automation.workflows.carousel_render import fit_problems
 from content_automation.workflows.design_system import (
     STEP_SEPARATOR,
@@ -171,6 +177,8 @@ class PackageItem(CamelModel):
     image_folders: list[str] = Field(default_factory=list)  # the job folder of each image
     cost_usd: float | None = None  # actual (provider-reported) where known, else the estimate
     est_cost_usd: float | None = None  # the estimate for the same jobs: shown beside the actual
+    subfolders: dict[str, str] = Field(default_factory=dict)  # file -> Drive subfolder
+    notes: list[str] = Field(default_factory=list)  # for the tracker (fallbacks, set check)
     error: str | None = None
     updated_at: datetime | None = None
 
@@ -213,6 +221,9 @@ class PackageResult:
     lines: list[str] = field(default_factory=list)
     package: ContentPackage | None = None
     estimated_usd: float | None = None  # dry run: the image cost still to spend
+    estimated_credits: float | None = None  # dry run: plugin credits (animated carousel)
+    max_credits: float | None = None  # with one retry per request: what the "ok" approves
+    usd_per_credit: float | None = None
 
 
 # ----------------------------------------------------------------------------- start
@@ -736,7 +747,18 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
         raise BriefError(problems)
     if dry_run:
         lines, total = _dry_run_lines(folder, brief, package, plans, settings)
-        return PackageResult(folder, lines, package, estimated_usd=total)
+        result = PackageResult(folder, lines, package, estimated_usd=total)
+        if brief.carousel is not None and is_animated(brief.carousel):
+            try:
+                design = load_carousel_design(settings.carousel_design_file)
+            except WorkflowError:
+                return result  # named in the dry run lines
+            slides = [slide.text() for slide in brief.carousel.slides]
+            result.estimated_credits, result.max_credits = planned_credits(
+                folder, slides, design
+            )
+            result.usd_per_credit = design.stills.usd_per_credit
+        return result
 
     lines = []
     check: list[str] = []
@@ -1509,7 +1531,7 @@ def _dry_run_lines(
 def _animated_dry_run(
     folder: Path, brief: ContentBrief, settings: Settings, name: str
 ) -> list[str]:
-    """The animated carousel: its stills (credits per slide, total, max); clips in Step 4."""
+    """The animated carousel: per slide the still and clip credits, the total and the max."""
     assert brief.carousel is not None
     slides = [slide.text() for slide in brief.carousel.slides]
     lines = [
@@ -1526,8 +1548,12 @@ def _animated_dry_run(
 def _carousel_stills(
     brief: ContentBrief, folder: Path, settings: Settings
 ) -> tuple[PackageItem, list[str]]:
-    """After the "ok": the still requests for Codex (written once) and the local stills."""
+    """After the "ok": the still requests for Codex (written once) and the local stills; once
+    `ca carousel render` is done, the finished part (see _carousel_done)."""
     assert brief.carousel is not None
+    plan = load_plan(folder)
+    if plan is not None and plan.stage == "done":
+        return _carousel_done(brief, folder, plan.fallbacks + plan.set_check_notes), []
     item = PackageItem(status="waiting", updated_at=datetime.now(UTC))
     slides = [slide.text() for slide in brief.carousel.slides]
     try:
@@ -1538,6 +1564,62 @@ def _carousel_stills(
         return item, []
     item.error = "stills and clips with Codex (make-carousel skill), then ca carousel render"
     return item, lines
+
+
+def _caption_file_text(brief: ContentBrief) -> str:
+    """caption.txt: the carousel's caption and hashtags, ready to paste."""
+    caption = brief.captions.get("instagram_carousel") or brief.caption or next(
+        iter(brief.captions.values()), None
+    )
+    parts = []
+    if caption is not None:
+        parts += [
+            caption.hook.strip(),
+            "\n".join(f"- {line.strip()}" for line in caption.takeaways),
+            caption.question.strip(),
+        ]
+    parts += [f"{brief.cta.strip()} {brief.link}", " ".join(brief.hashtags)]
+    return "\n\n".join(parts) + "\n"
+
+
+def _carousel_done(brief: ContentBrief, folder: Path, notes: list[str]) -> PackageItem:
+    """The rendered carousel as a finished part: the slide MP4s and PNGs and caption.txt for
+    the Drive folder, the raw stills for its originals/ subfolder, the notes for the tracker."""
+    final = carousel_dir(folder) / "final"
+    caption = final / "caption.txt"
+    atomic_write_text(caption, _caption_file_text(brief))
+    shown = sorted(final.glob("slide_*.mp4")) + sorted(final.glob("slide_*.png")) + [caption]
+    stills = sorted((carousel_dir(folder) / "stills").glob("still_*.png"))
+    relative = [path.relative_to(folder).as_posix() for path in [*shown, *stills]]
+    return PackageItem(
+        status="done",
+        files=relative,
+        subfolders={path.relative_to(folder).as_posix(): "originals" for path in stills},
+        notes=notes,
+        updated_at=datetime.now(UTC),
+    )
+
+
+def finish_carousel(folder: Path, settings: Settings) -> ContentPackage:
+    """After `ca carousel render`: the carousel part is done, the package status and post.md
+    are updated. The brief was checked by the dry run before the "ok", so it is only read."""
+    raw = json.loads((folder / BRIEF_FILE).read_text(encoding="utf-8"))
+    brief = ContentBrief.model_validate(
+        {key: value for key, value in raw.items() if not str(key).startswith("_")}
+    )
+    plan = load_plan(folder)
+    if brief.carousel is None or plan is None or plan.stage != "done":
+        raise BriefError(
+            [f'the carousel is not rendered yet: uv run ca carousel render "{folder}"']
+        )
+    package = _load(folder, brief)
+    package.items["carousel"] = _carousel_done(brief, folder, plan.fallbacks + plan.set_check_notes)
+    package.status = _status(brief, package)
+    saved = load_articles(settings.research_dir, datetime.min.replace(tzinfo=UTC))
+    articles = {article.article_id: article for article in saved}
+    atomic_write_text(folder / POST_FILE, _post_markdown(brief, package, articles))
+    _save(folder, package)
+    return package
 
 
 def carousel_slide_texts(folder: Path) -> list[SlideText]:

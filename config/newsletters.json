@@ -1,5 +1,6 @@
 {
-  "about": "Gmail newsletters for the show-content skill (Codex). The search query is exactly label:<label> newer_than:<days>d, with no in:inbox, is:unread or category filters: filtered newsletters may be archived and already read.",
+  "about": "Gmail newsletters for the show-content skill (Codex). Only this account is read: Codex picks this account's Gmail plugin connection and never searches the others. The query is exactly label:<label> deliveredto:<account> newer_than:<days>d, with no in:inbox, is:unread or category filters: filtered newsletters may be archived and already read.",
+  "account": "brandedgenius.de@gmail.com",
   "label": "Newsletters",
   "days": 30
 }

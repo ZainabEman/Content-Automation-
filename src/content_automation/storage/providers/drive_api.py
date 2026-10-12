@@ -57,6 +57,7 @@ MIME_TYPES = {
     ".webp": "image/webp",
     ".mp4": "video/mp4",
     ".csv": "text/csv",
+    ".txt": "text/plain",
 }
 COPY_LOCK = "Read-only copy made by Content Automation; it is replaced on every update."
 TRACKER_NOT_SET_UP = "Content Tracker not set up — run ca drive setup"
@@ -150,17 +151,26 @@ class DriveStorage:
         meta = self._run(self._service.files().get(fileId=root, fields="webViewLink"))
         return str(meta["webViewLink"])
 
-    def upload(self, file: Path, platform: str, content_id: str) -> Uploaded:
+    def upload(
+        self, file: Path, platform: str, content_id: str, subfolder: str | None = None
+    ) -> Uploaded:
         name = platform_folder(platform)
         parent = self._state.folders.get(name)
         if not parent:
             raise StorageNotSetUpError(NOT_SET_UP)
         key = f"{name}/{content_id}"
-        folder = self._folder(self._state.content_folders.get(key, ""), content_id, parent)
+        folder = self._content_folder(key, content_id, parent)
+        if subfolder:
+            folder = self._content_folder(f"{key}/{subfolder}", subfolder, folder)
+        return self._put(file, folder, self._find(file.name, folder))
+
+    def _content_folder(self, key: str, name: str, parent: str) -> str:
+        """A content folder (or its subfolder), remembered in drive_state.json by key."""
+        folder = self._folder(self._state.content_folders.get(key, ""), name, parent)
         if self._state.content_folders.get(key) != folder:
             self._state.content_folders[key] = folder
             self._save_state()
-        return self._put(file, folder, self._find(file.name, folder))
+        return folder
 
     def upload_calendar(self, file: Path) -> Uploaded:
         parent = self._state.folders.get(CALENDAR_FOLDER)

@@ -1,6 +1,6 @@
 ---
 name: manage-items
-description: Show and decide Branded Genius content items by their BG ID (BG-007) with the `ca item`, `ca audit`, `ca jobs` and `ca auth` commands: list items, show one item's status and history, approve, reject, revise or resubmit, show the audit log, failed or unfinished jobs and the authorizations. Use for "show items", "what's pending", "status BG-x", "approve BG-x [BG-y]", "reject BG-x <reason>", "revise BG-x <feedback>", "resubmit BG-x", "history of BG-x", "show audit log", "what failed", "unfinished jobs", "resume unfinished jobs" or "show authorizations". Free; nothing here spends money.
+description: Show and decide Branded Genius content items by their BG ID (BG-007) with the `ca item`, `ca audit`, `ca jobs` and `ca auth` commands: list items, show one item's status and history, approve, reject, revise or resubmit, show the audit log, failed or unfinished jobs and the authorizations. Use for "show items", "what's pending", "status BG-x", "approve BG-x [BG-y]", "reject BG-x <reason>", "revise BG-x <feedback>", "resubmit BG-x", "history of BG-x", "show audit log", "what failed", "unfinished jobs", "resume unfinished jobs", "show authorizations" or "tracker conflicts". Free; nothing here spends money.
 ---
 
 # Manage items
@@ -24,6 +24,7 @@ Every item has a BG ID (BG-007). Accept a BG ID, a Content ID (2026-W42-03), a p
 | "unfinished jobs" | `uv run ca jobs list --unfinished` (stale jobs are marked "stale") |
 | "resume unfinished jobs" | `uv run ca jobs resume [BG-x]`: a carousel prints its next step (follow make-carousel); other job types say "not resumable yet" |
 | "show authorizations" | `uv run ca auth list` (`--open` for the open ones): spent of max per provider |
+| "tracker conflicts" | `uv run ca tracking conflicts`: hand-edited workflow cells, rows missing in the Sheet or the registry, duplicate IDs. Show them and ask per row; only on the user's word: `uv run ca tracking resolve <BG ID or Content ID> --keep-sheet` or `--use-registry` |
 
 Add `--gate idea` or `--gate review` only when the user names the gate. Without it `ca` picks the open gate (the idea gate first) and prints which gate changed.
 

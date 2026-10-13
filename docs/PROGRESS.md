@@ -48,7 +48,7 @@ v3 spec; plan in [docs/ROADMAP-v3.md](ROADMAP-v3.md), PRD in [docs/phases/PHASE-
 - [x] Step 2 – Item commands (list/status/approve/reject/revise/history) + audit show + manage-items skill + AGENTS.md.
 - [x] Step 3 – Jobs + authorizations + idempotency; wire in calendar generate, image generation, carousel, Drive upload.
 - [x] Step 4 – Calendar as a view (BG ID column, hand-edit guard) + the migration command.
-- [ ] Step 5 – Tracker columns + conflict report (mock).
+- [x] Step 5 – Tracker columns + conflict report (mock).
 - [ ] Step 6 – Remaining skill updates, ca help commands, docs, mock end-to-end run of §10, PROGRESS.md.
 
 ## Phase 10 test list (moved)

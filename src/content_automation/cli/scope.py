@@ -11,6 +11,7 @@ from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 
 from content_automation.content.deliverables import DeliverableError, load_deliverables
+from content_automation.content.tracking import load_registry_columns
 from content_automation.core.config import Settings
 from content_automation.registry import db_path, open_registry
 from content_automation.registry.audit import append_event
@@ -47,7 +48,8 @@ def registry_scope(settings: Settings, command: str) -> Iterator[Scope]:
         raise RegistryError(f"Registry not usable: {error}") from None
     try:
         scope = Scope(conn=conn, config=load_job_config(settings.jobs_file), command=command,
-                      part_of=part_map(settings))
+                      part_of=part_map(settings),
+                      tracker_columns=load_registry_columns(settings.tracker_file))
         append_event(conn, "command_run", actor="user", command=command)
         with activate(scope):
             yield scope

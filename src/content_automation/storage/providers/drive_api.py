@@ -210,6 +210,17 @@ class DriveStorage:
         title = _a1_title(tab["title"])
         data = [{"range": f"{title}!{_a1_cell(cell.row, cell.column)}", "values": [[cell.value]]}
                 for cell in cells]
+        needed = max([cell.column + 1 for cell in cells] + [len(row) for row in rows] + [0])
+        columns = int(tab.get("gridProperties", {}).get("columnCount", 26))
+        if needed > columns:  # registry columns appended after the existing ones: widen first
+            self._run(self._sheets().spreadsheets().batchUpdate(
+                spreadsheetId=self._tracker_id(),
+                body={"requests": [{"appendDimension": {
+                    "sheetId": int(tab.get("sheetId", 0)), "dimension": "COLUMNS",
+                    "length": needed - columns,
+                }}]},
+            ))
+            self._tab_cache = None
         if rows:
             start = self._rows_read or 1  # 0-based index of the first new row
             grid = int(tab.get("gridProperties", {}).get("rowCount", 0))
@@ -314,7 +325,8 @@ class DriveStorage:
             return self._tab_cache
         meta = self._run(self._sheets().spreadsheets().get(
             spreadsheetId=self._tracker_id(),
-            fields="sheets.properties(sheetId,title,gridProperties.rowCount)",
+            fields="sheets.properties(sheetId,title,gridProperties.rowCount,"
+                   "gridProperties.columnCount)",
         ))
         tabs = [sheet["properties"] for sheet in meta.get("sheets", [])]
         if not tabs:

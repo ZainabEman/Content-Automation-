@@ -30,10 +30,18 @@ Decisions: B4-10 … B4-24 (PRD "Decisions taken during build")
 Needs review: B4-10 make-content request approves the idea; B4-11 legacy packages approved at build; B4-14 `ca video --authorize` added; B4-15 video credit estimates (client to confirm); B4-16 estimate charged when no actual; B4-22 generated from the pipeline, not "all jobs succeeded"; B4-23 no auto-close of authorizations.
 
 ## 2026-10-13 19:15 — Phase 4 Step 4: calendar as a view + migration — DONE
-Commit: pending   Tests: 283/283
+Commit: e277f7a   Tests: 283/283
 Built: calendar CSV view: new header (Row, BG ID, …, Status, Version, Package, Content ID), old 9-column header still read; Status from the registry (D-9 mapping); hand-edit guard with a unified diff (written_files, migration 4); `ca calendar sync --week W --discard-edits|--import-edits` (Topic and Planned date only, logged).
 Built: `calendar new` registers every row (BG IDs, Content ID aliases); `--replace` rejects the old items ("replaced") and moves the Content ID (D-11); approve/reject through the registry with BG IDs echoed (D-12), `reject --reason`.
 Built: `ca registry migrate [--dry-run]` (registry/migrate.py + content/migration.py): calendar CSVs, packages v1/v2, carousel.json, drive_state.json (count only), mock tracker; backup first, oldest first, aliases, §9 mapping, migration_run, old CSVs rewritten; idempotent; created/skipped/unreadable report. Fixtures in tests/fixtures/migration/ (D-18).
 Built: real local data, `ca registry migrate --dry-run`: 10 would be created, 0 skipped, 0 unreadable, 1 note (v1 post for Instagram without a deliverable). Skills make-calendar + AGENTS.md updated.
 Decisions: B4-25 … B4-33
 Needs review: B4-26 calendar reject without a reason still works; B4-29 migration mapping for in-progress/failed parts and v1 deliverables; B4-30 migrated approvals recorded as the user's.
+
+## 2026-10-13 19:24 — Phase 4 Step 5: tracker columns + last-written values + conflict report (mock) — DONE
+Commit: pending   Tests: 291/291
+Built: registry columns BG ID, Version, Idea/Generation/Review/Upload status, Last updated (config/tracker.json, client to confirm), appended after the existing columns; rows match by BG ID, then Content ID, and the BG ID is filled in (D-13, D-14).
+Built: last-written value per cell (registry tracker_cells, migration 5); a hand-edited workflow cell makes its row a conflict (not written, conflict_found logged); tracker_synced per row; manager columns never written.
+Built: `ca tracking conflicts [--json]` (hand edits, rows missing on either side, duplicate IDs) and `ca tracking resolve <ID> --keep-sheet|--use-registry`; Drive folder = Content ID else BG ID; mock uploads "uploaded (mock)" (D-16); Drive adapter widens the Sheet (fake Sheets client test).
+Decisions: B4-34 … B4-39
+Needs review: B4-34 one row per package with several BG IDs; B4-35 registry columns appended at the end; column names (client to confirm).

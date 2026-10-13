@@ -130,8 +130,10 @@ from content_automation.storage import (
     SyncResult,
     export_tracker,
     get_storage,
+    resolve_tracker,
     sync_calendar,
     sync_package,
+    tracker_conflicts,
     tracker_lines,
 )
 from content_automation.workflows.carousel_design import load_carousel_design
@@ -1635,6 +1637,62 @@ def tracking_show() -> None:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from None
     typer.echo(f"Content Tracker ({settings.storage_provider}): {link}")
+    for line in lines:
+        typer.echo(line)
+
+
+@tracking_app.command("conflicts")
+def tracking_conflicts(
+    as_json: Annotated[bool, typer.Option("--json", help="Print JSON (for skills).")] = False,
+) -> None:
+    """Hand-edited workflow cells, rows missing in the Sheet or in the registry, duplicate IDs
+    ("tracker conflicts"). Nothing is written."""
+    _utf8_output()
+    settings = _settings(check_keys=False)
+    with _registry(settings, "ca tracking conflicts"):
+        try:
+            conflicts = tracker_conflicts(get_storage(settings))
+        except (StorageNotSetUpError, StorageError, TrackerError) as error:
+            typer.echo(str(error), err=True)
+            raise typer.Exit(code=1) from None
+    if as_json:
+        typer.echo(json.dumps([asdict(conflict) for conflict in conflicts], ensure_ascii=False))
+        return
+    if not conflicts:
+        typer.echo(f"Content Tracker ({settings.storage_provider}): no conflicts.")
+        return
+    typer.echo(f"Content Tracker ({settings.storage_provider}): {len(conflicts)} conflict(s):")
+    for conflict in conflicts:
+        typer.echo(f"- {conflict.line()}")
+    typer.echo("Decide per row: uv run ca tracking resolve <BG ID or Content ID> --keep-sheet "
+               "or --use-registry")
+
+
+@tracking_app.command("resolve")
+def tracking_resolve(
+    ref: Annotated[str, typer.Argument(help="The row: a BG ID or Content ID.")],
+    keep_sheet: Annotated[
+        bool, typer.Option("--keep-sheet", help="Keep the hand edits in the Sheet.")
+    ] = False,
+    use_registry: Annotated[
+        bool, typer.Option("--use-registry", help="Write the registry's values over them.")
+    ] = False,
+) -> None:
+    """Settle a hand-edited tracker row: keep the Sheet's values, or write the registry's."""
+    _utf8_output()
+    if keep_sheet == use_registry:
+        typer.echo("Give exactly one of --keep-sheet or --use-registry.", err=True)
+        raise typer.Exit(code=2)
+    settings = _settings(check_keys=False)
+    with _registry(settings, f"ca tracking resolve {ref} "
+                   + ("--keep-sheet" if keep_sheet else "--use-registry")):
+        try:
+            catalog = load_deliverables(settings.deliverables_file)
+            lines = resolve_tracker(get_storage(settings), catalog, ref, keep_sheet=keep_sheet)
+        except (StorageNotSetUpError, StorageError, TrackerError, DeliverableError,
+                OSError, ValueError) as error:
+            typer.echo(str(error), err=True)
+            raise typer.Exit(code=1) from None
     for line in lines:
         typer.echo(line)
 

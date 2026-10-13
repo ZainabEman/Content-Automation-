@@ -215,11 +215,24 @@ CREATE TABLE written_files (
 );
 """
 
+# The last value written to each workflow cell of the Content Tracker (D-15).
+SCHEMA_5 = """
+CREATE TABLE tracker_cells (
+    row_key TEXT NOT NULL,
+    column_name TEXT NOT NULL,
+    written TEXT NOT NULL,
+    source TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (row_key, column_name)
+);
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "registry core", SCHEMA_1),
     Migration(2, "item deliverable", SCHEMA_2),
     Migration(3, "jobs, redo and authorization groups", SCHEMA_3),
     Migration(4, "written view files", SCHEMA_4),
+    Migration(5, "tracker last-written cells", SCHEMA_5),
 )
 
 _SCHEMA_TABLE = """

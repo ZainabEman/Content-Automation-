@@ -182,3 +182,9 @@ IDs B4-n; each is also listed under "Needs review" in docs/autorun/LOG.md.
 - B4-31 (Step 4) The migration report lists mock tracker rows that match no calendar row or package (not migrated; Step 5's conflict report covers them) and only the number of Drive folders in drive_state.json (its content is never printed).
 - B4-32 (Step 4) The drive_state fixture lives in tests/fixtures/migration/secrets-fake/ (no .secrets/ path is ever committed; the tests point SECRETS_DIR at it).
 - B4-33 (Step 4) registry/__init__ imports the schema migration as migrate_schema: the new registry.migrate module would otherwise shadow it.
+- B4-34 (Step 5) Tracker rows stay one per package (as before). The BG ID cell lists the package's items ("BG-007, BG-008"); a status cell shows "BG-007 x; BG-008 y" when they differ.
+- B4-35 (Step 5) The registry columns are appended after the existing columns (old and new Sheets alike), so no manager column moves; their names come from config/tracker.json (client to confirm).
+- B4-36 (Step 5) Per cell the registry keeps the written value and the registry value behind it. `--keep-sheet` stores the Sheet's value as the written one, so it stays until the registry value changes; `--use-registry` writes the registry's values over the row. A row with no record yet (written before the registry) is updated as before.
+- B4-37 (Step 5) D-13: the Drive folder is the Content ID, else the BG ID of the package's first item, else (not registered) the package folder name; the tracker row key stays the Content ID (or the package folder name).
+- B4-38 (Step 5) `set_upload` changes updated_at only when the upload provider changes, so "Last updated" does not move on every sync.
+- B4-39 (Step 5) The Drive adapter widens the Sheet (appendDimension COLUMNS) when the appended columns pass its column count; tested only with a fake Sheets client.

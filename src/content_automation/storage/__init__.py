@@ -34,18 +34,26 @@ from content_automation.content.tracking import (
     PLATFORM_NAMES,
     TRACKER_NAME,
     Cell,
+    Conflict,
     Entry,
     Table,
     TrackerError,
+    find_conflicts,
+    header_index,
     plan_upsert,
+    row_index,
     table_csv,
     tracker_entry,
 )
 from content_automation.core.config import Settings
 from content_automation.core.files import atomic_write_text
 from content_automation.registry import runtime
+from content_automation.registry.audit import append_event
 from content_automation.registry.db import RegistryError
-from content_automation.registry.progress import upload_target
+from content_automation.registry.ids import resolve
+from content_automation.registry.items import get_item
+from content_automation.registry.progress import upload_label, upload_target
+from content_automation.registry.tracker import CellRecord, last_cells, record_cells
 
 ROOT_FOLDER = "Content Automation"
 PLATFORM_FOLDERS = PLATFORM_NAMES  # platform -> folder name (and the tracker's Platform)
@@ -153,7 +161,7 @@ def sync_package(folder: Path, storage: Storage, catalog: DeliverableCatalog) ->
     subfolders = {
         name: sub for item in package.items.values() for name, sub in item.subfolders.items()
     }
-    content_id = package.content_id or package.package_id
+    content_id = drive_folder_name(folder, package)
     where = f"{platform_folder(package.platform)}/{content_id}"
     result = SyncResult()
     if not names:
@@ -212,10 +220,48 @@ def sync_package(folder: Path, storage: Storage, catalog: DeliverableCatalog) ->
     else:
         try:
             link = storage.folder_link(package.platform, content_id)
-            result.entry = tracker_entry(folder, package, catalog, link)
+            result.entry = tracker_entry(folder, package, catalog, link) | registry_cells(folder)
         except (StorageError, TrackerError) as error:
             result.waiting = str(error)
     return result
+
+
+def drive_folder_name(folder: Path, package: ContentPackage) -> str:
+    """The Drive folder (D-13): the Content ID, else the BG ID of the package's first item,
+    else (not registered) the package folder name."""
+    if package.content_id:
+        return package.content_id
+    items = runtime.package_items(folder)
+    first = sorted(items.values(), key=lambda bg: int(bg.split("-")[1]))[:1]
+    return first[0] if first else package.package_id
+
+
+def registry_cells(folder: Path) -> Entry:
+    """The registry columns of a package's tracker row (D-14, D-16); empty outside a command."""
+    scope = runtime.current()
+    if scope is None or not scope.tracker_columns:
+        return {}
+    ids = sorted(runtime.package_items(folder).values(), key=lambda bg: int(bg.split("-")[1]))
+    items = [get_item(scope.conn, item_id) for item_id in ids]
+    if not items:
+        return {}
+
+    def joined(values: list[str]) -> str:
+        if len(set(values)) == 1:
+            return values[0]
+        return "; ".join(f"{item.id} {value}" for item, value in zip(items, values, strict=True))
+
+    names = scope.tracker_columns
+    updated = max(item.updated_at for item in items)
+    return {
+        names["bg_id"]: ", ".join(item.id for item in items),
+        names["version"]: joined([f"v{item.current_version}" for item in items]),
+        names["idea"]: joined([item.idea_status for item in items]),
+        names["generation"]: joined([item.generation_status for item in items]),
+        names["review"]: joined([item.review_status for item in items]),
+        names["upload"]: joined([upload_label(item, item.upload_provider) for item in items]),
+        names["updated"]: f"{updated[:10]} {updated[11:16]} UTC",
+    }
 
 
 def _file_items(folder: Path, package: ContentPackage) -> dict[str, str]:
@@ -268,15 +314,112 @@ def failure_lines(folder: Path, failed: list[str]) -> list[str]:
 
 
 def update_tracker(storage: Storage, entries: list[Entry]) -> str:
-    """Upsert the rows into the Content Tracker; one line.
+    """Upsert the rows into the Content Tracker; one line. Inside a `ca` command the registry
+    columns are added, the written cells are remembered and a hand-edited row is a conflict
+    (not written, conflict_found logged).
 
     Raises StorageError, StorageNotSetUpError (no tracker yet) or TrackerError (header).
     """
-    plan = plan_upsert(storage.read_tracker(), entries)
+    scope = runtime.current()
+    extra = tuple(scope.tracker_columns.values()) if scope is not None else ()
+    last = last_cells(scope.conn) if scope is not None else {}
+    plan = plan_upsert(storage.read_tracker(), entries, last, extra)
     if plan.cells or plan.rows:
         storage.write_tracker(plan.cells, plan.rows)
+    if scope is not None:
+        record_cells(scope.conn, plan.records)
+        bg_column = extra[0] if extra else ""
+        owners = {entry["Content ID"]: _first_id(entry.get(bg_column, "")) for entry in entries}
+        for conflict in plan.conflicts:
+            append_event(scope.conn, "conflict_found", command=scope.command,
+                         item_id=owners.get(conflict.key),
+                         details={"row": conflict.key, "kind": conflict.kind,
+                                  "detail": conflict.detail})
+        for key in (*plan.added, *plan.updated):
+            append_event(scope.conn, "tracker_synced", command=scope.command,
+                         item_id=owners.get(key),
+                         details={"row": key, "change": "added" if key in plan.added
+                                  else "updated", "provider": storage.name})
+    conflicts = (f", {len(plan.conflicts)} not written (conflicts: ca tracking conflicts)"
+                 if plan.conflicts else "")
     return (f"Tracker ({storage.name}): {len(plan.added)} added, {len(plan.updated)} updated, "
-            f"{plan.unchanged} unchanged: {storage.tracker_link()}")
+            f"{plan.unchanged} unchanged{conflicts}: {storage.tracker_link()}")
+
+
+def _first_id(text: str) -> str | None:
+    first = text.split(",")[0].strip()
+    return first or None
+
+
+def tracker_conflicts(storage: Storage) -> list[Conflict]:
+    """`ca tracking conflicts`: hand edits, rows missing on either side, duplicate IDs."""
+    scope = runtime.current()
+    if scope is None:
+        raise StorageError("the conflict report needs the registry")
+    extra = tuple(scope.tracker_columns.values())
+    known = {str(row["id"]) for row in scope.conn.execute("SELECT id FROM items")}
+    known |= {str(row["alias"]) for row in scope.conn.execute("SELECT alias FROM aliases")}
+    expected: dict[str, set[str]] = {}
+    for row in scope.conn.execute("SELECT id, package_path FROM items WHERE upload_status = "
+                                  "'uploaded' AND package_path IS NOT NULL"):
+        folder = Path(str(row["package_path"]))
+        try:
+            package = load_package(folder)
+        except (OSError, ValueError):
+            continue
+        key = package.content_id or package.package_id
+        expected.setdefault(key, set()).add(str(row["id"]))
+    return find_conflicts(storage.read_tracker(), last_cells(scope.conn), expected, known, extra)
+
+
+def resolve_tracker(storage: Storage, catalog: DeliverableCatalog, ref: str, *,
+                    keep_sheet: bool) -> list[str]:
+    """`ca tracking resolve`: keep the Sheet's hand edits (they become the written values) or
+    write the registry's values over them."""
+    scope = runtime.current()
+    if scope is None:
+        raise StorageError("resolving needs the registry")
+    item = get_item(scope.conn, resolve(scope.conn, ref))
+    if item.package_path is None:
+        raise StorageError(f"{item.id} has no package, so no tracker row.")
+    folder = Path(item.package_path)
+    package = load_package(folder)
+    key = package.content_id or package.package_id
+    table = storage.read_tracker()
+    extra = tuple(scope.tracker_columns.values())
+    header = header_index(table)
+    by_content, by_bg = row_index(table, extra[0] if extra else None)
+    rows = sorted(set(by_bg.get(item.id, [])) | set(by_content.get(key, [])))
+    if len(rows) != 1:
+        raise StorageError(f"{key}: {'no' if not rows else 'several'} tracker rows; fix the "
+                           "Sheet first (ca tracking conflicts).")
+    row = table[rows[0]]
+    records = last_cells(scope.conn).get(key, {})
+
+    def shown(name: str) -> str:
+        column = header.get(name)
+        return row[column] if column is not None and column < len(row) else ""
+
+    if keep_sheet:
+        kept = {name: CellRecord(shown(name), record.source) for name, record in records.items()
+                if name in header and shown(name) != record.written}
+        record_cells(scope.conn, {key: kept})
+        lines = [f"{key}: kept the Sheet's values for {', '.join(kept) or 'no cell'}; they stay "
+                 "until the registry value changes."]
+    else:
+        link = storage.folder_link(package.platform, drive_folder_name(folder, package))
+        entry = tracker_entry(folder, package, catalog, link) | registry_cells(folder)
+        cells = [Cell(rows[0], header[name], value) for name, value in entry.items()
+                 if name in header and name != "Content ID" and shown(name) != value]
+        if cells:
+            storage.write_tracker(cells, [])
+        record_cells(scope.conn, {key: {name: CellRecord(value, value)
+                                        for name, value in entry.items()}})
+        lines = [f"{key}: wrote the registry's values over {len(cells)} cell(s)."]
+    append_event(scope.conn, "tracker_synced", command=scope.command, item_id=item.id,
+                 details={"row": key, "resolved": "keep-sheet" if keep_sheet
+                          else "use-registry"})
+    return lines
 
 
 def tracker_lines(storage: Storage, results: list[tuple[Path, SyncResult]]) -> list[str]:

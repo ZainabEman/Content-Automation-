@@ -98,6 +98,7 @@ class Settings(BaseSettings):
     state_dir: Path = Path("state")  # registry.db, backups, dry runs: git-ignored
     registry_file: Path = Path("config/registry.json")  # the first BG number (next_id)
     jobs_file: Path = Path("config/jobs.json")  # free providers, units, timeouts, estimates
+    tracker_file: Path = Path("config/tracker.json")  # the registry's tracker column names
 
     def summary_lines(self) -> tuple[str, ...]:
         """Return non-secret settings suitable for local CLI output."""

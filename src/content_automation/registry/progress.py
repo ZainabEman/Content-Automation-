@@ -117,8 +117,9 @@ def set_upload(conn: sqlite3.Connection, item_id: str, target: str, provider: st
             if item.upload_status in ("uploaded",):
                 path = []  # an uploaded item stays uploaded (new files: Phase 7)
             item = _walk(conn, item, path, "upload", actor, command)
-        conn.execute("UPDATE items SET upload_provider = ?, updated_at = ? WHERE id = ?",
-                     (provider, now(), item_id))
+        if item.upload_provider != provider:
+            conn.execute("UPDATE items SET upload_provider = ?, updated_at = ? WHERE id = ?",
+                         (provider, now(), item_id))
         return get_item(conn, item_id)
 
 

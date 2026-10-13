@@ -47,6 +47,7 @@ class Scope:
     authorizations: list[int] = field(default_factory=list)  # created by this command
     run_id: str = field(default_factory=lambda: secrets.token_hex(4))
     item: str | None = None  # the item whose jobs are being made now (for_item)
+    tracker_columns: dict[str, str] = field(default_factory=dict)  # key -> tracker column
 
 
 _SCOPE: ContextVar[Scope | None] = ContextVar("registry_scope", default=None)

@@ -154,9 +154,61 @@ BEGIN SELECT RAISE(ABORT, 'the audit log is append-only'); END;
 # The deliverable an item was made for (PRD §14 D-1: one item per package and deliverable).
 SCHEMA_2 = "ALTER TABLE items ADD COLUMN deliverable TEXT;"
 
+# Jobs (§14 D-5, D-6): item-less jobs (`ca image`, `ca video`), cancelled, base_key + redo_n
+# (a deliberate redo is a new job), a rejected result (person or set check, carousel check).
+# Authorizations grouped by their dry run (D-4); the upload provider of an item (D-16).
+SCHEMA_3 = """
+CREATE TABLE jobs_v3 (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id TEXT REFERENCES items (id),
+    version INTEGER,
+    job_type TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    base_key TEXT NOT NULL,
+    redo_n INTEGER NOT NULL DEFAULT 0,
+    idempotency_key TEXT NOT NULL,
+    inputs TEXT NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL
+        CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'cancelled')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 1,
+    estimate REAL,
+    actual REAL,
+    unit TEXT CHECK (unit IN ('usd', 'credits')),
+    authorization_id INTEGER REFERENCES authorizations (id),
+    result_path TEXT,
+    error TEXT,
+    rejected_at TEXT,
+    reject_reason TEXT,
+    timeout_seconds INTEGER,
+    created_at TEXT NOT NULL,
+    started_at TEXT,
+    finished_at TEXT,
+    updated_at TEXT NOT NULL
+);
+INSERT INTO jobs_v3 (id, item_id, version, job_type, provider, base_key, redo_n,
+    idempotency_key, inputs, status, attempts, max_attempts, estimate, actual, unit,
+    authorization_id, result_path, error, timeout_seconds, created_at, started_at, finished_at,
+    updated_at)
+SELECT id, item_id, version, job_type, provider, idempotency_key, 0, idempotency_key, inputs,
+    status, attempts, max_attempts, estimate, actual, unit, authorization_id, result_path, error,
+    timeout_seconds, created_at, started_at, finished_at, updated_at FROM jobs;
+DROP TABLE jobs;
+ALTER TABLE jobs_v3 RENAME TO jobs;
+CREATE INDEX jobs_key ON jobs (idempotency_key);
+CREATE INDEX jobs_base ON jobs (base_key);
+CREATE INDEX jobs_item ON jobs (item_id);
+ALTER TABLE authorizations ADD COLUMN dryrun_id TEXT;
+ALTER TABLE authorizations ADD COLUMN closed_at TEXT;
+ALTER TABLE authorizations ADD COLUMN note TEXT;
+CREATE INDEX authorizations_dryrun ON authorizations (dryrun_id);
+ALTER TABLE items ADD COLUMN upload_provider TEXT;
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "registry core", SCHEMA_1),
     Migration(2, "item deliverable", SCHEMA_2),
+    Migration(3, "jobs, redo and authorization groups", SCHEMA_3),
 )
 
 _SCHEMA_TABLE = """

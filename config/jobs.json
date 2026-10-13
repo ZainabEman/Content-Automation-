@@ -1,0 +1,27 @@
+{
+  "_note": "Registry jobs (PRD Phase 4 §14 D-4..D-6): dry-run expiry, free providers (no authorization needed), the unit each paid provider is charged in, per-type timeouts (a running job past it is stale), and the credit estimates of video scenes.",
+  "dryrun_expiry_hours": 24,
+  "free_providers": ["mock", "local", "ffmpeg", "library", "none", "drive", "sheets"],
+  "units": {
+    "openrouter": "usd",
+    "comfyui": "usd",
+    "elevenlabs": "usd",
+    "higgsfield-plugin": "credits",
+    "heygen-plugin": "credits"
+  },
+  "timeouts_seconds": {
+    "image": 900,
+    "still": 3600,
+    "clip": 3600,
+    "video_scene": 3600,
+    "avatar_scene": 3600,
+    "upload": 600,
+    "tracker_write": 300,
+    "default": 3600
+  },
+  "estimates": {
+    "_note": "client to confirm: credits per video scene in the Higgsfield and HeyGen Codex plugins (placeholders; the plugins report the real credits, which are recorded per job)",
+    "video_scene": {"higgsfield-plugin": 35},
+    "avatar_scene": {"heygen-plugin": 5}
+  }
+}

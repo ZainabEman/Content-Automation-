@@ -43,6 +43,9 @@ from content_automation.content.package import (
 from content_automation.content.research_input import ResearchFile, ResearchIdea, load_idea
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
+from content_automation.registry import runtime
+from content_automation.registry.dryruns import CostLine
+from content_automation.registry.link import register_row
 from content_automation.research.run import digest
 from content_automation.research.store import find_article
 
@@ -338,12 +341,14 @@ def generate_rows(
     *,
     build: bool,
     after_build: Callable[[Path], list[str]] | None = None,
+    costs: list[CostLine] | None = None,
 ) -> tuple[list[str], list[str]]:
     """Stage 1 and the combined dry run, or (build) the build of every ready row.
 
     after_build runs for each package the build finished (the Drive sync); its lines are
     shown under the row. Returns the lines for Codex and the failed rows (reported at the
-    end, never retried).
+    end, never retried). Inside a `ca` command each Approved row is a registry item (created
+    from the row if needed) and the dry run's cost lines are added to `costs`.
     """
     path = calendar_path(settings, label)
     problems = check_calendar(path, label, catalog, settings.research_dir)
@@ -363,6 +368,9 @@ def generate_rows(
     ready = 0
     for row in approved:
         where = f"Row {row['Row']} ({row['Planned date']}, {row['Content type']})"
+        item_id = _row_item(row, label, catalog)
+        if item_id:
+            where += f" {item_id}"
         if not row["Package"]:
             if build:
                 lines.append(f"{where}: no package yet; run generate without --build first.")
@@ -378,6 +386,7 @@ def generate_rows(
             row["Content ID"] = row["Content ID"] or f"{label}-{int(row['Row']):02d}"
             write_calendar(path, rows)
             _save_row_link(started.folder, row)
+            _row_item(row, label, catalog)  # links the item to its new package
             lines.append(f"{where}: package started, {row['Package']}")
             lines += [f"  {line}" for line in started.lines]
             continue
@@ -387,6 +396,7 @@ def generate_rows(
         if state == "done":
             row["Status"] = "Generated"
             write_calendar(path, rows)
+            runtime.report_part(item_id, "done")
             lines.append(f"{where}: Generated ({folder})")
         elif state == "failed":
             failed.append(
@@ -410,6 +420,8 @@ def generate_rows(
                 continue
             ready += 1
             total += result.estimated_usd or 0.0
+            if costs is not None and not build:
+                costs += result.cost_lines
             cost = f"about ${result.estimated_usd:.3f}" if not build else "built"
             if not build and result.estimated_credits:
                 rate = result.usd_per_credit or 0.0
@@ -453,6 +465,37 @@ def generate_rows(
             "without the user's yes)."
         )
     return lines, failed
+
+
+def _row_item(row: Row, label: str, catalog: DeliverableCatalog) -> str | None:
+    """The row's BG ID inside a `ca` command (the row is registered if it was not yet)."""
+    scope = runtime.current()
+    spec = catalog.deliverables.get(row["Content type"])
+    if scope is None or spec is None:
+        return None
+    item, _ = register_row(scope.conn, row, label, kind=spec.item_kind, platform=spec.platform,
+                           command=scope.command)
+    return item.id
+
+
+def ready_cost_lines(settings: Settings, catalog: DeliverableCatalog, label: str
+                     ) -> list[CostLine]:
+    """The cost lines of every Approved row whose package is ready to build (no stage 1, no
+    build): what `generate --build --authorize` checks against the saved dry run."""
+    path = calendar_path(settings, label)
+    lines: list[CostLine] = []
+    for row in read_calendar(path):
+        if row["Status"] != "Approved" or not row["Package"]:
+            continue
+        folder = Path(row["Package"])
+        if _package_state(folder)[0] != "ready":
+            continue
+        _row_item(row, label, catalog)
+        try:
+            lines += build_package(folder, settings, dry_run=True).cost_lines
+        except (OSError, ValueError):
+            continue
+    return lines
 
 
 def mark_generated(settings: Settings, folder: Path) -> list[Path]:

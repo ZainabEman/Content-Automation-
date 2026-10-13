@@ -25,6 +25,7 @@ from content_automation.registry.db import RegistryError
 from content_automation.registry.decisions import Gate
 from content_automation.registry.ids import resolve, resolve_row
 from content_automation.registry.items import Item, get_item, list_items
+from content_automation.registry.progress import upload_label
 from content_automation.registry.report import ItemReport, item_report
 from content_automation.registry.statuses import DIMENSIONS, Dimension
 from content_automation.registry.versions import resubmit, revise
@@ -221,7 +222,8 @@ def _report_lines(report: ItemReport) -> list[str]:
         f"Planned: {item.planned_date or '—'} · Platforms: {', '.join(item.platforms) or '—'} · "
         f"Package: {item.package_path or '—'}",
         f"Statuses: idea {item.idea_status} · generation {item.generation_status} · "
-        f"review {item.review_status} · upload {item.upload_status} · publication {pubs}",
+        f"review {item.review_status} · upload {upload_label(item, item.upload_provider)} · "
+        f"publication {pubs}",
         "Versions:",
     ]
     for version in report.versions:

@@ -97,6 +97,7 @@ class Settings(BaseSettings):
     drive_mock_dir: Path = Path("outputs/drive")  # STORAGE_PROVIDER=mock writes here
     state_dir: Path = Path("state")  # registry.db, backups, dry runs: git-ignored
     registry_file: Path = Path("config/registry.json")  # the first BG number (next_id)
+    jobs_file: Path = Path("config/jobs.json")  # free providers, units, timeouts, estimates
 
     def summary_lines(self) -> tuple[str, ...]:
         """Return non-secret settings suitable for local CLI output."""

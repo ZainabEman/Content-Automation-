@@ -14,11 +14,13 @@ from content_automation.ai.image import (
     get_provider,
 )
 from content_automation.core.config import Settings
-from content_automation.core.jobs import Job, JobParams, JobReference, create_job
+from content_automation.core.jobs import DETAILS_FILE, Job, JobParams, JobReference, create_job
 from content_automation.core.limits import check_daily_limit
 from content_automation.core.log import get_logger, mask_secrets, secret_values
 from content_automation.core.retry import call_with_retry
 from content_automation.references import asset_id_for
+from content_automation.registry import runtime
+from content_automation.registry.jobs import JobRecord, NotAuthorized, load_job_config
 from content_automation.workflows.logo import LogoOverlay, apply_logo
 from content_automation.workflows.text_overlay import TextOverlay, apply_text
 
@@ -81,11 +83,19 @@ def run_image_job(
     logo: pasted onto every image; the image without it (and without the text) is kept in raw/.
     Raises DailyLimitError before any job or provider call when the limit is hit.
     Mock images are free and do not count toward the limit.
+
+    Registry (§14 D-5, D-6): inside a `ca` command the image is a registry job of the current
+    item (or of this run for a direct `ca image`). The same request made before is reused (no
+    new call); a paid provider needs an open authorization with room, otherwise NotAuthorized or
+    BudgetExceeded is raised before anything is made.
     """
     if settings.image_provider != "mock":
         check_daily_limit(
             settings.output_dir, limit=settings.image_daily_limit, requested=request.count
         )
+    registered, reused = _registry_job(request, settings, workflow_id, inputs, cold_start)
+    if reused is not None:
+        return reused
     object_ids = [ref.asset_id for ref in request.object_refs]
     job = create_job(
         settings.output_dir,
@@ -172,6 +182,8 @@ def run_image_job(
     except KeyboardInterrupt:
         _remove(written)
         job.cancel()
+        if registered is not None:
+            runtime.fail(registered.id, "interrupted (Ctrl+C)")
         raise
     except Exception as error:
         _remove(written)
@@ -179,7 +191,64 @@ def run_image_job(
         job.actual_cost_usd = getattr(error, "cost_usd", None)
         job.fail(message)
         logger.error("Job %s failed: %s", job.job_id, message)
+    if registered is not None:
+        if job.status == "completed":
+            runtime.succeed(registered.id, actual=job.actual_cost_usd,
+                            result_path=job.folder.as_posix())
+        else:
+            runtime.fail(registered.id, job.error or "failed", actual=job.actual_cost_usd)
     return job
+
+
+def _job_inputs(
+    request: ImageRequest, settings: Settings, workflow_id: str,
+    inputs: dict[str, str | bool] | None,
+) -> dict[str, object]:
+    """What makes two image jobs the same (the idempotency key's inputs)."""
+    return {
+        "workflow": workflow_id, "prompt": request.prompt, "model": settings.image_model,
+        "aspect": request.aspect_ratio, "size": request.image_size, "count": request.count,
+        "identity": [ref.asset_id for ref in request.identity_refs],
+        "objects": [ref.asset_id for ref in request.object_refs],
+        "style": [ref.asset_id for ref in request.style_refs],
+        "inputs": dict(sorted((inputs or {}).items())),
+    }
+
+
+def _registry_job(
+    request: ImageRequest, settings: Settings, workflow_id: str,
+    inputs: dict[str, str | bool] | None, cold_start: bool,
+) -> tuple[JobRecord | None, Job | None]:
+    """(the started registry job, or a reused earlier Job); refuses a paid call without one."""
+    scope = runtime.current()
+    config = scope.config if scope is not None else load_job_config(settings.jobs_file)
+    provider = settings.image_provider
+    paid = config.paid(provider)
+    if scope is not None:
+        estimate = estimate_cost_usd(request, settings, cold_start=cold_start)
+        job_inputs = _job_inputs(request, settings, workflow_id, inputs)
+        unit = config.unit(provider) if paid else None
+        opened = runtime.open_scoped_job("image", provider, job_inputs, estimate=estimate,
+                                         unit=unit, direct=scope.item is None)
+        if opened is not None and opened.reused:
+            details = Path(opened.job.result_path or "") / DETAILS_FILE
+            try:
+                return None, Job.load(details)
+            except (OSError, ValueError):
+                runtime.reject(opened.job.id, f"the earlier result is missing ({details})")
+                opened = runtime.open_scoped_job("image", provider, job_inputs,
+                                                 estimate=estimate, unit=unit,
+                                                 direct=scope.item is None)
+        if opened is not None:
+            started = runtime.start(opened.job.id)
+            return started, None
+    if paid:
+        raise NotAuthorized(
+            f"Image jobs via {provider} cost money and run only under an authorization: run the "
+            "dry run, show the cost, and after the user's \"ok\" run with --authorize "
+            "<dryrun_id>."
+        )
+    return None, None
 
 
 def _remove(paths: list[Path]) -> None:

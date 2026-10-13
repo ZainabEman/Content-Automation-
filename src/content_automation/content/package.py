@@ -80,6 +80,10 @@ from content_automation.references import (
     load_company,
     load_set,
 )
+from content_automation.registry import runtime
+from content_automation.registry.db import RegistryError
+from content_automation.registry.dryruns import CostLine
+from content_automation.registry.jobs import JobConfig, load_job_config
 from content_automation.research.collectors import CollectorError
 from content_automation.research.models import SourceArticle, SourcesError
 from content_automation.research.run import collect, topic_digest, topic_note
@@ -96,6 +100,7 @@ from content_automation.workflows.carousel_plugin import (
     credits_dry_run,
     load_plan,
     planned_credits,
+    planned_split,
     write_still_requests,
 )
 from content_automation.workflows.carousel_render import fit_problems
@@ -156,7 +161,9 @@ _IMAGE_ERRORS = (
     BrandProfileError,
     DailyLimitError,
     ImageError,
+    RegistryError,  # not authorized, or over the authorization: nothing was made
 )
+CAROUSEL_PROVIDER = "higgsfield-plugin"  # the registry provider of carousel still/clip jobs
 
 # waiting = video steps are with Codex; review = an image waits for the person check
 ItemStatus = Literal["pending", "done", "waiting", "failed", "review"]
@@ -224,6 +231,7 @@ class PackageResult:
     estimated_credits: float | None = None  # dry run: plugin credits (animated carousel)
     max_credits: float | None = None  # with one retry per request: what the "ok" approves
     usd_per_credit: float | None = None
+    cost_lines: list[CostLine] = field(default_factory=list)  # dry run: per item and provider
 
 
 # ----------------------------------------------------------------------------- start
@@ -746,8 +754,9 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
     if problems:  # format rules, a stat without a research source, ...: nothing is made
         raise BriefError(problems)
     if dry_run:
-        lines, total = _dry_run_lines(folder, brief, package, plans, settings)
+        lines, total, image_costs = _dry_run_lines(folder, brief, package, plans, settings)
         result = PackageResult(folder, lines, package, estimated_usd=total)
+        result.cost_lines = _cost_lines(folder, brief, package, image_costs, settings)
         if brief.carousel is not None and is_animated(brief.carousel):
             try:
                 design = load_carousel_design(settings.carousel_design_file)
@@ -764,10 +773,13 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
     check: list[str] = []
     waiting: list[str] = []  # a warm batch: the checks of every part, after all are made
     batch = _batch(settings)
+    registered = runtime.package_items(folder)  # part -> BG ID (inside a `ca` command)
     for kind, plan in plans.items():
-        package.items[kind], check = _make_images(
-            kind, plan, folder, settings, package.items.get(kind), batch
-        )
+        with runtime.for_item(registered.get(kind)):
+            package.items[kind], check = _make_images(
+                kind, plan, folder, settings, package.items.get(kind), batch
+            )
+        _report(registered.get(kind), package.items[kind])
         lines.append(_item_line(kind, package.items[kind]))
         _save(folder, package)
         if check and not batch.warm:  # the person check stops the build: build nothing more
@@ -778,14 +790,18 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
         lines += waiting
         check = waiting
     if brief.carousel is not None and is_animated(brief.carousel) and not check:
-        package.items["carousel"], extra = _carousel_stills(brief, folder, settings)
+        with runtime.for_item(registered.get("carousel")):
+            package.items["carousel"], extra = _carousel_stills(brief, folder, settings)
+        _report(registered.get("carousel"), package.items["carousel"])
         lines.append(_item_line("carousel", package.items["carousel"]))
         lines += extra
         _save(folder, package)
     if brief.reel is not None and not check:
         item = package.items.get("reel")
         if item is None or item.status != "done":
-            package.items["reel"], extra = _make_reel(brief, package, folder, settings)
+            with runtime.for_item(registered.get("reel")):
+                package.items["reel"], extra = _make_reel(brief, package, folder, settings)
+            _report(registered.get("reel"), package.items["reel"])
             lines.append(_item_line("reel", package.items["reel"]))
             lines += extra
     package.status = _status(brief, package)
@@ -796,6 +812,74 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
     atomic_write_text(folder / POST_FILE, _post_markdown(brief, package, articles))
     _save(folder, package)
     return PackageResult(folder, lines, package)
+
+
+def _report(item_id: str | None, part: PackageItem) -> None:
+    """The part's state to the registry: done -> generated, failed -> failed/partial."""
+    if part.status in ("done", "failed"):
+        runtime.report_part(item_id, part.status)
+
+
+def _job_config(settings: Settings) -> JobConfig:
+    scope = runtime.current()
+    return scope.config if scope is not None else load_job_config(settings.jobs_file)
+
+
+def _cost_lines(
+    folder: Path, brief: ContentBrief, package: ContentPackage, image_costs: dict[str, float],
+    settings: Settings,
+) -> list[CostLine]:
+    """The dry run per item, job type and provider: what an "ok" would authorize (D-4)."""
+    config = _job_config(settings)
+    items = runtime.package_items(folder)
+    names = _part_names(brief, settings)
+    provider = settings.image_provider
+    lines = [
+        CostLine(items.get(kind), "image", provider, config.unit(provider), cost, cost, names[kind])
+        for kind, cost in image_costs.items() if cost > 0 or config.paid(provider)
+    ]
+    if brief.carousel is not None and is_animated(brief.carousel):
+        try:
+            design: CarouselDesign | None = load_carousel_design(settings.carousel_design_file)
+        except WorkflowError:
+            design = None
+        slides = [slide.text() for slide in brief.carousel.slides]
+        split = planned_split(folder, slides, design) if design is not None else None
+        if split is not None:
+            still_estimate, still_max, clip_estimate, clip_max = split
+            unit = config.unit(CAROUSEL_PROVIDER)
+            lines += [
+                CostLine(items.get("carousel"), job, CAROUSEL_PROVIDER, unit, estimate, most,
+                         names["carousel"])
+                for job, estimate, most in (("still", still_estimate, still_max),
+                                            ("clip", clip_estimate, clip_max)) if most > 0
+            ]
+    reel = package.items.get("reel")
+    if brief.reel is not None and (reel is None or reel.status not in ("done", "waiting")):
+        for job_type, scene_provider, estimate in _video_costs(brief, settings, config):
+            lines.append(CostLine(items.get("reel"), job_type, scene_provider,
+                                  config.unit(scene_provider), estimate, estimate, "video"))
+    return lines
+
+
+def _video_costs(brief: ContentBrief, settings: Settings, config: JobConfig
+                 ) -> list[tuple[str, str, float]]:
+    """Per paid video scene: job type, provider and the credit estimate from config/jobs.json."""
+    empty = ContentPackage(package_id="", topic="", platform="", formats=[])
+    plan = _reel_plan(brief, empty, check=True)
+    if isinstance(plan, str):
+        return []
+    try:
+        prepared = prepare_video(parse_plan(json.dumps(plan), check_scenes=False), settings)
+    except (PlanError, VideoError, AvatarError):
+        return []
+    costs: list[tuple[str, str, float]] = []
+    for item in prepared.scenes:
+        if not config.paid(item.provider):
+            continue
+        job_type = "video_scene" if item.scene.type == "video" else "avatar_scene"
+        costs.append((job_type, item.provider, config.estimate(job_type, item.provider) or 0.0))
+    return costs
 
 
 def _image_counts(brief: ContentBrief, settings: Settings) -> dict[str, int]:
@@ -1426,7 +1510,9 @@ def _dry_run_lines(
     package: ContentPackage,
     plans: dict[str, _ImagePlan],
     settings: Settings,
-) -> tuple[list[str], float]:
+) -> tuple[list[str], float, dict[str, float]]:
+    """The dry-run lines, the image total and the image cost per part."""
+    costs: dict[str, float] = {}
     lines = [
         "DRY RUN: nothing is made and nothing is spent.",
         f"Package: {folder}",
@@ -1454,6 +1540,7 @@ def _dry_run_lines(
             cost += estimate_cost_usd(prepared.request, settings, cold_start=batch.cold)
             batch.cold = False
         total += cost
+        costs[kind] = round(cost, 6)
         lead = plan.prepared[0]
         request = lead.request
         slot = plan.slot
@@ -1525,7 +1612,7 @@ def _dry_run_lines(
         basis = ""
     if basis:  # GPU time (ComfyUI): an estimate; the build shows estimate vs actual
         lines.insert(-1, f"Image cost basis: {basis}")
-    return lines, round(total, 6)
+    return lines, round(total, 6), costs
 
 
 def _animated_dry_run(
@@ -1614,6 +1701,7 @@ def finish_carousel(folder: Path, settings: Settings) -> ContentPackage:
         )
     package = _load(folder, brief)
     package.items["carousel"] = _carousel_done(brief, folder, plan.fallbacks + plan.set_check_notes)
+    runtime.report_part(runtime.item_for(folder, "carousel"), "done")
     package.status = _status(brief, package)
     saved = load_articles(settings.research_dir, datetime.min.replace(tzinfo=UTC))
     articles = {article.article_id: article for article in saved}

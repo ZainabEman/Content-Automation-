@@ -7,7 +7,7 @@ description: Propose a week's Branded Genius content calendar (calendar/<YYYY-Ww
 
 ## Rules
 
-- **Free until "ok".** Making, checking, approving and stage 1 cost nothing. Only `ca calendar generate --build` spends money, and only after the user said **"ok"** to the combined dry run. Rows start as `Proposed`.
+- **Free until "ok".** Making, checking, approving and stage 1 cost nothing. Every approved row is an item with a BG ID (shown in the output); show the BG IDs. Only `ca calendar generate --build` spends money, and only after the user said **"ok"** to the combined dry run. Rows start as `Proposed`.
 - Status changes: Proposed → Approved or Rejected, Approved ↔ Rejected. A `Generated` row never changes. Only Approved rows are generated.
 - A failed row stays Approved and is reported; never retry it on your own. Ask the user first, with the cost.
 - The cadence comes from `config/calendar.json` (default: Mon LinkedIn post, Tue Facebook post, Wed LinkedIn post, Thu Facebook post, Fri Instagram carousel). Change it only when the user asks.
@@ -33,7 +33,7 @@ description: Propose a week's Branded Genius content calendar (calendar/<YYYY-Ww
 
 1. `uv run ca calendar generate --week <week>` (free). It starts one package per Approved row (stage 1 of make-content, unchanged: research.md and the brief template for the row's deliverable) and writes the folder into the row's `Package`.
 2. For each new package, follow make-content: stage 1 step 2 (`content.md` with at least 6 sourced insights; add web sources if it says there are too few articles), then stage 2 step 2 (`brief.json` from the template, following "Content quality"). LinkedIn: the man is in the image by default; set `"post": {"person": false}` only when the topic fits without him.
-3. Run `uv run ca calendar generate --week <week>` again. It prints ONE combined dry run: per row the parts, "the man shown" or "no person", and the cost, then the total. Fix every listed brief problem and run it again until it is clean. Show the user the cost per row and the total, and point out every "no person" row. Stop and wait for **"ok"**.
-4. After "ok": `uv run ca calendar generate --week <week> --build`. Each ready row is built once with the normal build and stops at its first person check.
+3. Run `uv run ca calendar generate --week <week>` again. It prints ONE combined dry run: per row the parts, "the man shown" or "no person", and the cost, then the total. Fix every listed brief problem and run it again until it is clean. Each row shows its BG ID; the dry run ends with `Dry run ID: DR-…` and the totals per provider (keep the ID). Show the user the cost per row and the total, and point out every "no person" row. Stop and wait for **"ok"**.
+4. Only after the user's "ok" to that dry run: `uv run ca calendar generate --week <week> --build --authorize <DR-id>` (one authorization per provider/unit; an unknown, expired, used or changed dry run is refused: run step 3 again and ask again). Each ready row is built once with the normal build and stops at its first person check. Never pass `--authorize` without the user's "ok" to that dry run in this conversation.
 5. Person and set checks are exactly as in make-content steps 5-6, per package: view, record `ca job review`, then `uv run ca content build "<folder>"`. A failed check: STOP and ask before making that image again (cost shown).
 6. Run `uv run ca calendar generate --week <week>` again: a finished package turns its row `Generated`. Report the rows: Generated, waiting for a check, or failed (with the error; failed rows stay Approved and are not retried).

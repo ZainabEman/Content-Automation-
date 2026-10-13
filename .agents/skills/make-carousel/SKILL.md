@@ -20,7 +20,7 @@ From then on use exactly the names in section 10. If the plugin is not available
 ## The single "ok"
 
 - The dry run (`uv run ca content build "<package>" --dry-run`, or the calendar's combined dry run) lists per slide the still and the clip with their credits (estimates; local ones are free), the total and the max with one retry per request. The user's "ok" approves that max for stills and clips together. Never ask again per still or clip.
-- Only after the "ok": `uv run ca content build "<package>"` (or, for Instagram rows, `uv run ca calendar generate --build`) writes the still requests (once) and `carousel/carousel.json` (the approved max and the progress). Then run the steps below for each such package.
+- The dry run prints `Dry run ID: DR-…`. Only after the user's "ok" to that dry run (in this conversation): `uv run ca content build "<package>" --authorize <DR-id>` (or, for Instagram rows, `uv run ca calendar generate --week <week> --build --authorize <DR-id>`). That creates the authorization (one per provider/unit) and writes the still requests (once) and `carousel/carousel.json`, whose approved max is the authorization's max. Then run the steps below for each such package. Never pass `--authorize` without the user's "ok" to that dry run.
 
 ## What a request gives you
 
@@ -37,21 +37,22 @@ From then on use exactly the names in section 10. If the plugin is not available
 | `styleReferences`, `referenceImages` | stills: style frames; attach them only if the tool accepts reference images |
 | `outputPath` | where you save the result (`stills/still_NN.png`, `clips/clip_NN.mp4`) |
 | `estimatedCredits`, `maxAttempts`, `status`, `attempts`, `creditsUsed` | the budget and what happened so far |
+| `jobId` | the registry job of this attempt: run `uv run ca jobs check <jobId>` before the plugin call |
 
 Slides without a request use the app's own version: a local background (the final slide) or the local animation (slow zoom, moving particle wave, glow pulse).
 
 ## Steps
 
-1. **Stills.** For every still request whose `status` is `pending`: call the image tool with its inputs, wait, save the image to `outputPath`, then `uv run ca carousel record "<package>" --still N --credits <credits used> --provider-job-id <job ID>` (leave out what the plugin does not report).
-2. **Failures.** If a call fails: `uv run ca carousel record "<package>" --still N --error "<reason>"` (add `--credits` if it charged). Retry once, only when the record says "Retry ... once now". At most 2 attempts per request in total. If a record prints "STOP", stop and ask the user, showing the spend and the approved max; never go over the max.
+1. **Stills.** For every still request whose `status` is `pending`: first `uv run ca jobs check <jobId>` (the `jobId` in that request file). Line 1 `go`: call the image tool with its inputs, wait, save the image to `outputPath`, then `uv run ca carousel record "<package>" --still N --credits <credits used> --provider-job-id <job ID>` (leave out what the plugin does not report). `skip`: it already succeeded; do not call again (if its file is saved but not recorded, record it). `stop`: stop and show line 2 to the user (over budget, stale or cancelled). A request without `jobId` (made before the registry): call as before.
+2. **Failures.** If a call fails: `uv run ca carousel record "<package>" --still N --error "<reason>"` (add `--credits` if it charged). Retry once, only when the record says "Retry ... once now": the retry is a new job, so run `uv run ca jobs check <new jobId>` (printed, and in the request file) before calling again. At most 2 attempts per request in total. If a record prints "STOP" or a check says `stop`, stop and ask the user, showing the spend and the approved max; never go over the max.
 3. `uv run ca carousel stills-check "<package>"`. If it says "Next (no question): run the Higgsfield plugin for still_NN", make those (steps 1-2) and run it again. When all stills are settled it writes the clip requests and lists them.
-4. **Clips.** For every clip request whose `status` is `pending`: call the image-to-video tool with its inputs, save the MP4 to `outputPath`, record with `--clip N` (same options and failure rule as steps 1-2).
+4. **Clips.** For every clip request whose `status` is `pending`: `uv run ca jobs check <jobId>` first (same go/skip/stop rule as step 1), call the image-to-video tool with its inputs, save the MP4 to `outputPath`, record with `--clip N` (same options and failure rule as steps 1-2).
 5. `uv run ca carousel clips-check "<package>"`. Re-requests as in step 3. A clip that fails twice gets the local animation by itself.
 6. `uv run ca carousel render "<package>"`: `carousel/final/slide_01.mp4` … `slide_08.mp4` (1080x1080, 24 fps, 5.0 s, silent) and `slide_NN.png` with the static text (Like/Share/Save row and logo on the last slide), the set check (report only), then by itself: the package is finished, Drive `Instagram/<Content ID>/` gets the MP4s, PNGs, `caption.txt` and `originals/` (raw stills), the tracker gets one row (link = the folder; fallbacks and set-check notes in its caption notes), and the calendar row becomes Generated. If the upload stopped, `uv run ca carousel finish "<package>"` tries again (uploaded files are skipped).
 7. Show the user the "Summary:" block it prints (at most 8 lines: Drive folder, slides, credits real vs estimate, fallbacks, set check, tracker, calendar).
 
 ## Continue after an interruption
 
-"continue carousel <package>": run `uv run ca carousel continue "<package>"` and follow its lines. Progress lives in `carousel/carousel.json` and the request files: a request that passed (or fell back) is never made again. A result that was saved but not recorded is recorded (with the credits the plugin reported), not made again. Still under the original "ok"; stop and ask only on a STOP line.
+"continue carousel <package>" (or "resume unfinished jobs": `uv run ca jobs resume`): run `uv run ca carousel continue "<package>"` and follow its lines; `ca jobs check` before every plugin call as above. A stale job (check says `stale`) is never retried by itself: show it to the user; only on their word `uv run ca jobs cancel <jobId> "<reason>"`. Progress lives in `carousel/carousel.json` and the request files: a request that passed (or fell back) is never made again. A result that was saved but not recorded is recorded (with the credits the plugin reported), not made again. Still under the original "ok"; stop and ask only on a STOP line.
 
-Never add people, faces, text, letters, numbers or logos to a still or clip, and never rewrite a prompt (only the "Avoid:" append).
+Never add people, faces, text, letters, numbers or logos to a still or clip, and never rewrite a prompt (only the "Avoid:" append). Never say "ok" for the user, never edit `state/`, `carousel.json` or request files by hand, and show `ca` errors as they are.

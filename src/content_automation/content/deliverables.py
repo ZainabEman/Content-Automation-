@@ -30,6 +30,11 @@ FORMAT_BY_PART: dict[Part, Format] = {
 PART_NAMES: dict[Part, str] = {
     "post": "single-image posts", "carousel": "carousels", "ad": "image ads", "video": "videos",
 }
+# The registry item kind of each deliverable (PRD Phase 4 §14 D-2); "kind" in deliverables.json.
+ItemKind = Literal["post", "carousel", "graphic", "youtube", "short", "podcast", "ad"]
+KIND_BY_PART: dict[Part, ItemKind] = {
+    "post": "post", "carousel": "carousel", "ad": "ad", "video": "short",
+}
 DEFAULT_PLATFORM: Platform = "instagram"
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _SPLIT = re.compile(r",|;|\+|&|\band\b|\bplus\b")
@@ -55,10 +60,15 @@ class Deliverable(_Model):
     slides: int | None = Field(default=None, ge=MIN_SLIDES, le=MAX_SLIDES)
     workflow: VideoWorkflow | None = None  # videos
     aliases: list[str] = Field(min_length=1)
+    kind: ItemKind | None = None  # the registry kind (D-2); default from the part
 
     @property
     def brief_format(self) -> Format:
         return FORMAT_BY_PART[self.part]
+
+    @property
+    def item_kind(self) -> ItemKind:
+        return self.kind or KIND_BY_PART[self.part]
 
 
 def normalize(name: str) -> str:

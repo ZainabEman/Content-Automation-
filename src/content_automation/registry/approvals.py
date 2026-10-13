@@ -51,10 +51,11 @@ def _decide(
 
 def approve(
     conn: sqlite3.Connection, ref: str, *, gate: Gate | None = None, actor: Actor = "user",
-    command: str | None = None,
+    command: str | None = None, note: str | None = None,
 ) -> GateChange:
-    """Approve the open gate (idea first, then review) or the named one."""
-    return _decide(conn, ref, "approve", "approved", None, gate, actor, command)
+    """Approve the open gate (idea first, then review) or the named one; `note` is stored with
+    the decision (e.g. where the approval came from)."""
+    return _decide(conn, ref, "approve", "approved", note, gate, actor, command)
 
 
 def reject(

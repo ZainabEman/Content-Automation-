@@ -52,6 +52,7 @@ class Item:
     updated_at: str
     notes: str | None
     deliverable: str | None = None  # e.g. linkedin_post (D-1)
+    upload_provider: str | None = None  # drive or mock (D-16: mock never counts as real)
 
     def status(self, dimension: Dimension) -> str:
         """The item-level status of idea, generation, review or upload."""
@@ -88,6 +89,7 @@ def _item(row: sqlite3.Row) -> Item:
         updated_at=str(row["updated_at"]),
         notes=_text(row["notes"]),
         deliverable=_text(row["deliverable"]),
+        upload_provider=_text(row["upload_provider"]),
     )
 
 
@@ -240,6 +242,26 @@ def add_alias(
         )
         append_event(conn, "alias_added", actor=actor, command=command, item_id=item_id,
                      details={"alias": name})
+
+
+def set_package_path(
+    conn: sqlite3.Connection, ref: str, path: str, *, actor: Actor = "system",
+    command: str | None = None,
+) -> Item:
+    """Link the item to its package folder (stage 1 started it); v1 shares it (D-20)."""
+    with transaction(conn):
+        item = get_item(conn, ref)
+        if item.package_path == path:
+            return item
+        stamp = now()
+        conn.execute("UPDATE items SET package_path = ?, updated_at = ? WHERE id = ?",
+                     (path, stamp, item.id))
+        conn.execute("UPDATE versions SET package_path = ? WHERE item_id = ? AND "
+                     "package_path IS NULL", (path, item.id))
+        append_event(conn, "item_updated", actor=actor, command=command, item_id=item.id,
+                     version=item.current_version,
+                     details={"package_path": {"from": item.package_path, "to": path}})
+        return get_item(conn, item.id)
 
 
 def set_title(

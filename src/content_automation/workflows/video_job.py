@@ -24,7 +24,7 @@ from content_automation.ai.avatar import get_provider as get_avatar_provider
 from content_automation.ai.video import VideoRequest, generate_video
 from content_automation.ai.video import get_provider as get_video_provider
 from content_automation.ai.voice import VOICE_OFF
-from content_automation.core.agent_steps import request_path
+from content_automation.core.agent_steps import load_request, request_path, save_request
 from content_automation.core.config import Settings
 from content_automation.core.files import atomic_write_text
 from content_automation.core.jobs import Job, JobParams, JobStep, create_job
@@ -36,6 +36,7 @@ from content_automation.references import (
     load_set,
     select_identity_refs,
 )
+from content_automation.registry import runtime
 from content_automation.workflows.start_images import (
     StartImage,
     StartImageError,
@@ -354,7 +355,10 @@ def advance(job: Job, prepared: PreparedVideo, settings: Settings) -> Job:
         for item in prepared.scenes:
             if any(step.step_id == item.step_id for step in job.steps):
                 continue
-            job.add_step(_run_scene(job, item, settings, prepared.identity_paths))
+            step = _run_scene(job, item, settings, prepared.identity_paths)
+            job.add_step(step)
+            if step.mode == "agent" and step.status == "awaiting_agent":
+                _registry_job(job, item)
         if job.waiting_steps():
             return job
         result = assemble(_segments(job, prepared), job.folder)
@@ -426,6 +430,27 @@ def _run_scene(
         file=relative,
         provider_job_id=item.start_image.asset_id,
     )
+
+
+def _registry_job(job: Job, item: PreparedScene) -> None:
+    """A plugin scene is a registry job (§14 D-5): opened now, its ID in the request file, closed
+    by `ca job complete` / `ca job fail`; the make-video skill runs `ca jobs check` first."""
+    scope = runtime.current()
+    if scope is None:
+        return
+    job_type = "video_scene" if item.scene.type == "video" else "avatar_scene"
+    estimate = scope.config.estimate(job_type, item.provider)
+    opened = runtime.open_scoped_job(
+        job_type, item.provider,
+        {"video_job": job.job_id, "step": item.step_id, "prompt": item.scene.prompt,
+         "seconds": item.scene.duration_sec},
+        estimate=estimate, direct=True,
+    )
+    if opened is None:
+        return
+    request = load_request(job.folder, item.step_id)
+    request.job_id = opened.job.id
+    save_request(job.folder, request)
 
 
 def _segments(job: Job, prepared: PreparedVideo) -> list[Segment]:

@@ -34,6 +34,8 @@ from pydantic import ConfigDict, Field
 
 from content_automation.core.files import CamelModel, atomic_write_text
 from content_automation.core.media import MediaError, gray_frames, probe_media
+from content_automation.registry import runtime
+from content_automation.registry.db import RegistryError
 from content_automation.workflows.carousel_design import (
     CarouselDesign,
     CarouselDesignError,
@@ -51,6 +53,8 @@ from content_automation.workflows.design_system import Box
 CAROUSEL_DIR = "carousel"
 PLAN_FILE = "carousel.json"
 PLUGIN = "Higgsfield"
+JOB_PROVIDER = "higgsfield-plugin"  # the registry provider of still/clip jobs (credits)
+LEGACY_NOTE = "carousel.json approved max (approved before the registry)"
 DECISION_DOC = "docs/PHASE3-DECISION.md"
 TOOLS_SECTION = "section 10"
 Kind = Literal["still", "clip"]
@@ -113,6 +117,7 @@ class PluginRequest(_Model):
     retry_note: str | None = None  # why it is asked for again (already in the prompt)
     check: Check | None = None
     instructions: list[str] = Field(default_factory=list)
+    job_id: int | None = None  # the registry job of the current attempt: `ca jobs check` first
 
 
 class PlanSlide(_Model):
@@ -216,6 +221,58 @@ def _credits(value: float, design: CarouselDesign) -> str:
     return f"{value:g} credits" + (f" (≈ ${value * usd:.2f})" if usd else "")
 
 
+# --- Registry jobs (PRD Phase 4 §14 D-5, D-6) ----------------------------------------------
+
+
+def _attach_job(package: Path, request: PluginRequest, kind: Kind) -> None:
+    """Open the registry job of the request's next attempt (inside a `ca` command, for a
+    registered carousel item). A carousel approved before the registry gets a legacy
+    authorization with its carousel.json max, so it resumes."""
+    item = runtime.item_for(package, "carousel")
+    if item is None:
+        return
+    plan = load_plan(package)
+    if plan is not None:
+        runtime.ensure_legacy(item, JOB_PROVIDER, "credits", plan.approved_max_credits,
+                              LEGACY_NOTE)
+    opened = runtime.open_scoped_job(
+        kind, JOB_PROVIDER, {"step": request.step_id, "slide": request.slide,
+                             "model": request.model},
+        estimate=request.estimated_credits, unit="credits", item_id=item,
+    )
+    if opened is not None:
+        request.job_id = opened.job.id
+
+
+def _close_job(request: PluginRequest, credits: float | None, error: str | None,
+               output: Path) -> str | None:
+    """The attempt's registry job: succeeded or failed with the credits; a problem line."""
+    if request.job_id is None:
+        return None
+    try:
+        if error is not None:
+            runtime.fail(request.job_id, error, actual=credits)
+        else:
+            runtime.succeed(request.job_id, actual=credits, result_path=output.as_posix())
+    except RegistryError as problem:
+        return f"Registry: {problem}"
+    return None
+
+
+def _settle_job(package: Path, request: PluginRequest, kind: Kind, state: str,
+                reason: str) -> None:
+    """After a check: a rejected result is never reused; a re-request is a new job (a redo)."""
+    if request.job_id is None or state == "passed":
+        return
+    job = runtime.job(request.job_id)
+    if job is None:
+        return
+    if job.status == "succeeded":
+        runtime.reject(job.id, reason)
+    if state == "pending" and job.status in ("succeeded", "failed", "cancelled"):
+        _attach_job(package, request, kind)
+
+
 # --- Dry run ---------------------------------------------------------------------------------
 
 
@@ -247,6 +304,21 @@ def planned_credits(
     still_total = sum(still for still, _ in planned) * stills.estimated_credits
     clip_total = sum(clip for _, clip in planned) * clips.estimated_credits
     return still_total + clip_total, still_total * stills.attempts + clip_total * clips.attempts
+
+
+def planned_split(
+    package: Path, slides: Sequence[SlideText], design: CarouselDesign
+) -> tuple[float, float, float, float] | None:
+    """Still and clip credits (estimate, max with retries) for the dry run's cost lines; None
+    once the requests exist (they were authorized then)."""
+    if load_plan(package) is not None:
+        return None
+    stills, clips = design.stills, design.clips
+    planned = [_planned(design, slide.type) for slide in slides]
+    still_total = sum(still for still, _ in planned) * stills.estimated_credits
+    clip_total = sum(clip for _, clip in planned) * clips.estimated_credits
+    return (still_total, still_total * stills.attempts, clip_total,
+            clip_total * clips.attempts)
 
 
 def credits_dry_run(
@@ -314,6 +386,8 @@ def _instructions(package: Path, request: PluginRequest, kind: Kind) -> list[str
         )
         check = "clips-check"
     return [
+        "0. Before the call: uv run ca jobs check <jobId of this file> (go: call; skip: reuse "
+        "the recorded result; stop: stop and report). No jobId: call as before.",
         f"1. Use the {PLUGIN} plugin's {tool} and model named in {DECISION_DOC} "
         f"{TOOLS_SECTION}; first run: list the plugin's tools there first. Never assume a "
         f"name. If the plugin is missing, stop and say so.",
@@ -379,18 +453,22 @@ def write_still_requests(
             max_attempts=stills.attempts,
         )
         request.instructions = _instructions(package.resolve(), request, "still")
+        _attach_job(package, request, "still")
         path = _request_file(package, "still", number)
         _save(path, request)
         entry.request = path.relative_to(package).as_posix()
     still_total = still_count * stills.estimated_credits
     clip_total = clip_count * clips.estimated_credits
+    authorized = runtime.authorized_max(runtime.item_for(package, "carousel"), JOB_PROVIDER,
+                                        "credits")
     plan = CarouselPlan(
         topic=topic,
         provider=stills.provider,
         still_estimate=still_total,
         clip_estimate=clip_total,
         estimated_credits=still_total + clip_total,
-        approved_max_credits=still_total * stills.attempts + clip_total * clips.attempts,
+        approved_max_credits=(authorized if authorized is not None
+                              else still_total * stills.attempts + clip_total * clips.attempts),
         usd_per_credit=stills.usd_per_credit,
         slides=entries,
     )
@@ -444,6 +522,7 @@ def record_attempt(
     request.status = "failed" if error else "made"
     request.credits_used += credits or 0.0
     request.check = None
+    problem = _close_job(request, credits, error, target)
     _save(_request_file(package, kind, slide), request)
     requests = _requests(package, plan)
     spent, cap = _spent(requests), plan.approved_max_credits
@@ -452,9 +531,15 @@ def record_attempt(
         f"{request.step_id}: {request.status} ({shown}). Spent {_credits(spent, design)} of "
         f"the approved max {_credits(cap, design)}."
     ]
+    if problem:
+        lines.append(problem)
     left = request.max_attempts - len(request.attempts)
     if error and left and spent + request.estimated_credits <= cap:
-        lines.append(f"Retry {request.step_id} once now (no question).")
+        _attach_job(package, request, kind)
+        _save(_request_file(package, kind, slide), request)
+        job = f" (job #{request.job_id}: uv run ca jobs check {request.job_id} first)" if (
+            request.job_id is not None) else ""
+        lines.append(f"Retry {request.step_id} once now (no question){job}.")
     elif error:
         lines.append(
             f"No retry for {request.step_id}: the {kind}s check gives it the local version."
@@ -630,6 +715,7 @@ def stills_check(package: Path, design: CarouselDesign) -> list[str]:
             continue
         result = check_still(still, design) if still.is_file() else _missing(request)
         state, ending, reserved = _settle(request, result, spent, cap, _STILL_AGAIN)
+        _settle_job(package, request, "still", state, result.reason)
         spent += reserved
         if state == "pending":
             _reject(still)
@@ -692,6 +778,7 @@ def _write_clip_requests(package: Path, plan: CarouselPlan, design: CarouselDesi
             max_attempts=clips.attempts,
         )
         request.instructions = _instructions(package.resolve(), request, "clip")
+        _attach_job(package, request, "clip")
         path = _request_file(package, "clip", item.slide)
         _save(path, request)
         item.clip_request = path.relative_to(package).as_posix()
@@ -805,6 +892,7 @@ def clips_check(package: Path, design: CarouselDesign) -> list[str]:
             continue
         result = check_clip(clip, design) if clip.is_file() else _missing(request)
         state, ending, reserved = _settle(request, result, spent, cap, _CLIP_AGAIN)
+        _settle_job(package, request, "clip", state, result.reason)
         spent += reserved
         if state == "pending":
             _reject(clip)

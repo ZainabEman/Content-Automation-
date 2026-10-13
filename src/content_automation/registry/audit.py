@@ -20,7 +20,8 @@ EVENT_TYPES = frozenset({
     "command_run", "item_created", "item_updated", "alias_added", "status_changed", "decision",
     "version_created", "version_approved",
     "authorization_created", "authorization_exceeded", "authorization_closed",
-    "job_started", "job_succeeded", "job_failed", "job_reused",
+    "job_queued", "job_started", "job_succeeded", "job_failed", "job_reused", "job_cancelled",
+    "job_rejected",
     "upload_succeeded", "upload_failed", "tracker_synced", "conflict_found", "migration_run",
 })
 

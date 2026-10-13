@@ -37,10 +37,21 @@ class AgentRequest(CamelModel):
     options: dict[str, str | int | float | bool] = Field(default_factory=dict)
     instructions: list[str] = Field(default_factory=list)  # numbered steps for Codex
     created_at: datetime = Field(default_factory=lambda: datetime.now().astimezone())
+    job_id: int | None = None  # the registry job: `ca jobs check <jobId>` before the plugin call
 
 
 def request_path(job_dir: Path, step_id: str) -> Path:
     return job_dir / REQUESTS_DIR / f"{step_id}.json"
+
+
+def load_request(job_dir: Path, step_id: str) -> AgentRequest:
+    path = request_path(job_dir, step_id)
+    return AgentRequest.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+def save_request(job_dir: Path, request: AgentRequest) -> None:
+    atomic_write_text(request_path(job_dir, request.step_id),
+                      request.model_dump_json(by_alias=True, indent=2) + "\n")
 
 
 def create_agent_step(job_dir: Path, request: AgentRequest) -> JobStep:

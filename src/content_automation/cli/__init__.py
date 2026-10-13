@@ -1,7 +1,11 @@
 """Typer command line interface."""
 
+import json
 import re
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
@@ -12,7 +16,22 @@ from pydantic import ValidationError
 from content_automation.ai.avatar import AvatarError
 from content_automation.ai.image import ASPECT_RATIOS, ImageError, ImageRequest
 from content_automation.ai.video import VideoError
+from content_automation.cli.bridge import (
+    image_cost_line,
+    package_registration,
+    record_agent_job,
+    reject_image_job,
+    video_cost_lines,
+)
 from content_automation.cli.items import audit_app, items_app
+from content_automation.cli.jobs import auth_app, jobs_app
+from content_automation.cli.scope import (
+    authorization_lines,
+    authorize,
+    registry_scope,
+    require_budget,
+    save_dry_run_lines,
+)
 from content_automation.content.brief import BriefError
 from content_automation.content.calendar import (
     CalendarError,
@@ -25,11 +44,16 @@ from content_automation.content.calendar import (
     new_calendar,
     parse_rows,
     read_calendar,
+    ready_cost_lines,
     set_status,
     show_lines,
     week_label,
 )
-from content_automation.content.deliverables import DeliverableError, load_deliverables
+from content_automation.content.deliverables import (
+    DeliverableCatalog,
+    DeliverableError,
+    load_deliverables,
+)
 from content_automation.content.package import (
     DONE_STATUS,
     build_package,
@@ -78,6 +102,9 @@ from content_automation.references import (
     set_primary,
     tag_assets,
 )
+from content_automation.registry.db import RegistryError
+from content_automation.registry.dryruns import CostLine
+from content_automation.registry.runtime import Scope
 from content_automation.research.collectors import CollectorError
 from content_automation.research.models import SourcesError
 from content_automation.research.run import (
@@ -188,6 +215,12 @@ app.add_typer(lora_app, name="lora")
 app.add_typer(env_app, name="env")
 app.add_typer(items_app, name="item")
 app.add_typer(audit_app, name="audit")
+app.add_typer(jobs_app, name="jobs")
+app.add_typer(auth_app, name="auth")
+AuthorizeOption = Annotated[
+    str | None,
+    typer.Option("--authorize", help='The dry run ID the user said "ok" to (DR-...).'),
+]
 # The only .env lines a command may set: IDs chosen by the user in a plugin, never keys.
 ENV_SETTABLE = ("HEYGEN_AVATAR_ID", "HEYGEN_VOICE_ID")
 _ENV_VALUE = re.compile(r"[A-Za-z0-9_-]{1,128}")
@@ -199,6 +232,18 @@ StepOption = Annotated[str, typer.Option("--step", help="Step ID, e.g. scene-1."
 @app.callback()
 def _root() -> None:
     """Root command for the Content Automation CLI."""
+
+
+@contextmanager
+def _registry(settings: Settings, command: str) -> Iterator[Scope]:
+    """The registry for this command (jobs, authorizations, item statuses); a registry error is
+    one line on stderr and exit code 1."""
+    try:
+        with registry_scope(settings, command) as scope:
+            yield scope
+    except RegistryError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
 
 
 def _settings(*, dry_run: bool = False, check_keys: bool = True) -> Settings:
@@ -397,8 +442,10 @@ def image(
             "--dry-run", help="Show prompt, references, calls and cost; make nothing."
         ),
     ] = False,
+    authorize_id: AuthorizeOption = None,
 ) -> None:
-    """Generate images and save them with a details.json record."""
+    """Generate images and save them with a details.json record. A paid provider needs the
+    dry run's ID after the user's "ok": --authorize <dryrun_id>."""
     _utf8_output()
     settings = _settings(dry_run=dry_run)
     if not dry_run:
@@ -446,21 +493,36 @@ def image(
         slide=slide,
         slide_role=slide_role,
     )
+    command = f"ca image --workflow {workflow or 'raw'}" + (" --dry-run" if dry_run else "")
     try:
+        raw = _raw_request(inputs) if workflow is None else None
         if dry_run:
             for line in _dry_run(workflow, inputs, settings):
                 typer.echo(line)
+            cost, extra = _image_cost(workflow, inputs, settings)
+            with _registry(settings, command) as scope:
+                for line in save_dry_run_lines(settings, scope, "image", [cost], extra):
+                    typer.echo(line)
             return
-        if workflow is None:
-            job = run_image_job(_raw_request(inputs), settings, user_request=inputs.request)
-        else:
-            job = run_workflow(workflow, inputs, settings)
+        with _registry(settings, command) as scope:
+            if authorize_id:
+                cost, extra = _image_cost(workflow, inputs, settings)
+                for line in authorization_lines(
+                    authorize(settings, scope, authorize_id, "image", [cost], extra)
+                ):
+                    typer.echo(line)
+            if raw is not None:
+                job = run_image_job(raw, settings, user_request=inputs.request)
+            else:
+                assert workflow is not None
+                job = run_workflow(workflow, inputs, settings)
     except (
         WorkflowError,
         ReferenceLibraryError,
         BrandProfileError,
         DailyLimitError,
         ImageError,
+        RegistryError,
     ) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from None
@@ -489,6 +551,17 @@ def _dry_run(workflow: str | None, inputs: WorkflowInputs, settings: Settings) -
         chosen = ", ".join(f"{name} {value}" for name, value in picks.items())
         lines.insert(lines.index("References (attached in this order):"), f"Design: {chosen}")
     return lines
+
+
+def _image_cost(workflow: str | None, inputs: WorkflowInputs, settings: Settings
+                ) -> tuple[CostLine, str]:
+    """The direct run's cost line and what must stay the same between dry run and build."""
+    request = (_raw_request(inputs) if workflow is None
+               else prepare_workflow(workflow, inputs, settings).request)
+    line = image_cost_line(request, settings, label=workflow or "raw")
+    extra = json.dumps([workflow, settings.image_provider, settings.image_model,
+                        asdict(inputs)], sort_keys=True, default=str)
+    return line, extra
 
 
 def _raw_request(inputs: WorkflowInputs) -> ImageRequest:
@@ -730,14 +803,20 @@ def job_complete(
 ) -> None:
     """Record an agent step's file; it is copied into the job folder."""
     job = _load_job(job_dir)
-    try:
-        saved = record_agent_output(
-            job, step, file, provider_job_id=provider_job_id, credits_used=credits
-        )
-    except (JobStateError, OSError) as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(code=1) from None
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca job complete {job.job_id} --step {step}"):
+        try:
+            saved = record_agent_output(
+                job, step, file, provider_job_id=provider_job_id, credits_used=credits
+            )
+        except (JobStateError, OSError) as error:
+            typer.echo(str(error), err=True)
+            raise typer.Exit(code=1) from None
+        note = record_agent_job(job.folder, step, credits=credits,
+                                result=(job.folder / saved).as_posix())
     typer.echo(f"{step} completed: {job.folder / saved}")
+    if note:
+        typer.echo(note)
     waiting = [waiting_step.step_id for waiting_step in job.waiting_steps()]
     if waiting:
         typer.echo(f"Still waiting for: {', '.join(waiting)}")
@@ -753,12 +832,17 @@ def job_fail(
 ) -> None:
     """Record that an agent step failed; the whole job ends as failed."""
     job = _load_job(job_dir)
-    try:
-        job.fail_step(step, error)
-    except JobStateError as state_error:
-        typer.echo(str(state_error), err=True)
-        raise typer.Exit(code=1) from None
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca job fail {job.job_id} --step {step}"):
+        try:
+            job.fail_step(step, error)
+        except JobStateError as state_error:
+            typer.echo(str(state_error), err=True)
+            raise typer.Exit(code=1) from None
+        note = record_agent_job(job.folder, step, error=error)
     typer.echo(f"{step} failed; job {job.job_id} is now failed.")
+    if note:
+        typer.echo(note)
 
 
 @job_app.command("review")
@@ -800,6 +884,11 @@ def job_review(
     except JobStateError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from None
+    if failed is not None:  # the result is never reused: the next image is a redo (D-6)
+        settings = _settings(dry_run=True)
+        with _registry(settings, f"ca job review {job.job_id} --fail") as scope:
+            reject_image_job(scope.conn, job.folder, f"{check} check failed: {failed.strip()}",
+                             command=scope.command)
     result = "passed" if passed else "failed"
     typer.echo(f"{image} of {job.job_id}: {check} check {result} (recorded in {DETAILS_FILE}).")
 
@@ -846,8 +935,10 @@ def video(
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Check the plan and show scenes and credits.")
     ] = False,
+    authorize_id: AuthorizeOption = None,
 ) -> None:
-    """Make a video from plan.json: check it, make each scene, assemble final.mp4.
+    """Make a video from plan.json: check it, make each scene, assemble final.mp4. Plugin
+    scenes cost credits: --authorize <dryrun_id> after the user's "ok" to the dry run.
 
     If a scene waits for Codex (a plugin provider), the job pauses; record each clip with
     `ca job complete`, then run `ca video resume <job folder>`.
@@ -862,15 +953,29 @@ def video(
         raise typer.Exit(code=2)
     # Video, avatar and image scenes need no API key in the MVP (mock or agent providers).
     settings = _settings(dry_run=dry_run, check_keys=False)
+    key = f"video {plan.resolve().as_posix()}"
     try:
+        prepared = prepare_video(load_plan(plan, check_scenes=False), settings)
+        costs = video_cost_lines(prepared, settings)
         if dry_run:
-            prepared = prepare_video(load_plan(plan, check_scenes=False), settings)
             for line in video_dry_run_lines(prepared, settings):
                 typer.echo(line)
+            if costs:
+                with _registry(settings, f"ca video --plan {plan} --dry-run") as scope:
+                    for line in save_dry_run_lines(settings, scope, key, costs):
+                        typer.echo(line)
             return
         configure_logging(settings)
-        job = start_video_job(plan, settings, request=request)
-    except (PlanError, VideoError, AvatarError) as error:
+        with _registry(settings, f"ca video --plan {plan}") as scope:
+            if authorize_id:
+                for line in authorization_lines(
+                    authorize(settings, scope, authorize_id, key, costs)
+                ):
+                    typer.echo(line)
+            else:
+                require_budget(scope, costs, f'uv run ca video --plan "{plan}"')
+            job = start_video_job(plan, settings, request=request)
+    except (PlanError, VideoError, AvatarError, RegistryError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from None
     _report_video(job, settings)
@@ -883,7 +988,8 @@ def video_resume(job_dir: JobDir) -> None:
     configure_logging(settings)
     job = _load_job(job_dir)
     try:
-        job = resume_video_job(job, settings)
+        with _registry(settings, f"ca video resume {job.job_id}"):
+            job = resume_video_job(job, settings)
     except (VideoError, AvatarError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from None
@@ -995,6 +1101,10 @@ def content_start(
     idea: Annotated[
         int | None, typer.Option(min=1, help="With --research-file: the idea number to use.")
     ] = None,
+    request: Annotated[
+        str | None,
+        typer.Option(help="The user's own words (stored with the item's approval)."),
+    ] = None,
 ) -> None:
     """Stage 1 (free): research and the package folder with research.md.
 
@@ -1022,6 +1132,10 @@ def content_start(
     result = start_package(title, chosen, catalog, settings, idea=chosen_idea)
     for line in result.lines:
         typer.echo(line)
+    if chosen:
+        for line in _register(settings, result.folder, catalog,
+                              request or f"make-content: {title}", "ca content start"):
+            typer.echo(line)
 
 
 @content_app.command("set")
@@ -1031,6 +1145,10 @@ def content_set(
         str,
         typer.Option(help='Exactly what the user named, e.g. "facebook ad only".'),
     ],
+    request: Annotated[
+        str | None,
+        typer.Option(help="The user's own words (stored with the item's approval)."),
+    ] = None,
 ) -> None:
     """Stage 2: name the deliverables of a package and write its brief template.
 
@@ -1047,6 +1165,17 @@ def content_set(
         raise typer.Exit(code=2) from None
     for line in result.lines:
         typer.echo(line)
+    for line in _register(settings, folder, catalog, request or f"make-content: {deliverables}",
+                          "ca content set"):
+        typer.echo(line)
+
+
+def _register(settings: Settings, folder: Path, catalog: DeliverableCatalog,
+              request: str | None, command: str) -> list[str]:
+    """The package's items (one per deliverable, D-1/D-3); their BG IDs for Codex."""
+    with _registry(settings, f'{command} "{folder}"') as scope:
+        return package_registration(scope.conn, folder, catalog, request=request,
+                                    command=scope.command)
 
 
 @content_app.command("deliverables")
@@ -1071,8 +1200,12 @@ def content_build(
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Check brief.json and show the cost; make nothing.")
     ] = False,
+    authorize_id: AuthorizeOption = None,
 ) -> None:
-    """Make what is still missing: post images, ad image, reel, post.md, package.json."""
+    """Make what is still missing: post images, ad image, reel, post.md, package.json.
+
+    The dry run prints its ID; after the user's "ok" build with --authorize <dryrun_id>. A
+    build that continues (after a person or set check) uses the authorization it already has."""
     _utf8_output()
     if not folder.is_dir():
         typer.echo(f"Folder not found: {folder}", err=True)
@@ -1081,24 +1214,46 @@ def content_build(
     settings = _settings(dry_run=dry_run, check_keys=False)
     if not dry_run:
         configure_logging(settings)
-    try:
-        result = build_package(folder, settings, dry_run=dry_run)
-    except BriefError as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(code=1) from None
-    for line in result.lines:
-        typer.echo(line)
-    if dry_run or result.package is None:
-        return
-    package = result.package
-    typer.echo(f"Status: {package.status}")
-    typer.echo(f"Folder: {folder.resolve()}")
-    for name in sorted(path.relative_to(folder).as_posix() for path in folder.rglob("*")
-                       if path.is_file() and not path.name.startswith(".")):
-        typer.echo(f"  {name}")
-    if package.status == DONE_STATUS:  # every part made: upload the images and MP4s
-        for line in AutoSync(settings)(folder):
+    key = f"content build {folder.resolve().as_posix()}"
+    command = f'ca content build "{folder}"' + (" --dry-run" if dry_run else "")
+    with _registry(settings, command) as scope:
+        try:
+            catalog = load_deliverables(settings.deliverables_file)
+            for line in package_registration(scope.conn, folder, catalog, request=None,
+                                             command=scope.command, legacy=True):
+                typer.echo(line)
+            preview = build_package(folder, settings, dry_run=True)
+            if dry_run:
+                for line in preview.lines:
+                    typer.echo(line)
+                if preview.cost_lines:
+                    for line in save_dry_run_lines(settings, scope, key, preview.cost_lines):
+                        typer.echo(line)
+                return
+            if authorize_id:
+                for line in authorization_lines(
+                    authorize(settings, scope, authorize_id, key, preview.cost_lines)
+                ):
+                    typer.echo(line)
+            else:
+                require_budget(scope, preview.cost_lines, f'uv run ca content build "{folder}"')
+            result = build_package(folder, settings, dry_run=False)
+        except (BriefError, DeliverableError) as error:
+            typer.echo(str(error), err=True)
+            raise typer.Exit(code=1) from None
+        for line in result.lines:
             typer.echo(line)
+        if result.package is None:
+            return
+        package = result.package
+        typer.echo(f"Status: {package.status}")
+        typer.echo(f"Folder: {folder.resolve()}")
+        for name in sorted(path.relative_to(folder).as_posix() for path in folder.rglob("*")
+                           if path.is_file() and not path.name.startswith(".")):
+            typer.echo(f"  {name}")
+        if package.status == DONE_STATUS:  # every part made: upload the images and MP4s
+            for line in AutoSync(settings)(folder):
+                typer.echo(line)
 
 
 WeekOption = Annotated[
@@ -1229,6 +1384,7 @@ def calendar_generate(
             "combined dry run.",
         ),
     ] = False,
+    authorize_id: AuthorizeOption = None,
 ) -> None:
     """Approved rows: stage 1 (free) and one combined dry run; --build makes them.
 
@@ -1242,9 +1398,26 @@ def calendar_generate(
     try:
         label = week_label(week)
         catalog = load_deliverables(settings.deliverables_file)
-        lines, failed = generate_rows(
-            settings, catalog, label, build=build, after_build=AutoSync(settings)
-        )
+        key = f"calendar generate {label}"
+        with _registry(settings, f"ca calendar generate --week {label}"
+                       + (" --build" if build else "")) as scope:
+            if build:
+                preview = ready_cost_lines(settings, catalog, label)
+                if authorize_id:
+                    for line in authorization_lines(
+                        authorize(settings, scope, authorize_id, key, preview)
+                    ):
+                        typer.echo(line)
+                else:
+                    require_budget(scope, preview,
+                                   f"uv run ca calendar generate --week {label}")
+            costs: list[CostLine] = []
+            lines, failed = generate_rows(
+                settings, catalog, label, build=build, after_build=AutoSync(settings),
+                costs=costs,
+            )
+            if not build and costs:
+                lines += save_dry_run_lines(settings, scope, key, costs)
     except (CalendarError, DeliverableError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from None
@@ -1301,30 +1474,31 @@ def drive_sync(
     targets = folders or calendar_packages(settings)
     failed: list[str] = []
     synced: list[tuple[Path, SyncResult]] = []
-    try:
-        catalog = load_deliverables(settings.deliverables_file)
-        storage = get_storage(settings)
-        for folder in targets:
-            try:
-                result = sync_package(folder, storage, catalog)
-            except (OSError, ValueError):
-                failed.append(f"{folder}: no readable package.json")
-                continue
-            except StorageError as error:
-                failed.append(f"{folder}: {error}")
-                continue
-            for line in result.lines:
-                typer.echo(line)
-            failed += [f"{folder.name}/{line}" for line in result.failed]
-            synced.append((folder, result))
-    except DeliverableError as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(code=2) from None
-    except (StorageNotSetUpError, StorageError) as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(code=1) from None
-    for line in tracker_lines(storage, synced):
-        typer.echo(line)
+    with _registry(settings, "ca drive sync"):
+        try:
+            catalog = load_deliverables(settings.deliverables_file)
+            storage = get_storage(settings)
+            for folder in targets:
+                try:
+                    result = sync_package(folder, storage, catalog)
+                except (OSError, ValueError):
+                    failed.append(f"{folder}: no readable package.json")
+                    continue
+                except StorageError as error:
+                    failed.append(f"{folder}: {error}")
+                    continue
+                for line in result.lines:
+                    typer.echo(line)
+                failed += [f"{folder.name}/{line}" for line in result.failed]
+                synced.append((folder, result))
+        except DeliverableError as error:
+            typer.echo(str(error), err=True)
+            raise typer.Exit(code=2) from None
+        except (StorageNotSetUpError, StorageError) as error:
+            typer.echo(str(error), err=True)
+            raise typer.Exit(code=1) from None
+        for line in tracker_lines(storage, synced):
+            typer.echo(line)
     if not targets:
         typer.echo("No packages to sync: no calendar names a package yet.")
     if not folders:
@@ -1530,10 +1704,11 @@ def carousel_record(
     settings = _settings(dry_run=True)
     try:
         design = load_carousel_design(settings.carousel_design_file)
-        lines = record_attempt(
-            folder, "still" if still is not None else "clip", still or clip or 0, design,
-            credits=credits, provider_job_id=provider_job_id, file=file, error=error,
-        )
+        with _registry(settings, f'ca carousel record "{folder}"'):
+            lines = record_attempt(
+                folder, "still" if still is not None else "clip", still or clip or 0, design,
+                credits=credits, provider_job_id=provider_job_id, file=file, error=error,
+            )
     except (WorkflowError, ValidationError, OSError) as failure:
         typer.echo(str(failure), err=True)
         raise typer.Exit(code=1) from None
@@ -1552,7 +1727,8 @@ def carousel_stills_check(
     _utf8_output()
     settings = _settings(dry_run=True)
     try:
-        lines = stills_check(folder, load_carousel_design(settings.carousel_design_file))
+        with _registry(settings, f'ca carousel stills-check "{folder}"'):
+            lines = stills_check(folder, load_carousel_design(settings.carousel_design_file))
     except (WorkflowError, ValidationError, MediaError, OSError) as failure:
         typer.echo(str(failure), err=True)
         raise typer.Exit(code=1) from None
@@ -1570,7 +1746,8 @@ def carousel_clips_check(
     _utf8_output()
     settings = _settings(dry_run=True)
     try:
-        lines = clips_check(folder, load_carousel_design(settings.carousel_design_file))
+        with _registry(settings, f'ca carousel clips-check "{folder}"'):
+            lines = clips_check(folder, load_carousel_design(settings.carousel_design_file))
     except (WorkflowError, ValidationError, MediaError, OSError) as failure:
         typer.echo(str(failure), err=True)
         raise typer.Exit(code=1) from None
@@ -1601,7 +1778,8 @@ def carousel_render(
         raise typer.Exit(code=1) from None
     for line in lines:
         typer.echo(line)
-    _finish_carousel(folder, settings)
+    with _registry(settings, f'ca carousel render "{folder}"'):
+        _finish_carousel(folder, settings)
 
 
 @carousel_app.command("finish")
@@ -1613,7 +1791,9 @@ def carousel_finish(
     tracker gets its row, the calendar row becomes Generated; then the summary. Files already
     uploaded are skipped."""
     _utf8_output()
-    _finish_carousel(folder, _settings(dry_run=True))
+    settings = _settings(dry_run=True)
+    with _registry(settings, f'ca carousel finish "{folder}"'):
+        _finish_carousel(folder, settings)
 
 
 @carousel_app.command("continue")
@@ -1625,7 +1805,8 @@ def carousel_continue(
     _utf8_output()
     settings = _settings(dry_run=True)
     try:
-        lines = continue_lines(folder, load_carousel_design(settings.carousel_design_file))
+        with _registry(settings, f'ca carousel continue "{folder}"'):
+            lines = continue_lines(folder, load_carousel_design(settings.carousel_design_file))
     except (WorkflowError, ValidationError, OSError) as failure:
         typer.echo(str(failure), err=True)
         raise typer.Exit(code=1) from None

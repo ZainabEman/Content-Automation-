@@ -25,6 +25,7 @@ from typing import Protocol
 from content_automation.content.deliverables import DeliverableCatalog, load_deliverables
 from content_automation.content.package import (
     DONE_STATUS,
+    ContentPackage,
     UploadRecord,
     load_package,
     save_package,
@@ -42,6 +43,9 @@ from content_automation.content.tracking import (
 )
 from content_automation.core.config import Settings
 from content_automation.core.files import atomic_write_text
+from content_automation.registry import runtime
+from content_automation.registry.db import RegistryError
+from content_automation.registry.progress import upload_target
 
 ROOT_FOLDER = "Content Automation"
 PLATFORM_FOLDERS = PLATFORM_NAMES  # platform -> folder name (and the tracker's Platform)
@@ -159,15 +163,23 @@ def sync_package(folder: Path, storage: Storage, catalog: DeliverableCatalog) ->
         return result
     kept = uploaded = 0
     links: list[str] = []
+    owners = _file_items(folder, package)  # file -> BG ID (registered packages)
     for name in names:
         record = package.uploads.get(name)
         if record is not None and record.provider == storage.name and record.status == "uploaded":
             kept += 1
             continue
+        now = datetime.now(UTC)
+        job_id, earlier = _upload_job(owners.get(name), storage.name, name, where)
+        if earlier is not None:  # the registry saw this upload succeed: never upload twice
+            package.uploads[name] = UploadRecord(provider=storage.name, status="uploaded",
+                                                 link=earlier, updated_at=now)
+            kept += 1
+            save_package(folder, package)
+            continue
         call = partial(
             storage.upload, folder / name, package.platform, content_id, subfolders.get(name)
         )
-        now = datetime.now(UTC)
         try:
             done = _twice(call, folder / name)
         except StorageError as error:
@@ -175,6 +187,8 @@ def sync_package(folder: Path, storage: Storage, catalog: DeliverableCatalog) ->
                 provider=storage.name, status="upload_failed", error=str(error), updated_at=now
             )
             result.failed.append(f"{name}: {error}")
+            if job_id is not None:
+                runtime.fail(job_id, str(error))
         else:
             package.uploads[name] = UploadRecord(
                 provider=storage.name, status="uploaded", file_id=done.file_id, link=done.link,
@@ -182,7 +196,10 @@ def sync_package(folder: Path, storage: Storage, catalog: DeliverableCatalog) ->
             )
             uploaded += 1
             links.append(f"  {name}: {done.link}")
+            if job_id is not None:
+                runtime.succeed(job_id, result_path=done.link)
         save_package(folder, package)  # after every file: an uploaded ID is never lost
+    _report_uploads(package, owners, storage.name)
     result.lines.append(
         f"Drive ({storage.name}): {where}: {uploaded} uploaded, {kept} already there, "
         f"{len(result.failed)} failed."
@@ -199,6 +216,45 @@ def sync_package(folder: Path, storage: Storage, catalog: DeliverableCatalog) ->
         except (StorageError, TrackerError) as error:
             result.waiting = str(error)
     return result
+
+
+def _file_items(folder: Path, package: ContentPackage) -> dict[str, str]:
+    """Each finished file of a registered part -> the BG ID of that part's item."""
+    items = runtime.package_items(folder)
+    return {name: items[part] for part, item in package.items.items() if part in items
+            for name in item.files}
+
+
+def _upload_job(item_id: str | None, provider: str, name: str, where: str
+                ) -> tuple[int | None, str | None]:
+    """(the started upload job, or the link of an earlier upload the registry recorded)."""
+    if item_id is None:
+        return None, None
+    opened = runtime.open_scoped_job("upload", provider, {"file": name, "folder": where},
+                                     item_id=item_id)
+    if opened is None:
+        return None, None
+    if opened.reused:
+        return None, opened.job.result_path or "(recorded earlier)"
+    try:
+        started = runtime.start(opened.job.id)
+    except RegistryError:
+        return None, None  # e.g. an upload still running elsewhere: upload as before
+    return (started.id if started else None), None
+
+
+def _report_uploads(package: ContentPackage, owners: dict[str, str], provider: str) -> None:
+    """Each registered item's upload status from its files (D-16); mock stays labelled."""
+    by_item: dict[str, list[str]] = {}
+    for name, item_id in owners.items():
+        by_item.setdefault(item_id, []).append(name)
+    for item_id, files in by_item.items():
+        states = {
+            name: ("uploaded" if record.status == "uploaded" else "failed")
+            for name in files if (record := package.uploads.get(name)) is not None
+            and record.provider == provider
+        }
+        runtime.report_upload(item_id, upload_target(states, files), provider)
 
 
 def failure_lines(folder: Path, failed: list[str]) -> list[str]:
@@ -228,15 +284,51 @@ def tracker_lines(storage: Storage, results: list[tuple[Path, SyncResult]]) -> l
     entries = [result.entry for _, result in results if result.entry is not None]
     lines: list[str] = []
     if entries:
+        jobs = [_tracker_job(folder, storage.name, result.entry)
+                for folder, result in results if result.entry is not None]
         try:
             lines.append(update_tracker(storage, entries))
         except StorageNotSetUpError as error:
             lines.append(str(error))
+            _close_tracker_jobs(jobs, str(error))
         except (StorageError, TrackerError) as error:
             lines.append(f"Tracker not updated ({error}); the next sync tries again.")
+            _close_tracker_jobs(jobs, str(error))
+        else:
+            _close_tracker_jobs(jobs, None)
     lines += [f"Tracker waits for {folder.name}: {result.waiting}"
               for folder, result in results if result.waiting]
     return lines
+
+
+def _tracker_job(folder: Path, provider: str, entry: Entry) -> int | None:
+    """One registry job per tracker row write (never reused: a write is cheap and idempotent)."""
+    items = runtime.package_items(folder)
+    if not items:
+        return None
+    scope = runtime.current()
+    opened = runtime.open_scoped_job(
+        "tracker_write", "sheets" if provider == "drive" else provider,
+        {"content_id": entry["Content ID"], "run": scope.run_id if scope else ""},
+        item_id=next(iter(items.values())),
+    )
+    if opened is None:
+        return None
+    try:
+        started = runtime.start(opened.job.id)
+    except RegistryError:
+        return None
+    return started.id if started else None
+
+
+def _close_tracker_jobs(jobs: list[int | None], error: str | None) -> None:
+    for job_id in jobs:
+        if job_id is None:
+            continue
+        if error is None:
+            runtime.succeed(job_id)
+        else:
+            runtime.fail(job_id, error)
 
 
 def export_tracker(storage: Storage, target: Path) -> Uploaded:

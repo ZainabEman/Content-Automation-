@@ -20,3 +20,4 @@ htmlcov/
 /assets/fonts/*
 !/assets/fonts/Jost-*.ttf
 !/assets/fonts/OFL.txt
+/state/

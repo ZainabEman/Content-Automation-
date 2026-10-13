@@ -41,7 +41,8 @@
 
 v3 spec; plan in [docs/ROADMAP-v3.md](ROADMAP-v3.md), PRD in [docs/phases/PHASE-4-PRD.md](phases/PHASE-4-PRD.md) (§13 lists conflicts with the current code). Branch `phase-4-items`.
 
-- [ ] Step 1 – Registry core: db + migrations + ids + statuses + items + versions + audit + redaction + pytest.
+- [x] Step 1 – Registry core: db + migrations + ids + statuses + items + versions + audit + redaction + pytest.
+  Done 2026-10-13: `src/content_automation/registry/` (`open_registry()`; jobs/auth/migrate are stubs), `config/registry.json`, `/state/` git-ignored, 155 tests in `tests/registry/`. Not in the PRD: the transition table is D4 as written (changes_requested and review approved/rejected are final; idea approved ↔ rejected only while generation is not_started; §13.10/§13.19 still open for Step 2); config `next_id` can only raise the counter; a rolled-back allocation is not consumed; no delete API; v1 = active, v(n+1) = pending, approving a version supersedes older ones; env/.env values are redacted only for secret-named variables (KEY/TOKEN/SECRET/PASSWORD/CREDENTIAL/AUTH/COOKIE, 8+ chars); events are append-only by DB triggers; no backup for a brand-new DB. Full suite: 2 failures from Phase 2, not from this step (test_image provider list; doctor.py/lora.py import the comfyui adapter directly).
 - [ ] Step 2 – Item commands (list/status/approve/reject/revise/history) + audit show + manage-items skill + AGENTS.md.
 - [ ] Step 3 – Jobs + authorizations + idempotency; wire in calendar generate, image generation, carousel, Drive upload.
 - [ ] Step 4 – Calendar as a view (BG ID column, hand-edit guard) + the migration command.

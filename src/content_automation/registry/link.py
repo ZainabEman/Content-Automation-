@@ -25,6 +25,7 @@ from content_automation.registry.items import (
     add_alias,
     create_item,
     get_item,
+    move_alias,
     set_package_path,
 )
 from content_automation.registry.progress import part_done
@@ -110,11 +111,19 @@ def register_row(
     kind: str,
     platform: str | None,
     command: str | None = None,
+    replace: bool = False,
 ) -> tuple[Item, bool]:
-    """The item of a calendar row (created from the row if missing), linked to its package."""
+    """The item of a calendar row (created from the row if missing), linked to its package.
+    replace (calendar new --replace, D-11): an item that already has this Content ID is
+    rejected ("replaced"), a new item is made and the Content ID moves to it; the old item
+    keeps its history."""
     content_id = row.get("Content ID") or f"{label}-{int(row['Row']):02d}"
     with transaction(conn):
         found = by_alias(conn, content_id)
+        if found is not None and replace:
+            if found.idea_status in ("proposed", "approved"):
+                reject(conn, found.id, "replaced", gate="idea", actor="user", command=command)
+            found = None
         created = found is None
         if found is None:
             planned = row.get("Planned date") or ""
@@ -126,7 +135,7 @@ def register_row(
                 source_refs=[source] if source else [], package_path=row.get("Package") or None,
                 deliverable=row.get("Content type") or None, command=command,
             )
-            add_alias(conn, found.id, content_id, command=command)
+            move_alias(conn, content_id, found.id, command=command)
             _carry_status(conn, found, row.get("Status", "Proposed"), label, command)
         package = row.get("Package") or ""
         if package and found.package_path != package:

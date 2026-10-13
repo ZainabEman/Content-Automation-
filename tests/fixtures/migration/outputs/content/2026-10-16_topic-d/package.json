@@ -1,0 +1,11 @@
+{
+  "packageId": "2026-10-16_topic-d",
+  "contentId": "2026-W42-04",
+  "topic": "Five WhatsApp flows for shops",
+  "deliverables": ["instagram_carousel"],
+  "platform": "instagram",
+  "formats": ["carousel"],
+  "status": "draft",
+  "items": {"carousel": {"status": "waiting", "files": []}},
+  "createdAt": "2026-10-16T08:00:00Z"
+}

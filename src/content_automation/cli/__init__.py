@@ -39,6 +39,7 @@ from content_automation.content.calendar import (
     calendar_packages,
     calendar_path,
     check_calendar,
+    check_edits,
     generate_rows,
     mark_generated,
     new_calendar,
@@ -47,6 +48,7 @@ from content_automation.content.calendar import (
     ready_cost_lines,
     set_status,
     show_lines,
+    sync_calendar_view,
     week_label,
 )
 from content_automation.content.deliverables import (
@@ -54,6 +56,7 @@ from content_automation.content.deliverables import (
     DeliverableError,
     load_deliverables,
 )
+from content_automation.content.migration import collect_sources, rewrite_old_calendars
 from content_automation.content.package import (
     DONE_STATUS,
     build_package,
@@ -102,8 +105,10 @@ from content_automation.references import (
     set_primary,
     tag_assets,
 )
+from content_automation.registry import db_path
 from content_automation.registry.db import RegistryError
 from content_automation.registry.dryruns import CostLine
+from content_automation.registry.migrate import migrate_candidates
 from content_automation.registry.runtime import Scope
 from content_automation.research.collectors import CollectorError
 from content_automation.research.models import SourcesError
@@ -217,6 +222,8 @@ app.add_typer(items_app, name="item")
 app.add_typer(audit_app, name="audit")
 app.add_typer(jobs_app, name="jobs")
 app.add_typer(auth_app, name="auth")
+registry_app = typer.Typer(no_args_is_help=True, help="The content-item registry.")
+app.add_typer(registry_app, name="registry")
 AuthorizeOption = Annotated[
     str | None,
     typer.Option("--authorize", help='The dry run ID the user said "ok" to (DR-...).'),
@@ -1287,12 +1294,14 @@ def calendar_new(
     try:
         label = week_label(week)
         catalog = load_deliverables(settings.deliverables_file)
-        path, lines = new_calendar(
-            settings, catalog, label,
-            topics=topic or [], idea_numbers=idea or [], article_ids=article or [],
-            replace=replace,
-        )
-        rows = read_calendar(path)
+        with _registry(settings, f"ca calendar new --week {label}"
+                       + (" --replace" if replace else "")):
+            path, lines = new_calendar(
+                settings, catalog, label,
+                topics=topic or [], idea_numbers=idea or [], article_ids=article or [],
+                replace=replace,
+            )
+            rows = read_calendar(path)
     except (CalendarError, DeliverableError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from None
@@ -1309,9 +1318,11 @@ def calendar_check(week: WeekOption = "next") -> None:
     try:
         label = week_label(week)
         catalog = load_deliverables(settings.deliverables_file)
-        problems = check_calendar(
-            calendar_path(settings, label), label, catalog, settings.research_dir
-        )
+        with _registry(settings, f"ca calendar check --week {label}"):
+            check_edits(calendar_path(settings, label))
+            problems = check_calendar(
+                calendar_path(settings, label), label, catalog, settings.research_dir
+            )
     except (CalendarError, DeliverableError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from None
@@ -1331,7 +1342,9 @@ def calendar_show(week: WeekOption = "next") -> None:
     try:
         label = week_label(week)
         path = calendar_path(settings, label)
-        rows = read_calendar(path)
+        with _registry(settings, f"ca calendar show --week {label}"):
+            check_edits(path)
+            rows = read_calendar(path)
     except CalendarError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from None
@@ -1345,32 +1358,105 @@ def calendar_approve(
     rows: Annotated[list[str], typer.Argument(help='"all" (every Proposed row) or e.g. 1 3 5.')],
     week: WeekOption = "next",
 ) -> None:
-    """Approve rows: Proposed or Rejected -> Approved. A Generated row never changes."""
-    _calendar_decision(rows, week, "Approved")
+    """Approve rows: Proposed or Rejected -> Approved (the idea gate of each row's item, which
+    the output names by BG ID). A generated row never changes here."""
+    _calendar_decision(rows, week, "Approved", None)
 
 
 @calendar_app.command("reject")
 def calendar_reject(
     rows: Annotated[list[str], typer.Argument(help="Row numbers, e.g. 2.")],
     week: WeekOption = "next",
+    reason: Annotated[
+        str | None, typer.Option(help="Why (the make-calendar skill asks the user for it).")
+    ] = None,
 ) -> None:
-    """Reject rows: Proposed or Approved -> Rejected. A Generated row never changes."""
-    _calendar_decision(rows, week, "Rejected")
+    """Reject rows: Proposed or Approved -> Rejected (the idea gate of each row's item). A
+    generated row never changes here."""
+    _calendar_decision(rows, week, "Rejected", reason)
 
 
-def _calendar_decision(rows: list[str], week: str, status: Decision) -> None:
+def _calendar_decision(rows: list[str], week: str, status: Decision, reason: str | None) -> None:
     _utf8_output()
     settings = _settings(dry_run=True)
     try:
         label = week_label(week)
         numbers = parse_rows(rows, allow_all=status == "Approved")
-        lines = set_status(calendar_path(settings, label), numbers, status)
-    except CalendarError as error:
+        catalog = load_deliverables(settings.deliverables_file)
+        with _registry(settings, f"ca calendar {'approve' if status == 'Approved' else 'reject'} "
+                       f"{' '.join(rows)} --week {label}"):
+            lines = set_status(calendar_path(settings, label), numbers, status,
+                               catalog=catalog, reason=reason)
+    except (CalendarError, DeliverableError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from None
     for line in lines:
         typer.echo(line)
     typer.echo(sync_calendar(calendar_path(settings, label), settings))
+
+
+@registry_app.command("migrate")
+def registry_migrate(
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Only list what would be created.")
+    ] = False,
+) -> None:
+    """Register what existed before the registry (calendar rows, packages v1/v2, carousel.json,
+    uploads, mock tracker): a backup first, oldest first, BG IDs and aliases, the PRD §9 status
+    mapping; old calendar CSVs get the new header. Running it again creates nothing."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        catalog = load_deliverables(settings.deliverables_file)
+    except DeliverableError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from None
+    command = "ca registry migrate" + (" --dry-run" if dry_run else "")
+    with _registry(settings, command) as scope:
+        found = collect_sources(settings, catalog)
+        report = migrate_candidates(
+            scope.conn, db_path(settings.state_dir), found.candidates,
+            unreadable=found.unreadable, notes=found.notes, dry_run=dry_run, command=command,
+        )
+        lines = report.lines(dry_run=dry_run)
+        if not dry_run:
+            lines += rewrite_old_calendars(settings)
+    for line in lines:
+        typer.echo(line)
+
+
+@calendar_app.command("sync")
+def calendar_sync(
+    week: WeekOption = "next",
+    discard_edits: Annotated[
+        bool, typer.Option("--discard-edits", help="Overwrite hand edits with the registry.")
+    ] = False,
+    import_edits: Annotated[
+        bool,
+        typer.Option("--import-edits",
+                     help="Import hand-edited Topic and Planned date (logged); never Status."),
+    ] = False,
+) -> None:
+    """Rewrite the week's CSV from the registry. A hand-edited file shows its diff and needs
+    --discard-edits or --import-edits."""
+    _utf8_output()
+    if discard_edits and import_edits:
+        typer.echo("Give only one of --discard-edits or --import-edits.", err=True)
+        raise typer.Exit(code=2)
+    settings = _settings(dry_run=True)
+    try:
+        label = week_label(week)
+        path = calendar_path(settings, label)
+        with _registry(settings, f"ca calendar sync --week {label}"
+                       + (" --discard-edits" if discard_edits else "")
+                       + (" --import-edits" if import_edits else "")):
+            lines = sync_calendar_view(path, discard=discard_edits, take=import_edits)
+    except CalendarError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from None
+    for line in lines:
+        typer.echo(line)
+    typer.echo(sync_calendar(path, settings))
 
 
 @calendar_app.command("generate")

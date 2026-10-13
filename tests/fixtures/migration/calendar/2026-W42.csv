@@ -1,0 +1,6 @@
+Row,Planned date,Topic,Research source,Platform,Content type,Status,Package,Content ID
+1,2026-10-12,Chatbots that answer at night,topic:Chatbots that answer at night,linkedin,linkedin_post,Proposed,,2026-W42-01
+2,2026-10-13,Missed calls cost dentists patients,topic:Missed calls cost dentists patients,facebook,facebook_post,Approved,outputs/content/2026-10-14_topic-b,2026-W42-02
+3,2026-10-14,AI receptionists for gyms,topic:AI receptionists for gyms,linkedin,linkedin_post,Rejected,,2026-W42-03
+4,2026-10-15,Five WhatsApp flows for shops,topic:Five WhatsApp flows for shops,instagram,instagram_carousel,Generated,outputs/content/2026-10-16_topic-d,2026-W42-04
+5,2026-10-16,Lead scoring without spreadsheets,topic:Lead scoring without spreadsheets,facebook,facebook_post,Approved,,2026-W42-05

@@ -9,7 +9,8 @@ import sqlite3
 from pathlib import Path
 
 from content_automation.registry.audit import append_event
-from content_automation.registry.db import DEFAULT_DB_PATH, connect, migrate
+from content_automation.registry.db import DEFAULT_DB_PATH, connect
+from content_automation.registry.db import migrate as migrate_schema  # registry.migrate is a module
 from content_automation.registry.ids import DEFAULT_CONFIG_PATH, apply_config, load_config
 
 DB_FILE = "registry.db"
@@ -28,7 +29,7 @@ def open_registry(
     config = load_config(config_path)
     conn = connect(db_path)
     try:
-        result = migrate(conn, db_path)
+        result = migrate_schema(conn, db_path)
         for migration in result.applied:
             append_event(
                 conn, "migration_run", command="schema migration",

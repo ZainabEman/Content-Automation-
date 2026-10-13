@@ -15,11 +15,18 @@ checks then go on per package with `ca content build`. A finished package makes 
 Generated; a failed row stays Approved, is reported, and is never retried by itself.
 The row's Content ID and Research source are saved in its package.json (the package's
 Drive folder name and its Content Tracker row).
+
+Inside a `ca` command the CSV is a view of the registry (PRD Phase 4 D10, §14 D-8, D-9, D-11,
+D-12): every row is an item (BG ID column), Status and Version come from the registry, and each
+write stores the file's text, so a file edited by hand since stops the command with a diff
+(CalendarEdited; `ca calendar sync --discard-edits|--import-edits`). Old 9-column files are
+still read; their next write uses the new header.
 """
 
 import csv
 import io
 import re
+import sqlite3
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -44,16 +51,26 @@ from content_automation.content.research_input import ResearchFile, ResearchIdea
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
 from content_automation.registry import runtime
+from content_automation.registry.approvals import approve, reject
 from content_automation.registry.dryruns import CostLine
+from content_automation.registry.files import edited_diff, last_written, record_written
+from content_automation.registry.gates import gate_open
+from content_automation.registry.items import get_item, set_planned_date, set_title
 from content_automation.registry.link import register_row
 from content_automation.research.run import digest
 from content_automation.research.store import find_article
 
 COLUMNS = (
+    "Row", "BG ID", "Planned date", "Topic", "Research source", "Platform", "Content type",
+    "Status", "Version", "Package", "Content ID",
+)
+OLD_COLUMNS = (  # before the registry (Phase 1-3): still read (D-8)
     "Row", "Planned date", "Topic", "Research source", "Platform", "Content type", "Status",
     "Package", "Content ID",
 )
-STATUSES = ("Proposed", "Approved", "Rejected", "Generated")
+STATUSES = ("Proposed", "Approved", "Rejected", "Generated", "Revision requested",
+            "In progress", "Failed")
+APPROVED_STATES = ("Approved", "In progress", "Failed")  # the idea is approved, not generated
 Decision = Literal["Approved", "Rejected"]
 CHANGES_FROM: dict[Decision, tuple[str, ...]] = {  # the statuses each decision may replace
     "Approved": ("Proposed", "Rejected"),
@@ -75,6 +92,19 @@ Row = dict[str, str]
 class CalendarError(ValueError):
     """A bad week, cadence file, calendar file or pick."""
 
+
+class CalendarEdited(CalendarError):
+    """The CSV was edited by hand since the app last wrote it (D10): nothing was written."""
+
+    def __init__(self, path: Path, label: str, diff: str) -> None:
+        self.path = path
+        self.diff = diff
+        super().__init__(
+            f"{path} was edited by hand since the last write; nothing was changed. The edits:\n"
+            f"{diff.rstrip()}\nChoose one: uv run ca calendar sync --week {label} "
+            "--discard-edits (keep the registry) or --import-edits (take the Topic and Planned "
+            "date edits; Status edits are never imported: approve or reject instead)."
+        )
 
 class _Model(CamelModel):
     model_config = ConfigDict(extra="forbid")
@@ -155,18 +185,76 @@ def read_calendar(path: Path) -> list[Row]:
         raise CalendarError(
             f"No calendar at {path}: make it with `uv run ca calendar new`."
         ) from None
-    if header != COLUMNS:
+    if header not in (COLUMNS, OLD_COLUMNS):
         raise CalendarError(f"{path.name}: the columns must be {', '.join(COLUMNS)}.")
-    return rows
+    return [{column: row.get(column, "") for column in COLUMNS} for row in rows]
 
 
-def write_calendar(path: Path, rows: list[Row]) -> None:
+def has_old_header(path: Path) -> bool:
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        return tuple(csv.DictReader(handle).fieldnames or ()) == OLD_COLUMNS
+
+
+def _label_of(path: Path) -> str:
+    return path.stem
+
+
+def render_calendar(rows: list[Row]) -> str:
     buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=COLUMNS, lineterminator="\n")
     writer.writeheader()
-    writer.writerows(rows)
+    writer.writerows([{column: row.get(column, "") for column in COLUMNS} for row in rows])
+    return buffer.getvalue()
+
+
+def view_status(idea: str, generation: str) -> str:
+    """The CSV Status of an item (D-9): its idea status, then its generation."""
+    if idea != "approved":
+        return {"proposed": "Proposed", "revision_requested": "Revision requested",
+                "rejected": "Rejected"}.get(idea, "Proposed")
+    return {"not_started": "Approved", "queued": "In progress", "running": "In progress",
+            "generated": "Generated", "failed": "Failed", "partial": "Failed"}[generation]
+
+
+def _view_row(conn: sqlite3.Connection, row: Row) -> Row:
+    if not row.get("BG ID"):
+        return row
+    item = get_item(conn, row["BG ID"])
+    view = dict(row)
+    view.update({
+        "Topic": item.topic,
+        "Planned date": item.planned_date.isoformat() if item.planned_date else "",
+        "Status": view_status(item.idea_status, item.generation_status),
+        "Version": str(item.current_version),
+        "Package": item.package_path or row.get("Package", ""),
+    })
+    return view
+
+
+def check_edits(path: Path) -> None:
+    """Inside a `ca` command: CalendarEdited if the CSV was edited by hand since the last
+    write (D10)."""
+    scope = runtime.current()
+    if scope is None:
+        return
+    diff = edited_diff(scope.conn, path)
+    if diff:
+        raise CalendarEdited(path, _label_of(path), diff)
+
+
+def write_calendar(path: Path, rows: list[Row], *, force: bool = False) -> None:
+    """Write the CSV. Inside a `ca` command: refuse a hand-edited file (unless force: the
+    sync command), fill Status, Version, Topic and dates from the registry, store the text."""
+    scope = runtime.current()
+    if scope is not None:
+        if not force:
+            check_edits(path)
+        rows = [_view_row(scope.conn, row) for row in rows]
+    text = render_calendar(rows)
     path.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_text(path, buffer.getvalue())
+    atomic_write_text(path, text)
+    if scope is not None:
+        record_written(scope.conn, path, text)
 
 
 def new_calendar(
@@ -187,6 +275,7 @@ def new_calendar(
                 f"{path} already exists: show it with `uv run ca calendar show --week {label}`, "
                 "or add --replace to make it again (only while every row is Proposed)."
             )
+        check_edits(path)
         decided = [row["Row"] for row in read_calendar(path) if row["Status"] != "Proposed"]
         if decided:
             raise CalendarError(
@@ -223,12 +312,14 @@ def new_calendar(
         number = len(rows) + 1
         rows.append({
             "Row": str(number),
+            "BG ID": "",
             "Planned date": days[WEEKDAYS.index(slot.weekday)].isoformat(),
             "Topic": idea.topic,
             "Research source": idea.source,
             "Platform": catalog.deliverables[slot.deliverable].platform or "",
             "Content type": slot.deliverable,
             "Status": "Proposed",
+            "Version": "",
             "Package": "",
             "Content ID": f"{label}-{number:02d}",
         })
@@ -237,8 +328,16 @@ def new_calendar(
             "No ideas to plan: give --topic values, run show content, or run "
             "`uv run ca research collect`."
         )
-    write_calendar(path, rows)
+    if path.exists():
+        check_edits(path)
+    ids = [_row_item(row, label, catalog, replace=replace) for row in rows]
+    for row, item_id in zip(rows, ids, strict=True):
+        row["BG ID"] = item_id or ""
+    write_calendar(path, rows, force=True)
     lines = [f"Calendar {label}: {path} ({len(rows)} rows, all Proposed; nothing generated)."]
+    if any(ids):
+        lines.append("Items: " + ", ".join(
+            f"row {row['Row']} {row['BG ID']}" for row in rows if row["BG ID"]))
     if newest is None:
         lines.append("No newsletter content list found; used topics and scraper articles.")
     if empty:
@@ -307,8 +406,13 @@ def parse_rows(values: list[str], *, allow_all: bool) -> list[int] | None:
     return list(dict.fromkeys(int(word) for word in words))
 
 
-def set_status(path: Path, numbers: list[int] | None, status: Decision) -> list[str]:
-    """Approve or reject rows (numbers None: every Proposed row); all or nothing."""
+def set_status(path: Path, numbers: list[int] | None, status: Decision, *,
+               catalog: DeliverableCatalog | None = None, reason: str | None = None
+               ) -> list[str]:
+    """Approve or reject rows (numbers None: every Proposed row); all or nothing. Inside a `ca`
+    command this goes through the registry (the idea gate of each row's item, D-12)."""
+    if runtime.current() is not None and catalog is not None:
+        return _registry_decision(path, numbers, status, catalog, reason)
     rows = read_calendar(path)
     if numbers is None:
         targets = [row for row in rows if row["Status"] == "Proposed"]
@@ -334,6 +438,92 @@ def set_status(path: Path, numbers: list[int] | None, status: Decision) -> list[
     return [f"{path.name}: rows {', '.join(row['Row'] for row in targets)} are {status}."]
 
 
+def _registry_decision(path: Path, numbers: list[int] | None, status: Decision,
+                       catalog: DeliverableCatalog, reason: str | None) -> list[str]:
+    scope = runtime.current()
+    assert scope is not None
+    check_edits(path)
+    label = _label_of(path)
+    rows = read_calendar(path)
+    for row in rows:  # rows from before the registry become items first
+        row["BG ID"] = row["BG ID"] or (_row_item(row, label, catalog) or "")
+    rows = [_view_row(scope.conn, row) for row in rows]
+    if numbers is None:
+        targets = [row for row in rows if row["Status"] == "Proposed"]
+        if not targets:
+            raise CalendarError(f"{path.name} has no Proposed rows.")
+    else:
+        by_number = {row["Row"]: row for row in rows}
+        missing = [str(number) for number in numbers if str(number) not in by_number]
+        if missing:
+            raise CalendarError(f"{path.name} has no row {', '.join(missing)}.")
+        targets = [by_number[str(number)] for number in numbers]
+    action: Literal["approve", "reject"] = "approve" if status == "Approved" else "reject"
+    todo = [row for row in targets if row["Status"] != status]
+    blocked = [
+        f"row {row['Row']} ({row['BG ID']}) is {row['Status']}" for row in todo
+        if not gate_open(get_item(scope.conn, row["BG ID"]), action, "idea")
+    ]
+    if blocked:
+        raise CalendarError(f"Nothing changed: {'; '.join(blocked)} (decisions on a generated "
+                            "row move to the review gate: ca item approve|reject BG-x).")
+    lines = []
+    for row in todo:
+        if action == "approve":
+            change = approve(scope.conn, row["BG ID"], gate="idea", command=scope.command)
+        else:
+            text = reason or f"rejected in calendar {label} (no reason given)"
+            change = reject(scope.conn, row["BG ID"], text, gate="idea", command=scope.command)
+        lines.append(f"{path.name}: row {row['Row']} {change.line()}")
+    lines += [f"{path.name}: row {row['Row']} {row['BG ID']} is already {status}."
+              for row in targets if row not in todo]
+    write_calendar(path, rows, force=True)
+    return lines
+
+
+def sync_calendar_view(path: Path, *, discard: bool = False, take: bool = False) -> list[str]:
+    """`ca calendar sync`: rewrite the view from the registry. A hand-edited file needs a choice:
+    discard the edits, or import the Topic and Planned date edits (logged)."""
+    scope = runtime.current()
+    if scope is None:
+        raise CalendarError("calendar sync needs the registry.")
+    diff = edited_diff(scope.conn, path)
+    rows = read_calendar(path)
+    lines: list[str] = []
+    if diff and not (discard or take):
+        raise CalendarEdited(path, _label_of(path), diff)
+    if diff and discard:
+        before = last_written(scope.conn, path) or ""
+        rows = [{column: row.get(column, "") or "" for column in COLUMNS}
+                for row in csv.DictReader(io.StringIO(before))]
+        lines.append(f"{path.name}: hand edits discarded.")
+    elif diff and take:
+        for row in rows:
+            if not row["BG ID"]:
+                continue
+            item = get_item(scope.conn, row["BG ID"])
+            if row["Topic"] and row["Topic"] != item.topic:
+                set_title(scope.conn, item.id, row["Topic"], actor="user", command=scope.command)
+                lines.append(f"{item.id}: topic imported: \"{row['Topic']}\"")
+            planned = item.planned_date.isoformat() if item.planned_date else ""
+            if row["Planned date"] and row["Planned date"] != planned:
+                try:
+                    day = date.fromisoformat(row["Planned date"])
+                except ValueError:
+                    lines.append(f"{item.id}: planned date \"{row['Planned date']}\" is not "
+                                 "YYYY-MM-DD; not imported.")
+                    continue
+                set_planned_date(scope.conn, item.id, day, actor="user", command=scope.command)
+                lines.append(f"{item.id}: planned date imported: {day}")
+            if row["Status"] != view_status(item.idea_status, item.generation_status):
+                lines.append(f"{item.id}: Status edit \"{row['Status']}\" not imported "
+                             "(approve or reject instead).")
+        lines.append(f"{path.name}: edits imported where allowed.")
+    write_calendar(path, rows, force=True)
+    lines.append(f"{path.name}: in sync with the registry.")
+    return lines
+
+
 def generate_rows(
     settings: Settings,
     catalog: DeliverableCatalog,
@@ -357,8 +547,9 @@ def generate_rows(
             f"{path.name} has {len(problems)} problem(s): run `uv run ca calendar check --week "
             f"{label}` and fix them first."
         )
+    check_edits(path)
     rows = read_calendar(path)
-    approved = [row for row in rows if row["Status"] == "Approved"]
+    approved = [row for row in rows if row["Status"] in APPROVED_STATES]
     if not approved:
         raise CalendarError(f"{path.name} has no Approved rows: approve rows first.")
     lines: list[str] = []
@@ -370,6 +561,7 @@ def generate_rows(
         where = f"Row {row['Row']} ({row['Planned date']}, {row['Content type']})"
         item_id = _row_item(row, label, catalog)
         if item_id:
+            row["BG ID"] = item_id
             where += f" {item_id}"
         if not row["Package"]:
             if build:
@@ -467,14 +659,15 @@ def generate_rows(
     return lines, failed
 
 
-def _row_item(row: Row, label: str, catalog: DeliverableCatalog) -> str | None:
+def _row_item(row: Row, label: str, catalog: DeliverableCatalog, *,
+              replace: bool = False) -> str | None:
     """The row's BG ID inside a `ca` command (the row is registered if it was not yet)."""
     scope = runtime.current()
     spec = catalog.deliverables.get(row["Content type"])
     if scope is None or spec is None:
         return None
     item, _ = register_row(scope.conn, row, label, kind=spec.item_kind, platform=spec.platform,
-                           command=scope.command)
+                           command=scope.command, replace=replace)
     return item.id
 
 
@@ -485,7 +678,7 @@ def ready_cost_lines(settings: Settings, catalog: DeliverableCatalog, label: str
     path = calendar_path(settings, label)
     lines: list[CostLine] = []
     for row in read_calendar(path):
-        if row["Status"] != "Approved" or not row["Package"]:
+        if row["Status"] not in APPROVED_STATES or not row["Package"]:
             continue
         folder = Path(row["Package"])
         if _package_state(folder)[0] != "ready":
@@ -510,13 +703,16 @@ def mark_generated(settings: Settings, folder: Path) -> list[Path]:
             continue
         hits = [
             row for row in rows
-            if row["Package"] and row["Status"] == "Approved"
+            if row["Package"] and row["Status"] in APPROVED_STATES
             and Path(row["Package"]).resolve() == target
         ]
         for row in hits:
             row["Status"] = "Generated"
         if hits:
-            write_calendar(path, rows)
+            try:
+                write_calendar(path, rows)
+            except CalendarEdited:
+                continue  # hand-edited: left as it is; `ca calendar sync` shows the edits
             changed.append(path)
     return changed
 
@@ -586,12 +782,12 @@ def _failed_part(package: ContentPackage) -> str:
 
 def show_lines(rows: list[Row]) -> list[str]:
     """A Markdown table for Codex to show."""
-    columns = ("Row", "Planned date", "Platform", "Content type", "Status", "Topic",
+    columns = ("Row", "BG ID", "Planned date", "Platform", "Content type", "Status", "Topic",
                "Research source")
     lines = ["| " + " | ".join(columns) + " |", "|" + "---|" * len(columns)]
     for row in rows:
-        cells = [row[column].replace("|", "/") for column in columns]
-        cells[1] = _with_weekday(cells[1])
+        cells = [(row.get(column) or "—").replace("|", "/") for column in columns]
+        cells[2] = _with_weekday(cells[2])
         lines.append("| " + " | ".join(cells) + " |")
     return lines
 

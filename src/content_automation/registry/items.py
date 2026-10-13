@@ -264,6 +264,44 @@ def set_package_path(
         return get_item(conn, item.id)
 
 
+def move_alias(
+    conn: sqlite3.Connection, alias: str, ref: str, *, actor: Actor = "system",
+    command: str | None = None,
+) -> None:
+    """Let an existing alias name another item (calendar --replace, D-11); logged."""
+    with transaction(conn):
+        target = resolve(conn, ref)
+        row = conn.execute("SELECT item_id FROM aliases WHERE alias = ?", (alias,)).fetchone()
+        if row is None:
+            add_alias(conn, target, alias, actor=actor, command=command)
+            return
+        previous = str(row["item_id"])
+        if previous == target:
+            return
+        conn.execute("UPDATE aliases SET item_id = ? WHERE alias = ?", (target, alias))
+        append_event(conn, "alias_added", actor=actor, command=command, item_id=target,
+                     details={"alias": alias, "moved_from": previous})
+
+
+def set_planned_date(
+    conn: sqlite3.Connection, ref: str, planned: date | None, *, actor: Actor = "system",
+    command: str | None = None,
+) -> Item:
+    """A new planned date (calendar --import-edits); logged."""
+    with transaction(conn):
+        item = get_item(conn, ref)
+        if item.planned_date == planned:
+            return item
+        conn.execute("UPDATE items SET planned_date = ?, updated_at = ? WHERE id = ?",
+                     (planned.isoformat() if planned else None, now(), item.id))
+        append_event(conn, "item_updated", actor=actor, command=command, item_id=item.id,
+                     version=item.current_version,
+                     details={"planned_date": {
+                         "from": item.planned_date.isoformat() if item.planned_date else None,
+                         "to": planned.isoformat() if planned else None}})
+        return get_item(conn, item.id)
+
+
 def set_title(
     conn: sqlite3.Connection, ref: str, title: str, *, actor: Actor = "system",
     command: str | None = None,

@@ -1,0 +1,12 @@
+{
+  "packageId": "2026-10-01_v1-package",
+  "topic": "AI chatbots for lead generation",
+  "platform": "facebook",
+  "formats": ["post", "ad"],
+  "status": "draft",
+  "items": {
+    "post": {"status": "done", "files": ["images/post-1.png"]},
+    "ad": {"status": "done", "files": ["images/ad-1.png"]}
+  },
+  "createdAt": "2026-10-01T08:00:00Z"
+}

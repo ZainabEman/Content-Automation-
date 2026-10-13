@@ -21,10 +21,19 @@ Decisions: B4-1 … B4-9 (PRD "Decisions taken during build")
 Needs review: B4-1 generation needs an approved idea everywhere (Step 3 must give make-content items an approved idea); B4-5 exit codes 1/2; B4-6 row numbers via Content ID alias; B4-9 status reads only the mock tracker.
 
 ## 2026-10-13 19:03 — Phase 4 Step 3: dry runs, authorizations, jobs, idempotency + wiring — DONE
-Commit: pending   Tests: 276/276
+Commit: 9e45ffd   Tests: 276/276
 Built: registry dryruns.py (state/dryruns/DR-….json, expiry, used, scope/cost checks), auth.py (one per provider/unit per dry run, legacy), jobs.py (D-6 key with redo_n, reuse, budget stop, stale, check), progress.py (generation/upload derivation, D-16), runtime.py (scope used by the pipelines), link.py (packages and calendar rows → items); schema migration 3; config/jobs.json; D-2 kinds in config/deliverables.json.
 Built: wiring — `ca image`, `ca content build`, `ca calendar generate --build`, `ca video` take `--authorize <dryrun_id>`; run_image_job is a registry job; carousel requests carry jobId (record closes, checks reject + redo, max from the authorization); video agent steps carry jobId (`ca job complete|fail` close); `ca job review --fail` rejects the image job; Drive uploads and tracker writes are jobs; content start/set register items (D-3).
 Built: `ca jobs list|check|resume|cancel`, `ca auth list` (cli/jobs.py); skills make-calendar, make-content, make-carousel, make-video, manage-items + AGENTS.md updated (dry-run ID, `--authorize` after "ok", `ca jobs check` before every plugin call).
 Built: 18 new tests (reuse/redo, budget stop, unauthorized paid job, stale, check, derivation, dry runs, per-provider authorizations, image job reuse, `ca image` authorize, carousel interrupted + resumed, legacy carousel, agent step, Drive upload jobs).
 Decisions: B4-10 … B4-24 (PRD "Decisions taken during build")
 Needs review: B4-10 make-content request approves the idea; B4-11 legacy packages approved at build; B4-14 `ca video --authorize` added; B4-15 video credit estimates (client to confirm); B4-16 estimate charged when no actual; B4-22 generated from the pipeline, not "all jobs succeeded"; B4-23 no auto-close of authorizations.
+
+## 2026-10-13 19:15 — Phase 4 Step 4: calendar as a view + migration — DONE
+Commit: pending   Tests: 283/283
+Built: calendar CSV view: new header (Row, BG ID, …, Status, Version, Package, Content ID), old 9-column header still read; Status from the registry (D-9 mapping); hand-edit guard with a unified diff (written_files, migration 4); `ca calendar sync --week W --discard-edits|--import-edits` (Topic and Planned date only, logged).
+Built: `calendar new` registers every row (BG IDs, Content ID aliases); `--replace` rejects the old items ("replaced") and moves the Content ID (D-11); approve/reject through the registry with BG IDs echoed (D-12), `reject --reason`.
+Built: `ca registry migrate [--dry-run]` (registry/migrate.py + content/migration.py): calendar CSVs, packages v1/v2, carousel.json, drive_state.json (count only), mock tracker; backup first, oldest first, aliases, §9 mapping, migration_run, old CSVs rewritten; idempotent; created/skipped/unreadable report. Fixtures in tests/fixtures/migration/ (D-18).
+Built: real local data, `ca registry migrate --dry-run`: 10 would be created, 0 skipped, 0 unreadable, 1 note (v1 post for Instagram without a deliverable). Skills make-calendar + AGENTS.md updated.
+Decisions: B4-25 … B4-33
+Needs review: B4-26 calendar reject without a reason still works; B4-29 migration mapping for in-progress/failed parts and v1 deliverables; B4-30 migrated approvals recorded as the user's.

@@ -205,10 +205,21 @@ CREATE INDEX authorizations_dryrun ON authorizations (dryrun_id);
 ALTER TABLE items ADD COLUMN upload_provider TEXT;
 """
 
+# The last text the app wrote to a view file (the calendar CSVs): the hand-edit guard (D10).
+SCHEMA_4 = """
+CREATE TABLE written_files (
+    path TEXT PRIMARY KEY,
+    sha256 TEXT NOT NULL,
+    content TEXT NOT NULL,
+    written_at TEXT NOT NULL
+);
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "registry core", SCHEMA_1),
     Migration(2, "item deliverable", SCHEMA_2),
     Migration(3, "jobs, redo and authorization groups", SCHEMA_3),
+    Migration(4, "written view files", SCHEMA_4),
 )
 
 _SCHEMA_TABLE = """

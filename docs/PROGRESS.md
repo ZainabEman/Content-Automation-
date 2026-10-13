@@ -47,7 +47,7 @@ v3 spec; plan in [docs/ROADMAP-v3.md](ROADMAP-v3.md), PRD in [docs/phases/PHASE-
 - 2.0 D-22/D-23 (PRD §14, AGENTS.md/CLAUDE.md working rules) ✔ — autorun plan: [docs/autorun/AUTORUN-PHASES-4-6.md](autorun/AUTORUN-PHASES-4-6.md), log: [docs/autorun/LOG.md](autorun/LOG.md)
 - [x] Step 2 – Item commands (list/status/approve/reject/revise/history) + audit show + manage-items skill + AGENTS.md.
 - [x] Step 3 – Jobs + authorizations + idempotency; wire in calendar generate, image generation, carousel, Drive upload.
-- [ ] Step 4 – Calendar as a view (BG ID column, hand-edit guard) + the migration command.
+- [x] Step 4 – Calendar as a view (BG ID column, hand-edit guard) + the migration command.
 - [ ] Step 5 – Tracker columns + conflict report (mock).
 - [ ] Step 6 – Remaining skill updates, ca help commands, docs, mock end-to-end run of §10, PROGRESS.md.
 

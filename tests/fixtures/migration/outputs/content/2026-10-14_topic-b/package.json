@@ -1,0 +1,13 @@
+{
+  "packageId": "2026-10-14_topic-b",
+  "contentId": "2026-W42-02",
+  "researchSource": "topic:Missed calls cost dentists patients",
+  "topic": "Missed calls cost dentists patients",
+  "deliverables": ["facebook_post"],
+  "platform": "facebook",
+  "formats": ["post"],
+  "status": "draft",
+  "items": {"post": {"status": "done", "files": ["images/post-1.png"]}},
+  "uploads": {"images/post-1.png": {"provider": "mock", "status": "uploaded", "link": "mock://drive/x"}},
+  "createdAt": "2026-10-14T08:00:00Z"
+}

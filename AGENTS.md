@@ -94,8 +94,10 @@ Use the make-content skill: `ca content start` (stage 1) → `content.md` → `c
 
 ### Calendar
 
+0. The calendar CSV is a view of the registry (BG ID, Status, Version). A hand-edited CSV stops every calendar command with a diff: the user chooses `uv run ca calendar sync --week <week> --discard-edits` or `--import-edits` (Topic and Planned date only). Calendars and packages made before the registry are registered once by the user with `uv run ca registry migrate` (`--dry-run` first lists what it would create; a backup is made first; running it again creates nothing).
+
 1. Make: `uv run ca research collect`, pick ideas (newest `research/newsletters/<date>_content-list.json`, `ca research digest`, the user's topics), `uv run ca calendar new --week next [--topic "…"] [--idea N] [--article <id>]`, then `uv run ca calendar check --week next` until OK. Cadence: `config/calendar.json` (Mon LinkedIn, Tue Facebook, Wed LinkedIn, Thu Facebook, Fri Instagram carousel). Show `ca calendar show` and ask "Approve all, approve some or reject rows?".
-2. Approve or reject: `uv run ca calendar approve all|1 3 5` / `uv run ca calendar reject 2` (Proposed → Approved/Rejected, Approved ↔ Rejected; Generated never changes).
+2. Approve or reject: `uv run ca calendar approve all|1 3 5` / `uv run ca calendar reject 2 --reason "…"` (ask for the reason) (Proposed → Approved/Rejected, Approved ↔ Rejected; Generated never changes).
 3. Generate: `uv run ca calendar generate`: stage 1 per Approved row (folder saved in `Package`); write `content.md` and `brief.json` per package as in make-content; run it again for ONE combined dry run (cost per row + total in $ and, for carousels, Higgsfield credits with their max; "no person" rows named; `Dry run ID: DR-…`). Stop for "ok".
 4. After "ok": `uv run ca calendar generate --build --authorize <DR-id>`; then person and set checks per package with `ca content build "<folder>"`; an Instagram row continues with the make-carousel skill (Playbooks → Carousel), which marks its row Generated at the end. Run `generate` again to mark finished rows Generated. Failed rows stay Approved, are reported, and are never retried without the user's yes. Finished packages upload and get their tracker row by themselves (see Drive sync).
 

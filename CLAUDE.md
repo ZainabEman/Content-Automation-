@@ -13,7 +13,7 @@ docs/ROADMAP-v3.md; spec per phase: docs/phases/PHASE-<n>-PRD.md (the v2 docs/PR
 - Inspect current code before changing it; preserve research, copywriting, approval,
   cost-approval and folder logic.
 - No paid generation without an approved cost estimate shown first.
-- Keep Nano Banana 2/OpenRouter available until its replacement passes Phase 4 tests.
+- Keep Nano Banana 2/OpenRouter available; decision in Phase 10 (roadmap v3).
 - No automatic publishing in v1.
 
 ## Workflow

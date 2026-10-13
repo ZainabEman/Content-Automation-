@@ -141,3 +141,8 @@ D-19 Revise:
  - Review gate: allowed when review ∈ {not_reviewed, approved}. Sets review → changes_requested and creates v(n+1) pending. When the new version starts generating (Phase 7), generation generated → queued and review changes_requested → not_reviewed. Review rejected is final (revise instead of reject to keep an item alive).
 D-20 Until Phase 7, v(n+1) shares v1's package_path and stores the feedback.
 D-21 CLAUDE.md/AGENTS.md updated in Step 2a; the full suite is the baseline from now on.
+D-22 An idea-gate revise is allowed when idea ∈ {proposed, approved} and generation ∈ {not_started, failed, partial}.
+ - approved → revision_requested. The item can't generate until it is approved again.
+ - A second revise while the item is revision_requested is refused, with a hint to use `resubmit`.
+ - Starting a new version requires an approved idea (keep).
+D-23 AGENTS.md working rules: replace "No new tests" with "ruff + mypy --strict + offline pytest must pass before every commit"; the commit format becomes `phase <N> step <M>: …`. CLAUDE.md: the Nano Banana note now says "decision in Phase 10 (roadmap v3)".

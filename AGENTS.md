@@ -44,7 +44,7 @@ Single images or videos: use the playbooks below.
 - Every job writes `details.json`; never mark a job completed without its output file, and record failures with the error.
 - Tests run offline with mocks. Credit-spending calls require a task explicitly marked LIVE and an estimate stated first.
 - Each task updates `docs/guides/module-N-<name>.md` from `docs/guides/_TEMPLATE.md` in plain language for non-coders; `docs/README.md` links every guide.
-- Finish each task: No new tests. Before commit: `uv run ruff check` + one smoke run of the new command. Full `uv run pytest -q` only at the end of a module. Add one line to `docs/PROGRESS.md`; commit as `M<n>.T<n>: <title>`; reply in at most five lines with changes, tests, blockers, and what the user must do.
+- Finish each task: ruff + mypy --strict + offline pytest must pass before every commit (`uv run ruff check .`, `uv run mypy --strict src tests`, `uv run pytest`). Add one line to `docs/PROGRESS.md`; commit as `phase <N> step <M>: <title>`; reply in at most five lines with changes, tests, blockers, and what the user must do.
 
 ## Playbooks
 

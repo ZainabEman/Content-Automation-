@@ -197,6 +197,8 @@ def sync_package(folder: Path, storage: Storage, catalog: DeliverableCatalog) ->
             result.failed.append(f"{name}: {error}")
             if job_id is not None:
                 runtime.fail(job_id, str(error))
+            runtime.log(owners.get(name), "upload_failed",
+                        {"file": name, "provider": storage.name, "error": str(error)})
         else:
             package.uploads[name] = UploadRecord(
                 provider=storage.name, status="uploaded", file_id=done.file_id, link=done.link,
@@ -206,6 +208,8 @@ def sync_package(folder: Path, storage: Storage, catalog: DeliverableCatalog) ->
             links.append(f"  {name}: {done.link}")
             if job_id is not None:
                 runtime.succeed(job_id, result_path=done.link)
+            runtime.log(owners.get(name), "upload_succeeded",
+                        {"file": name, "provider": storage.name, "link": done.link})
         save_package(folder, package)  # after every file: an uploaded ID is never lost
     _report_uploads(package, owners, storage.name)
     result.lines.append(

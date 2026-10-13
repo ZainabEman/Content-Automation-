@@ -53,10 +53,14 @@ You can also ask for single images, videos or research (see the guides).
 | `uv run ca content deliverables` | What can be made and the names that ask for it. |
 | `uv run ca content start --topic "…" \| --research-file <list.json> --idea N [--deliverables "<names>"]` | Stage 1: research + package folder (deliverables optional). |
 | `uv run ca content set <folder> --deliverables "<names>"` | Stage 2: name the deliverables; writes the brief template for exactly those. |
-| `uv run ca content build <folder> [--dry-run]` | Makes what is missing in a package (or shows the cost). |
+| `uv run ca content build <folder> [--dry-run] [--authorize <DR-id>]` | Makes what is missing in a package (or shows the cost and the dry run ID; a paid build needs `--authorize` after "ok"). |
+| `uv run ca item list\|status\|approve\|reject\|revise\|resubmit\|history …` | Content items by BG ID (see the [Registry guide](guides/module-5-registry.md)). |
+| `uv run ca jobs list\|check\|resume\|cancel`, `uv run ca auth list`, `uv run ca audit show` | Jobs, spending authorizations and the audit log. |
+| `uv run ca registry migrate [--dry-run]` | Registers calendars and packages made before the registry (once; backup first). |
+| `uv run ca help commands` | Every phrase you can say in Codex, grouped by skill. |
 | `uv run ca calendar new\|check\|show\|approve\|reject\|generate [--week next]` | The week's content calendar: propose, check, approve or reject rows, generate the approved ones (see the [Calendar and Drive guide](guides/module-4-calendar-drive.md)). |
 | `uv run ca drive setup` / `uv run ca drive sync [<folder>]` | One-time Google sign-in, folders and Content Tracker; upload finished files and update the tracker. |
-| `uv run ca tracking show\|export` | Content Tracker status counts; CSV copy (local + "Content Tracker.csv" in Drive). |
+| `uv run ca tracking show\|export\|conflicts\|resolve` | Content Tracker status counts; CSV copy (local + "Content Tracker.csv" in Drive); hand-edit conflicts and how to settle them. |
 | `uv run ca research collect` | Collects new articles from the sites in `config/sources.json`. |
 | `uv run ca research digest [--topic "…"] [--days 14] [--limit 10]` | Lists saved articles, ranked by topic if given. |
 | `uv run ca image …` | One image job (see the [Images guide](guides/module-1-images.md)). |
@@ -90,6 +94,7 @@ You can also ask for single images, videos or research (see the guides).
 - [Module 2: Video](guides/module-2-video.md)
 - [Module 3: Research and content packages](guides/module-3-research.md)
 - [Module 4: Calendar, Google Drive and the Content Tracker](guides/module-4-calendar-drive.md)
+- [Module 5: Content items, approvals and spending (the registry)](guides/module-5-registry.md)
 - [Guide template](guides/_TEMPLATE.md)
 - [Pre-Codex check](PRE-CODEX-CHECK.md): what was checked before Codex testing, and what only Codex can check
 

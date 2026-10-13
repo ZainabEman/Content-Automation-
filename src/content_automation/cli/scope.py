@@ -80,11 +80,12 @@ def authorize(settings: Settings, scope: Scope, dryrun_id: str, key: str,
     return created
 
 
-def require_budget(scope: Scope, lines: Sequence[CostLine], hint: str) -> None:
-    """Without --authorize: every paid line needs an open authorization with room for it."""
+def require_budget(scope: Scope, lines: Sequence[CostLine], dry_run: str) -> None:
+    """Without --authorize: every paid line needs an open authorization with room for it.
+    dry_run: the command that shows the cost (in the refusal)."""
     missing = []
     for line in lines:
-        if not scope.config.paid(line.provider) or line.estimate <= 0:
+        if not scope.config.paid(line.provider):
             continue
         auth = find_authorization(scope.conn, item_id=line.item, provider=line.provider,
                                   unit=line.unit, explicit=scope.authorizations,
@@ -93,8 +94,8 @@ def require_budget(scope: Scope, lines: Sequence[CostLine], hint: str) -> None:
             missing.append(f"{line.item or 'direct'} {line.job_type} via {line.provider}")
     if missing:
         raise NotAuthorized(
-            f"Not authorized: {', '.join(dict.fromkeys(missing))}. Run {hint} --dry-run, show the "
-            'cost, and after the user\'s "ok" run it again with --authorize <dryrun_id>.'
+            f"Not authorized: {', '.join(dict.fromkeys(missing))}. Run {dry_run}, show the cost, "
+            'and after the user\'s "ok" build with --authorize <dryrun_id>.'
         )
 
 

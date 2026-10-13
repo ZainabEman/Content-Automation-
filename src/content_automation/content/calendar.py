@@ -52,6 +52,7 @@ from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
 from content_automation.registry import runtime
 from content_automation.registry.approvals import approve, reject
+from content_automation.registry.db import RegistryError
 from content_automation.registry.dryruns import CostLine
 from content_automation.registry.files import edited_diff, last_written, record_written
 from content_automation.registry.gates import gate_open
@@ -219,7 +220,10 @@ def view_status(idea: str, generation: str) -> str:
 def _view_row(conn: sqlite3.Connection, row: Row) -> Row:
     if not row.get("BG ID"):
         return row
-    item = get_item(conn, row["BG ID"])
+    try:
+        item = get_item(conn, row["BG ID"])
+    except RegistryError:
+        return row  # an ID this registry does not know: shown as written
     view = dict(row)
     view.update({
         "Topic": item.topic,
@@ -229,6 +233,14 @@ def _view_row(conn: sqlite3.Connection, row: Row) -> Row:
         "Package": item.package_path or row.get("Package", ""),
     })
     return view
+
+
+def read_view(path: Path) -> list[Row]:
+    """The rows as the registry sees them (Status, Version, Topic, dates); outside a `ca`
+    command the file as written."""
+    rows = read_calendar(path)
+    scope = runtime.current()
+    return [_view_row(scope.conn, row) for row in rows] if scope is not None else rows
 
 
 def check_edits(path: Path) -> None:
@@ -276,7 +288,7 @@ def new_calendar(
                 "or add --replace to make it again (only while every row is Proposed)."
             )
         check_edits(path)
-        decided = [row["Row"] for row in read_calendar(path) if row["Status"] != "Proposed"]
+        decided = [row["Row"] for row in read_view(path) if row["Status"] != "Proposed"]
         if decided:
             raise CalendarError(
                 f"{path.name} cannot be replaced: rows {', '.join(decided)} are no longer "
@@ -352,7 +364,7 @@ def new_calendar(
 def check_calendar(path: Path, label: str, catalog: DeliverableCatalog,
                    research_dir: Path) -> list[str]:
     """Every problem in the calendar file (an empty list: it is fine)."""
-    rows = read_calendar(path)
+    rows = read_view(path)
     if not rows:
         return ["the calendar has no rows"]
     days = set(week_days(label))
@@ -548,7 +560,7 @@ def generate_rows(
             f"{label}` and fix them first."
         )
     check_edits(path)
-    rows = read_calendar(path)
+    rows = read_view(path)
     approved = [row for row in rows if row["Status"] in APPROVED_STATES]
     if not approved:
         raise CalendarError(f"{path.name} has no Approved rows: approve rows first.")
@@ -647,8 +659,9 @@ def generate_rows(
         lines.append(
             f"Combined dry run: {ready} row(s), about ${total:.3f} in total "
             f"({settings.image_provider}){plugin}. Nothing has been made or spent. Only after "
-            f"the user says ok: uv run ca calendar generate --week {label} --build (a carousel "
-            "then runs end to end with the make-carousel skill)"
+            f"the user says ok: uv run ca calendar generate --week {label} --build --authorize "
+            "<the dry run ID below> (a carousel then runs end to end with the make-carousel "
+            "skill)"
         )
     if build and ready:
         lines.append(
@@ -677,7 +690,7 @@ def ready_cost_lines(settings: Settings, catalog: DeliverableCatalog, label: str
     build): what `generate --build --authorize` checks against the saved dry run."""
     path = calendar_path(settings, label)
     lines: list[CostLine] = []
-    for row in read_calendar(path):
+    for row in read_view(path):
         if row["Status"] not in APPROVED_STATES or not row["Package"]:
             continue
         folder = Path(row["Package"])
@@ -698,7 +711,7 @@ def mark_generated(settings: Settings, folder: Path) -> list[Path]:
     changed: list[Path] = []
     for path in sorted(settings.calendar_dir.glob("*.csv")):
         try:
-            rows = read_calendar(path)
+            rows = read_view(path)
         except CalendarError:
             continue
         hits = [

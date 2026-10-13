@@ -188,3 +188,8 @@ IDs B4-n; each is also listed under "Needs review" in docs/autorun/LOG.md.
 - B4-37 (Step 5) D-13: the Drive folder is the Content ID, else the BG ID of the package's first item, else (not registered) the package folder name; the tracker row key stays the Content ID (or the package folder name).
 - B4-38 (Step 5) `set_upload` changes updated_at only when the upload provider changes, so "Last updated" does not move on every sync.
 - B4-39 (Step 5) The Drive adapter widens the Sheet (appendDimension COLUMNS) when the appended columns pass its column count; tested only with a fake Sheets client.
+- B4-40 (Step 6) AGENTS.md: each skill bullet lists its phrases after "Phrases:" (make-video has none of its own; the playbook phrases are one more bullet; "ok" and "what can I say" are phrases); `ca help commands` lists the same, and a test keeps them in step.
+- B4-41 (Step 6) Calendar commands read the registry view (Status, Version, Topic and date from the registry), not the CSV text: the e2e found an item approved with `ca item` that `generate approved` skipped because the file still said Proposed.
+- B4-42 (Step 6) `require_budget` checks every paid line, also one with a zero estimate (found by the e2e probe: the job was refused later, after the build had started).
+- B4-43 (Step 6) Uploads also log upload_succeeded / upload_failed (D9), next to the upload job's own events.
+- B4-44 (Step 6) The e2e counts the mock image provider as paid (temp config) to run the authorization path. Job reuse needs identical inputs; a part's design picks are chosen when it is planned, so the e2e simulates the crash on the last package built. Needs review: store the picks before the provider call so a rebuild never drifts.

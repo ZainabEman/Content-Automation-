@@ -54,6 +54,6 @@ Both `HEYGEN_AVATAR_ID` and `HEYGEN_VOICE_ID` are required. If one is empty, `ca
 3. Show the user, per scene: the script or prompt, the provider, the avatar and voice (HeyGen scenes), the duration, and any credit cost the plugin reports (the dry run prints these lines, the credit estimate per scene from `config/jobs.json` and `Dry run ID: DR-…`). Stop and wait for **"ok"**. A direct video then starts with `uv run ca video --plan <file> --authorize <DR-id>`; a package video is covered by the package's `--authorize` (make-content). Never pass `--authorize` without the user's "ok" to that dry run.
 4. For each clip: `uv run ca jobs check <jobId>` first. Line 1 `go`: make the clip, wait until it is ready, save it, and record it (see above). `skip`: it already succeeded; do not call again. `stop`: stop and show line 2 to the user (over budget, stale or cancelled). A request without `jobId`: make it as before.
 5. When every step is recorded: `uv run ca video resume "<job folder>"` assembles `final.mp4` (1080x1920, 30 fps, text burned in or `captions.srt`). For a package, then run `uv run ca content build "<package folder>"` to copy it into the package `video/` folder.
-6. Report the path of `final.mp4` and the credits used.
+6. Report the path of `final.mp4`, the credits used and the video's BG ID (`uv run ca item status "<package folder>#<deliverable>"`, e.g. `#reel_short`).
 
 Never say "ok" for the user, never edit `state/` or request files by hand, and show `ca` errors as they are.

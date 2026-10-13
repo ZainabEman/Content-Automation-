@@ -23,6 +23,7 @@ from content_automation.cli.bridge import (
     reject_image_job,
     video_cost_lines,
 )
+from content_automation.cli.help import help_app
 from content_automation.cli.items import audit_app, items_app
 from content_automation.cli.jobs import auth_app, jobs_app
 from content_automation.cli.scope import (
@@ -44,7 +45,7 @@ from content_automation.content.calendar import (
     mark_generated,
     new_calendar,
     parse_rows,
-    read_calendar,
+    read_view,
     ready_cost_lines,
     set_status,
     show_lines,
@@ -223,6 +224,7 @@ app.add_typer(env_app, name="env")
 app.add_typer(items_app, name="item")
 app.add_typer(audit_app, name="audit")
 app.add_typer(jobs_app, name="jobs")
+app.add_typer(help_app, name="help")
 app.add_typer(auth_app, name="auth")
 registry_app = typer.Typer(no_args_is_help=True, help="The content-item registry.")
 app.add_typer(registry_app, name="registry")
@@ -982,7 +984,7 @@ def video(
                 ):
                     typer.echo(line)
             else:
-                require_budget(scope, costs, f'uv run ca video --plan "{plan}"')
+                require_budget(scope, costs, f'uv run ca video --plan "{plan}" --dry-run')
             job = start_video_job(plan, settings, request=request)
     except (PlanError, VideoError, AvatarError, RegistryError) as error:
         typer.echo(str(error), err=True)
@@ -1245,7 +1247,8 @@ def content_build(
                 ):
                     typer.echo(line)
             else:
-                require_budget(scope, preview.cost_lines, f'uv run ca content build "{folder}"')
+                require_budget(scope, preview.cost_lines,
+                               f'uv run ca content build "{folder}" --dry-run')
             result = build_package(folder, settings, dry_run=False)
         except (BriefError, DeliverableError) as error:
             typer.echo(str(error), err=True)
@@ -1303,7 +1306,7 @@ def calendar_new(
                 topics=topic or [], idea_numbers=idea or [], article_ids=article or [],
                 replace=replace,
             )
-            rows = read_calendar(path)
+            rows = read_view(path)
     except (CalendarError, DeliverableError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from None
@@ -1346,7 +1349,7 @@ def calendar_show(week: WeekOption = "next") -> None:
         path = calendar_path(settings, label)
         with _registry(settings, f"ca calendar show --week {label}"):
             check_edits(path)
-            rows = read_calendar(path)
+            rows = read_view(path)
     except CalendarError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from None
@@ -1498,7 +1501,7 @@ def calendar_generate(
                         typer.echo(line)
                 else:
                     require_budget(scope, preview,
-                                   f"uv run ca calendar generate --week {label}")
+                                   f"uv run ca calendar generate --week {label} (no --build)")
             costs: list[CostLine] = []
             lines, failed = generate_rows(
                 settings, catalog, label, build=build, after_build=AutoSync(settings),

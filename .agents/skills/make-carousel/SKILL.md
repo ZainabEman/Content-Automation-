@@ -49,7 +49,7 @@ Slides without a request use the app's own version: a local background (the fina
 4. **Clips.** For every clip request whose `status` is `pending`: `uv run ca jobs check <jobId>` first (same go/skip/stop rule as step 1), call the image-to-video tool with its inputs, save the MP4 to `outputPath`, record with `--clip N` (same options and failure rule as steps 1-2).
 5. `uv run ca carousel clips-check "<package>"`. Re-requests as in step 3. A clip that fails twice gets the local animation by itself.
 6. `uv run ca carousel render "<package>"`: `carousel/final/slide_01.mp4` … `slide_08.mp4` (1080x1080, 24 fps, 5.0 s, silent) and `slide_NN.png` with the static text (Like/Share/Save row and logo on the last slide), the set check (report only), then by itself: the package is finished, Drive `Instagram/<Content ID>/` gets the MP4s, PNGs, `caption.txt` and `originals/` (raw stills), the tracker gets one row (link = the folder; fallbacks and set-check notes in its caption notes), and the calendar row becomes Generated. If the upload stopped, `uv run ca carousel finish "<package>"` tries again (uploaded files are skipped).
-7. Show the user the "Summary:" block it prints (at most 8 lines: Drive folder, slides, credits real vs estimate, fallbacks, set check, tracker, calendar).
+7. Show the user the "Summary:" block it prints (at most 8 lines: Drive folder, slides, credits real vs estimate, fallbacks, set check, tracker, calendar) and the carousel's BG ID (`uv run ca item status "<package folder>#instagram_carousel"`).
 
 ## Continue after an interruption
 

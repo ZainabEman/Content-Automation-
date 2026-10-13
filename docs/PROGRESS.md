@@ -49,7 +49,15 @@ v3 spec; plan in [docs/ROADMAP-v3.md](ROADMAP-v3.md), PRD in [docs/phases/PHASE-
 - [x] Step 3 – Jobs + authorizations + idempotency; wire in calendar generate, image generation, carousel, Drive upload.
 - [x] Step 4 – Calendar as a view (BG ID column, hand-edit guard) + the migration command.
 - [x] Step 5 – Tracker columns + conflict report (mock).
-- [ ] Step 6 – Remaining skill updates, ca help commands, docs, mock end-to-end run of §10, PROGRESS.md.
+- [x] Step 6 – Remaining skill updates, ca help commands, docs, mock end-to-end run of §10, PROGRESS.md.
+
+## Phase 4 done (2026-10-13)
+
+- Registry (`src/content_automation/registry/`, `state/registry.db`): BG IDs, five statuses, versions, decisions, jobs with idempotency, authorizations from saved dry runs, append-only redacted audit log; calendar CSV as a view with a hand-edit guard; tracker registry columns with last-written values and a conflict report (mock); `ca registry migrate`.
+- Commands: `ca item …`, `ca audit show`, `ca jobs list|check|resume|cancel`, `ca auth list`, `ca calendar sync`, `ca tracking conflicts|resolve`, `ca registry migrate`, `ca help commands`; `--authorize <DR-id>` on `ca image`, `ca content build`, `ca calendar generate --build`, `ca video`.
+- Skills: manage-items (new); make-calendar, make-content, make-carousel, make-video, show-content updated; AGENTS.md phrases. Guide: `docs/guides/module-5-registry.md`.
+- Checks: ruff + strict mypy clean; 294 tests; `scripts/e2e_phase4.py` 9/9 PASS (`docs/phases/PHASE-4-E2E.md`). No real Google, Higgsfield, HeyGen, OpenRouter or RunPod call.
+- Decisions taken during build: PHASE-4-PRD.md (B4-1 … B4-44). Open: Q1 (BG start number), column names in config/tracker.json and video credit estimates in config/jobs.json (client to confirm).
 
 ## Phase 10 test list (moved)
 

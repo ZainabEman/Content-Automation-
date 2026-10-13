@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from content_automation.registry.audit import Actor
+from content_automation.registry.audit import Actor, append_event
 from content_automation.registry.auth import find_authorization, legacy_authorization
 from content_automation.registry.items import Item, get_item
 from content_automation.registry.jobs import (
@@ -172,6 +172,15 @@ def report_part(item_id: str | None, state: str) -> None:
         part_done(scope.conn, item_id, command=scope.command)
     elif state == "failed":
         part_failed(scope.conn, item_id, command=scope.command)
+
+
+def log(item_id: str | None, event_type: str, details: Mapping[str, Any]) -> None:
+    """One audit event of this command for a registered item (no-op otherwise)."""
+    scope = current()
+    if scope is None or item_id is None:
+        return
+    append_event(scope.conn, event_type, command=scope.command, item_id=item_id,
+                 details=details)
 
 
 def report_upload(item_id: str | None, target: str, provider: str) -> None:

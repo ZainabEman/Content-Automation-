@@ -24,6 +24,7 @@ Every item has a BG ID (BG-007). Accept a BG ID, a Content ID (2026-W42-03), a p
 | "unfinished jobs" | `uv run ca jobs list --unfinished` (stale jobs are marked "stale") |
 | "resume unfinished jobs" | `uv run ca jobs resume [BG-x]`: a carousel prints its next step (follow make-carousel); other job types say "not resumable yet" |
 | "show authorizations" | `uv run ca auth list` (`--open` for the open ones): spent of max per provider |
+| "what can I say" | `uv run ca help commands`: every phrase, grouped by skill |
 | "tracker conflicts" | `uv run ca tracking conflicts`: hand-edited workflow cells, rows missing in the Sheet or the registry, duplicate IDs. Show them and ask per row; only on the user's word: `uv run ca tracking resolve <BG ID or Content ID> --keep-sheet` or `--use-registry` |
 
 Add `--gate idea` or `--gate review` only when the user names the gate. Without it `ca` picks the open gate (the idea gate first) and prints which gate changed.

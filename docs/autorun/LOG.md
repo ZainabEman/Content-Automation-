@@ -39,9 +39,17 @@ Decisions: B4-25 … B4-33
 Needs review: B4-26 calendar reject without a reason still works; B4-29 migration mapping for in-progress/failed parts and v1 deliverables; B4-30 migrated approvals recorded as the user's.
 
 ## 2026-10-13 19:24 — Phase 4 Step 5: tracker columns + last-written values + conflict report (mock) — DONE
-Commit: pending   Tests: 291/291
+Commit: 15215fe   Tests: 291/291
 Built: registry columns BG ID, Version, Idea/Generation/Review/Upload status, Last updated (config/tracker.json, client to confirm), appended after the existing columns; rows match by BG ID, then Content ID, and the BG ID is filled in (D-13, D-14).
 Built: last-written value per cell (registry tracker_cells, migration 5); a hand-edited workflow cell makes its row a conflict (not written, conflict_found logged); tracker_synced per row; manager columns never written.
 Built: `ca tracking conflicts [--json]` (hand edits, rows missing on either side, duplicate IDs) and `ca tracking resolve <ID> --keep-sheet|--use-registry`; Drive folder = Content ID else BG ID; mock uploads "uploaded (mock)" (D-16); Drive adapter widens the Sheet (fake Sheets client test).
 Decisions: B4-34 … B4-39
 Needs review: B4-34 one row per package with several BG IDs; B4-35 registry columns appended at the end; column names (client to confirm).
+
+## 2026-10-13 19:37 — Phase 4 Step 6: finish Phase 4 — DONE
+Commit: pending   Tests: 294/294
+Built: `ca help commands` (cli/help.py) + test that every AGENTS.md phrase is in it; AGENTS.md skill bullets list their phrases after "Phrases:".
+Built: scripts/e2e_phase4.py (+ tests/test_e2e_phase4.py): PRD §10 criteria 1-9 offline on mocks, 9/9 PASS; docs/phases/PHASE-4-E2E.md with the results and the manual Codex Desktop test script.
+Built: fixes found by the e2e: calendar commands read the registry view (B4-41), require_budget checks zero-cost paid lines (B4-42), upload_succeeded/failed events (B4-43); BG IDs in show-content, make-video, make-carousel; guide module-5-registry.md; README; PROGRESS Phase 4 summary.
+Decisions: B4-40 … B4-44
+Needs review: B4-44 design picks are chosen at plan time, so a rebuild after other packages can be a new job (store picks before the provider call?).

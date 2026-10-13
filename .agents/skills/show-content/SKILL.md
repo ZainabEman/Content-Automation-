@@ -52,4 +52,4 @@ description: Show new Branded Genius content ideas from the Gmail newsletters of
 
    `url` may be null when the email has no link; `excerpt` is quoted text from the email, not a rewrite.
 10. Only after both list files are saved, update `research/newsletters/seen.json` as `{"seen": {"<email id>": "<YYYY-MM-DD>_content-list.json"}}` with the emails that produced at least one idea. Emails that gave no idea are not added, so they are read again next time. An older file with a plain list of IDs is rewritten in this form, keeping only the IDs that appear as an `emailId` in a saved list.
-11. Show the numbered titles only and ask: **"Pick numbers or give a custom topic"**. Stop and wait for the answer (then use make-content).
+11. Show the numbered titles only and ask: **"Pick numbers or give a custom topic"**. Stop and wait for the answer (then use make-content, which prints a BG ID for each deliverable it registers; show those IDs).

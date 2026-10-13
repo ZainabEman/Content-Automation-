@@ -51,6 +51,17 @@ v3 spec; plan in [docs/ROADMAP-v3.md](ROADMAP-v3.md), PRD in [docs/phases/PHASE-
 - [x] Step 5 – Tracker columns + conflict report (mock).
 - [x] Step 6 – Remaining skill updates, ca help commands, docs, mock end-to-end run of §10, PROGRESS.md.
 
+## Phase 5 — strategy, research and idea backlog
+
+PRD: [docs/phases/PHASE-5-PRD.md](phases/PHASE-5-PRD.md) (conflicts with the current code at the end). Branch `phase-5-research`.
+
+- [ ] Step 1 – Registry migration: kind `idea`, sources, claims, idea↔source links, `duplicate_of`; strategy and content configs.
+- [ ] Step 2 – Newsletter senders config, `ca research fetch` with link resolution, source storage (fixtures).
+- [ ] Step 3 – Sources config v2 + scraper update + German candidates (disabled) + `ca research run`.
+- [ ] Step 4 – Dedupe, scoring, the review queue, manual topics, claim rules and commands.
+- [ ] Step 5 – Calendar v2 (slots, targets, inherited approval, dependencies, month view, skip unbuilt kinds).
+- [ ] Step 6 – Skills (research-ideas; show-content and make-calendar updates), AGENTS.md, help, `scripts/e2e_phase5.py`, PHASE-5-E2E.md, PROGRESS.
+
 ## Phase 4 done (2026-10-13)
 
 - Registry (`src/content_automation/registry/`, `state/registry.db`): BG IDs, five statuses, versions, decisions, jobs with idempotency, authorizations from saved dry runs, append-only redacted audit log; calendar CSV as a view with a hand-edit guard; tracker registry columns with last-written values and a conflict report (mock); `ca registry migrate`.

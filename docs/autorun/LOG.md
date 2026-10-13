@@ -47,9 +47,16 @@ Decisions: B4-34 … B4-39
 Needs review: B4-34 one row per package with several BG IDs; B4-35 registry columns appended at the end; column names (client to confirm).
 
 ## 2026-10-13 19:37 — Phase 4 Step 6: finish Phase 4 — DONE
-Commit: pending   Tests: 294/294
+Commit: 29c8926   Tests: 294/294
 Built: `ca help commands` (cli/help.py) + test that every AGENTS.md phrase is in it; AGENTS.md skill bullets list their phrases after "Phrases:".
 Built: scripts/e2e_phase4.py (+ tests/test_e2e_phase4.py): PRD §10 criteria 1-9 offline on mocks, 9/9 PASS; docs/phases/PHASE-4-E2E.md with the results and the manual Codex Desktop test script.
 Built: fixes found by the e2e: calendar commands read the registry view (B4-41), require_budget checks zero-cost paid lines (B4-42), upload_succeeded/failed events (B4-43); BG IDs in show-content, make-video, make-carousel; guide module-5-registry.md; README; PROGRESS Phase 4 summary.
 Decisions: B4-40 … B4-44
 Needs review: B4-44 design picks are chosen at plan time, so a rebuild after other packages can be a new job (store picks before the provider call?).
+
+## 2026-10-13 19:41 — Phase 5 Step 0: PRD + conflicts — DONE
+Commit: pending   Tests: 294/294 (no code change)
+Built: branch phase-5-research from 29c8926; docs/phases/PHASE-5-PRD.md from autorun §6 (sections and wording copied).
+Built: code audit (subagent) → "Conflicts with the current code" C5-1 … C5-21 with the chosen options; PROGRESS Phase 5 checklist.
+Decisions: C5-1 … C5-21 (options chosen per §3.2)
+Needs review: C5-5 plan-only content types for youtube/podcast/shorts in calendar.json; C5-14 Instagram single graphic off by default; C5-17 content language stays en until the client decides.

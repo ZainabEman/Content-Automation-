@@ -2,9 +2,14 @@
 
 transition() is the only judge of a status change: an illegal move raises IllegalTransition,
 naming the current status and the allowed next ones, before anything is written. Some moves
-depend on the generation status (idea approved <-> rejected only while generation has not
-started; any review only while generation is generated) or need a new version (generation
-generated -> queued). Publication is stored per platform and used from Phase 9.
+depend on the generation status or need a newer version (PRD §14 D-10, D-19):
+- idea approved <-> rejected only while generation is not_started, failed or partial; once
+  generated, decisions move to the review gate;
+- review moves only while generation is generated; a revise turns not_reviewed or approved
+  into changes_requested; rejected is final;
+- generation generated -> queued and review changes_requested -> not_reviewed only when a newer
+  version starts generating (versions.start_new_version).
+Publication is stored per platform and used from Phase 9.
 """
 
 from dataclasses import dataclass
@@ -13,7 +18,7 @@ from typing import Literal
 from content_automation.registry.db import RegistryError
 
 Dimension = Literal["idea", "generation", "review", "upload", "publication"]
-Guard = Literal["generation_not_started", "generation_generated", "new_version"]
+Guard = Literal["idea_window", "generation_generated", "new_version"]
 
 DIMENSIONS: tuple[Dimension, ...] = ("idea", "generation", "review", "upload", "publication")
 STATUSES: dict[Dimension, tuple[str, ...]] = {  # the first one is a new item's status
@@ -23,10 +28,12 @@ STATUSES: dict[Dimension, tuple[str, ...]] = {  # the first one is a new item's 
     "upload": ("not_uploaded", "uploading", "uploaded", "failed"),
     "publication": ("not_ready", "ready", "published", "failed"),
 }
+IDEA_WINDOW = ("not_started", "failed", "partial")  # generation statuses with an open idea gate
 GUARD_TEXT: dict[Guard, str] = {
-    "generation_not_started": "only while generation is not_started",
+    "idea_window": "only while generation is not_started, failed or partial; once generated, "
+                   "use the review gate",
     "generation_generated": "only while generation is generated",
-    "new_version": "only through a new version",
+    "new_version": "only when a newer version starts generating",
 }
 
 
@@ -43,8 +50,8 @@ TABLE: tuple[Move, ...] = (
     Move("idea", "proposed", "rejected"),
     Move("idea", "proposed", "revision_requested"),
     Move("idea", "revision_requested", "proposed"),
-    Move("idea", "approved", "rejected", "generation_not_started"),
-    Move("idea", "rejected", "approved", "generation_not_started"),
+    Move("idea", "approved", "rejected", "idea_window"),
+    Move("idea", "rejected", "approved", "idea_window"),
     Move("generation", "not_started", "queued"),
     Move("generation", "queued", "running"),
     Move("generation", "running", "generated"),
@@ -56,6 +63,8 @@ TABLE: tuple[Move, ...] = (
     Move("review", "not_reviewed", "approved", "generation_generated"),
     Move("review", "not_reviewed", "rejected", "generation_generated"),
     Move("review", "not_reviewed", "changes_requested", "generation_generated"),
+    Move("review", "approved", "changes_requested", "generation_generated"),
+    Move("review", "changes_requested", "not_reviewed", "new_version"),
     Move("upload", "not_uploaded", "uploading"),
     Move("upload", "uploading", "uploaded"),
     Move("upload", "uploading", "failed"),
@@ -102,8 +111,8 @@ def check_status(dimension: Dimension, status: str) -> None:
 
 
 def _passes(guard: Guard | None, generation: str | None, new_version: bool) -> bool:
-    if guard == "generation_not_started":
-        return generation == "not_started"
+    if guard == "idea_window":
+        return generation in IDEA_WINDOW
     if guard == "generation_generated":
         return generation == "generated"
     if guard == "new_version":

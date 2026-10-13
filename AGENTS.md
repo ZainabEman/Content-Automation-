@@ -34,7 +34,7 @@ Single images or videos: use the playbooks below.
 
 - Stack: Python 3.13, uv, Typer, Pydantic, pytest, mypy strict, and Ruff. Run project commands with `uv run`.
 - Background architecture: `docs/blueprints/blueprint.md`; read it only when needed.
-- Before each task, read `docs/PROGRESS.md` and that task's PRD; inspect the code first, do only that task, keep working code, and avoid big rewrites.
+- Before each task, read `docs/PROGRESS.md` and that task's PRD (`docs/ROADMAP-v3.md`, then `docs/phases/PHASE-<n>-PRD.md`; the v2 `docs/PRD.md` is replaced); inspect the code first, do only that task, keep working code, and avoid big rewrites.
 - Providers: each capability has one public interface in its entry package (`content_automation/ai/<cap>/__init__.py`; scraper: `content_automation/research/collectors/__init__.py`).
 - Put one adapter module per provider under that capability's `providers/`; choose with `<CAP>_PROVIDER` and `<CAP>_MODEL`, and always provide a mock adapter.
 - App code imports capability entry packages only; a test enforces this boundary. A new provider takes one adapter file and two environment changes.

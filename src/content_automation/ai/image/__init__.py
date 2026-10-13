@@ -6,7 +6,7 @@ by ``IMAGE_PROVIDER`` (adapter) and ``IMAGE_MODEL`` (model passed to the adapter
 
 import importlib
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -216,3 +216,28 @@ def generate_image(request: ImageRequest, settings: Settings | None = None) -> I
             f"Provider returned {len(result.images)} images; {request.count} were requested."
         )
     return result
+
+
+# config/comfyui.json helpers for doctor and lora, so no app module imports the adapter itself.
+# The adapter imports this package, so it is loaded on first use, not here.
+_COMFYUI_EXPORTS = {
+    "ComfyUIConfig": "ComfyUIConfig",
+    "is_unset": "is_unset",
+    "load_comfyui_config": "load_config",
+    "load_comfyui_workflow": "load_workflow",
+}
+
+if TYPE_CHECKING:
+    from content_automation.ai.image.providers import comfyui as _comfyui
+
+    ComfyUIConfig = _comfyui.ComfyUIConfig
+    is_unset = _comfyui.is_unset
+    load_comfyui_config = _comfyui.load_config
+    load_comfyui_workflow = _comfyui.load_workflow
+else:
+
+    def __getattr__(name: str) -> Any:
+        if name in _COMFYUI_EXPORTS:
+            module = importlib.import_module(_ADAPTERS["comfyui"])
+            return getattr(module, _COMFYUI_EXPORTS[name])
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

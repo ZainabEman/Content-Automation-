@@ -207,6 +207,27 @@ def add_alias(
                      details={"alias": name})
 
 
+def set_title(
+    conn: sqlite3.Connection, ref: str, title: str, *, actor: Actor = "system",
+    command: str | None = None,
+) -> Item:
+    """A new title, which is also the new topic (revise --title, resubmit)."""
+    text = title.strip()
+    if not text:
+        raise RegistryError("The new title cannot be empty.")
+    with transaction(conn):
+        item = get_item(conn, ref)
+        conn.execute(
+            "UPDATE items SET title = ?, topic = ?, updated_at = ? WHERE id = ?",
+            (text, text, now(), item.id),
+        )
+        append_event(conn, "item_updated", actor=actor, command=command, item_id=item.id,
+                     version=item.current_version,
+                     details={"title": {"from": item.title, "to": text},
+                              "topic": {"from": item.topic, "to": text}})
+        return get_item(conn, item.id)
+
+
 def set_status(
     conn: sqlite3.Connection,
     ref: str,
@@ -218,7 +239,9 @@ def set_status(
     actor: Actor = "system",
     command: str | None = None,
 ) -> Item:
-    """Move one status (publication: per `platform`) if statuses.py allows it, and log it."""
+    """Move one status (publication: per `platform`) if statuses.py allows it, and log it.
+
+    new_version=True is passed only by versions.start_new_version."""
     with transaction(conn):
         item = get_item(conn, ref)
         if dimension == "publication":

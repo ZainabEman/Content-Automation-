@@ -31,8 +31,12 @@ import numpy as np
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import ConfigDict, Field, ValidationError
 
-from content_automation.ai.image import ImageError
-from content_automation.ai.image.providers.comfyui import ComfyUIConfig, is_unset, load_config
+from content_automation.ai.image import (
+    ComfyUIConfig,
+    ImageError,
+    is_unset,
+    load_comfyui_config,
+)
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
 
@@ -136,7 +140,7 @@ def load_lora_config(path: Path) -> LoraConfig:
 
 def _comfyui(settings: Settings) -> ComfyUIConfig:
     try:
-        return load_config(settings.comfyui_config_file)
+        return load_comfyui_config(settings.comfyui_config_file)
     except ImageError as error:
         raise LoraError(str(error)) from None
 

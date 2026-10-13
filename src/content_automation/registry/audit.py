@@ -17,7 +17,7 @@ from content_automation.registry.redact import redact_data, redact_text, secret_
 Actor = Literal["user", "system"]
 ACTORS: tuple[Actor, ...] = ("user", "system")
 EVENT_TYPES = frozenset({
-    "command_run", "item_created", "alias_added", "status_changed", "decision",
+    "command_run", "item_created", "item_updated", "alias_added", "status_changed", "decision",
     "version_created", "version_approved",
     "authorization_created", "authorization_exceeded", "authorization_closed",
     "job_started", "job_succeeded", "job_failed", "job_reused",

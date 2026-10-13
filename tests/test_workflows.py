@@ -275,12 +275,12 @@ def test_style_count_changes_and_is_capped(settings: Settings) -> None:
 def test_dry_run_with_openrouter_needs_no_key_and_makes_nothing(
     library: Path, isolated: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from content_automation.ai.image.providers import openrouter
+    import httpx  # the module the openrouter adapter calls
 
     def no_client(*_: object, **__: object) -> Any:
         raise AssertionError("provider client created during dry run")
 
-    monkeypatch.setattr(openrouter.httpx, "Client", no_client)
+    monkeypatch.setattr(httpx, "Client", no_client)
     monkeypatch.setenv("IMAGE_PROVIDER", "openrouter")
     monkeypatch.setenv("IMAGE_MODEL", "google/gemini-3.1-flash-image")
 

@@ -1,4 +1,5 @@
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
@@ -24,7 +25,7 @@ VALID = {
 }
 
 
-def write_brand(root: Path, data: dict[str, object]) -> None:
+def write_brand(root: Path, data: Mapping[str, object]) -> None:
     path = root / "brand" / "brand.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data), encoding="utf-8")

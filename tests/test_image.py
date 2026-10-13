@@ -37,7 +37,7 @@ def test_registry_picks_mock_and_rejects_unknown() -> None:
 
 
 def test_registry_lists_all_image_providers() -> None:
-    assert available_providers() == ("mock", "openrouter")
+    assert available_providers() == ("comfyui", "mock", "openrouter")
 
 
 @pytest.mark.parametrize(
@@ -86,7 +86,8 @@ def test_over_limit_refs_rejected_before_call(
 
     monkeypatch.setattr(provider_type, "generate", must_not_run)
     with pytest.raises(ImageRequestError, match="max"):
-        generate_image(ImageRequest(prompt="x", **request_kwargs), settings=make_settings())
+        request = ImageRequest.model_validate({"prompt": "x", **request_kwargs})
+        generate_image(request, settings=make_settings())
 
 
 def test_run_image_job_completes(make_settings: SettingsFactory) -> None:

@@ -4,7 +4,8 @@ Python CLI (`uv run ca …`) that turns research (Gmail newsletters and user top
 social content: copy, branded images (Nano Banana 2 via OpenRouter) and videos (Higgsfield,
 HeyGen), with approval and cost-approval gates and one job folder per output. v2 adds a
 content calendar with approval, LinkedIn, Google Drive folders with a tracking CSV, ComfyUI
-images with Roman's identity, and Higgsfield animated Instagram carousels. Full spec: docs/PRD.md.
+images with Roman's identity, and Higgsfield animated Instagram carousels. Plan:
+docs/ROADMAP-v3.md; spec per phase: docs/phases/PHASE-<n>-PRD.md (the v2 docs/PRD.md is replaced).
 
 ## Rules
 
@@ -17,6 +18,6 @@ images with Roman's identity, and Higgsfield animated Instagram carousels. Full 
 
 ## Workflow
 
-Read docs/PROGRESS.md first. Read only the PRD section for the current step. Do not write or
-run tests until Phase 4; a syntax/import check is enough. Never print whole files; end each
-step with a summary of max 5 lines.
+Read docs/PROGRESS.md first. Read only the docs/phases/PHASE-<n>-PRD.md section for the current
+step. ruff + mypy --strict + offline pytest must pass before every commit; never call paid or
+external services in tests. Never print whole files; end each step with a summary of max 5 lines.

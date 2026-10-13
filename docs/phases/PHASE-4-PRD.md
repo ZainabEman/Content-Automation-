@@ -80,11 +80,12 @@ ca registry migrate --dry-run lists what would be created from calendar CSVs, pa
 10. ruff + strict mypy clean; offline pytest unit tests for status transitions, ID allocation, idempotency, authorization limits, redaction and the migration mapping.
 
 ## 11. Build steps (one Claude Code prompt each)
-1. Registry core: db + migrations + ids + statuses + items + versions + audit + redaction + pytest.
-2. Item commands (list/status/approve/reject/revise/history) + audit show + manage-items skill + AGENTS.md.
-3. Jobs + authorizations + idempotency; wire in calendar generate, image generation, carousel, Drive upload.
-4. Calendar as a view (BG ID column, hand-edit guard) + the migration command.
-5. Tracker columns + conflict report (mock).
+1. Registry core ✔
+2a. §13 decisions, status fixes, doc cleanup.
+2. Item commands (list/status/approve/reject/revise/resubmit/history) + audit show + manage-items skill + AGENTS.md.
+3. Dry runs + authorizations + jobs + idempotency + `ca jobs check`; wire in calendar generate, content build, image generation, carousel and Drive upload.
+4. Calendar as a view (BG ID column, new statuses, hand-edit guard, row numbers per week, --replace) + the migration command with fixtures.
+5. Tracker columns + last-written values + conflict report (mock).
 6. Remaining skill updates, ca help commands, docs, mock end-to-end run of §10, PROGRESS.md.
 
 ## 12. Open questions
@@ -115,3 +116,28 @@ Found in the read-only audit on 13 Oct 2026 (branch phase-3-carousel at 5bc0bd5)
 19. **Revise has no way back to approval (D4–D6).** revise sets the gate to revision_requested/changes_requested, but approve acts only on proposed/not_reviewed and nothing moves revision_requested → proposed, while §10.3 says the item "needs approval again". → Let `ca item revise` create v(n+1) and reopen the gate (proposed / not_reviewed), recording revision_requested in history; approve then approves v(n+1).
 20. **What a Phase 4 version holds (D6).** Nothing regenerates content before Phase 7, so v2 after an idea-gate revise has the same topic and package. → In Phase 4, v(n+1) shares v1's package_path and stores the feedback (plus a new topic if the user gave one); `ca item status` says "regeneration: Phase 7".
 21. **Test and workflow rules.** CLAUDE.md says "no tests until Phase 4" and points to docs/PRD.md (v2); AGENTS.md says "No new tests" and commits as `M<n>.T<n>`. pytest 9.1.1 is installed and configured, and 11 test files (61 tests) exist, but v2 has not run them (PROGRESS.md: "no tests run"). → In step 1, point CLAUDE.md/AGENTS.md at docs/ROADMAP-v3.md and docs/phases/, allow tests, and run the existing suite once as a baseline (fix or mark stale tests).
+
+## 14. Decisions on §13 (13 Oct 2026)
+D-1 One item per (package, deliverable); items of one package share package_path.
+D-2 Every deliverable maps to a kind via a "kind" field in config/deliverables.json: LinkedIn/Facebook post → post, ad → ad, reel and podcast clip → short, carousel → carousel, single graphic → graphic. All are registered.
+D-3 `ca content start` creates the item(s) and prints the BG IDs.
+D-4 Every dry run is saved as state/dryruns/<dryrun_id>.json (scope, estimate per provider/unit, max). A build only runs with `--authorize <dryrun_id>`, which the skill passes only after the user says "ok". That creates one authorization per provider/unit, grouped by dryrun_id. The carousel max copies the authorization max; carousel.json no longer sets its own.
+D-5 Plugin work (Higgsfield/HeyGen): a job opens (queued) when ca writes the request file and closes on `ca carousel record` / `ca job complete|fail`. Before each plugin call the skill runs `ca jobs check <job_id>` → go | skip (already succeeded, reuse) | stop (over budget, stale, or cancelled).
+D-6 Idempotency key = sha256(item, version, job type, normalized inputs, redo_n). Normal reruns use redo_n = 0 and are reused. Deliberate redos (person-check redo, carousel retry) increment redo_n and must fit the authorization.
+D-7 The registry owns statuses, jobs, authorizations and decisions. package.json, carousel.json and details.json keep pipeline detail. `ca item status` reports mismatches between them; it never auto-fixes.
+D-8 read_calendar accepts the old 9-column and the new header. `ca registry migrate` rewrites old CSVs to the new header after a backup.
+D-9 CSV Status values add "Revision requested" and "Failed".
+D-10 Idea gate: reject (and approve back from rejected) allowed while generation ∈ {not_started, failed, partial}. Once generated, decisions move to the review gate.
+D-11 `calendar new --replace`: old items → idea rejected with reason "replaced"; the Content ID alias moves to the new item; history stays on the old item.
+D-12 Row numbers resolve only within the named week (default: next week). Every output echoes the BG IDs it acted on.
+D-13 Drive folder name = Content ID if the item has one, else the BG ID. Tracker rows match by BG ID, then Content ID, and the BG ID is filled in.
+D-14 New tracker columns in Phase 4: BG ID, Version, Idea status, Generation status, Review status, Upload status, Last updated. Publication status and URL wait for Phase 9. Final column names: client to confirm.
+D-15 Store the last-written value per tracker cell; a cell that differs from it was edited by hand and goes to the conflict report.
+D-16 Item upload status is derived from its files: uploading while any file is in progress, failed if any failed, uploaded when all succeeded. The provider is stored; mock uploads show as "uploaded (mock)" and never count as real uploads in reports.
+D-17 Done in Step 1 (state/, .gitignore, config seeds the counter only).
+D-18 Build and test the migration against fixtures (old v1 package, v2 package, calendar CSV, carousel.json, drive_state.json, mock tracker) as well as the 4 local packages.
+D-19 Revise:
+ - Idea gate: `revise BG-x "<feedback>" [--title "<new topic>"]` creates v(n+1). With --title (the Codex skill rewrites the topic from the feedback and shows it), idea goes revision_requested → proposed on the new version in one call. Without --title it stays revision_requested until `ca item resubmit BG-x --title "..."`.
+ - Review gate: allowed when review ∈ {not_reviewed, approved}. Sets review → changes_requested and creates v(n+1) pending. When the new version starts generating (Phase 7), generation generated → queued and review changes_requested → not_reviewed. Review rejected is final (revise instead of reject to keep an item alive).
+D-20 Until Phase 7, v(n+1) shares v1's package_path and stores the feedback.
+D-21 CLAUDE.md/AGENTS.md updated in Step 2a; the full suite is the baseline from now on.

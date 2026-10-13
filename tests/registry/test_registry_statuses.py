@@ -30,14 +30,14 @@ ILLEGAL = [
 
 def _context(move: Move) -> tuple[str | None, bool]:
     """The generation status and new-version flag under which a guarded move passes."""
-    if move.guard == "generation_not_started":
+    if move.guard == "idea_window":
         return "not_started", False
     if move.guard == "generation_generated":
         return "generated", False
     return None, move.guard == "new_version"
 
 
-def test_table_matches_prd_d4() -> None:
+def test_table_matches_prd_d4_and_section_14() -> None:
     d4 = {
         ("idea", "proposed", "approved"), ("idea", "proposed", "rejected"),
         ("idea", "proposed", "revision_requested"), ("idea", "revision_requested", "proposed"),
@@ -48,6 +48,8 @@ def test_table_matches_prd_d4() -> None:
         ("generation", "partial", "queued"), ("generation", "generated", "queued"),
         ("review", "not_reviewed", "approved"), ("review", "not_reviewed", "rejected"),
         ("review", "not_reviewed", "changes_requested"),
+        ("review", "approved", "changes_requested"),
+        ("review", "changes_requested", "not_reviewed"),
         ("upload", "not_uploaded", "uploading"), ("upload", "uploading", "uploaded"),
         ("upload", "uploading", "failed"), ("upload", "failed", "uploading"),
         ("publication", "not_ready", "ready"), ("publication", "ready", "published"),
@@ -83,7 +85,7 @@ def test_every_illegal_move(dimension: Dimension, source: str, target: str) -> N
 @pytest.mark.parametrize("move", [m for m in TABLE if m.guard],
                          ids=lambda m: f"{m.dimension}:{m.source}->{m.target}")
 def test_guarded_moves_refused_without_their_condition(move: Move) -> None:
-    generation = "generated" if move.guard == "generation_not_started" else "queued"
+    generation = "generated" if move.guard == "idea_window" else "queued"
     with pytest.raises(IllegalTransition, match="only "):
         transition(move.dimension, move.source, move.target, generation=generation)
 
@@ -131,7 +133,7 @@ def test_generated_needs_a_new_version_to_queue_again(new_item: Callable[..., It
     item = new_item()
     for status in ("queued", "running", "generated"):
         set_status(registry, item.id, "generation", status)
-    with pytest.raises(IllegalTransition, match="only through a new version"):
+    with pytest.raises(IllegalTransition, match="only when a newer version starts generating"):
         set_status(registry, item.id, "generation", "queued")
     assert set_status(registry, item.id, "generation", "queued",
                       new_version=True).generation_status == "queued"

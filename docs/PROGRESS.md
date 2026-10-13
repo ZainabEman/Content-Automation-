@@ -45,7 +45,7 @@ v3 spec; plan in [docs/ROADMAP-v3.md](ROADMAP-v3.md), PRD in [docs/phases/PHASE-
   Done 2026-10-13: `src/content_automation/registry/` (`open_registry()`; jobs/auth/migrate are stubs), `config/registry.json`, `/state/` git-ignored, 155 tests in `tests/registry/`. Not in the PRD: the transition table is D4 as written (changes_requested and review approved/rejected are final; idea approved ↔ rejected only while generation is not_started; §13.10/§13.19 still open for Step 2); config `next_id` can only raise the counter; a rolled-back allocation is not consumed; no delete API; v1 = active, v(n+1) = pending, approving a version supersedes older ones; env/.env values are redacted only for secret-named variables (KEY/TOKEN/SECRET/PASSWORD/CREDENTIAL/AUTH/COOKIE, 8+ chars); events are append-only by DB triggers; no backup for a brand-new DB. Full suite: 2 failures from Phase 2, not from this step (test_image provider list; doctor.py/lora.py import the comfyui adapter directly).
 - 2a decisions + status fixes ✔
 - 2.0 D-22/D-23 (PRD §14, AGENTS.md/CLAUDE.md working rules) ✔ — autorun plan: [docs/autorun/AUTORUN-PHASES-4-6.md](autorun/AUTORUN-PHASES-4-6.md), log: [docs/autorun/LOG.md](autorun/LOG.md)
-- [ ] Step 2 – Item commands (list/status/approve/reject/revise/history) + audit show + manage-items skill + AGENTS.md.
+- [x] Step 2 – Item commands (list/status/approve/reject/revise/history) + audit show + manage-items skill + AGENTS.md.
 - [ ] Step 3 – Jobs + authorizations + idempotency; wire in calendar generate, image generation, carousel, Drive upload.
 - [ ] Step 4 – Calendar as a view (BG ID column, hand-edit guard) + the migration command.
 - [ ] Step 5 – Tracker columns + conflict report (mock).

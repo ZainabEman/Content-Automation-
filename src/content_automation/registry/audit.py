@@ -95,8 +95,10 @@ def list_events(
     since: str | datetime | None = None,
     until: str | datetime | None = None,
     limit: int | None = None,
+    last: int | None = None,
 ) -> list[Event]:
-    """Events oldest first; `since`/`until` take a datetime or ISO text (a date is a day start)."""
+    """Events oldest first; `since`/`until` take a datetime or ISO text (a date is a day start);
+    `limit` keeps the oldest matches, `last` the newest ones."""
     clauses: list[str] = []
     params: list[Any] = []
     if item_id is not None:
@@ -113,8 +115,10 @@ def list_events(
         clauses.append("created_at < ?")
         params.append(_when(until))
     where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
-    sql = f"SELECT * FROM events{where} ORDER BY id"
-    if limit is not None:
+    order = "DESC" if last is not None else ""
+    sql = f"SELECT * FROM events{where} ORDER BY id {order}"
+    if limit is not None or last is not None:
         sql += " LIMIT ?"
-        params.append(limit)
-    return [_event(row) for row in conn.execute(sql, params)]
+        params.append(last if last is not None else limit)
+    events = [_event(row) for row in conn.execute(sql, params)]
+    return events[::-1] if last is not None else events

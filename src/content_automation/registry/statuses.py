@@ -2,9 +2,10 @@
 
 transition() is the only judge of a status change: an illegal move raises IllegalTransition,
 naming the current status and the allowed next ones, before anything is written. Some moves
-depend on the generation status or need a newer version (PRD §14 D-10, D-19):
-- idea approved <-> rejected only while generation is not_started, failed or partial; once
-  generated, decisions move to the review gate;
+have guards on the item's other statuses (PRD §14 D-10, D-19, D-22):
+- idea approved -> rejected | revision_requested and rejected -> approved only while generation
+  is not_started, failed or partial; once generated, decisions move to the review gate;
+- generation starts (-> queued) only while the idea is approved;
 - review moves only while generation is generated; a revise turns not_reviewed or approved
   into changes_requested; rejected is final;
 - generation generated -> queued and review changes_requested -> not_reviewed only when a newer
@@ -18,7 +19,7 @@ from typing import Literal
 from content_automation.registry.db import RegistryError
 
 Dimension = Literal["idea", "generation", "review", "upload", "publication"]
-Guard = Literal["idea_window", "generation_generated", "new_version"]
+Guard = Literal["idea_window", "idea_approved", "generation_generated", "new_version"]
 
 DIMENSIONS: tuple[Dimension, ...] = ("idea", "generation", "review", "upload", "publication")
 STATUSES: dict[Dimension, tuple[str, ...]] = {  # the first one is a new item's status
@@ -32,6 +33,7 @@ IDEA_WINDOW = ("not_started", "failed", "partial")  # generation statuses with a
 GUARD_TEXT: dict[Guard, str] = {
     "idea_window": "only while generation is not_started, failed or partial; once generated, "
                    "use the review gate",
+    "idea_approved": "only while the idea is approved",
     "generation_generated": "only while generation is generated",
     "new_version": "only when a newer version starts generating",
 }
@@ -42,36 +44,50 @@ class Move:
     dimension: Dimension
     source: str
     target: str
-    guard: Guard | None = None
+    guards: tuple[Guard, ...] = ()
+
+
+@dataclass(frozen=True)
+class Context:
+    """The item's other statuses that guards look at."""
+
+    generation: str | None = None
+    idea: str | None = None
+    new_version: bool = False
+
+
+def _move(dimension: Dimension, source: str, target: str, *guards: Guard) -> Move:
+    return Move(dimension, source, target, guards)
 
 
 TABLE: tuple[Move, ...] = (
-    Move("idea", "proposed", "approved"),
-    Move("idea", "proposed", "rejected"),
-    Move("idea", "proposed", "revision_requested"),
-    Move("idea", "revision_requested", "proposed"),
-    Move("idea", "approved", "rejected", "idea_window"),
-    Move("idea", "rejected", "approved", "idea_window"),
-    Move("generation", "not_started", "queued"),
-    Move("generation", "queued", "running"),
-    Move("generation", "running", "generated"),
-    Move("generation", "running", "partial"),
-    Move("generation", "running", "failed"),
-    Move("generation", "failed", "queued"),
-    Move("generation", "partial", "queued"),
-    Move("generation", "generated", "queued", "new_version"),
-    Move("review", "not_reviewed", "approved", "generation_generated"),
-    Move("review", "not_reviewed", "rejected", "generation_generated"),
-    Move("review", "not_reviewed", "changes_requested", "generation_generated"),
-    Move("review", "approved", "changes_requested", "generation_generated"),
-    Move("review", "changes_requested", "not_reviewed", "new_version"),
-    Move("upload", "not_uploaded", "uploading"),
-    Move("upload", "uploading", "uploaded"),
-    Move("upload", "uploading", "failed"),
-    Move("upload", "failed", "uploading"),
-    Move("publication", "not_ready", "ready"),
-    Move("publication", "ready", "published"),
-    Move("publication", "ready", "failed"),
+    _move("idea", "proposed", "approved"),
+    _move("idea", "proposed", "rejected"),
+    _move("idea", "proposed", "revision_requested"),
+    _move("idea", "revision_requested", "proposed"),
+    _move("idea", "approved", "rejected", "idea_window"),
+    _move("idea", "approved", "revision_requested", "idea_window"),
+    _move("idea", "rejected", "approved", "idea_window"),
+    _move("generation", "not_started", "queued", "idea_approved"),
+    _move("generation", "queued", "running"),
+    _move("generation", "running", "generated"),
+    _move("generation", "running", "partial"),
+    _move("generation", "running", "failed"),
+    _move("generation", "failed", "queued", "idea_approved"),
+    _move("generation", "partial", "queued", "idea_approved"),
+    _move("generation", "generated", "queued", "idea_approved", "new_version"),
+    _move("review", "not_reviewed", "approved", "generation_generated"),
+    _move("review", "not_reviewed", "rejected", "generation_generated"),
+    _move("review", "not_reviewed", "changes_requested", "generation_generated"),
+    _move("review", "approved", "changes_requested", "generation_generated"),
+    _move("review", "changes_requested", "not_reviewed", "new_version"),
+    _move("upload", "not_uploaded", "uploading"),
+    _move("upload", "uploading", "uploaded"),
+    _move("upload", "uploading", "failed"),
+    _move("upload", "failed", "uploading"),
+    _move("publication", "not_ready", "ready"),
+    _move("publication", "ready", "published"),
+    _move("publication", "ready", "failed"),
 )
 
 
@@ -110,37 +126,54 @@ def check_status(dimension: Dimension, status: str) -> None:
         )
 
 
-def _passes(guard: Guard | None, generation: str | None, new_version: bool) -> bool:
+def _passes(guard: Guard, context: Context) -> bool:
     if guard == "idea_window":
-        return generation in IDEA_WINDOW
+        return context.generation in IDEA_WINDOW
+    if guard == "idea_approved":
+        return context.idea == "approved"
     if guard == "generation_generated":
-        return generation == "generated"
-    if guard == "new_version":
-        return new_version
-    return True
+        return context.generation == "generated"
+    return context.new_version
+
+
+def _failing(move: Move, context: Context) -> Guard | None:
+    return next((guard for guard in move.guards if not _passes(guard, context)), None)
+
+
+def _why(guard: Guard, context: Context) -> str:
+    if guard == "idea_approved":
+        state = f"; idea is {context.idea or 'unknown'}"
+    elif guard == "new_version":
+        state = ""
+    else:
+        state = f"; generation is {context.generation or 'unknown'}"
+    return f"{GUARD_TEXT[guard]}{state}"
 
 
 def allowed_next(
     dimension: Dimension, current: str, *, generation: str | None = None,
-    new_version: bool = False,
+    idea: str | None = None, new_version: bool = False,
 ) -> list[str]:
-    """The statuses `current` may move to now (given the item's generation status)."""
+    """The statuses `current` may move to now (given the item's other statuses)."""
     check_status(dimension, current)
+    context = Context(generation, idea, new_version)
     return [
         move.target for move in TABLE
         if move.dimension == dimension and move.source == current
-        and _passes(move.guard, generation, new_version)
+        and _failing(move, context) is None
     ]
 
 
 def transition(
     dimension: Dimension, current: str, target: str, *, generation: str | None = None,
-    new_version: bool = False,
+    idea: str | None = None, new_version: bool = False,
 ) -> str:
     """Return `target` if the move is allowed; otherwise raise IllegalTransition."""
     check_status(dimension, current)
     check_status(dimension, target)
-    allowed = allowed_next(dimension, current, generation=generation, new_version=new_version)
+    context = Context(generation, idea, new_version)
+    allowed = allowed_next(dimension, current, generation=generation, idea=idea,
+                           new_version=new_version)
     move = next(
         (move for move in TABLE
          if (move.dimension, move.source, move.target) == (dimension, current, target)),
@@ -148,10 +181,7 @@ def transition(
     )
     if move is None:
         raise IllegalTransition(dimension, current, target, allowed)
-    if not _passes(move.guard, generation, new_version):
-        assert move.guard is not None
-        state = "" if move.guard == "new_version" else f"; generation is {generation or 'unknown'}"
-        raise IllegalTransition(
-            dimension, current, target, allowed, f"{GUARD_TEXT[move.guard]}{state}"
-        )
+    failing = _failing(move, context)
+    if failing is not None:
+        raise IllegalTransition(dimension, current, target, allowed, _why(failing, context))
     return target

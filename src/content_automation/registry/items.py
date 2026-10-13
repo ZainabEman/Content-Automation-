@@ -7,7 +7,7 @@ asks statuses.transition() first: an illegal move writes nothing.
 
 import json
 import sqlite3
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -15,7 +15,7 @@ from typing import Any
 from content_automation.registry.audit import Actor, append_event
 from content_automation.registry.db import RegistryError, now, transaction
 from content_automation.registry.ids import allocate_number, format_id, parse_id, resolve
-from content_automation.registry.statuses import Dimension, initial, transition
+from content_automation.registry.statuses import Dimension, check_status, initial, transition
 
 KINDS = ("post", "carousel", "graphic", "youtube", "short", "podcast", "ad")  # PRD D3
 STATUS_COLUMNS: dict[Dimension, str] = {
@@ -51,6 +51,7 @@ class Item:
     created_at: str
     updated_at: str
     notes: str | None
+    deliverable: str | None = None  # e.g. linkedin_post (D-1)
 
     def status(self, dimension: Dimension) -> str:
         """The item-level status of idea, generation, review or upload."""
@@ -86,6 +87,7 @@ def _item(row: sqlite3.Row) -> Item:
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),
         notes=_text(row["notes"]),
+        deliverable=_text(row["deliverable"]),
     )
 
 
@@ -112,6 +114,7 @@ def create_item(
     source_refs: Sequence[str] = (),
     package_path: str | None = None,
     notes: str | None = None,
+    deliverable: str | None = None,
     actor: Actor = "system",
     command: str | None = None,
 ) -> Item:
@@ -130,13 +133,13 @@ def create_item(
             "INSERT INTO items (id, number, kind, title, topic, platforms, parent_id, "
             "planned_date, source_refs, package_path, current_version, approved_version, "
             "idea_status, generation_status, review_status, upload_status, created_at, "
-            "updated_at, notes) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, ?, ?, ?, ?, ?, ?, ?)",
+            "updated_at, notes, deliverable) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, ?, ?, ?, ?, ?, ?, ?, ?)",
             (item_id, number, kind, title.strip(), topic.strip(), json.dumps(names), parent,
              planned_date.isoformat() if planned_date else None,
              json.dumps(list(source_refs), ensure_ascii=False), package_path,
              initial("idea"), initial("generation"), initial("review"), initial("upload"),
-             stamp, stamp, notes),
+             stamp, stamp, notes, deliverable),
         )
         conn.execute(
             "INSERT INTO versions (item_id, version, created_at, reason, feedback, "
@@ -152,9 +155,41 @@ def create_item(
             conn, "item_created", actor=actor, command=command, item_id=item_id, version=1,
             details={"kind": kind, "title": title.strip(), "platforms": names,
                      "parent_id": parent, "package_path": package_path,
+                     "deliverable": deliverable,
                      "planned_date": planned_date.isoformat() if planned_date else None},
         )
         return get_item(conn, item_id)
+
+
+def list_items(
+    conn: sqlite3.Connection,
+    *,
+    kind: str | None = None,
+    statuses: Mapping[Dimension, str] | None = None,
+    planned_from: date | None = None,
+    planned_to: date | None = None,
+) -> list[Item]:
+    """Items in BG order; filters: kind, item-level statuses, planned date range (inclusive)."""
+    clauses: list[str] = []
+    params: list[Any] = []
+    if kind is not None:
+        clauses.append("kind = ?")
+        params.append(kind)
+    for dimension, value in (statuses or {}).items():
+        if dimension not in STATUS_COLUMNS:
+            raise RegistryError(f'Filter by idea, generation, review or upload, not "{dimension}".')
+        check_status(dimension, value)
+        clauses.append(f"{STATUS_COLUMNS[dimension]} = ?")
+        params.append(value)
+    if planned_from is not None:
+        clauses.append("planned_date >= ?")
+        params.append(planned_from.isoformat())
+    if planned_to is not None:
+        clauses.append("planned_date <= ?")
+        params.append(planned_to.isoformat())
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    rows = conn.execute(f"SELECT * FROM items{where} ORDER BY number", params)
+    return [_item(row) for row in rows]
 
 
 def get_item(conn: sqlite3.Connection, ref: str) -> Item:
@@ -260,7 +295,7 @@ def set_status(
             name = None
             current = item.status(dimension)
         transition(dimension, current, target, generation=item.generation_status,
-                   new_version=new_version)
+                   idea=item.idea_status, new_version=new_version)
         stamp = now()
         if name is not None:
             conn.execute(

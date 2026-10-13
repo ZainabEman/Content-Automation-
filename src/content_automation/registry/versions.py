@@ -7,10 +7,11 @@ a newer one is approved. current_version is the newest version, approved_version
 one. No version is ever deleted; until Phase 7 a new version shares v1's package folder and
 stores the feedback.
 
-Revise (D-19):
-- idea gate (idea proposed): idea -> revision_requested and v(n+1) pending. With a new title
-  (the Codex skill rewrites the topic from the feedback) the idea goes back to proposed on the
-  new version at once; without one it waits for resubmit(title).
+Revise (D-19, D-22; which gate: gates.py):
+- idea gate (idea proposed, or approved while generation is not_started/failed/partial): idea
+  -> revision_requested and v(n+1) pending. With a new title (the Codex skill rewrites the
+  topic from the feedback) the idea goes back to proposed on the new version at once; without
+  one it waits for resubmit(title). Either way it must be approved again before it generates.
 - review gate (generation generated, review not_reviewed or approved): review ->
   changes_requested and v(n+1) pending. start_new_version() starts its generation: generation
   -> queued and review changes_requested -> not_reviewed. Review rejected is final.
@@ -23,11 +24,10 @@ from typing import Literal, cast
 from content_automation.registry.audit import Actor, append_event
 from content_automation.registry.db import RegistryError, now, transaction
 from content_automation.registry.decisions import Gate, record_decision
+from content_automation.registry.gates import closed_message, gate_open, open_gate
 from content_automation.registry.items import Item, get_item, set_status, set_title
 
 VersionStatus = Literal["pending", "active", "approved", "superseded"]
-GATES: tuple[Gate, ...] = ("idea", "review")  # D5: the idea gate first
-REVIEW_REVISABLE = ("not_reviewed", "approved")  # review statuses a revise may change
 RESTART_FROM = ("generated", "failed", "partial")  # generation a newer version may restart
 
 
@@ -149,35 +149,6 @@ def set_approved_version(
         return get_version(conn, item.id, version)
 
 
-def gate_open_for_revise(item: Item, gate: Gate) -> bool:
-    if gate == "idea":
-        return item.idea_status == "proposed"
-    return item.generation_status == "generated" and item.review_status in REVIEW_REVISABLE
-
-
-def revise_gate(item: Item) -> Gate | None:
-    """The gate a revise acts on, or None if neither is open."""
-    return next((gate for gate in GATES if gate_open_for_revise(item, gate)), None)
-
-
-def _not_open(item: Item, gate: Gate | None) -> str:
-    where = f"the {gate} gate is not open" if gate else "there is nothing to revise"
-    state = (f"idea is {item.idea_status}, generation is {item.generation_status}, review is "
-             f"{item.review_status}")
-    if item.idea_status == "revision_requested":
-        hint = f' It waits for: ca item resubmit {item.id} --title "<new topic>".'
-    elif item.review_status == "rejected":
-        hint = " Review rejected is final."
-    elif item.review_status == "changes_requested":
-        hint = (f" Changes are already requested; v{item.current_version} waits for "
-                "generation.")
-    elif item.generation_status in ("queued", "running"):
-        hint = " Generation is in progress; wait for it to finish."
-    else:
-        hint = ""
-    return f"{item.id}: {where} ({state}).{hint}"
-
-
 def revise(
     conn: sqlite3.Connection,
     ref: str,
@@ -197,9 +168,9 @@ def revise(
         raise RegistryError("The new title cannot be empty.")
     with transaction(conn):
         item = get_item(conn, ref)
-        chosen = gate or revise_gate(item)
-        if chosen is None or not gate_open_for_revise(item, chosen):
-            raise RegistryError(_not_open(item, chosen))
+        chosen = gate or open_gate(item, "revise")
+        if chosen is None or not gate_open(item, "revise", chosen):
+            raise RegistryError(closed_message(item, "revise", chosen))
         if chosen == "review" and new_title is not None:
             raise RegistryError(
                 "A new title is for the idea gate; a review revise keeps the topic."

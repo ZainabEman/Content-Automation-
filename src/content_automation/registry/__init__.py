@@ -12,6 +12,13 @@ from content_automation.registry.audit import append_event
 from content_automation.registry.db import DEFAULT_DB_PATH, connect, migrate
 from content_automation.registry.ids import DEFAULT_CONFIG_PATH, apply_config, load_config
 
+DB_FILE = "registry.db"
+
+
+def db_path(state_dir: Path) -> Path:
+    """The registry database inside STATE_DIR."""
+    return state_dir / DB_FILE
+
 
 def open_registry(
     db_path: Path = DEFAULT_DB_PATH, config_path: Path = DEFAULT_CONFIG_PATH

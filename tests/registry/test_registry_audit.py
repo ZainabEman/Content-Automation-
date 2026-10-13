@@ -6,7 +6,7 @@ import pytest
 
 from content_automation.registry import audit, open_registry
 from content_automation.registry.audit import append_event, list_events
-from content_automation.registry.db import RegistryError
+from content_automation.registry.db import MIGRATIONS, RegistryError
 
 FAKE_KEY = "sk-or-v1-fakefakefake0123456789"
 
@@ -60,10 +60,11 @@ def test_events_are_redacted(registry: sqlite3.Connection,
 
 def test_schema_migration_is_logged(db_path: Path, config_path: Path) -> None:
     conn = open_registry(db_path, config_path)
-    [event] = list_events(conn, types=["migration_run"])
-    assert event.details == {"backup": None, "kind": "schema", "name": "registry core",
-                             "version": 1}
+    events = list_events(conn, types=["migration_run"])
+    assert [e.details["version"] for e in events] == [m.version for m in MIGRATIONS]
+    assert events[0].details == {"backup": None, "kind": "schema", "name": "registry core",
+                                 "version": 1}
     conn.close()
     conn = open_registry(db_path, config_path)  # nothing pending: nothing logged
-    assert len(list_events(conn, types=["migration_run"])) == 1
+    assert len(list_events(conn, types=["migration_run"])) == len(MIGRATIONS)
     conn.close()

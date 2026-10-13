@@ -4,7 +4,8 @@ Numbers are sequential and never reused, even after a reject or a delete: the co
 the database and only goes up. config/registry.json "next_id" sets the first number when the
 database is created; raising it later skips ahead, lowering it changes nothing. A reference is
 a BG ID (any case, padding optional: bg-7 = BG-007) or an alias (a legacy Content ID such as
-2026-W42-03 or a package folder name). Calendar row numbers are resolved by the calendar step.
+2026-W42-03 or a package folder name). A calendar row number needs its week (§14 D-12): row 3
+of 2026-W42 is the item whose Content ID alias is 2026-W42-03.
 """
 
 import json
@@ -102,6 +103,15 @@ def allocate_number(conn: sqlite3.Connection) -> int:
 def allocate_id(conn: sqlite3.Connection) -> str:
     """Take the next BG ID (BG-007)."""
     return format_id(allocate_number(conn))
+
+
+def resolve_row(conn: sqlite3.Connection, week: str, row: int) -> str:
+    """The item planned in calendar row `row` of `week` (e.g. 2026-W42)."""
+    content_id = f"{week}-{row:02d}"
+    hit = conn.execute("SELECT item_id FROM aliases WHERE alias = ?", (content_id,)).fetchone()
+    if hit is None:
+        raise UnknownItem(f"Calendar {week} has no registered row {row} ({content_id}).")
+    return str(hit["item_id"])
 
 
 def resolve(conn: sqlite3.Connection, ref: str) -> str:

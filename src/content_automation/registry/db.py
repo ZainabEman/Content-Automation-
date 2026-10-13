@@ -151,7 +151,13 @@ CREATE TRIGGER events_no_delete BEFORE DELETE ON events
 BEGIN SELECT RAISE(ABORT, 'the audit log is append-only'); END;
 """
 
-MIGRATIONS: tuple[Migration, ...] = (Migration(1, "registry core", SCHEMA_1),)
+# The deliverable an item was made for (PRD §14 D-1: one item per package and deliverable).
+SCHEMA_2 = "ALTER TABLE items ADD COLUMN deliverable TEXT;"
+
+MIGRATIONS: tuple[Migration, ...] = (
+    Migration(1, "registry core", SCHEMA_1),
+    Migration(2, "item deliverable", SCHEMA_2),
+)
 
 _SCHEMA_TABLE = """
 CREATE TABLE IF NOT EXISTS schema_version (

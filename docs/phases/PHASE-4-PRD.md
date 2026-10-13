@@ -146,3 +146,15 @@ D-22 An idea-gate revise is allowed when idea ∈ {proposed, approved} and gener
  - A second revise while the item is revision_requested is refused, with a hint to use `resubmit`.
  - Starting a new version requires an approved idea (keep).
 D-23 AGENTS.md working rules: replace "No new tests" with "ruff + mypy --strict + offline pytest must pass before every commit"; the commit format becomes `phase <N> step <M>: …`. CLAUDE.md: the Nano Banana note now says "decision in Phase 10 (roadmap v3)".
+
+## Decisions taken during build
+IDs B4-n; each is also listed under "Needs review" in docs/autorun/LOG.md.
+- B4-1 (Step 2) Generation can start (→ queued, also a retry or a new version) only while the idea is approved. D-22 says so after a revise; applying it to every start keeps one rule. Why: no generation without an approval (BR-04).
+- B4-2 (Step 2) Schema migration 2 adds items.deliverable (e.g. linkedin_post), needed for D-1 (one item per package and deliverable) and for the per-part mismatch check in `ca item status`.
+- B4-3 (Step 2) An approve on either gate sets approved_version = the current version (D6); a reject leaves approved_version as it was.
+- B4-4 (Step 2) Gate inference per action: approve also reopens a rejected idea and reject also closes an approved idea while generation is not_started/failed/partial (D-10); the idea gate is tried first (D5).
+- B4-5 (Step 2) Reject reasons and revise feedback are taken as all remaining words, so `ca item reject BG-7 too generic` works without quotes. Exit codes: 2 = usage (missing text, bad option or week), 1 = refused or not found. With several IDs each failure is listed and the exit code is 1; with one ID only its error line is printed.
+- B4-6 (Step 2) A row number resolves through the Content ID alias `<week>-<row:02>` (the format calendar.new_calendar writes), so no CSV is read; an unregistered row is an error.
+- B4-7 (Step 2) Every `ca item` and `ca audit` command logs command_run (actor user), read-only ones too (§5 Step 2.4 says every command).
+- B4-8 (Step 2) Settings STATE_DIR (default `state`) and REGISTRY_FILE (default `config/registry.json`); the database is `<STATE_DIR>/registry.db`.
+- B4-9 (Step 2) `ca item status` reads the tracker only from the mock file (STORAGE_PROVIDER=mock); with the Google Sheet it says "not checked here (ca tracking show)", so the command stays offline.

@@ -95,6 +95,8 @@ class Settings(BaseSettings):
     drive_share_with: str = ""  # comma-separated emails: editors of the main Drive folder
     secrets_dir: Path = Path(".secrets")  # OAuth client, token, Drive folder IDs: git-ignored
     drive_mock_dir: Path = Path("outputs/drive")  # STORAGE_PROVIDER=mock writes here
+    state_dir: Path = Path("state")  # registry.db, backups, dry runs: git-ignored
+    registry_file: Path = Path("config/registry.json")  # the first BG number (next_id)
 
     def summary_lines(self) -> tuple[str, ...]:
         """Return non-secret settings suitable for local CLI output."""

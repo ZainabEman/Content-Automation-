@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from content_automation.ai.avatar import AvatarError
 from content_automation.ai.image import ASPECT_RATIOS, ImageError, ImageRequest
 from content_automation.ai.video import VideoError
+from content_automation.cli.items import audit_app, items_app
 from content_automation.content.brief import BriefError
 from content_automation.content.calendar import (
     CalendarError,
@@ -185,6 +186,8 @@ app.add_typer(overlay_app, name="overlay")
 app.add_typer(carousel_app, name="carousel")
 app.add_typer(lora_app, name="lora")
 app.add_typer(env_app, name="env")
+app.add_typer(items_app, name="item")
+app.add_typer(audit_app, name="audit")
 # The only .env lines a command may set: IDs chosen by the user in a plugin, never keys.
 ENV_SETTABLE = ("HEYGEN_AVATAR_ID", "HEYGEN_VOICE_ID")
 _ENV_VALUE = re.compile(r"[A-Za-z0-9_-]{1,128}")

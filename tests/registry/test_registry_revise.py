@@ -89,7 +89,8 @@ def test_revise_needs_feedback_and_an_open_gate(registry: sqlite3.Connection,
     with pytest.raises(RegistryError, match="review gate is not open"):
         revise(registry, item.id, "x", gate="review")
     set_status(registry, item.id, "idea", "approved")
-    with pytest.raises(RegistryError, match="nothing to revise"):
+    set_status(registry, item.id, "generation", "queued")
+    with pytest.raises(RegistryError, match="nothing to revise.*in progress"):
         revise(registry, item.id, "x")
     assert len(list_versions(registry, item.id)) == 1 and list_decisions(registry, item.id) == []
 

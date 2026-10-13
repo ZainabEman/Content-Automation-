@@ -37,7 +37,18 @@
 - [x] Step 5 – Wiring: single-"ok" flow (package + calendar), Drive, tracker, summary, skills. Built; chain run once on mock storage with stand-ins, no plugin call.
 - [ ] Step 6 – One paid test carousel (after "ok" on its max).
 
-## Phase 4 test list
+## Phase 4 — content-item foundation
+
+v3 spec; plan in [docs/ROADMAP-v3.md](ROADMAP-v3.md), PRD in [docs/phases/PHASE-4-PRD.md](phases/PHASE-4-PRD.md) (§13 lists conflicts with the current code). Branch `phase-4-items`.
+
+- [ ] Step 1 – Registry core: db + migrations + ids + statuses + items + versions + audit + redaction + pytest.
+- [ ] Step 2 – Item commands (list/status/approve/reject/revise/history) + audit show + manage-items skill + AGENTS.md.
+- [ ] Step 3 – Jobs + authorizations + idempotency; wire in calendar generate, image generation, carousel, Drive upload.
+- [ ] Step 4 – Calendar as a view (BG ID column, hand-edit guard) + the migration command.
+- [ ] Step 5 – Tracker columns + conflict report (mock).
+- [ ] Step 6 – Remaining skill updates, ca help commands, docs, mock end-to-end run of §10, PROGRESS.md.
+
+## Phase 10 test list (moved)
 
 Deferred from Phase 1 (no tests until Phase 4):
 

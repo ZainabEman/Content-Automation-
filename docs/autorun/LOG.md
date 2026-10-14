@@ -130,3 +130,6 @@ Needs review: thumbnail draws the text on a scrim with the overlay fonts (no log
 
 ## P9S1 — clips handoff/import/select (manual Opus Pro) — DONE bf556ea
 Needs review: candidates are short items for youtube+tiktok+instagram (deliverable youtube_short); select approves the idea gate and marks them generated.
+
+## P9S2 — prepare, per-platform copy, publish, clips + distribute skills, full check — DONE 77d7e03 (+ fixes 6bf9de9)
+Needs review: see docs/autorun/REPORT-PHASES-7-9.md; Phase 10 not started.

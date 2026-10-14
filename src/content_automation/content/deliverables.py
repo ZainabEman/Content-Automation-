@@ -61,6 +61,10 @@ class Deliverable(_Model):
     workflow: VideoWorkflow | None = None  # videos
     aliases: list[str] = Field(min_length=1)
     kind: ItemKind | None = None  # the registry kind (D-2); default from the part
+    # Phase 7: the image provider of this deliverable (default IMAGE_PROVIDER) and a fallback
+    # that the dry run offers on its own line (used only after the user's "ok", never silently).
+    provider: Literal["mock", "openrouter", "comfyui"] | None = None
+    fallback_provider: Literal["mock", "openrouter", "comfyui"] | None = None
 
     @property
     def brief_format(self) -> Format:

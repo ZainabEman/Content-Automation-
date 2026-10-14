@@ -17,6 +17,10 @@ Do this once, before the first carousel dry run (it is free): if `docs/PHASE3-DE
 
 From then on use exactly the names in section 10. If the plugin is not available in this Codex session, stop and say that the Higgsfield plugin is missing.
 
+## Format
+
+The carousel format is `animated` (8 MP4 slides, default in `config/carousel.json`, client to confirm), `static` (8 PNGs from the stills only: no clip requests) or `single_video` (the 8 clips joined into `carousel/final/carousel.mp4`). Use the format the user asked for: `uv run ca content build "<folder>" --format static|animated|single_video --dry-run`; the dry run shows that format's cost. stills-check and render follow it.
+
 ## The single "ok"
 
 - The dry run (`uv run ca content build "<package>" --dry-run`, or the calendar's combined dry run) lists per slide the still and the clip with their credits (estimates; local ones are free), the total and the max with one retry per request. The user's "ok" approves that max for stills and clips together. Never ask again per still or clip.

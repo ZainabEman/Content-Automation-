@@ -1351,6 +1351,10 @@ def content_build(
         str | None, typer.Option("--format", help="Carousel: static, animated or single_video "
                                  "(default config/carousel.json).")
     ] = None,
+    provider: Annotated[
+        str | None, typer.Option("--provider", help="Image provider for this build (default: "
+                                 "the deliverable's, else IMAGE_PROVIDER).")
+    ] = None,
 ) -> None:
     """Make what is still missing: post images, ad image, reel, post.md, package.json.
 
@@ -1364,6 +1368,9 @@ def content_build(
     settings = _settings(dry_run=dry_run, check_keys=False)
     if not dry_run:
         configure_logging(settings)
+    if provider is not None and provider not in ("mock", "openrouter", "comfyui"):
+        typer.echo(f'--provider must be mock, openrouter or comfyui, not "{provider}"', err=True)
+        raise typer.Exit(code=2)
     if carousel_format is not None:
         try:
             chosen = check_format(carousel_format)
@@ -1381,7 +1388,7 @@ def content_build(
             for line in package_registration(scope.conn, folder, catalog, request=None,
                                              command=scope.command, legacy=True):
                 typer.echo(line)
-            preview = build_package(folder, settings, dry_run=True)
+            preview = build_package(folder, settings, dry_run=True, provider=provider)
             if dry_run:
                 for line in preview.lines:
                     typer.echo(line)
@@ -1397,7 +1404,7 @@ def content_build(
             else:
                 require_budget(scope, preview.cost_lines,
                                f'uv run ca content build "{folder}" --dry-run')
-            result = build_package(folder, settings, dry_run=False)
+            result = build_package(folder, settings, dry_run=False, provider=provider)
         except (BriefError, DeliverableError) as error:
             typer.echo(str(error), err=True)
             raise typer.Exit(code=1) from None

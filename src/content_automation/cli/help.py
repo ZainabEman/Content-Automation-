@@ -49,6 +49,9 @@ GROUPS: tuple[Group, ...] = (
         Phrase("show authorizations", "ca auth list", "what each \"ok\" allows: spent of max"),
         Phrase("tracker conflicts", "ca tracking conflicts",
                "hand edits, missing rows, duplicate IDs; then ca tracking resolve"),
+        Phrase("retry failed jobs", "ca jobs retry BG-x|--all-failed",
+               "a dry run; after ok --authorize; at most max_attempts tries"),
+        Phrase("show costs", "ca costs report", "estimate vs actual per job type"),
         Phrase("what can I say", "ca help commands", "this list"),
     )),
     Group("show-content", ".agents/skills/show-content/SKILL.md", (
@@ -110,6 +113,18 @@ GROUPS: tuple[Group, ...] = (
         Phrase("show script BG-x", "ca script show BG-x", "the saved script as Markdown"),
         Phrase("check script BG-x", "ca script check BG-x", "the check run again"),
         Phrase("show brief BG-x", "ca brief show BG-x", "the saved production brief"),
+    )),
+    Group("review-assets", ".agents/skills/review-assets/SKILL.md", (
+        Phrase("what needs review", "ca review list", "generated items not reviewed yet"),
+        Phrase("show BG-x for review", "ca review show BG-x",
+               "version, files, checks, costs, last feedback"),
+        Phrase("regenerate BG-x", "ca regenerate BG-x", "a dry run for the parts; ok first"),
+        Phrase("redo slide 3 of BG-x", "ca regenerate BG-x --only slide3",
+               "only that slide; the others are kept"),
+    )),
+    Group("upload", ".agents/skills/upload/SKILL.md", (
+        Phrase("upload approved files", "ca drive record <job> --file-id --link",
+               "plugin upload requests, each recorded"),
     )),
     Group("make-carousel", ".agents/skills/make-carousel/SKILL.md", (
         Phrase("continue carousel <folder>", 'ca carousel continue "<folder>"',

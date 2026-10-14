@@ -82,6 +82,7 @@ from content_automation.references import (
     load_set,
 )
 from content_automation.registry import runtime
+from content_automation.registry.artifacts import latest_artifact
 from content_automation.registry.db import RegistryError
 from content_automation.registry.dryruns import CostLine
 from content_automation.registry.jobs import JobConfig, load_job_config
@@ -112,6 +113,7 @@ from content_automation.workflows.design_system import (
     FormatSpec,
     load_design_system,
 )
+from content_automation.workflows.image_checks import image_problems
 from content_automation.workflows.image_workflows import (
     AD_VARIANTS,
     PreparedWorkflow,
@@ -727,8 +729,10 @@ def _brief_template(
 # ----------------------------------------------------------------------------- build
 
 
-def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> PackageResult:
-    """Raises BriefError when brief.json is missing or invalid (nothing is made)."""
+def build_package(folder: Path, settings: Settings, *, dry_run: bool,
+                  provider: str | None = None) -> PackageResult:
+    """Raises BriefError when brief.json is missing or invalid (nothing is made). provider:
+    the user's --provider override (else the deliverable's provider, else IMAGE_PROVIDER)."""
     saved_package = folder / PACKAGE_FILE
     if saved_package.is_file() and not (folder / BRIEF_FILE).is_file():
         package = ContentPackage.model_validate_json(saved_package.read_text(encoding="utf-8"))
@@ -747,6 +751,12 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
         brand_tag=brand_hashtag(brand.brand_name) if brand else None,
         checks=lambda checked: _deliverable_problems(checked, settings, folder),
     )
+    catalog = load_deliverables(settings.deliverables_file)
+    configured = {catalog.deliverables[name].provider for name in brief.deliverables
+                  if name in catalog.deliverables} - {None}
+    chosen = provider or (configured.pop() if len(configured) == 1 else None)
+    if chosen and chosen != settings.image_provider:
+        settings = settings.model_copy(update={"image_provider": chosen})
     package = _load(folder, brief)
     plans = _plan_images(brief, package, folder, settings, _image_counts(brief, settings))
     problems = [
@@ -754,10 +764,17 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
         for name, plan in plans.items()
         if isinstance(plan.error, WorkflowError)
     ]
+    problems += _ad_claim_problems(brief, folder)
     if problems:  # format rules, a stat without a research source, ...: nothing is made
         raise BriefError(problems)
     if dry_run:
         lines, total, image_costs = _dry_run_lines(folder, brief, package, plans, settings)
+        fallbacks = sorted({str(catalog.deliverables[name].fallback_provider)
+                            for name in brief.deliverables if name in catalog.deliverables
+                            and catalog.deliverables[name].fallback_provider} - {chosen or ""})
+        lines += [f"Fallback provider {name}: not used unless the user says ok to it; its own "
+                  f'dry run: uv run ca content build "{folder}" --provider {name} --dry-run'
+                  for name in fallbacks]
         result = PackageResult(folder, lines, package, estimated_usd=total)
         result.cost_lines = _cost_lines(folder, brief, package, image_costs, settings)
         if brief.carousel is not None and is_animated(brief.carousel):
@@ -1157,6 +1174,33 @@ def _person_shown(item: PackageItem, position: int, settings: Settings) -> bool:
     return found is not None and found[0].inputs.get("personShown") is True
 
 
+def _ad_claim_problems(brief: ContentBrief, folder: Path) -> list[str]:
+    """Ad strict check (Phase 7): a number in the ad's overlay or copy must come from the ad
+    copy saved with `ca script save` (whose check needs verified fact claims for numbers)."""
+    ad = brief.ad
+    if ad is None:
+        return []
+    texts = [text for text in (ad.headline, ad.subheadline, ad.cta, ad.primary_text)
+             if text and re.search(r"\d", text)]
+    scope = runtime.current()
+    if not texts or scope is None:
+        return []
+    item_id = runtime.package_items(folder).get("ad")
+    if item_id is None:
+        return []
+    saved = latest_artifact(scope.conn, item_id, "copy")
+    if saved is not None and saved.check.get("ok"):
+        try:
+            script = json.loads(Path(saved.path).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            script = {}
+        written = " ".join(str(s.get("text", "")) for s in script.get("sections", []))
+        if all(text.strip() in written for text in texts):
+            return []
+    return [f"ad: number without verified source ({'; '.join(texts)}): write the ad copy with "
+            f"`uv run ca script save {item_id} <file>` so its numbers cite verified claims"]
+
+
 def image_checks(item: PackageItem, settings: Settings) -> list[str]:
     """"post-1.png person pass", … for the review view (recorded checks only)."""
     lines = []
@@ -1342,6 +1386,11 @@ def _make_images(
             item.image_folders.append(entry[2])
         cost = job.actual_cost_usd if job.actual_cost_usd is not None else job.est_cost_usd
         item.cost_usd = _add_cost(item.cost_usd, cost)
+        checked = image_problems(target)
+        if checked:  # Phase 7: size and not blank; never retried by itself
+            item.status = "failed"
+            item.error = f"image check {target.name}: {'; '.join(checked)}"
+            return item, [f"{kind}: {item.error}; make it again only after the user agrees"]
         if item.picks is None:
             item.picks = DesignPicks.from_recorded(job.inputs, job.style_asset_ids)
         if job.inputs.get("personShown") is True and batch.warm:

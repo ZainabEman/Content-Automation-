@@ -115,3 +115,6 @@ Needs review: see the report (needs review + client questions).
 
 ## P7S1 — fixes, review list/show, regenerate — DONE cd836bb
 Needs review: auth auto-closes only when planned jobs succeeded (failed keeps it open); history only from older packages; regenerated v(n+1) lives in the package, v<n> kept in versions/v<n>/; animated-carousel slide redo cost uses image provider.
+
+## P7S2 — upload after review, plugin route, carousel format, retry, costs — DONE 0aa8930
+Needs review: requireReview true stops auto-upload (old flow: set false); max_attempts 2 and carousel default "animated" are client choices; retry authorizes, the item step re-runs the parts.

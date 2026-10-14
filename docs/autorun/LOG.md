@@ -101,6 +101,10 @@ Needs review: disputed claims need a source of each side named in the section no
 Built: content/briefs.py (youtube, podcast, social briefs; sections, thumbnail ≤5 words, caption language, podcast minutes); brief.json + brief.md in v<n>.
 Needs review: a brief without a saved script for its version is allowed with a warning.
 
-## 2026-10-14 18:15 — Phase 6 Step 4: social copy onto the formulas — DONE (commit: next entry)
+## 2026-10-14 18:15 — Phase 6 Step 4: social copy onto the formulas — DONE e030af1
 Built: content/copy_apply.py — a saved social_graphic/facebook_ad/carousel script fills only its deliverable's brief.json fields (post.headline, captions.<deliverable>, ad.*, carousel.slides); no brief.json or no fit → kept in the script with a warning; packages without a script unchanged.
 Needs review: caption mapping expects copy as hook line, 3-5 takeaway lines, question line; ad primary text stays in the script (caption rules differ).
+
+## 2026-10-14 18:40 — Phase 6 Step 5: write-script skill, make-content, AGENTS.md, help, e2e — DONE (commit: next entry); PHASE 6 DONE
+Built: write-script skill; make-content step 2b (copy via `ca script save`); AGENTS.md + help group; scripts/e2e_phase6.py 7/7 PASS; full suite 322 passed, mypy --strict 160 files clean.
+Needs review: the stricter number rule now applies to copy saved through the formulas (topic packages without claims: no numbers).

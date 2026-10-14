@@ -73,7 +73,9 @@ PRD: [docs/phases/PHASE-6-PRD.md](phases/PHASE-6-PRD.md) (conflicts with the cur
 - [x] Step 2 – Validation rules, `save/check/show`, the md renderer.
 - [x] Step 3 – YouTube and podcast briefs (`ca brief …`).
 - [x] Step 4 – Move post, carousel and ad copy onto the formulas (keeping compatibility).
-- [ ] Step 5 – write-script skill, make-content update, AGENTS.md, help, `scripts/e2e_phase6.py`, PHASE-6-E2E.md, PROGRESS.
+- [x] Step 5 – write-script skill, make-content update, AGENTS.md, help, `scripts/e2e_phase6.py`, PHASE-6-E2E.md, PROGRESS.
+
+Phase 6 done (2026-10-14): e2e 7/7 PASS ([PHASE-6-E2E.md](phases/PHASE-6-E2E.md)); 322 tests, ruff + mypy --strict clean.
 
 ## Phase 4 done (2026-10-13)
 

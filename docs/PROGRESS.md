@@ -72,7 +72,7 @@ PRD: [docs/phases/PHASE-6-PRD.md](phases/PHASE-6-PRD.md) (conflicts with the cur
 - [x] Step 1 – `config/formulas.json`, JSON schemas, the artifacts table, `ca script template`.
 - [x] Step 2 – Validation rules, `save/check/show`, the md renderer.
 - [x] Step 3 – YouTube and podcast briefs (`ca brief …`).
-- [ ] Step 4 – Move post, carousel and ad copy onto the formulas (keeping compatibility).
+- [x] Step 4 – Move post, carousel and ad copy onto the formulas (keeping compatibility).
 - [ ] Step 5 – write-script skill, make-content update, AGENTS.md, help, `scripts/e2e_phase6.py`, PHASE-6-E2E.md, PROGRESS.
 
 ## Phase 4 done (2026-10-13)

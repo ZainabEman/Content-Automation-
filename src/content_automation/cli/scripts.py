@@ -38,7 +38,7 @@ VersionOption = Annotated[int | None, typer.Option("--version", min=1,
 def _check_lines(check: Check) -> list[str]:
     lines = [f"- {problem}" for problem in check.problems]
     lines += [f"- warning: {warning}" for warning in check.warnings]
-    return lines
+    return lines + [f"- {note}" for note in check.notes]
 
 
 def _fail(message: str, code: int = 1) -> NoReturn:

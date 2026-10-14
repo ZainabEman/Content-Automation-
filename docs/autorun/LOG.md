@@ -97,6 +97,10 @@ Needs review: section word ranges and podcast 10-20 min are a draft (client to c
 Built: content/script_check.py (sections, word ranges, claim refs via lineage, outdated/disputed/unverified, "number without verified source", platform rules); save writes v<current> only; invalid saves logged `artifact_invalid`.
 Needs review: disputed claims need a source of each side named in the section notes; any digit counts as a number (BR-07).
 
-## 2026-10-14 18:00 — Phase 6 Step 3: production briefs, `ca brief template|save|check|show` — DONE (commit: next entry)
+## 2026-10-14 18:00 — Phase 6 Step 3: production briefs, `ca brief template|save|check|show` — DONE e3b52b1
 Built: content/briefs.py (youtube, podcast, social briefs; sections, thumbnail ≤5 words, caption language, podcast minutes); brief.json + brief.md in v<n>.
 Needs review: a brief without a saved script for its version is allowed with a warning.
+
+## 2026-10-14 18:15 — Phase 6 Step 4: social copy onto the formulas — DONE (commit: next entry)
+Built: content/copy_apply.py — a saved social_graphic/facebook_ad/carousel script fills only its deliverable's brief.json fields (post.headline, captions.<deliverable>, ad.*, carousel.slides); no brief.json or no fit → kept in the script with a warning; packages without a script unchanged.
+Needs review: caption mapping expects copy as hook line, 3-5 takeaway lines, question line; ad primary text stays in the script (caption rules differ).

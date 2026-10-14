@@ -23,6 +23,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from content_automation.content.copy_apply import apply_copy
 from content_automation.content.scripts import (
     Script,
     ScriptError,
@@ -53,6 +54,7 @@ _HASHTAG = re.compile(r"#\w+")
 class Check:
     problems: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)  # what the save changed besides v<n>
     words: int = 0
     minutes: float | None = None
 
@@ -62,7 +64,7 @@ class Check:
 
     def as_json(self) -> dict[str, Any]:
         return {"ok": self.ok, "problems": self.problems, "warnings": self.warnings,
-                "words": self.words, "minutes": self.minutes}
+                "notes": self.notes, "words": self.words, "minutes": self.minutes}
 
 
 def read_script(path: Path) -> Script:
@@ -224,6 +226,11 @@ def save_script(conn: sqlite3.Connection, settings: Settings, ref: str, draft: P
     path = folder / "script.json"
     atomic_write_text(path, json.dumps(stored.model_dump(by_alias=True), indent=2,
                                        ensure_ascii=False) + "\n")
+    if template.formula.artifact == "copy":  # P6-D8: the package's brief.json fields
+        applied, warnings = apply_copy(template.item, stored)
+        check.warnings += warnings
+        if applied:
+            check.notes.append(f"brief.json updated: {', '.join(applied)}")
     atomic_write_text(folder / "script.md", render_markdown(template, stored, check))
     artifact = add_artifact(conn, template.item.id, template.version, kind, path.as_posix(),
                             check.as_json(), command=command)

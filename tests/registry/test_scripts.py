@@ -221,3 +221,50 @@ def test_podcast_brief_validates_segments(conn: sqlite3.Connection, tmp_path: Pa
     assert saved.exit_code == 0, saved.output
     assert "## Segments" in ca("brief", "show", episode.id).output
     assert ca("brief", "check", episode.id).exit_code == 0
+
+
+SOCIAL = {"central_message": "Answer every lead", "audience": "Clinic owners",
+          "purpose": "educational", "headline": "Leads wait for nobody",
+          "visual_direction": "Roman at a reception desk with a phone", "cta": "Book a call"}
+
+
+def _post_draft(path: Path, item: str, copy: str) -> Path:
+    path.write_text(json.dumps({
+        "item": item, "version": 1, "formula": "social_graphic", "language": "en",
+        "sections": [{"key": k, "text": v} for k, v in {**SOCIAL, "copy": copy}.items()],
+        "hashtags": ["#BrandedGenius", "#AI", "#Leads"]}), encoding="utf-8")
+    return path
+
+
+def test_post_copy_fills_its_brief_fields_only(conn: sqlite3.Connection, tmp_path: Path) -> None:
+    package = tmp_path / "pkg"
+    package.mkdir()
+    brief = {"topic": "Leads", "post": {"format": "statement", "headline": "Old"},
+             "captions": {"facebook_post": {"hook": "keep", "takeaways": ["a", "b", "c"],
+                                            "question": "keep?"}}, "cta": "Old cta"}
+    (package / "brief.json").write_text(json.dumps(brief), encoding="utf-8")
+    post = create_item(conn, kind="post", title="Leads", topic="t", platforms=["linkedin"],
+                       deliverable="linkedin_post", package_path=package.as_posix())
+    lines = ["Leads wait for nobody.", *[" ".join(["Answer"] * 40) for _ in range(3)],
+             "How fast do you answer?"]
+    result = ca("script", "save", post.id, str(_post_draft(tmp_path / "p.json", post.id,
+                                                            "\n".join(lines))))
+    assert result.exit_code == 0, result.output
+    assert "brief.json updated: post.headline, captions.linkedin_post" in result.output
+    data = json.loads((package / "brief.json").read_text("utf-8"))
+    assert data["post"] == {"format": "statement", "headline": "Leads wait for nobody"}
+    assert data["captions"]["linkedin_post"]["question"] == "How fast do you answer?"
+    assert data["captions"]["facebook_post"]["hook"] == "keep" and data["cta"] == "Old cta"
+    assert (package / "scripts" / post.id / "v1" / "script.md").is_file()
+
+
+def test_copy_without_brief_json_stays_in_the_script(conn: sqlite3.Connection,
+                                                     tmp_path: Path) -> None:
+    package = tmp_path / "pkg"
+    package.mkdir()
+    post = create_item(conn, kind="post", title="Leads", topic="t", platforms=["linkedin"],
+                       deliverable="linkedin_post", package_path=package.as_posix())
+    copy = "Leads wait for nobody.\n" + " ".join(["Answer"] * 130)
+    result = ca("script", "save", post.id, str(_post_draft(tmp_path / "p.json", post.id, copy)))
+    assert result.exit_code == 0 and "not written yet" in result.output
+    assert not (package / "brief.json").exists()

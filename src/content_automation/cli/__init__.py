@@ -80,6 +80,12 @@ from content_automation.content.plan import (
 )
 from content_automation.content.plan_config import plan_only_types
 from content_automation.content.research_input import ResearchInputError, load_idea
+from content_automation.content.review import (
+    apply_regeneration,
+    plan_regeneration,
+    review_queue,
+)
+from content_automation.content.review import show_lines as review_show_lines
 from content_automation.content.tracking import TrackerError, status_lines
 from content_automation.core.agent_steps import record_agent_output, request_path
 from content_automation.core.config import ConfigurationError, Settings, load_settings
@@ -124,6 +130,7 @@ from content_automation.registry.db import RegistryError
 from content_automation.registry.dryruns import CostLine
 from content_automation.registry.ids import resolve
 from content_automation.registry.migrate import migrate_candidates
+from content_automation.registry.progress import part_done
 from content_automation.registry.runtime import Scope
 from content_automation.registry.sources import add_source, find_by_url, link_source, set_text_path
 from content_automation.registry.strategy import load_strategy
@@ -239,6 +246,8 @@ app.add_typer(carousel_app, name="carousel")
 app.add_typer(lora_app, name="lora")
 app.add_typer(env_app, name="env")
 app.add_typer(items_app, name="item")
+review_app = typer.Typer(no_args_is_help=True, help="The review gate: what waits, one item.")
+app.add_typer(review_app, name="review")
 app.add_typer(audit_app, name="audit")
 app.add_typer(jobs_app, name="jobs")
 app.add_typer(help_app, name="help")
@@ -2316,3 +2325,77 @@ def doctor() -> None:
     typer.echo(f"{failures} problem(s), {warnings} warning(s).")
     if failures:
         raise typer.Exit(code=1)
+
+
+@review_app.command("list")
+def review_list() -> None:
+    """Items generated and not reviewed yet ("what needs review")."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, "ca review list") as scope:
+        items = review_queue(scope.conn)
+    for item in items:
+        typer.echo(f"{item.id} v{item.current_version} {item.deliverable or item.kind}: "
+                   f"{item.title}")
+    typer.echo(f"{len(items)} item(s) to review. Decide: uv run ca item approve|reject|revise "
+               "BG-x (review gate).")
+
+
+@review_app.command("show")
+def review_show(ref: Annotated[str, typer.Argument(help="The item (BG ID).")]) -> None:
+    """Version, files, checks, costs and the last feedback of one item."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca review show {ref}") as scope:
+        lines = review_show_lines(scope.conn, settings, ref)
+    for line in lines:
+        typer.echo(line)
+
+
+@app.command("regenerate")
+def regenerate(
+    ref: Annotated[str, typer.Argument(help="The item (BG ID) after a review revise.")],
+    only: Annotated[
+        str | None, typer.Option("--only", help='Parts, e.g. "slide3,text" or "2".')
+    ] = None,
+    authorize_id: AuthorizeOption = None,
+) -> None:
+    """Make the named parts again for the new version: a dry run first; after the user's
+    "ok" --authorize <dryrun_id>. Unchanged parts are kept; text-only changes of an animated
+    carousel re-render the overlay for free."""
+    _utf8_output()
+    settings = _settings(check_keys=False)
+    parts = [part for part in (only or "").split(",") if part.strip()]
+    with _registry(settings, f"ca regenerate {ref}" + (f" --only {only}" if only else "")
+                   + (" --authorize" if authorize_id else "")) as scope:
+        plan = plan_regeneration(scope.conn, settings, ref, parts)
+        key = f"regenerate {plan.item.id} {plan.names}"
+        paid = [line for line in plan.lines if scope.config.paid(line.provider)]
+        if paid and not authorize_id:
+            for cost in plan.lines:
+                typer.echo(f"{cost.item} {cost.label}: {cost.estimate:g} {cost.unit} via "
+                           f"{cost.provider}")
+            for line in save_dry_run_lines(settings, scope, key, plan.lines):
+                typer.echo(line)
+            typer.echo(f"Only after the user says ok: uv run ca regenerate {plan.item.id} "
+                       f"--only {plan.names} --authorize <the dry run ID above>")
+            return
+        if authorize_id:  # a changed or used dry run is a RegistryError (exit 1)
+            for line in authorization_lines(
+                    authorize(settings, scope, authorize_id, key, plan.lines)):
+                typer.echo(line)
+        for line in apply_regeneration(scope.conn, plan, command=scope.command):
+            typer.echo(line)
+        if plan.text:
+            design = load_carousel_design(settings.carousel_design_file)
+            system = load_design_system(settings.design_system_file)
+            language, logo = _carousel_brand(settings)
+            for line in render_carousel(plan.folder, design, system,
+                                        carousel_slide_texts(plan.folder), language, logo):
+                typer.echo(line)
+            if not plan.positions:
+                part_done(scope.conn, plan.item.id, command=scope.command)
+        if plan.positions:
+            result = build_package(plan.folder, settings, dry_run=False)
+            for line in result.lines:
+                typer.echo(line)

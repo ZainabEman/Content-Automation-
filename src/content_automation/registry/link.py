@@ -151,9 +151,9 @@ def _carry_status(conn: sqlite3.Connection, item: Item, status: str, label: str,
                   command: str | None) -> None:
     note = f"calendar {label}: row was {status} before the registry"
     if status in ("Approved", "Generated", "In progress", "Failed"):
-        approve(conn, item.id, gate="idea", actor="user", command=command, note=note)
+        approve(conn, item.id, gate="idea", actor="migration", command=command, note=note)
     elif status == "Rejected":
-        reject(conn, item.id, note, gate="idea", actor="user", command=command)
+        reject(conn, item.id, note, gate="idea", actor="migration", command=command)
     if status == "Generated":
         part_done(conn, item.id, command=command)
 

@@ -179,6 +179,7 @@ class PackageItem(CamelModel):
     job_folder: str | None = None
     job_ids: list[str] = Field(default_factory=list)  # a carousel has one job per slide
     picks: DesignPicks | None = None  # format, scene, wardrobe, props, style images used
+    redo: list[int] = Field(default_factory=list)  # positions a review regenerate makes again
     files: list[str] = Field(default_factory=list)  # relative to the package folder
     image_refs: list[str] = Field(default_factory=list)  # "<jobId>/<file>" per image
     image_folders: list[str] = Field(default_factory=list)  # the job folder of each image
@@ -773,6 +774,13 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
     check: list[str] = []
     waiting: list[str] = []  # a warm batch: the checks of every part, after all are made
     batch = _batch(settings)
+    for kind, plan in plans.items():  # the picks are saved before any provider call
+        stored = package.items.get(kind)
+        if plan.prepared and plan.prepared[0].picks is not None and (
+                stored is None or stored.picks is None):
+            package.items[kind] = (stored or PackageItem()).model_copy(
+                update={"picks": plan.prepared[0].picks})
+    _save(folder, package)
     registered = runtime.package_items(folder)  # part -> BG ID (inside a `ca` command)
     for kind, plan in plans.items():
         with runtime.for_item(registered.get(kind)):
@@ -1073,7 +1081,9 @@ def _plan_images(
     Each part avoids the picks of the parts before it and of the newest other packages, so
     the dry run and the build choose the same scene, wardrobe, props and style images.
     """
-    others = flatten(recent_packages(settings.packages_dir, exclude=folder))
+    created = package.model_dump(mode="json", by_alias=True).get("createdAt")
+    others = flatten(recent_packages(settings.packages_dir, exclude=folder,
+                                     before=str(created) if created else None))
     picks = {name: item.picks for name, item in package.items.items() if item.picks is not None}
     plans: dict[str, _ImagePlan] = {}
     for position, name in enumerate(IMAGE_SLOTS):
@@ -1140,6 +1150,17 @@ def _person_shown(item: PackageItem, position: int, settings: Settings) -> bool:
     return found is not None and found[0].inputs.get("personShown") is True
 
 
+def image_checks(item: PackageItem, settings: Settings) -> list[str]:
+    """"post-1.png person pass", … for the review view (recorded checks only)."""
+    lines = []
+    for position in range(min(len(item.files), len(item.image_refs))):
+        for check in ("person", "set"):
+            result = _check(item, position, check, settings)
+            if result is not None:
+                lines.append(f"{Path(item.files[position]).name} {check} {result}")
+    return lines
+
+
 def _todo(plan: _ImagePlan, item: PackageItem | None, settings: Settings) -> list[int]:
     """Positions still to make: missing ones, and those that failed a check."""
     if item is None or item.status not in ("failed", "review") or not item.image_refs:
@@ -1150,7 +1171,8 @@ def _todo(plan: _ImagePlan, item: PackageItem | None, settings: Settings) -> lis
         or (position > 0 and _check(item, position, "set", settings) == "fail")
     }
     missing = range(len(item.image_refs), len(plan.jobs))
-    return sorted(redo | set(missing))
+    asked = {position for position in item.redo if position < len(plan.jobs)}
+    return sorted(redo | set(missing) | asked)
 
 
 def _identity_photos(job: Job, settings: Settings) -> list[Path]:
@@ -1305,6 +1327,8 @@ def _make_images(
         entry = (f"{IMAGES_DIR}/{target.name}", f"{job.job_id}/{name}", str(job.folder))
         if position < len(item.image_refs):  # made again in its own place
             item.files[position], item.image_refs[position], item.image_folders[position] = entry
+            if position in item.redo:
+                item.redo.remove(position)
         else:
             item.files.append(entry[0])
             item.image_refs.append(entry[1])

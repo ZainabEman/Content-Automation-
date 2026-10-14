@@ -85,11 +85,13 @@ class DesignLook:
 
 
 def recent_packages(
-    packages_dir: Path, limit: int = RECENT_PACKAGES, *, exclude: Path | None = None
+    packages_dir: Path, limit: int = RECENT_PACKAGES, *, exclude: Path | None = None,
+    before: str | None = None,
 ) -> list[list[DesignPicks]]:
     """The picks saved in the newest packages' package.json: newest first, one list each.
 
-    exclude: a package folder to leave out (the one being built).
+    exclude: a package folder to leave out (the one being built). before: only packages
+    created before this createdAt, so a rebuild sees the same history (Phase 7 fix).
     """
     found: list[tuple[str, list[DesignPicks]]] = []
     skip = exclude.resolve() if exclude is not None else None
@@ -111,7 +113,10 @@ def recent_packages(
                     picks.append(DesignPicks.model_validate(raw))
                 except ValidationError:
                     continue
-        found.append((str(data.get("createdAt", "")), picks))
+        created = str(data.get("createdAt", ""))
+        if before is not None and created >= before:
+            continue
+        found.append((created, picks))
     found.sort(key=lambda entry: entry[0], reverse=True)
     return [picks for _, picks in found[:limit]]
 

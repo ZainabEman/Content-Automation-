@@ -26,7 +26,12 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 from content_automation.registry.audit import Actor, append_event
-from content_automation.registry.auth import charge, find_authorization, get_authorization
+from content_automation.registry.auth import (
+    charge,
+    close_authorization,
+    find_authorization,
+    get_authorization,
+)
 from content_automation.registry.db import RegistryError, now, transaction
 from content_automation.registry.items import get_item
 from content_automation.registry.progress import GENERATION_JOBS, job_started
@@ -378,6 +383,7 @@ def succeed_job(
         job = get_job(conn, job.id)
         _event(conn, "job_succeeded", job, command, actor, actual=actual, charged=counted,
                basis=basis, result=result_path)
+        _close_when_done(conn, job, command)
         return job
 
 
@@ -417,7 +423,26 @@ def cancel_job(conn: sqlite3.Connection, job_id: int, reason: str, *, actor: Act
                      "updated_at = ? WHERE id = ?", (reason, stamp, stamp, job.id))
         job = get_job(conn, job.id)
         _event(conn, "job_cancelled", job, command, actor, reason=reason)
+        _close_when_done(conn, job, command)
         return job
+
+
+def _close_when_done(conn: sqlite3.Connection, job: JobRecord, command: str | None) -> None:
+    """An authorization from a dry run closes once as many of its jobs succeeded as the dry
+    run planned (its job types) and none is queued or running; a failed job keeps it open for
+    its retry. Older (legacy) authorizations are left as they are."""
+    if job.authorization_id is None:
+        return
+    auth = get_authorization(conn, job.authorization_id)
+    if auth.status != "open" or auth.dryrun_id is None:
+        return
+    rows = conn.execute("SELECT status FROM jobs WHERE authorization_id = ?",
+                        (auth.id,)).fetchall()
+    statuses = [str(row["status"]) for row in rows]
+    if any(status in ("queued", "running") for status in statuses):
+        return
+    if statuses.count("succeeded") >= len(auth.job_types):
+        close_authorization(conn, auth.id, "all its jobs finished", command=command)
 
 
 def reject_job(conn: sqlite3.Connection, job_id: int, reason: str, *, actor: Actor = "system",

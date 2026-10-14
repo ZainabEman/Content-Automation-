@@ -127,6 +127,7 @@ class ImageSlot(_BriefModel):
     subheadline: str | None = None
     sub_highlight: str | None = None  # one subheadline word
     cta: str | None = None  # the button label (format ad only)
+    primary_text: str | None = None  # format ad: the text above the ad (Phase 7, from copy)
     cta_icon: CtaIconId | None = None  # default: chosen from the cta label
     icons: list[str] = Field(default_factory=list, max_length=4)  # icon row labels
     visual: str | None = None  # layout A: the system visual

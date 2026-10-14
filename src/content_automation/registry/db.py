@@ -295,6 +295,44 @@ CREATE TABLE artifacts (
 CREATE INDEX artifacts_item ON artifacts (item_id, version);
 """
 
+SCHEMA_8 = """
+CREATE TABLE decisions_v8 (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id TEXT NOT NULL REFERENCES items (id),
+    version INTEGER NOT NULL,
+    gate TEXT NOT NULL CHECK (gate IN ('idea', 'review')),
+    action TEXT NOT NULL CHECK (action IN ('approve', 'reject', 'revise')),
+    text TEXT,
+    actor TEXT NOT NULL CHECK (actor IN ('user', 'system', 'migration')),
+    created_at TEXT NOT NULL
+);
+INSERT INTO decisions_v8 SELECT id, item_id, version, gate, action, text, actor, created_at
+    FROM decisions;
+DROP TABLE decisions;
+ALTER TABLE decisions_v8 RENAME TO decisions;
+CREATE INDEX decisions_item ON decisions (item_id);
+CREATE TABLE events_v8 (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    actor TEXT NOT NULL CHECK (actor IN ('user', 'system', 'migration')),
+    command TEXT,
+    item_id TEXT,
+    version INTEGER,
+    type TEXT NOT NULL,
+    details TEXT NOT NULL DEFAULT '{}'
+);
+INSERT INTO events_v8 SELECT id, created_at, actor, command, item_id, version, type, details
+    FROM events;
+DROP TABLE events;
+ALTER TABLE events_v8 RENAME TO events;
+CREATE INDEX events_item ON events (item_id);
+CREATE INDEX events_created ON events (created_at);
+CREATE TRIGGER events_no_update BEFORE UPDATE ON events
+BEGIN SELECT RAISE(ABORT, 'the audit log is append-only'); END;
+CREATE TRIGGER events_no_delete BEFORE DELETE ON events
+BEGIN SELECT RAISE(ABORT, 'the audit log is append-only'); END;
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "registry core", SCHEMA_1),
     Migration(2, "item deliverable", SCHEMA_2),
@@ -303,6 +341,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(5, "tracker last-written cells", SCHEMA_5),
     Migration(6, "ideas, sources and claims", SCHEMA_6),
     Migration(7, "script and brief artifacts", SCHEMA_7),
+    Migration(8, "migration actor", SCHEMA_8),
 )
 
 _SCHEMA_TABLE = """

@@ -4,7 +4,8 @@ A saved social_graphic, carousel or facebook_ad script fills only the fields of 
 deliverable, so build, the overlay and post.md read them as before:
 - social_graphic: headline -> post.headline; copy -> captions.<deliverable> (line 1 the hook,
   then 3-5 takeaway lines, the last line the question ending in "?");
-- facebook_ad: headline -> ad.headline, description -> ad.subheadline, cta -> ad.cta;
+- facebook_ad: primary_text -> ad.primaryText, headline -> ad.headline, description ->
+  ad.subheadline, cta -> ad.cta;
 - carousel: slide_NN -> carousel.slides[N].headline (line 1) and .body (the other lines), when
   brief.json has the same number of slides.
 Copy that does not fit a field is kept in the script and named in a warning; a package without
@@ -65,9 +66,9 @@ def apply_copy(item: Item, script: Script) -> tuple[list[str], list[str]]:
     elif script.formula == "facebook_ad":
         slot = brief.get("ad")
         if isinstance(slot, dict):
-            slot.update({"headline": texts["headline"], "subheadline": texts["description"],
-                         "cta": texts["cta"]})
-            applied += ["ad.headline", "ad.subheadline", "ad.cta"]
+            slot.update({"primaryText": texts["primary_text"], "headline": texts["headline"],
+                         "subheadline": texts["description"], "cta": texts["cta"]})
+            applied += ["ad.primaryText", "ad.headline", "ad.subheadline", "ad.cta"]
         else:
             warnings.append("brief.json has no ad: ad copy kept in the script only")
     elif script.formula == "carousel":

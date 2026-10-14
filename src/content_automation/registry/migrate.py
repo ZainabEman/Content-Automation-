@@ -102,9 +102,9 @@ def _create(conn: sqlite3.Connection, candidate: Candidate, command: str) -> str
             add_alias(conn, item.id, alias, command=command)
     note = f"migrated from {candidate.source} (decided before the registry)"
     if candidate.idea in ("approved",):
-        approve(conn, item.id, gate="idea", actor="user", command=command, note=note)
+        approve(conn, item.id, gate="idea", actor="migration", command=command, note=note)
     elif candidate.idea == "rejected":
-        reject(conn, item.id, note, gate="idea", actor="user", command=command)
+        reject(conn, item.id, note, gate="idea", actor="migration", command=command)
     if candidate.idea == "approved":
         if candidate.generation == "generated":
             part_done(conn, item.id, command=command)

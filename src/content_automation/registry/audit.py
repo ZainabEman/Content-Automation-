@@ -14,8 +14,8 @@ from typing import Any, Literal, cast
 from content_automation.registry.db import RegistryError, now, transaction
 from content_automation.registry.redact import redact_data, redact_text, secret_values
 
-Actor = Literal["user", "system"]
-ACTORS: tuple[Actor, ...] = ("user", "system")
+Actor = Literal["user", "system", "migration"]  # migration: decided before the registry
+ACTORS: tuple[Actor, ...] = ("user", "system", "migration")
 EVENT_TYPES = frozenset({
     "command_run", "item_created", "item_updated", "alias_added", "status_changed", "decision",
     "version_created", "version_approved",
@@ -53,7 +53,7 @@ def append_event(
     if event_type not in EVENT_TYPES:
         raise RegistryError(f'Unknown event type "{event_type}".')
     if actor not in ACTORS:
-        raise RegistryError(f'The actor must be user or system, not "{actor}".')
+        raise RegistryError(f'The actor must be user, system or migration, not "{actor}".')
     secrets = secret_values()
     clean = cast(dict[str, Any], redact_data(dict(details or {}), secrets))
     text = redact_text(command, secrets) if command is not None else None

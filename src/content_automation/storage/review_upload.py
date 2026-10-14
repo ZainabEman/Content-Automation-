@@ -86,7 +86,7 @@ def upload_approved(conn: sqlite3.Connection, settings: Settings, ref: str, *,
     target = _target(conn, settings, item)
     if files is None:
         if target is None or not target[1]:
-            return [f"{item.id}: no files to upload."]
+            return []  # nothing made by the app (e.g. an idea-only item): nothing to upload
         files = target[1]
     content_id = target[2] if target is not None else item.id
     version = item.approved_version or item.current_version

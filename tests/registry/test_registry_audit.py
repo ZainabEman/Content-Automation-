@@ -27,7 +27,7 @@ def test_append_and_filter(registry: sqlite3.Connection) -> None:
 def test_unknown_type_or_actor_is_refused(registry: sqlite3.Connection) -> None:
     with pytest.raises(RegistryError, match="Unknown event type"):
         append_event(registry, "something_else")
-    with pytest.raises(RegistryError, match="user or system"):
+    with pytest.raises(RegistryError, match="user, system or migration"):
         append_event(registry, "command_run", actor="admin")  # type: ignore[arg-type]
 
 

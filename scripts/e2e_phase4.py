@@ -99,6 +99,9 @@ def _setup(work: Path) -> None:
     jobs = json.loads((work / "config" / "jobs.json").read_text(encoding="utf-8"))
     jobs["free_providers"] = [p for p in jobs["free_providers"] if p != "mock"]
     (work / "config" / "jobs.json").write_text(json.dumps(jobs), encoding="utf-8")
+    # Phase 4 uploads after generation; Phase 7 waits for the review (requireReview: true).
+    (work / "config" / "storage.json").write_text(
+        json.dumps({"upload": {"requireReview": False}}), encoding="utf-8")
     design_path = work / "config" / "carousel_design.json"
     design = json.loads(design_path.read_text(encoding="utf-8"))
     design["stills"]["referenceImages"] = "no"  # no style frames in the temp folder
@@ -257,7 +260,12 @@ def c4(c: Criterion, work: Path) -> None:
     package["items"]["post"] = {"status": "pending", "picks": package["items"]["post"].get("picks")}
     package["status"] = "brief needed"
     package_file.write_text(json.dumps(package), encoding="utf-8")
-    code, out, err = _ca("content", "build", str(package_file.parent))
+    # The finished build closed its authorization (Phase 7), so the run again has its own
+    # dry run and "ok"; the job is then reused (nothing is made or charged again).
+    _, out, _ = _ca("content", "build", str(package_file.parent), "--dry-run")
+    again = [line.split()[3] for line in out.splitlines() if line.startswith("Dry run ID:")]
+    code, out, err = _ca("content", "build", str(package_file.parent),
+                         *(["--authorize", again[0]] if again else []))
     conn = _db()
     reused = conn.execute("SELECT COUNT(*) FROM events WHERE type = 'job_reused'").fetchone()[0]
     conn.close()
@@ -269,9 +277,12 @@ def c4(c: Criterion, work: Path) -> None:
 
 def c5(c: Criterion) -> None:
     from content_automation.registry import db_path, open_registry
+    from content_automation.registry.auth import legacy_authorization
     from content_automation.registry.jobs import JobConfig, open_job
 
     conn = open_registry(db_path(Path("state")), Path("config/registry.json"))
+    # The build's own authorization closed when it finished (Phase 7): a small open one.
+    legacy_authorization(conn, "BG-001", "mock", "usd", 0.5, "e2e: a small approved max")
     opened = open_job(conn, item_id="BG-001", job_type="image", provider="mock",
                       inputs={"e2e": "over budget"}, config=JobConfig(free_providers=()),
                       estimate=1.0)

@@ -71,10 +71,15 @@ def test_table_matches_prd_d4_and_section_14() -> None:
         ("upload", "uploading", "failed"), ("upload", "failed", "uploading"),
         ("publication", "not_ready", "ready"), ("publication", "ready", "published"),
         ("publication", "ready", "failed"),
+        # Phase 8: production of youtube and podcast items
+        ("production", "not_started", "awaiting_recording"),
+        ("production", "awaiting_recording", "recorded"), ("production", "recorded", "editing"),
+        ("production", "editing", "edited"), ("production", "edited", "final"),
+        ("production", "edited", "editing"), ("production", "final", "editing"),
     }
     assert d4 == ALLOWED
     assert [initial(d) for d in STATUSES] == [
-        "proposed", "not_started", "not_reviewed", "not_uploaded", "not_ready"
+        "proposed", "not_started", "not_reviewed", "not_uploaded", "not_ready", "not_started"
     ]
 
 

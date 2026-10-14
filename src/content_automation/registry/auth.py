@@ -185,3 +185,34 @@ def close_authorization(conn: sqlite3.Connection, auth_id: int, reason: str, *,
                      details={"authorization_id": auth_id, "reason": reason, "spent": auth.spent,
                               "max": auth.max_amount, "unit": auth.unit})
         return get_authorization(conn, auth_id)
+
+
+def close_when_done(conn: sqlite3.Connection, auth_id: int, *,
+                    command: str | None = None) -> bool:
+    """Phase 7: an authorization from a dry run closes by itself once all its jobs are
+    finished: none queued or running, at least as many succeeded as the dry run planned, and
+    every item it covers generated (so a redo after a failed check still uses it). Older
+    (legacy) authorizations stay as they are. True when it closed."""
+    auth = get_authorization(conn, auth_id)
+    if auth.status != "open" or auth.dryrun_id is None:
+        return False
+    statuses = [str(row["status"]) for row in conn.execute(
+        "SELECT status FROM jobs WHERE authorization_id = ?", (auth_id,))]
+    if any(status in ("queued", "running") for status in statuses):
+        return False
+    if statuses.count("succeeded") < len(auth.job_types):
+        return False
+    for item_id in set(auth.item_ids):
+        row = conn.execute("SELECT generation_status FROM items WHERE id = ?",
+                           (item_id,)).fetchone()
+        if row is None or str(row["generation_status"]) != "generated":
+            return False
+    close_authorization(conn, auth_id, "all its jobs finished", command=command)
+    return True
+
+
+def close_finished(conn: sqlite3.Connection, *, command: str | None = None) -> list[int]:
+    """At the end of each `ca` command: close the dry-run authorizations whose work is done
+    (not during the command, so its uploads and tracker writes still have theirs)."""
+    return [auth.id for auth in list_authorizations(conn, open_only=True)
+            if close_when_done(conn, auth.id, command=command)]

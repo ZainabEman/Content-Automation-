@@ -15,7 +15,12 @@ from content_automation.content.tracking import load_registry_columns
 from content_automation.core.config import Settings
 from content_automation.registry import db_path, open_registry
 from content_automation.registry.audit import append_event
-from content_automation.registry.auth import Authorization, create_from_dry_run, find_authorization
+from content_automation.registry.auth import (
+    Authorization,
+    close_finished,
+    create_from_dry_run,
+    find_authorization,
+)
 from content_automation.registry.db import RegistryError
 from content_automation.registry.dryruns import (
     CostLine,
@@ -53,6 +58,7 @@ def registry_scope(settings: Settings, command: str) -> Iterator[Scope]:
         append_event(conn, "command_run", actor="user", command=command)
         with activate(scope):
             yield scope
+        close_finished(conn, command=command)  # Phase 7: finished authorizations close
     finally:
         conn.close()
 

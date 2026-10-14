@@ -69,7 +69,7 @@ Phase 5 done (2026-10-14): e2e 9/9 PASS ([PHASE-5-E2E.md](phases/PHASE-5-E2E.md)
 PRD: [docs/phases/PHASE-6-PRD.md](phases/PHASE-6-PRD.md) (conflicts with the current code at the end). Branch `phase-6-scripts`.
 
 - [x] Step 0 – PRD + conflicts.
-- [ ] Step 1 – `config/formulas.json`, JSON schemas, the artifacts table, `ca script template`.
+- [x] Step 1 – `config/formulas.json`, JSON schemas, the artifacts table, `ca script template`.
 - [ ] Step 2 – Validation rules, `save/check/show`, the md renderer.
 - [ ] Step 3 – YouTube and podcast briefs (`ca brief …`).
 - [ ] Step 4 – Move post, carousel and ad copy onto the formulas (keeping compatibility).

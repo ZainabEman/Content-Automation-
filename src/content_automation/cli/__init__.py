@@ -25,7 +25,6 @@ from content_automation.cli.bridge import (
 )
 from content_automation.cli.help import help_app
 from content_automation.cli.ideas import claims_app, ideas_app
-from content_automation.cli.scripts import script_app
 from content_automation.cli.items import audit_app, items_app
 from content_automation.cli.jobs import auth_app, jobs_app
 from content_automation.cli.scope import (
@@ -35,6 +34,7 @@ from content_automation.cli.scope import (
     require_budget,
     save_dry_run_lines,
 )
+from content_automation.cli.scripts import script_app
 from content_automation.content.backlog import RunCounts, newest_list, run_newsletters, run_sources
 from content_automation.content.brief import BriefError
 from content_automation.content.calendar import (

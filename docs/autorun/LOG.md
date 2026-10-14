@@ -85,6 +85,10 @@ Needs review: draft slot template (10 posts/week, 2 YouTube, 1 carousel, podcast
 Built: research-ideas skill; show-content (step 11 backlog) and make-calendar (plan phrases) updated; AGENTS.md + help groups; scripts/e2e_phase5.py 9/9 PASS; full suite 311 passed, mypy --strict 152 files clean.
 Needs review: "plan next week" now means `ca calendar plan` (was an alias of `calendar new`); "make calendar next week" keeps the old flow.
 
-## 2026-10-14 17:00 — Phase 6 Step 0: PRD + conflicts — DONE (commit: next entry)
+## 2026-10-14 17:00 — Phase 6 Step 0: PRD + conflicts — DONE 935521a
 Built: docs/phases/PHASE-6-PRD.md (§7 + C6-1..C6-5), PROGRESS Phase 6 checklist; branch phase-6-scripts.
 Needs review: C6-1 artifact folder per BG ID inside the package; C6-3 current version may be re-saved.
+
+## 2026-10-14 17:20 — Phase 6 Step 1: formulas, artifacts table, `ca script template` — DONE 06aaeb2 (+ lint/docs follow-up: next entry)
+Built: config/formulas.json (5 formulas, wpm de 130/en 150, deliverable/kind mapping); migration 7 `artifacts`; registry/artifacts.py; content/scripts.py (models, lineage claims, feedback); `ca script template [--json]`.
+Needs review: section word ranges and podcast 10-20 min are a draft (client to confirm).

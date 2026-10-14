@@ -56,6 +56,7 @@ from content_automation.content.calendar import (
     week_label,
 )
 from content_automation.content.carousel_format import check_format, package_format
+from content_automation.content.clips import clips_handoff, clips_import, clips_select
 from content_automation.content.deliverables import (
     DeliverableCatalog,
     DeliverableError,
@@ -270,6 +271,8 @@ production_app = typer.Typer(no_args_is_help=True, help="YouTube and podcast pro
 app.add_typer(production_app, name="production")
 podcast_app = typer.Typer(no_args_is_help=True, help="Podcast recording (HeyGen) and audio.")
 app.add_typer(podcast_app, name="podcast")
+clips_app = typer.Typer(no_args_is_help=True, help="Opus Pro clips from a finished video.")
+app.add_typer(clips_app, name="clips")
 app.add_typer(audit_app, name="audit")
 app.add_typer(jobs_app, name="jobs")
 app.add_typer(help_app, name="help")
@@ -2576,5 +2579,46 @@ def podcast_audio_command(ref: Annotated[str, typer.Argument(help="The item (BG 
     settings = _settings(dry_run=True)
     with _registry(settings, f"ca podcast audio {ref}") as scope:
         lines = podcast_audio(scope.conn, settings, ref, command=scope.command)
+    for line in lines:
+        typer.echo(line)
+
+
+@clips_app.command("handoff")
+def clips_handoff_command(ref: Annotated[str, typer.Argument(help="The video (BG ID).")]) -> None:
+    """The note for Opus Pro: the final video, 10-12 candidates, 9:16."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca clips handoff {ref}") as scope:
+        lines = clips_handoff(scope.conn, settings, ref, command=scope.command)
+    for line in lines:
+        typer.echo(line)
+
+
+@clips_app.command("import")
+def clips_import_command(
+    ref: Annotated[str, typer.Argument(help="The video (BG ID).")],
+    folder: Annotated[Path, typer.Argument(help="The folder with the returned clips.")],
+) -> None:
+    """Candidate short items from the clips (vertical, 15-90 s)."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca clips import {ref}") as scope:
+        lines = clips_import(scope.conn, settings, ref, folder, command=scope.command)
+    for line in lines:
+        typer.echo(line)
+
+
+@clips_app.command("select")
+def clips_select_command(
+    ref: Annotated[str, typer.Argument(help="The video (BG ID).")],
+    numbers: Annotated[list[int], typer.Argument(help="The candidate numbers the user picked.")],
+    force: Annotated[bool, typer.Option("--force", help="Another count than 4-5.")] = False,
+) -> None:
+    """The user's picks are approved; the other candidates are rejected ("not selected")."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca clips select {ref} " + " ".join(map(str, numbers))) as scope:
+        lines = clips_select(scope.conn, settings, ref, numbers, force=force,
+                             command=scope.command)
     for line in lines:
         typer.echo(line)

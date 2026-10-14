@@ -1,0 +1,17 @@
+{
+  "_note": "client to confirm: Opus Pro is a manual provider (api is a stub); candidates to ask for, clips to select, clip length.",
+  "provider": "manual",
+  "candidates": [
+    10,
+    12
+  ],
+  "select": [
+    4,
+    5
+  ],
+  "seconds": [
+    15,
+    90
+  ],
+  "aspect": "9:16"
+}

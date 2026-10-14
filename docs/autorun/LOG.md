@@ -124,3 +124,6 @@ Needs review: no provider/fallbackProvider set in deliverables.json yet (client)
 
 ## P8S1 — production status, import, handoff — DONE c1340cd
 Needs review: targets 8 YouTube/2 podcasts per month (config/production.json, client); back to editing only after a review revise (after final); handoff needs production recorded.
+
+## P8S2 — thumbnail, HeyGen podcast, podcast audio, final uploads, produce-video — DONE 213014a
+Needs review: thumbnail draws the text on a scrim with the overlay fonts (no logo); HeyGen podcast = one request for the whole script; podcast MP3 128 kbps.

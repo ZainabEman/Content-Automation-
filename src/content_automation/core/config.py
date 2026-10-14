@@ -106,6 +106,7 @@ class Settings(BaseSettings):
     storage_file: Path = Path("config/storage.json")  # upload after review (Phase 7)
     carousel_file: Path = Path("config/carousel.json")  # carousel output format (Phase 7)
     production_file: Path = Path("config/production.json")  # targets, final rules (Phase 8)
+    clips_file: Path = Path("config/clips.json")  # Opus Pro clips (Phase 9)
 
     def summary_lines(self) -> tuple[str, ...]:
         """Return non-secret settings suitable for local CLI output."""

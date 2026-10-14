@@ -33,6 +33,7 @@ from content_automation.cli.scope import (
     require_budget,
     save_dry_run_lines,
 )
+from content_automation.content.backlog import RunCounts, newest_list, run_newsletters, run_sources
 from content_automation.content.brief import BriefError
 from content_automation.content.calendar import (
     CalendarError,
@@ -113,6 +114,7 @@ from content_automation.registry.ids import resolve
 from content_automation.registry.migrate import migrate_candidates
 from content_automation.registry.runtime import Scope
 from content_automation.registry.sources import add_source, find_by_url, link_source, set_text_path
+from content_automation.registry.strategy import load_strategy
 from content_automation.research.collectors import CollectorError
 from content_automation.research.fetch import fetch_article, load_newsletters, unwrap
 from content_automation.research.models import SourcesError
@@ -1117,6 +1119,48 @@ def research_fetch(
     if failed:
         typer.echo(f"{failed} of {len(urls)} link(s) not fetched.", err=True)
         raise typer.Exit(code=1)
+
+
+@research_app.command("run")
+def research_run(
+    sources: Annotated[
+        bool, typer.Option("--sources", help="The enabled scraper sources.")
+    ] = False,
+    newsletters: Annotated[
+        bool, typer.Option("--newsletters", help="The newest newsletter content list.")
+    ] = False,
+    list_file: Annotated[
+        Path | None, typer.Option("--list", help="A content list file (default: the newest).")
+    ] = None,
+    limit: Annotated[int, typer.Option(min=1, help="At most this many article ideas.")] = 20,
+) -> None:
+    """Find new ideas ("find new ideas"): scraper articles and newsletter ideas into the backlog,
+    duplicates merged, off-strategy ones flagged; prints the run counts. Both without options."""
+    _utf8_output()
+    settings = _settings(check_keys=False)
+    both = not sources and not newsletters
+    counts = RunCounts()
+    try:
+        strategy = load_strategy(settings.strategy_file)
+        with _registry(settings, "ca research run" + (" --sources" if sources else "")
+                       + (" --newsletters" if newsletters else "")) as scope:
+            if sources or both:
+                run_sources(scope.conn, settings, strategy, counts, limit=limit,
+                            command=scope.command)
+            if newsletters or both:
+                chosen = list_file or newest_list(settings)
+                if chosen is None:
+                    counts.lines.append("No newsletter content list yet: run show content.")
+                else:
+                    run_newsletters(scope.conn, settings, strategy,
+                                    load_newsletters(settings.newsletters_file), chosen, counts,
+                                    command=scope.command)
+    except (SourcesError, CollectorError, OSError, ValueError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    for line in counts.lines:
+        typer.echo(line)
+    typer.echo(counts.summary())
 
 
 @research_app.command("digest")

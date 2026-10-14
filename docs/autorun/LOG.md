@@ -65,6 +65,10 @@ Needs review: C5-5 plan-only content types for youtube/podcast/shorts in calenda
 Built: migration 6 (ideas, sources SRC-####, idea_sources, claims CL-####), registry ideas.py/sources.py/strategy.py, config/strategy.json + config/content.json (client to confirm); ideas show "—" for generation/review/upload.
 Needs review: strategy pillars, keywords and target shares are a draft.
 
-## 2026-10-14 15:50 — Phase 5 Step 2: newsletter senders, `ca research fetch`, source storage — DONE (commit: next entry)
+## 2026-10-14 15:50 — Phase 5 Step 2: newsletter senders, `ca research fetch`, source storage — DONE 4f8de32
 Built: config/newsletters.json senders (draft, unverified domains) + fetch limits; research/fetch.py (unwrap tracking links, redirects capped, robots.txt first + final host, size limit, trafilatura); sources saved as research/sources/SRC-####.txt.
 Needs review: sender purposes/pillar affinities are a draft (client to confirm).
+
+## 2026-10-14 15:53 — Phase 5 Step 3: sources.json v2, German candidates (disabled), `ca research run` — DONE (commit: next entry)
+Built: Source v2 fields (optional; `active` still read), 8 German candidates enabled:false; content/backlog.py (URL/title duplicates merged, keyword pillar guess, off_strategy flag, run counts); `ca research run [--sources] [--newsletters] [--list] [--limit]`.
+Needs review: German feed URLs unverified; scraper articles become ideas up to --limit (default 20) per run.

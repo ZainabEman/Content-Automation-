@@ -23,7 +23,7 @@ def collect(settings: Settings) -> tuple[RunReport, str]:
     Returns the report and the report file path. Raises SourcesError for a bad
     sources.json; a failing source is recorded in the report and never stops the others.
     """
-    sources = [source for source in load_sources(settings.sources_file) if source.active]
+    sources = [source for source in load_sources(settings.sources_file) if source.runs]
     if not sources:
         raise SourcesError([f"no active sources in {settings.sources_file}"])
     collector = get_collector(settings.scraper_provider, settings)
@@ -53,6 +53,7 @@ def collect(settings: Settings) -> tuple[RunReport, str]:
                 stats.duplicates += 1
                 continue
             save_article(settings.research_dir, article)
+            report.new_articles.append(article.article_id)
             known.add(article.article_id)
             stats.new += 1
         report.sources.append(stats)

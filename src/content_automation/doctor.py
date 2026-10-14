@@ -389,7 +389,7 @@ def _brand_and_company(settings: Settings) -> list[Check]:
 
 def _sources(settings: Settings) -> list[Check]:
     try:
-        sources = [s for s in load_sources(settings.sources_file) if s.active]
+        sources = [s for s in load_sources(settings.sources_file) if s.runs]
     except SourcesError as error:
         return [Check("fail", "News sources", str(error).splitlines()[0],
                       f"Fix {settings.sources_file} (see the Module 3 guide).")]

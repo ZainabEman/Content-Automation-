@@ -197,7 +197,7 @@ class FreeCollector:
                 client, sleep=self._sleep, delay_range=self._delay_range, rng=self._rng
             )
             candidates: list[_Candidate] = []
-            if source.rss_url:
+            if source.use_feed and source.rss_url:
                 try:
                     candidates = _from_feed(polite, source.rss_url)
                     stats.via = "rss"

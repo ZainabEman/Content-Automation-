@@ -2,8 +2,9 @@
 
 from datetime import datetime
 from pathlib import Path
+from typing import Literal, Self
 
-from pydantic import ConfigDict, Field, ValidationError
+from pydantic import ConfigDict, Field, ValidationError, model_validator
 
 from content_automation.core.files import CamelModel
 
@@ -24,12 +25,37 @@ class Source(CamelModel):
     url: str = Field(pattern=r"^https?://")
     rss_url: str | None = Field(default=None, pattern=r"^https?://")
     topics: list[str] = Field(default_factory=list)
-    active: bool = True
+    active: bool = True  # v1 switch, still read
+    # v2 (Phase 5 P5-D8): all optional, so v1 entries load unchanged.
+    language: str = "en"
+    region: str | None = None
+    type: Literal["rss", "html"] | None = None  # None: RSS if rssUrl is set, else the homepage
+    pillar_hints: list[str] = Field(default_factory=list)
+    trust: Literal["primary", "secondary", "unknown"] = "unknown"
+    enabled: bool = True
+    note: str | None = Field(default=None, alias="_note")
+
+    @model_validator(mode="after")
+    def _check_type(self) -> Self:
+        if self.type == "rss" and not self.rss_url:
+            raise ValueError('type "rss" needs an rssUrl')
+        return self
+
+    @property
+    def runs(self) -> bool:
+        """Collected only if neither `active` (v1) nor `enabled` (v2) is false."""
+        return self.active and self.enabled
+
+    @property
+    def use_feed(self) -> bool:
+        return bool(self.rss_url) and self.type != "html"
 
 
 class SourcesFile(CamelModel):
     model_config = ConfigDict(extra="forbid")
 
+    version: int = 1
+    note: str | None = Field(default=None, alias="_note")
     sources: list[Source]
 
 
@@ -73,6 +99,7 @@ class RunReport(CamelModel):
     lookback_days: int
     max_items_per_source: int
     sources: list[SourceStats] = Field(default_factory=list)
+    new_articles: list[str] = Field(default_factory=list)  # article IDs saved by this run
 
     @property
     def new(self) -> int:

@@ -1,32 +1,228 @@
 {
+  "version": 2,
+  "_note": "v2 (Phase 5 P5-D8): language, region, type rss|html, pillarHints, trust, enabled. German candidates are disabled until the client confirms them; their feed URLs are unverified.",
   "sources": [
     {
       "name": "Search Engine Journal",
       "url": "https://www.searchenginejournal.com",
       "rssUrl": "https://www.searchenginejournal.com/feed/",
-      "topics": ["SEO", "AI marketing"],
-      "active": true
+      "topics": [
+        "SEO",
+        "AI marketing"
+      ],
+      "active": true,
+      "language": "en",
+      "region": "US",
+      "type": "rss",
+      "pillarHints": [
+        "ai_solutions"
+      ],
+      "trust": "secondary",
+      "enabled": true
     },
     {
       "name": "HubSpot Marketing Blog",
       "url": "https://blog.hubspot.com/marketing",
       "rssUrl": "https://blog.hubspot.com/marketing/rss.xml",
-      "topics": ["lead generation", "marketing automation", "AI marketing"],
-      "active": true
+      "topics": [
+        "lead generation",
+        "marketing automation",
+        "AI marketing"
+      ],
+      "active": true,
+      "language": "en",
+      "region": "US",
+      "type": "rss",
+      "pillarHints": [
+        "ai_solutions"
+      ],
+      "trust": "secondary",
+      "enabled": true
     },
     {
       "name": "Marketing AI Institute",
       "url": "https://www.marketingaiinstitute.com/blog",
       "rssUrl": "https://www.marketingaiinstitute.com/blog/rss.xml",
-      "topics": ["AI marketing", "marketing automation", "AI chatbots"],
-      "active": true
+      "topics": [
+        "AI marketing",
+        "marketing automation",
+        "AI chatbots"
+      ],
+      "active": true,
+      "language": "en",
+      "region": "US",
+      "type": "rss",
+      "pillarHints": [
+        "ai_solutions"
+      ],
+      "trust": "secondary",
+      "enabled": true
     },
     {
       "name": "Intercom Blog",
       "url": "https://www.intercom.com/blog/",
       "rssUrl": "https://www.intercom.com/blog/feed",
-      "topics": ["AI chatbots", "marketing automation"],
-      "active": true
+      "topics": [
+        "AI chatbots",
+        "marketing automation"
+      ],
+      "active": true,
+      "language": "en",
+      "region": "US",
+      "type": "rss",
+      "pillarHints": [
+        "ai_solutions"
+      ],
+      "trust": "secondary",
+      "enabled": true
+    },
+    {
+      "name": "tagesschau.de",
+      "url": "https://www.tagesschau.de",
+      "rssUrl": "https://www.tagesschau.de/index~rss2.xml",
+      "topics": [
+        "KI",
+        "Digitalisierung"
+      ],
+      "language": "de",
+      "region": "DE",
+      "type": "rss",
+      "pillarHints": [
+        "german_problems",
+        "ai_risks"
+      ],
+      "trust": "secondary",
+      "enabled": false,
+      "_note": "candidate — client to confirm; feed URL unverified"
+    },
+    {
+      "name": "heise online",
+      "url": "https://www.heise.de",
+      "rssUrl": "https://www.heise.de/rss/heise-atom.xml",
+      "topics": [
+        "KI",
+        "Digitalisierung"
+      ],
+      "language": "de",
+      "region": "DE",
+      "type": "rss",
+      "pillarHints": [
+        "ai_risks",
+        "ai_mistakes",
+        "ai_solutions"
+      ],
+      "trust": "secondary",
+      "enabled": false,
+      "_note": "candidate — client to confirm; feed URL unverified"
+    },
+    {
+      "name": "netzpolitik.org",
+      "url": "https://netzpolitik.org",
+      "rssUrl": "https://netzpolitik.org/feed/",
+      "topics": [
+        "KI",
+        "Digitalisierung"
+      ],
+      "language": "de",
+      "region": "DE",
+      "type": "rss",
+      "pillarHints": [
+        "ai_risks",
+        "ai_misuse"
+      ],
+      "trust": "secondary",
+      "enabled": false,
+      "_note": "candidate — client to confirm; feed URL unverified"
+    },
+    {
+      "name": "golem.de",
+      "url": "https://www.golem.de",
+      "rssUrl": "https://rss.golem.de/rss.php?feed=RSS2.0",
+      "topics": [
+        "KI",
+        "Digitalisierung"
+      ],
+      "language": "de",
+      "region": "DE",
+      "type": "rss",
+      "pillarHints": [
+        "ai_mistakes",
+        "ai_solutions"
+      ],
+      "trust": "secondary",
+      "enabled": false,
+      "_note": "candidate — client to confirm; feed URL unverified"
+    },
+    {
+      "name": "t3n",
+      "url": "https://t3n.de",
+      "rssUrl": "https://t3n.de/rss.xml",
+      "topics": [
+        "KI",
+        "Digitalisierung"
+      ],
+      "language": "de",
+      "region": "DE",
+      "type": "rss",
+      "pillarHints": [
+        "ai_solutions",
+        "german_problems"
+      ],
+      "trust": "secondary",
+      "enabled": false,
+      "_note": "candidate — client to confirm; feed URL unverified"
+    },
+    {
+      "name": "BSI (press)",
+      "url": "https://www.bsi.bund.de/DE/Service-Navi/Presse/presse_node.html",
+      "topics": [
+        "KI",
+        "Digitalisierung"
+      ],
+      "language": "de",
+      "region": "DE",
+      "type": "html",
+      "pillarHints": [
+        "ai_risks",
+        "ai_misuse"
+      ],
+      "trust": "primary",
+      "enabled": false,
+      "_note": "candidate — client to confirm; feed URL unverified"
+    },
+    {
+      "name": "Destatis (press)",
+      "url": "https://www.destatis.de/DE/Presse/_inhalt.html",
+      "topics": [
+        "KI",
+        "Digitalisierung"
+      ],
+      "language": "de",
+      "region": "DE",
+      "type": "html",
+      "pillarHints": [
+        "german_problems"
+      ],
+      "trust": "primary",
+      "enabled": false,
+      "_note": "candidate — client to confirm; feed URL unverified"
+    },
+    {
+      "name": "BfDI",
+      "url": "https://www.bfdi.bund.de/DE/Service/Presse/presse_node.html",
+      "topics": [
+        "KI",
+        "Digitalisierung"
+      ],
+      "language": "de",
+      "region": "DE",
+      "type": "html",
+      "pillarHints": [
+        "ai_risks"
+      ],
+      "trust": "primary",
+      "enabled": false,
+      "_note": "candidate — client to confirm; feed URL unverified"
     }
   ]
 }

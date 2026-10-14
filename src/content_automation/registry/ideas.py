@@ -95,3 +95,94 @@ def _plain(changes: Mapping[str, Any]) -> dict[str, Any]:
 def list_ideas(conn: sqlite3.Connection) -> list[tuple[Item, IdeaDetails]]:
     rows = conn.execute("SELECT id FROM items WHERE kind = 'idea' ORDER BY number")
     return [(get_item(conn, str(row["id"])), get_details(conn, str(row["id"]))) for row in rows]
+
+
+GERMAN_SHARE = {"yes": 1.0, "partial": 0.5, "no": 0.0}
+TRUST_SHARE = {"primary": 1.0, "secondary": 0.5, "unknown": 0.2}
+DEFAULT_WEIGHTS = {"pillar": 40.0, "german": 20.0, "recency": 15.0, "trust": 15.0,
+                   "evidence": 10.0}
+
+
+def score_idea(
+    conn: sqlite3.Connection, ref: str, *, pillar: str | None, relevance: int, german: str,
+    reason: str, pillars: Sequence[str], weights: Mapping[str, float] | None = None,
+    max_age_days: int = 90, command: str | None = None,
+) -> IdeaDetails:
+    """The score 0-100 (P5-D10): pillar relevance and German relevance from Codex (stored as
+    by "assistant"), recency, source trust and evidence computed here. No pillar: off_strategy
+    (shown, never rejected)."""
+    from content_automation.registry.claims import list_claims  # claims imports sources
+    from content_automation.registry.sources import item_sources
+
+    if pillar is not None and pillar not in pillars:
+        raise RegistryError(f'Unknown pillar "{pillar}" ({", ".join(pillars)}, or none).')
+    if german not in GERMAN_SHARE:
+        raise RegistryError("German relevance must be yes, partial or no.")
+    if pillar is not None and not 1 <= relevance <= 5:
+        raise RegistryError("Pillar relevance must be 1-5.")
+    if not reason.strip():
+        raise RegistryError("A score needs a one-line reason.")
+    points = {**DEFAULT_WEIGHTS, **(weights or {})}
+    item = get_item(conn, ref)
+    sources = item_sources(conn, item.id)
+    days = [source.published_at[:10] for source in sources if source.published_at]
+    newest = max(days, default=None)
+    age = None
+    if newest:
+        from datetime import UTC, date, datetime
+
+        try:
+            age = (datetime.now(UTC).date() - date.fromisoformat(newest)).days
+        except ValueError:
+            age = None
+    recency = (0.0 if age is None else 1.0 if age <= 7 else 0.66 if age <= 30
+               else 0.33 if age <= max_age_days else 0.0)
+    trust = max((TRUST_SHARE[source.trust] for source in sources), default=0.0)
+    verified = sum(claim.label == "fact" and claim.status == "verified"
+                   for claim in list_claims(conn, item.id))
+    parts: dict[str, Any] = {
+        "pillar": {"points": round(points["pillar"] * (relevance / 5 if pillar else 0), 1),
+                   "input": relevance if pillar else 0, "by": "assistant",
+                   "reason": reason.strip()},
+        "german": {"points": round(points["german"] * GERMAN_SHARE[german], 1),
+                   "input": german, "by": "assistant"},
+        "recency": {"points": round(points["recency"] * recency, 1), "input": newest,
+                    "by": "computed"},
+        "trust": {"points": round(points["trust"] * trust, 1), "by": "computed"},
+        "evidence": {"points": round(points["evidence"] * min(verified, 2) / 2, 1),
+                     "input": verified, "by": "computed"},
+    }
+    total = round(sum(float(part["points"]) for part in parts.values()))
+    details = get_details(conn, item.id)
+    flags = [flag for flag in details.flags if flag != "off_strategy"]
+    flags += [] if pillar else ["off_strategy"]
+    return update_details(conn, item.id, pillar=pillar, score=total, score_parts=parts,
+                          flags=flags, command=command)
+
+
+def merge_ideas(conn: sqlite3.Connection, duplicate_ref: str, into_ref: str, *,
+                actor: Actor = "user", command: str | None = None) -> IdeaDetails:
+    """Merge an idea into another (P5-D9): its sources move over, duplicate_of is set, and the
+    duplicate is rejected with the reason "duplicate of BG-y"."""
+    from content_automation.registry.approvals import reject
+    from content_automation.registry.sources import item_sources, link_source
+
+    with transaction(conn):
+        duplicate, into = get_item(conn, duplicate_ref), get_item(conn, into_ref)
+        if duplicate.id == into.id or not (duplicate.is_idea and into.is_idea):
+            raise RegistryError("Merge two different ideas: ca ideas merge BG-x BG-y.")
+        for source in item_sources(conn, duplicate.id):
+            link_source(conn, into.id, source.id, role="merged", command=command)
+        update_details(conn, duplicate.id, duplicate_of=into.id, command=command)
+        if duplicate.idea_status in ("proposed", "approved"):
+            reject(conn, duplicate.id, f"duplicate of {into.id}", gate="idea", actor=actor,
+                   command=command)
+        return get_details(conn, duplicate.id)
+
+
+def review_queue(conn: sqlite3.Connection, limit: int = 10) -> list[tuple[Item, IdeaDetails]]:
+    """Proposed ideas that are not duplicates, best score first (unscored last)."""
+    waiting = [(item, details) for item, details in list_ideas(conn)
+               if item.idea_status == "proposed" and not details.duplicate_of]
+    waiting.sort(key=lambda pair: (pair[1].score is None, -(pair[1].score or 0), pair[0].number))
+    return waiting[:limit]

@@ -69,6 +69,10 @@ Needs review: strategy pillars, keywords and target shares are a draft.
 Built: config/newsletters.json senders (draft, unverified domains) + fetch limits; research/fetch.py (unwrap tracking links, redirects capped, robots.txt first + final host, size limit, trafilatura); sources saved as research/sources/SRC-####.txt.
 Needs review: sender purposes/pillar affinities are a draft (client to confirm).
 
-## 2026-10-14 15:53 — Phase 5 Step 3: sources.json v2, German candidates (disabled), `ca research run` — DONE (commit: next entry)
+## 2026-10-14 15:53 — Phase 5 Step 3: sources.json v2, German candidates (disabled), `ca research run` — DONE d2983bd
 Built: Source v2 fields (optional; `active` still read), 8 German candidates enabled:false; content/backlog.py (URL/title duplicates merged, keyword pillar guess, off_strategy flag, run counts); `ca research run [--sources] [--newsletters] [--list] [--limit]`.
 Needs review: German feed URLs unverified; scraper articles become ideas up to --limit (default 20) per run.
+
+## 2026-10-14 16:05 — Phase 5 Step 4: dedupe, scoring, review queue, manual topics, claims — DONE (commit: next entry)
+Built: registry/claims.py (status decided by rules only), score_idea/merge_ideas/review_queue; `ca ideas list|review|add|score|merge`, `ca claims add|list|check`.
+Needs review: score weights 40/20/15/15/10 are a draft; a repeated manual topic adds a second note to the older idea.

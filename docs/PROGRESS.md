@@ -58,7 +58,7 @@ PRD: [docs/phases/PHASE-5-PRD.md](phases/PHASE-5-PRD.md) (conflicts with the cur
 - [x] Step 1 – Registry migration: kind `idea`, sources, claims, idea↔source links, `duplicate_of`; strategy and content configs.
 - [x] Step 2 – Newsletter senders config, `ca research fetch` with link resolution, source storage (fixtures).
 - [x] Step 3 – Sources config v2 + scraper update + German candidates (disabled) + `ca research run`.
-- [ ] Step 4 – Dedupe, scoring, the review queue, manual topics, claim rules and commands.
+- [x] Step 4 – Dedupe, scoring, the review queue, manual topics, claim rules and commands.
 - [ ] Step 5 – Calendar v2 (slots, targets, inherited approval, dependencies, month view, skip unbuilt kinds).
 - [ ] Step 6 – Skills (research-ideas; show-content and make-calendar updates), AGENTS.md, help, `scripts/e2e_phase5.py`, PHASE-5-E2E.md, PROGRESS.
 

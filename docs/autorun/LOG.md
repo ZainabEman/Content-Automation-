@@ -77,6 +77,10 @@ Needs review: German feed URLs unverified; scraper articles become ideas up to -
 Built: registry/claims.py (status decided by rules only), score_idea/merge_ideas/review_queue; `ca ideas list|review|add|score|merge`, `ca claims add|list|check`.
 Needs review: score weights 40/20/15/15/10 are a draft; a repeated manual topic adds a second note to the older idea.
 
-## 2026-10-14 16:25 — Phase 5 Step 5: calendar v2 — DONE (commit: next entry)
+## 2026-10-14 16:25 — Phase 5 Step 5: calendar v2 — DONE e07ced5
 Built: calendar.json `plan` block (plan-only types, slots, targets, pillar tolerance); content/plan.py (`ca calendar plan --week|--month`, inherited approval, shorts +2 days, blocked notes); `ca calendar show --month`; generate skips plan-only rows; `idea:BG-x` sources.
 Needs review: draft slot template (10 posts/week, 2 YouTube, 1 carousel, podcast every 2nd week) — client to confirm.
+
+## 2026-10-14 16:50 — Phase 5 Step 6: skills, AGENTS.md, help, e2e — DONE (commit: next entry); PHASE 5 DONE
+Built: research-ideas skill; show-content (step 11 backlog) and make-calendar (plan phrases) updated; AGENTS.md + help groups; scripts/e2e_phase5.py 9/9 PASS; full suite 311 passed, mypy --strict 152 files clean.
+Needs review: "plan next week" now means `ca calendar plan` (was an alias of `calendar new`); "make calendar next week" keeps the old flow.

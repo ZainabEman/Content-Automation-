@@ -56,7 +56,7 @@ v3 spec; plan in [docs/ROADMAP-v3.md](ROADMAP-v3.md), PRD in [docs/phases/PHASE-
 PRD: [docs/phases/PHASE-5-PRD.md](phases/PHASE-5-PRD.md) (conflicts with the current code at the end). Branch `phase-5-research`.
 
 - [x] Step 1 – Registry migration: kind `idea`, sources, claims, idea↔source links, `duplicate_of`; strategy and content configs.
-- [ ] Step 2 – Newsletter senders config, `ca research fetch` with link resolution, source storage (fixtures).
+- [x] Step 2 – Newsletter senders config, `ca research fetch` with link resolution, source storage (fixtures).
 - [ ] Step 3 – Sources config v2 + scraper update + German candidates (disabled) + `ca research run`.
 - [ ] Step 4 – Dedupe, scoring, the review queue, manual topics, claim rules and commands.
 - [ ] Step 5 – Calendar v2 (slots, targets, inherited approval, dependencies, month view, skip unbuilt kinds).

@@ -109,9 +109,12 @@ from content_automation.references import (
 from content_automation.registry import db_path
 from content_automation.registry.db import RegistryError
 from content_automation.registry.dryruns import CostLine
+from content_automation.registry.ids import resolve
 from content_automation.registry.migrate import migrate_candidates
 from content_automation.registry.runtime import Scope
+from content_automation.registry.sources import add_source, find_by_url, link_source, set_text_path
 from content_automation.research.collectors import CollectorError
+from content_automation.research.fetch import fetch_article, load_newsletters, unwrap
 from content_automation.research.models import SourcesError
 from content_automation.research.run import (
     DEFAULT_TOPIC_LIMIT,
@@ -1056,6 +1059,64 @@ def research_collect() -> None:
         for problem in stats.errors:
             typer.echo(f"  error: {problem}")
     typer.echo(f"Total: {report.new} new, {report.duplicates} duplicates. Report: {path}")
+
+
+@research_app.command("fetch")
+def research_fetch(
+    urls: Annotated[list[str], typer.Argument(help="One or more links (newsletter or article).")],
+    idea: Annotated[str | None, typer.Option(help="Link the sources to this idea (BG-x).")] = None,
+    source_type: Annotated[
+        str, typer.Option("--type", help="newsletter (a link from a newsletter) or web.")
+    ] = "web",
+) -> None:
+    """Follow each link to the original article and save it as a source ("research this link").
+    Free HTTP; robots.txt, timeout and size limit respected; failures are listed per link."""
+    _utf8_output()
+    if source_type not in ("newsletter", "web"):
+        typer.echo("--type must be newsletter or web.", err=True)
+        raise typer.Exit(code=2)
+    settings = _settings(check_keys=False)
+    newsletters = load_newsletters(settings.newsletters_file)
+    failed = 0
+    with _registry(settings, f"ca research fetch {' '.join(urls)}"
+                   + (f" --idea {idea}" if idea else "")) as scope:
+        idea_id = resolve(scope.conn, idea) if idea else None
+        for url in urls:
+            known = find_by_url(scope.conn, url, unwrap(url))
+            if known is not None:
+                if idea_id:
+                    link_source(scope.conn, idea_id, known.id, role=source_type,
+                                command=scope.command)
+                typer.echo(f"{known.id}: already a source ({known.original_url or known.url}); "
+                           "not fetched again.")
+                continue
+            result = fetch_article(url, newsletters.limits)
+            if result.error is not None or not result.text:
+                failed += 1
+                typer.echo(f"{url}: not fetched: {result.error or 'no text'}")
+                continue
+            sender = newsletters.sender_for(url)
+            source, _ = add_source(
+                scope.conn, "newsletter" if source_type == "newsletter" else "web", url=url,
+                original_url=result.original_url, title=result.title,
+                publisher=result.publisher, language=result.language,
+                published_at=result.published_at,
+                fetched_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                purpose=sender.purpose if sender else None, command=scope.command,
+            )
+            text_file = settings.research_dir / "sources" / f"{source.id}.txt"
+            text_file.parent.mkdir(parents=True, exist_ok=True)
+            atomic_write_text(text_file, result.text + "\n")
+            set_text_path(scope.conn, source.id, text_file.as_posix())
+            if idea_id:
+                link_source(scope.conn, idea_id, source.id, role=source_type,
+                            command=scope.command)
+            typer.echo(f"{source.id}: {result.title or '(no title)'} ({result.publisher or '?'}, "
+                       f"{result.published_at or 'no date'}) <- {result.original_url}; text "
+                       f"{text_file.as_posix()}" + (f"; linked to {idea_id}" if idea_id else ""))
+    if failed:
+        typer.echo(f"{failed} of {len(urls)} link(s) not fetched.", err=True)
+        raise typer.Exit(code=1)
 
 
 @research_app.command("digest")

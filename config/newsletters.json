@@ -2,5 +2,66 @@
   "about": "Gmail newsletters for the show-content skill (Codex). Only this account is read: Codex picks this account's Gmail plugin connection and never searches the others. The query is exactly label:<label> deliveredto:<account> newer_than:<days>d, with no in:inbox, is:unread or category filters: filtered newsletters may be archived and already read.",
   "account": "brandedgenius.de@gmail.com",
   "label": "Newsletters",
-  "days": 30
+  "days": 30,
+  "senders": [
+    {
+      "domain": "morningbrew.com",
+      "name": "Marketing Brew",
+      "purpose": "marketing news and trends",
+      "pillarAffinity": [
+        "ai_solutions"
+      ],
+      "followLinks": true,
+      "verifiedDomain": false
+    },
+    {
+      "domain": "contentmarketinginstitute.com",
+      "name": "Content Marketing Institute",
+      "purpose": "content strategy and B2B marketing practice",
+      "pillarAffinity": [
+        "ai_solutions"
+      ],
+      "followLinks": true,
+      "verifiedDomain": false
+    },
+    {
+      "domain": "marketingaiinstitute.com",
+      "name": "Marketing AI Institute",
+      "purpose": "AI in marketing: tools, risks and mistakes",
+      "pillarAffinity": [
+        "ai_solutions",
+        "ai_risks",
+        "ai_mistakes"
+      ],
+      "followLinks": true,
+      "verifiedDomain": false
+    },
+    {
+      "domain": "searchengineland.com",
+      "name": "Search Engine Land",
+      "purpose": "search and AI search changes",
+      "pillarAffinity": [
+        "ai_mistakes",
+        "ai_solutions"
+      ],
+      "followLinks": true,
+      "verifiedDomain": false
+    },
+    {
+      "domain": "later.com",
+      "name": "Later",
+      "purpose": "social media practice",
+      "pillarAffinity": [
+        "ai_solutions"
+      ],
+      "followLinks": false,
+      "verifiedDomain": false
+    }
+  ],
+  "sendersNote": "client to confirm: purposes and pillar affinities are a draft; the domains are unverified (verifiedDomain false). Unknown senders are reported, not dropped.",
+  "fetch": {
+    "timeoutSeconds": 15,
+    "maxBytes": 3000000,
+    "maxRedirects": 5
+  }
 }

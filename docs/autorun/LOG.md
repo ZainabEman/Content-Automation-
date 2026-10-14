@@ -61,6 +61,10 @@ Built: code audit (subagent) → "Conflicts with the current code" C5-1 … C5-2
 Decisions: C5-1 … C5-21 (options chosen per §3.2)
 Needs review: C5-5 plan-only content types for youtube/podcast/shorts in calendar.json; C5-14 Instagram single graphic off by default; C5-17 content language stays en until the client decides.
 
-## 2026-10-14 15:48 — Phase 5 Step 1: kind idea, sources, claims tables, configs — DONE (commit: next entry)
+## 2026-10-14 15:48 — Phase 5 Step 1: kind idea, sources, claims tables, configs — DONE 85fe0fe
 Built: migration 6 (ideas, sources SRC-####, idea_sources, claims CL-####), registry ideas.py/sources.py/strategy.py, config/strategy.json + config/content.json (client to confirm); ideas show "—" for generation/review/upload.
 Needs review: strategy pillars, keywords and target shares are a draft.
+
+## 2026-10-14 15:50 — Phase 5 Step 2: newsletter senders, `ca research fetch`, source storage — DONE (commit: next entry)
+Built: config/newsletters.json senders (draft, unverified domains) + fetch limits; research/fetch.py (unwrap tracking links, redirects capped, robots.txt first + final host, size limit, trafilatura); sources saved as research/sources/SRC-####.txt.
+Needs review: sender purposes/pillar affinities are a draft (client to confirm).

@@ -105,6 +105,12 @@ def add_source(
         return get_source(conn, source_id), True
 
 
+def set_text_path(conn: sqlite3.Connection, source_id: str, path: str) -> Source:
+    with transaction(conn):
+        conn.execute("UPDATE sources SET text_path = ? WHERE id = ?", (path, source_id))
+        return get_source(conn, source_id)
+
+
 def link_source(conn: sqlite3.Connection, ref: str, source_id: str, *, role: str | None = None,
                 actor: Actor = "system", command: str | None = None) -> bool:
     """Link a source to an idea (or any item); False if it was linked already."""

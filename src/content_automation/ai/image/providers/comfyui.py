@@ -8,8 +8,11 @@ are filled through the mapping, never by string replacement.
 
 Identity: the person's trained LoRA. No reference images are sent (all reference limits are 0);
 the prompt names the person by the LoRA trigger word (capabilities.identity_prompt). An image
-without the person bypasses the LoRA node. Text: the model draws none (draws_text False), so
-the app overlays it (workflows/text_overlay.py).
+without the person bypasses the LoRA node. A person prompt (person_prompt) starts with the
+trigger prefix ("r0man_bg, a man, "), loses every clause that asks for a screen, sign or poster
+(the trigger word can appear as text there), and a group scene uses groupLoraStrength.
+Text: the model draws none (draws_text False), so the app overlays it
+(workflows/text_overlay.py).
 
 Size: each aspect ratio has a model-friendly size (multiples of 16, about 1-1.6 MP); the result
 is scaled to the target size (long side per IMAGE_DESIGN_SIZE) with Pillow Lanczos, optionally
@@ -27,6 +30,7 @@ import binascii
 import copy
 import io
 import json
+import re
 import secrets
 from dataclasses import dataclass
 from pathlib import Path
@@ -71,7 +75,25 @@ class WorkflowConfig(_Model):
     steps: int = Field(ge=1)
     cfg: float = Field(gt=0)
     lora_name: str = Field(min_length=1)  # in models/loras on the network volume
+    lora_sha256: str = ""  # from `ca lora set <local path>` (MANIFEST.json checked)
+    lora_local_path: str = ""  # where the LoRA lies on this computer (never committed)
     negative: str = ""
+    sizes: dict[AspectRatio, tuple[int, int]] | None = None  # this model's sizes (else global)
+
+    @model_validator(mode="after")
+    def _check_sizes(self) -> Self:
+        if any(w % 16 or h % 16 or w <= 0 or h <= 0 for w, h in (self.sizes or {}).values()):
+            raise ValueError("sizes must be multiples of 16")
+        return self
+
+
+class ModelFile(_Model):
+    """A base model file of a workflow: where it comes from and where the worker reads it."""
+
+    file: str = Field(min_length=1)  # the name in the workflow's loader node
+    volume_path: str = Field(min_length=1)  # relative to the volume (/runpod-volume)
+    source: str = ""
+    size_gb: float = Field(default=0, ge=0)
 
 
 class UpscaleNode(_Model):
@@ -91,6 +113,14 @@ class ComfyUIConfig(_Model):
     sizes: dict[AspectRatio, tuple[int, int]]  # what the model renders, multiples of 16
     trigger_word: str = Field(min_length=1)
     lora_strength: float = Field(ge=0, le=2)
+    person_prefix: str = "{trigger}, a man, "  # every person prompt starts with it
+    group_lora_strength: float = Field(default=0.8, ge=0, le=2)
+    group_words: tuple[str, ...] = ("group", "team", "colleagues", "audience", "crowd")
+    person_blocked_words: tuple[str, ...] = (
+        "screen", "monitor", "display", "sign", "signage", "poster", "billboard", "banner",
+        "whiteboard")
+    network_volume: str = ""  # the planned size (setup guide)
+    models: dict[str, dict[str, ModelFile]] = Field(default_factory=dict)  # per workflow
     identity_prompt: str = Field(min_length=1)  # "{trigger}" is the trigger word
     upscale_node: UpscaleNode = Field(default_factory=UpscaleNode)
     workflows: dict[str, WorkflowConfig] = Field(min_length=1)
@@ -210,6 +240,43 @@ def _has_input(graph: dict[str, Any], node: str, name: str) -> bool:
     )
 
 
+def _words(words: tuple[str, ...]) -> re.Pattern[str]:
+    return re.compile(r"\b(" + "|".join(re.escape(word) for word in words) + r")s?\b",
+                      re.IGNORECASE)
+
+
+def person_prompt(config: ComfyUIConfig, prompt: str) -> tuple[str, float, list[str]]:
+    """(prompt, LoRA strength, removed clauses) for an image with the person: no clause that
+    asks for a screen, sign or poster, the trigger prefix first, the group strength for a
+    group scene."""
+    blocked = _words(config.person_blocked_words)
+    pieces = re.split(r"(?<=[.;,\n])", prompt)
+    removed = [piece.strip() for piece in pieces if blocked.search(piece)]
+    text = "".join(piece for piece in pieces if not blocked.search(piece)).strip()
+    prefix = config.person_prefix.replace("{trigger}", config.trigger_word)
+    if not text.startswith(prefix.strip()):
+        text = prefix + text
+    group = _words(config.group_words).search(text) is not None
+    return text, config.group_lora_strength if group else config.lora_strength, removed
+
+
+def model_sizes(config: ComfyUIConfig, spec: WorkflowConfig | None
+                ) -> dict[AspectRatio, tuple[int, int]]:
+    return (spec.sizes if spec is not None and spec.sizes else None) or config.sizes
+
+
+def model_file_problems(config: ComfyUIConfig, workflow: LoadedWorkflow) -> list[str]:
+    """Every loader node's file must be the one listed under models (what the user uploads)."""
+    files = {entry.file for entry in config.models.get(workflow.name, {}).values()}
+    if not files:
+        return [f"models.{workflow.name} is not listed in config/comfyui.json"]
+    names = [str(node["inputs"][key]) for node in workflow.graph.values()
+             for key in ("unet_name", "clip_name", "vae_name")
+             if isinstance(node, dict) and key in node.get("inputs", {})]
+    return [f"{name} (loader node) is not under models.{workflow.name}" for name in names
+            if name not in files]
+
+
 def build_graph(
     workflow: LoadedWorkflow,
     config: ComfyUIConfig,
@@ -219,6 +286,7 @@ def build_graph(
     height: int,
     seed: int,
     person: bool,
+    lora_strength: float | None = None,
 ) -> dict[str, Any]:
     """A copy of the workflow with the values set through the mapping."""
     graph = copy.deepcopy(workflow.graph)
@@ -232,7 +300,7 @@ def build_graph(
         "steps": spec.steps,
         "cfg": spec.cfg,
         "lora_name": spec.lora_name,
-        "lora_strength": config.lora_strength,
+        "lora_strength": config.lora_strength if lora_strength is None else lora_strength,
     }
     lora_node = mapping.inputs["lora_name"].node
     for key, value in values.items():
@@ -277,7 +345,7 @@ def capabilities_for(config: ComfyUIConfig, model: str) -> ProviderCapabilities:
         max_object_refs=0,
         max_style_refs=0,
         max_total_refs=0,
-        aspect_ratios=frozenset(config.sizes),
+        aspect_ratios=frozenset(model_sizes(config, spec)),
         image_sizes=frozenset(config.target_long_side),
         max_images_per_call=1,
         est_cost_usd_per_image={size: per_image for size in config.target_long_side},
@@ -326,20 +394,27 @@ class ComfyUIImageProvider:
                 f"config/comfyui.json, Phase 2 Step 4). Nothing was sent. {SWITCH}"
             )
         client = self._client or self._new_client()
-        width, height = self._config.sizes[request.aspect_ratio]
+        width, height = model_sizes(self._config, workflow.spec)[request.aspect_ratio]
         size = target_size(request.aspect_ratio, self._config.target_long_side[request.image_size])
+        prompt, strength = request.prompt, None
+        removed: list[str] = []
+        if request.person:
+            prompt, strength, removed = person_prompt(self._config, request.prompt)
         images: list[GeneratedImage] = []
         request_ids: list[str] = []
         metrics: dict[str, float] = {
             "modelWidth": width, "modelHeight": height, "delayTimeMs": 0.0, "executionTimeMs": 0.0,
         }
+        if request.person:
+            metrics["loraStrength"] = strength if strength is not None else 0.0
+            metrics["removedClauses"] = len(removed)
         cost = 0.0
         for index in range(1, request.count + 1):
             seed = secrets.randbelow(2**32)
             metrics[f"seed{index}"] = seed
             graph = build_graph(
-                workflow, self._config, prompt=request.prompt, width=width, height=height,
-                seed=seed, person=request.person,
+                workflow, self._config, prompt=prompt, width=width, height=height,
+                seed=seed, person=request.person, lora_strength=strength,
             )
             label = f"Image {index} of {request.count}"
             try:

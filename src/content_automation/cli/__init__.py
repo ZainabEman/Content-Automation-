@@ -2294,7 +2294,8 @@ def lora_config(
 @lora_app.command("set")
 def lora_set(
     model: LoraModel,
-    filename: Annotated[str, typer.Argument(help="The LoRA file name in models/loras/.")],
+    filename: Annotated[str, typer.Argument(
+        help="The LoRA file name in models/loras/, or its local path (records the sha256).")],
 ) -> None:
     """Point config/comfyui.json at the trained LoRA, so images with the person are allowed."""
     _utf8_output()

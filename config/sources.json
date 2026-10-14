@@ -209,7 +209,7 @@
     },
     {
       "name": "BfDI",
-      "url": "https://www.bfdi.bund.de/DE/Service/Presse/presse_node.html",
+      "url": "https://www.bfdi.bund.de/DE/BfDI/Presse/Pressemitteilungen/pressemitteilungen_node.html",
       "topics": [
         "KI",
         "Digitalisierung"
@@ -222,7 +222,7 @@
       ],
       "trust": "primary",
       "enabled": false,
-      "_note": "feed check 2026-10-14 failed: HTTP 404 (the press page moved); stays disabled until the URL is fixed"
+      "_note": "2026-10-14: the old press page answered 404; this current press page is linked from the live homepage (one GET), but was not fetched itself, so it stays disabled until one test run; RSS: https://www.bfdi.bund.de/SiteGlobals/Functions/RSSFeed/Allgemein/rssnewsfeed.xml"
     }
   ]
 }

@@ -36,14 +36,14 @@
   },
   "8": {
     "class_type": "EmptySD3LatentImage",
-    "inputs": {"width": 1248, "height": 1248, "batch_size": 1},
+    "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
     "_meta": {"title": "Size"}
   },
   "9": {
     "class_type": "KSampler",
     "inputs": {
       "seed": 0,
-      "steps": 8,
+      "steps": 9,
       "cfg": 1.0,
       "sampler_name": "res_multistep",
       "scheduler": "simple",

@@ -1,7 +1,8 @@
 {
-  "gpu": "RunPod Serverless 48 GB class (L40, L40S, RTX 6000 Ada)",
-  "pricePerSecondUsd": 0.000486,
-  "priceSource": "https://www.runpod.io/pricing (checked 2026-10-10): 48 GB serverless $1.75/h",
+  "gpu": "RunPod Serverless 24 GB class (RTX 4090, L4, RTX A5000): check current RunPod prices",
+  "pricePerSecondUsd": 0.00031,
+  "priceSource": "last known RunPod Serverless 24 GB PRO flex rate, $0.00031/s (about $1.12/h); not re-checked 2026-10-14: check current RunPod prices",
+  "networkVolume": "~30 GB: Z-Image Turbo bf16 12.3 GB + Qwen3-4B 8.0 GB + VAE 0.3 GB + LoRA 0.1 GB, plus room (check current RunPod prices)",
   "coldStartSeconds": 90,
   "idleSeconds": 15,
   "pollSeconds": 3,
@@ -31,6 +32,26 @@
   },
   "triggerWord": "r0man_bg",
   "loraStrength": 1.0,
+  "personPrefix": "{trigger}, a man, ",
+  "groupLoraStrength": 0.8,
+  "groupWords": [
+    "group",
+    "team",
+    "colleagues",
+    "audience",
+    "crowd"
+  ],
+  "personBlockedWords": [
+    "screen",
+    "monitor",
+    "display",
+    "sign",
+    "signage",
+    "poster",
+    "billboard",
+    "banner",
+    "whiteboard"
+  ],
   "identityPrompt": "Person: {trigger}, the only person allowed in this image; nobody else appears. He is that exact person: same face, facial structure, hairline and hair, skin tone and age. Do not beautify, idealize or change him. Do not add glasses, a beard or accessories he does not have.",
   "upscaleNode": {
     "enabled": false,
@@ -50,10 +71,52 @@
       "workflow": "config/comfyui/workflows/z_image_turbo.json",
       "mapping": "config/comfyui/workflows/z_image_turbo.map.json",
       "secondsPerImage": 12,
-      "steps": 8,
+      "steps": 9,
       "cfg": 1.0,
-      "loraName": "<the person's Z-Image Turbo LoRA file, set in Phase 2 Step 4>",
-      "negative": ""
+      "loraName": "r0man_bg_v2_step3000.safetensors",
+      "negative": "",
+      "sizes": {
+        "1:1": [
+          1024,
+          1024
+        ],
+        "4:5": [
+          896,
+          1120
+        ],
+        "9:16": [
+          720,
+          1280
+        ],
+        "16:9": [
+          1280,
+          720
+        ]
+      },
+      "loraSha256": "badd2b1ffbb8289b6a2f085e091ccffda6dffd8bb6cbee0fd9f7ef672ef3685f",
+      "loraLocalPath": "outputs/lora/zimage/r0man_bg_v2_step3000.safetensors"
+    }
+  },
+  "models": {
+    "z_image_turbo": {
+      "diffusionModel": {
+        "file": "z_image_turbo_bf16.safetensors",
+        "volumePath": "models/diffusion_models/z_image_turbo_bf16.safetensors",
+        "source": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors",
+        "sizeGb": 12.31
+      },
+      "textEncoder": {
+        "file": "qwen_3_4b.safetensors",
+        "volumePath": "models/text_encoders/qwen_3_4b.safetensors",
+        "source": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors",
+        "sizeGb": 8.04
+      },
+      "vae": {
+        "file": "ae.safetensors",
+        "volumePath": "models/vae/ae.safetensors",
+        "source": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors",
+        "sizeGb": 0.34
+      }
     }
   }
 }

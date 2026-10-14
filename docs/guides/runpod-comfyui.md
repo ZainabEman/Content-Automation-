@@ -13,12 +13,13 @@ Items marked **unverified** were not confirmed on an official page; check them w
 
 RunPod → Storage → New Network Volume.
 
-- **Region:** one that offers 48 GB GPUs (L40, L40S, RTX 6000 Ada) for Serverless and L40S Pods,
+- **Region:** one that offers 24 GB GPUs (RTX 4090, L4, RTX A5000) for Serverless,
   and that supports the volume S3 API, which `ca lora train-remote` needs. Supported (2026-10-10):
   EU-CZ-1, EU-RO-1, EUR-IS-1, EUR-NO-1, US-CA-2, US-GA-2, US-IL-1, US-KS-2, US-MD-1, US-MO-1,
   US-MO-2, US-NC-1, US-NC-2, US-NE-1, US-WA-1. The endpoint must be in the same region.
-- **Size:** 75 GB. The models are about 50 GB together (estimate), plus the LoRAs and some room.
-  The cost is $0.07 per GB per month, so about $5.25 a month.
+- **Size:** ~30 GB (Track L, Z-Image Turbo only; the 75 GB were for the dropped Qwen-Image). The
+  models are about 21 GB (config/comfyui.json `models`), plus the LoRA and some room. Check current
+  RunPod prices (it was $0.07 per GB per month, so about $2.10 a month).
 
 Folder layout on the volume. Serverless workers see it at `/runpod-volume`; a Pod sees the same
 volume at `/workspace`.
@@ -66,7 +67,7 @@ RunPod → Serverless → New Endpoint → Docker image.
 | Setting | Value |
 |---|---|
 | Container image | `runpod/worker-comfyui:5.11.0-base` (the release checked on 2026-10-10) |
-| GPU | 48 GB (L40, L40S, RTX 6000 Ada) |
+| GPU | 24 GB (RTX 4090, L4, RTX A5000; Z-Image Turbo only); check current RunPod prices |
 | Active (minimum) workers | 0 (nothing runs, and nothing is billed, between jobs) |
 | Max workers | 1 |
 | Idle timeout | 15 s, the same value as `idleSeconds` in config/comfyui.json (see section 5) |

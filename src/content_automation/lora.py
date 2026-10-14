@@ -551,14 +551,47 @@ def training_config(
 # --- The trained file ------------------------------------------------------------------------
 
 
+MANIFEST_FILE = "MANIFEST.json"  # next to a trained LoRA: its sha256, trigger and settings
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(1 << 20):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _local_lora(local: Path) -> tuple[str, str]:
+    """(file name, sha256) of a LoRA on this computer; MANIFEST.json's sha256 must match."""
+    if not local.is_file():
+        raise LoraError(f"LoRA file not found: {local}.")
+    actual = _file_sha256(local)
+    manifest = local.parent / MANIFEST_FILE
+    if manifest.is_file():
+        try:
+            expected = str(json.loads(manifest.read_text(encoding="utf-8")).get("sha256", ""))
+        except (OSError, ValueError, AttributeError):
+            raise LoraError(f"{manifest} is not readable JSON.") from None
+        if expected and expected.lower() != actual:
+            raise LoraError(f"{local.name}: sha256 {actual} does not match {MANIFEST_FILE} "
+                            f"({expected}); nothing was changed.")
+    return local.name, actual
+
+
 def set_lora(settings: Settings, model: ModelKey, filename: str) -> list[str]:
-    """Point the model's ComfyUI workflow at the trained LoRA file (in models/loras)."""
+    """Point the model's ComfyUI workflow at the trained LoRA file (in models/loras). A local
+    path (e.g. outputs/lora/zimage/<file>) also records its sha256, checked against the
+    MANIFEST.json next to it; the file itself is uploaded to the volume by the user."""
     config = load_lora_config(settings.lora_config_file)
-    name = filename.strip()
+    name, sha256, local = filename.strip(), "", ""
+    if re.search(r"[\\/]", name) and name.endswith(".safetensors"):
+        local = Path(name).as_posix()
+        name, sha256 = _local_lora(Path(name))
     if not name.endswith(".safetensors") or re.search(r"[\\/]|\.\.", name):
         raise LoraError(
-            "Give the file name only, as it lies in models/loras/ on the volume, e.g. "
-            "r0man_bg_qwen_image_2512.safetensors."
+            "Give the file name as it lies in models/loras/ on the volume (e.g. "
+            "r0man_bg_qwen_image_2512.safetensors) or its local path (outputs/lora/…)."
         )
     workflow = config.models[model].workflow
     file = settings.comfyui_config_file
@@ -566,6 +599,9 @@ def set_lora(settings: Settings, model: ModelKey, filename: str) -> list[str]:
     data = json.loads(path.read_text(encoding="utf-8"))
     try:
         data["workflows"][workflow]["loraName"] = name
+        if local:
+            data["workflows"][workflow]["loraSha256"] = sha256
+            data["workflows"][workflow]["loraLocalPath"] = local
     except (KeyError, TypeError):
         raise LoraError(f"config/comfyui.json has no workflow {workflow}.") from None
     try:
@@ -576,6 +612,9 @@ def set_lora(settings: Settings, model: ModelKey, filename: str) -> list[str]:
         ) from None
     atomic_write_text(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
     lines = [f"{workflow}: loraName = {name} ({path})"]
+    if local:
+        lines.append(f"sha256 {sha256} (matches {MANIFEST_FILE}; the LoRA itself is never "
+                     "committed)")
     if is_unset(checked.trigger_word):
         lines.append("WARNING: triggerWord is still a placeholder; person images stay refused.")
     pod = config.pod

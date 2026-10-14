@@ -2,7 +2,8 @@
 
 check is what the make-carousel and make-video skills run before every plugin call: line 1 is
 go, skip or stop, line 2 the reason. resume resumes the registered job types: only the carousel
-in Phase 4 (its existing continue logic); every other type says "not resumable yet".
+in Phase 4 (its existing continue logic); every other type says "not resumable yet". Phase 10:
+`resume --all` (content/resume_all.py) and `ca report month` (content/monthly_report.py).
 """
 
 import json
@@ -20,6 +21,8 @@ from content_automation.cli.scope import (
     save_dry_run_lines,
 )
 from content_automation.content.costs import calibrate
+from content_automation.content.monthly_report import check_month, write_report
+from content_automation.content.resume_all import resume_all
 from content_automation.core.config import ConfigurationError, Settings, load_settings
 from content_automation.registry.auth import list_authorizations
 from content_automation.registry.db import RegistryError
@@ -138,11 +141,26 @@ def jobs_cancel(
 @jobs_app.command("resume")
 def jobs_resume(
     ref: Annotated[str | None, typer.Argument(help="Only this item (BG ID or alias).")] = None,
+    every: Annotated[bool, typer.Option("--all", help="Every resumable type (\"resume "
+                                        "everything\").")] = False,
 ) -> None:
     """Resume unfinished work of the registered job types ("resume unfinished jobs"): the
-    carousel's next step; other types are listed as not resumable yet."""
+    carousel's next step; other types are listed as not resumable yet. --all: carousels,
+    queued image jobs, uploads, plugin requests and video jobs; the rest "needs manual
+    action"."""
     settings = _settings()
     lines: list[str] = []
+    if every:
+        if ref is not None:
+            _fail("--all resumes every item; leave out the BG ID.", 2)
+        try:
+            with registry_scope(settings, "ca jobs resume --all") as scope:
+                lines = resume_all(scope.conn, settings, scope.config, command=scope.command)
+        except (RegistryError, WorkflowError, OSError, ValueError) as error:
+            _fail(str(error))
+        for line in lines or ["Nothing to resume."]:
+            typer.echo(line)
+        return
     try:
         with registry_scope(settings, "ca jobs resume" + (f" {ref}" if ref else "")) as scope:
             item_id = resolve(scope.conn, ref) if ref else None
@@ -279,3 +297,28 @@ def costs_calibrate(
         _fail(str(error))
     for line in lines:
         typer.echo(line)
+
+
+report_app = typer.Typer(no_args_is_help=True, help="The monthly target report.")
+
+
+@report_app.command("month")
+def report_month(
+    month: Annotated[str | None, typer.Argument(help="YYYY-MM (default: this month).")] = None,
+    as_json: JsonOption = False,
+) -> None:
+    """Recorded final states against the targets ("monthly report", "report for <month>");
+    written to outputs/reports/<YYYY-MM>.md. Mock uploads and results never count."""
+    settings = _settings()
+    try:
+        chosen = check_month(month)
+        with registry_scope(settings, f"ca report month {chosen}") as scope:
+            report = write_report(scope.conn, settings, chosen)
+    except (RegistryError, OSError) as error:
+        _fail(str(error))
+    if as_json:
+        typer.echo(json.dumps(report.to_json(), ensure_ascii=False))
+        return
+    for line in report.lines():
+        typer.echo(line)
+    typer.echo(f"Report: {report.path}")

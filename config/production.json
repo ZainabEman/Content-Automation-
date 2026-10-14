@@ -4,6 +4,12 @@
     "youtube": 8,
     "podcast": 2
   },
+  "reportTargets": {
+    "_note": "Phase 10 `ca report month`: client to confirm. YouTube comes from targetsPerMonth; podcasts are counted against the podcasts scheduled that month.",
+    "clips": [32, 40],
+    "graphics": [30, 60],
+    "reviewedPublishedPercent": 100
+  },
   "youtubeFinal": {
     "aspect": "16:9",
     "minHeight": 1080

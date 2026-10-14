@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     output_dir: Path = Path("outputs/jobs")
     research_dir: Path = Path("research")
     packages_dir: Path = Path("outputs/content")
+    reports_dir: Path = Path("outputs/reports")  # `ca report month` (Phase 10)
     deliverables_file: Path = Path("config/deliverables.json")  # names the user can ask for
     calendar_file: Path = Path("config/calendar.json")  # weekly cadence: weekday -> deliverable
     calendar_dir: Path = Path("calendar")  # calendar/<YYYY-Www>.csv: git-ignored

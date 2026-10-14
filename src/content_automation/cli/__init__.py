@@ -26,7 +26,7 @@ from content_automation.cli.bridge import (
 from content_automation.cli.help import help_app
 from content_automation.cli.ideas import claims_app, ideas_app
 from content_automation.cli.items import audit_app, items_app
-from content_automation.cli.jobs import auth_app, costs_app, jobs_app
+from content_automation.cli.jobs import auth_app, costs_app, jobs_app, report_app
 from content_automation.cli.scope import (
     authorization_lines,
     authorize,
@@ -278,6 +278,7 @@ app.add_typer(items_app, name="item")
 review_app = typer.Typer(no_args_is_help=True, help="The review gate: what waits, one item.")
 app.add_typer(review_app, name="review")
 app.add_typer(costs_app, name="costs")
+app.add_typer(report_app, name="report")
 production_app = typer.Typer(no_args_is_help=True, help="YouTube and podcast production.")
 app.add_typer(production_app, name="production")
 podcast_app = typer.Typer(no_args_is_help=True, help="Podcast recording (HeyGen) and audio.")

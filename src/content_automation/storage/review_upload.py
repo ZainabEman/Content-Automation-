@@ -93,18 +93,8 @@ def upload_approved(conn: sqlite3.Connection, settings: Settings, ref: str, *,
     subfolder = f"v{version}" + (f"/{subfolder}" if subfolder else "")
     where = f"{platform_folder(folder_key(item))}/{content_id}/{subfolder}/"
     if settings.storage_provider == "plugin":
-        config = load_job_config(settings.jobs_file)
-        lines = []
-        for file in files:
-            opened = open_job(conn, item_id=item.id, job_type="upload", provider=PLUGIN_PROVIDER,
-                              inputs={"file": file.as_posix(), "folder": where}, config=config,
-                              command=command)
-            request = settings.state_dir / REQUESTS_DIR / f"{opened.job.id}.json"
-            request.parent.mkdir(parents=True, exist_ok=True)
-            atomic_write_text(request, json.dumps({
-                "jobId": opened.job.id, "item": item.id, "file": file.resolve().as_posix(),
-                "folder": f"Content Automation/{where}"}, indent=2) + "\n")
-            lines.append(f"Upload request #{opened.job.id}: {file.name} -> {where} ({request})")
+        lines = [queue_upload(conn, settings, item.id, file, where, command=command)
+                 for file in files]
         lines.append("Next: the upload skill uploads each request with the Drive plugin, then "
                      "uv run ca drive record <job> --file-id <id> --link <url>.")
         return lines
@@ -117,6 +107,21 @@ def upload_approved(conn: sqlite3.Connection, settings: Settings, ref: str, *,
     set_upload(conn, item.id, "uploaded", storage.name, command=command)
     label = " (mock)" if storage.name == "mock" else ""
     return [f"{item.id} v{version}: {len(files)} file(s) uploaded{label} to {where}"]
+
+
+def queue_upload(conn: sqlite3.Connection, settings: Settings, item_id: str, file: Path,
+                 where: str, *, command: str | None = None) -> str:
+    """One queued `upload` job and its request file (state/uploads/<job>.json) for the upload
+    skill; `ca jobs resume --all` re-queues a stale or failed upload with it."""
+    opened = open_job(conn, item_id=item_id, job_type="upload", provider=PLUGIN_PROVIDER,
+                      inputs={"file": file.as_posix(), "folder": where},
+                      config=load_job_config(settings.jobs_file), command=command)
+    request = settings.state_dir / REQUESTS_DIR / f"{opened.job.id}.json"
+    request.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_text(request, json.dumps({
+        "jobId": opened.job.id, "item": item_id, "file": file.resolve().as_posix(),
+        "folder": f"Content Automation/{where}"}, indent=2) + "\n")
+    return f"Upload request #{opened.job.id}: {file.name} -> {where} ({request})"
 
 
 def record_plugin_upload(conn: sqlite3.Connection, job_id: int, file_id: str, link: str, *,

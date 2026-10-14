@@ -52,6 +52,12 @@ GROUPS: tuple[Group, ...] = (
         Phrase("retry failed jobs", "ca jobs retry BG-x|--all-failed",
                "a dry run; after ok --authorize; at most max_attempts tries"),
         Phrase("show costs", "ca costs report", "estimate vs actual per job type"),
+        Phrase("resume everything", "ca jobs resume --all",
+               "carousels, queued images, uploads, plugin requests, videos; else manual action"),
+        Phrase("monthly report", "ca report month",
+               "this month's recorded finals and publications vs the targets (no mocks)"),
+        Phrase("report for <month>", "ca report month YYYY-MM",
+               "the same for that month: outputs/reports/<YYYY-MM>.md"),
         Phrase("what can I say", "ca help commands", "this list"),
     )),
     Group("show-content", ".agents/skills/show-content/SKILL.md", (

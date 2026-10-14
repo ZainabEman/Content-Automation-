@@ -139,3 +139,9 @@ Needs review: a final counts in the month its last status event was recorded (re
 
 ## P10S2 — integration verification (12; list to confirm against spec §7) — DONE c65274b
 Needs review: no client §7 list in the repo, the autorun's 12 used; operational = newest live result is a pass; offline fakes are a temp registry, a mock HTTP transport and broken files; Nano Banana stays off by default (client decision).
+
+## P10S3 — user guide, full check, ff-merge into main — DONE 56fe914; PHASE 10 DONE
+Needs review: report docs/autorun/REPORT-PHASE-10.md and this entry are uncommitted on main (no commit made on the default branch); nothing pushed.
+
+## Decisions (user, 2026-10-14) — language, sources, targets — DONE c8c8b4d (main)
+Needs review: German elements are found by umlauts/ß and a short German word list (warning only); 7 German feeds enabled after one GET each, BfDI 404 stays disabled.

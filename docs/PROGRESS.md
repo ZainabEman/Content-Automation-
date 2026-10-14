@@ -64,6 +64,17 @@ PRD: [docs/phases/PHASE-5-PRD.md](phases/PHASE-5-PRD.md) (conflicts with the cur
 
 Phase 5 done (2026-10-14): e2e 9/9 PASS ([PHASE-5-E2E.md](phases/PHASE-5-E2E.md)); 311 tests, ruff + mypy --strict clean.
 
+## Phase 6 — editorial formulas, scripts and production briefs
+
+PRD: [docs/phases/PHASE-6-PRD.md](phases/PHASE-6-PRD.md) (conflicts with the current code at the end). Branch `phase-6-scripts`.
+
+- [x] Step 0 – PRD + conflicts.
+- [ ] Step 1 – `config/formulas.json`, JSON schemas, the artifacts table, `ca script template`.
+- [ ] Step 2 – Validation rules, `save/check/show`, the md renderer.
+- [ ] Step 3 – YouTube and podcast briefs (`ca brief …`).
+- [ ] Step 4 – Move post, carousel and ad copy onto the formulas (keeping compatibility).
+- [ ] Step 5 – write-script skill, make-content update, AGENTS.md, help, `scripts/e2e_phase6.py`, PHASE-6-E2E.md, PROGRESS.
+
 ## Phase 4 done (2026-10-13)
 
 - Registry (`src/content_automation/registry/`, `state/registry.db`): BG IDs, five statuses, versions, decisions, jobs with idempotency, authorizations from saved dry runs, append-only redacted audit log; calendar CSV as a view with a hand-edit guard; tracker registry columns with last-written values and a conflict report (mock); `ca registry migrate`.

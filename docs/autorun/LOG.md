@@ -81,6 +81,10 @@ Needs review: score weights 40/20/15/15/10 are a draft; a repeated manual topic 
 Built: calendar.json `plan` block (plan-only types, slots, targets, pillar tolerance); content/plan.py (`ca calendar plan --week|--month`, inherited approval, shorts +2 days, blocked notes); `ca calendar show --month`; generate skips plan-only rows; `idea:BG-x` sources.
 Needs review: draft slot template (10 posts/week, 2 YouTube, 1 carousel, podcast every 2nd week) — client to confirm.
 
-## 2026-10-14 16:50 — Phase 5 Step 6: skills, AGENTS.md, help, e2e — DONE (commit: next entry); PHASE 5 DONE
+## 2026-10-14 16:50 — Phase 5 Step 6: skills, AGENTS.md, help, e2e — DONE ff9d4d5; PHASE 5 DONE
 Built: research-ideas skill; show-content (step 11 backlog) and make-calendar (plan phrases) updated; AGENTS.md + help groups; scripts/e2e_phase5.py 9/9 PASS; full suite 311 passed, mypy --strict 152 files clean.
 Needs review: "plan next week" now means `ca calendar plan` (was an alias of `calendar new`); "make calendar next week" keeps the old flow.
+
+## 2026-10-14 17:00 — Phase 6 Step 0: PRD + conflicts — DONE (commit: next entry)
+Built: docs/phases/PHASE-6-PRD.md (§7 + C6-1..C6-5), PROGRESS Phase 6 checklist; branch phase-6-scripts.
+Needs review: C6-1 artifact folder per BG ID inside the package; C6-3 current version may be re-saved.

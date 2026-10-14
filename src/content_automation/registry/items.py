@@ -215,6 +215,29 @@ def get_item(conn: sqlite3.Connection, ref: str) -> Item:
     return _item(row)
 
 
+def set_publication_url(conn: sqlite3.Connection, ref: str, platform: str, url: str | None, *,
+                        reason: str | None = None, actor: Actor = "user",
+                        command: str | None = None) -> None:
+    """Phase 9: the post's URL once published (or the reason it failed), logged."""
+    with transaction(conn):
+        item_id = resolve(conn, ref)
+        stamp = now()
+        conn.execute("UPDATE publications SET url = ?, published_at = ?, updated_at = ? "
+                     "WHERE item_id = ? AND platform = ?",
+                     (url, stamp if url else None, stamp, item_id, platform.lower()))
+        append_event(conn, "item_updated", actor=actor, command=command, item_id=item_id,
+                     details={"publication": platform.lower(), "url": url, "reason": reason})
+
+
+def publication_summary(conn: sqlite3.Connection, ref: str) -> str:
+    """"linkedin published https://…; facebook ready" (not_ready platforms left out)."""
+    item_id = resolve(conn, ref)
+    rows = conn.execute("SELECT platform, status, url FROM publications WHERE item_id = ? "
+                        "AND status != 'not_ready' ORDER BY platform", (item_id,))
+    return "; ".join(f"{row['platform']} {row['status']}" + (f" {row['url']}" if row["url"]
+                                                              else "") for row in rows)
+
+
 def publications(conn: sqlite3.Connection, ref: str) -> dict[str, str]:
     """Publication status per platform."""
     item_id = resolve(conn, ref)

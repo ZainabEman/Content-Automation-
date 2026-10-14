@@ -127,3 +127,6 @@ Needs review: targets 8 YouTube/2 podcasts per month (config/production.json, cl
 
 ## P8S2 — thumbnail, HeyGen podcast, podcast audio, final uploads, produce-video — DONE 213014a
 Needs review: thumbnail draws the text on a scrim with the overlay fonts (no logo); HeyGen podcast = one request for the whole script; podcast MP3 128 kbps.
+
+## P9S1 — clips handoff/import/select (manual Opus Pro) — DONE bf556ea
+Needs review: candidates are short items for youtube+tiktok+instagram (deliverable youtube_short); select approves the idea gate and marks them generated.

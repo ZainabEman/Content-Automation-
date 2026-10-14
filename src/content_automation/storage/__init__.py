@@ -51,7 +51,7 @@ from content_automation.registry import runtime
 from content_automation.registry.audit import append_event
 from content_automation.registry.db import RegistryError
 from content_automation.registry.ids import resolve
-from content_automation.registry.items import get_item
+from content_automation.registry.items import get_item, publication_summary
 from content_automation.registry.progress import upload_label, upload_target
 from content_automation.registry.tracker import CellRecord, last_cells, record_cells
 
@@ -274,6 +274,8 @@ def registry_cells(folder: Path) -> Entry:
         names["upload"]: joined([upload_label(item, item.upload_provider) for item in items]),
         names["production"]: joined([item.production_status if item.kind in ("youtube", "podcast")
                                      else "—" for item in items]),
+        names["publication"]: "; ".join(
+            text for item in items if (text := publication_summary(scope.conn, item.id))),
         names["updated"]: f"{updated[:10]} {updated[11:16]} UTC",
     }
 

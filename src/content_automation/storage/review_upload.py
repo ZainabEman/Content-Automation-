@@ -71,8 +71,10 @@ def _target(conn: sqlite3.Connection, settings: Settings, item: Item
 
 
 def upload_approved(conn: sqlite3.Connection, settings: Settings, ref: str, *,
+                    files: list[Path] | None = None, subfolder: str | None = None,
                     command: str | None = None) -> list[str]:
-    """The approved version's files: uploaded now (mock, drive) or queued for the plugin."""
+    """The approved version's files (or `files`, e.g. prepared platform variants, into
+    v<n>/`subfolder`): uploaded now (mock, drive) or queued for the plugin."""
     from content_automation.storage import (
         StorageError,
         StorageNotSetUpError,
@@ -82,11 +84,13 @@ def upload_approved(conn: sqlite3.Connection, settings: Settings, ref: str, *,
 
     item = get_item(conn, ref)
     target = _target(conn, settings, item)
-    if target is None or not target[1]:
-        return [f"{item.id}: no files to upload."]
-    _, files, content_id = target
+    if files is None:
+        if target is None or not target[1]:
+            return [f"{item.id}: no files to upload."]
+        files = target[1]
+    content_id = target[2] if target is not None else item.id
     version = item.approved_version or item.current_version
-    subfolder = f"v{version}"
+    subfolder = f"v{version}" + (f"/{subfolder}" if subfolder else "")
     where = f"{platform_folder(folder_key(item))}/{content_id}/{subfolder}/"
     if settings.storage_provider == "plugin":
         config = load_job_config(settings.jobs_file)

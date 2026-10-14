@@ -62,6 +62,15 @@ from content_automation.content.deliverables import (
     DeliverableError,
     load_deliverables,
 )
+from content_automation.content.distribution import (
+    copy_template,
+    integrations,
+    mark_failed,
+    mark_published,
+    prepare,
+    publish_lines,
+    save_copy,
+)
 from content_automation.content.migration import collect_sources, rewrite_old_calendars
 from content_automation.content.package import (
     DONE_STATUS,
@@ -103,6 +112,8 @@ from content_automation.content.review import (
     review_queue,
 )
 from content_automation.content.review import show_lines as review_show_lines
+from content_automation.content.scripts import template_json as script_template_json
+from content_automation.content.scripts import template_lines as script_template_lines
 from content_automation.content.tracking import TrackerError, status_lines
 from content_automation.core.agent_steps import record_agent_output, request_path
 from content_automation.core.config import ConfigurationError, Settings, load_settings
@@ -178,7 +189,7 @@ from content_automation.storage import (
     tracker_conflicts,
     tracker_lines,
 )
-from content_automation.storage.review_upload import record_plugin_upload
+from content_automation.storage.review_upload import record_plugin_upload, upload_approved
 from content_automation.workflows.carousel_design import load_carousel_design
 from content_automation.workflows.carousel_motion import render as render_carousel
 from content_automation.workflows.carousel_plugin import (
@@ -273,6 +284,10 @@ podcast_app = typer.Typer(no_args_is_help=True, help="Podcast recording (HeyGen)
 app.add_typer(podcast_app, name="podcast")
 clips_app = typer.Typer(no_args_is_help=True, help="Opus Pro clips from a finished video.")
 app.add_typer(clips_app, name="clips")
+copy_app = typer.Typer(no_args_is_help=True, help="Per-platform copy (Phase 6 checks).")
+app.add_typer(copy_app, name="copy")
+publish_app = typer.Typer(no_args_is_help=True, help="What is ready; record published posts.")
+app.add_typer(publish_app, name="publish")
 app.add_typer(audit_app, name="audit")
 app.add_typer(jobs_app, name="jobs")
 app.add_typer(help_app, name="help")
@@ -2620,5 +2635,116 @@ def clips_select_command(
     with _registry(settings, f"ca clips select {ref} " + " ".join(map(str, numbers))) as scope:
         lines = clips_select(scope.conn, settings, ref, numbers, force=force,
                              command=scope.command)
+    for line in lines:
+        typer.echo(line)
+
+
+PlatformOption = Annotated[str, typer.Option("--platform", help="e.g. linkedin, tiktok, reels.")]
+
+
+@app.command("prepare")
+def prepare_command(
+    ref: Annotated[str, typer.Argument(help="The item (BG ID), review approved.")],
+    platforms: Annotated[
+        str | None, typer.Option("--platforms", help="Variants, e.g. linkedin,facebook "
+                                 "(default: the item's platforms).")
+    ] = None,
+) -> None:
+    """Resize the approved version for each platform (config/platforms.json); the variants
+    upload after the approval."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    chosen = [part.strip() for part in (platforms or "").split(",") if part.strip()] or None
+    with _registry(settings, f"ca prepare {ref}") as scope:
+        lines, made = prepare(scope.conn, settings, ref, chosen, command=scope.command)
+        for variant in sorted({variant for _, variant in made}):
+            lines += upload_approved(scope.conn, settings, ref,
+                                     files=[file for file, v in made if v == variant],
+                                     subfolder=variant, command=scope.command)
+    for line in lines:
+        typer.echo(line)
+
+
+@copy_app.command("template")
+def copy_template_command(
+    ref: Annotated[str, typer.Argument(help="The item (BG ID).")],
+    platform: PlatformOption,
+    as_json: Annotated[bool, typer.Option("--json", help="Print JSON (for skills).")] = False,
+) -> None:
+    """The per-platform copy template (social_graphic formula, that platform's rules)."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca copy template {ref} --platform {platform}") as scope:
+        template = copy_template(scope.conn, settings, ref, platform)
+    if as_json:
+        typer.echo(json.dumps(script_template_json(template), ensure_ascii=False))
+        return
+    for line in script_template_lines(template):
+        typer.echo(line)
+
+
+@copy_app.command("save")
+def copy_save_command(
+    ref: Annotated[str, typer.Argument(help="The item (BG ID).")],
+    draft: Annotated[Path, typer.Argument(help="The copy JSON Codex wrote.")],
+    platform: PlatformOption,
+) -> None:
+    """Check the copy with the Phase 6 rules and save it next to the platform variant."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca copy save {ref} --platform {platform}") as scope:
+        check, lines = save_copy(scope.conn, settings, ref, platform, draft,
+                                 command=scope.command)
+    if not check.ok:
+        typer.echo(f"Not saved: {len(check.problems)} problem(s):")
+        for problem in check.problems:
+            typer.echo(f"- {problem}")
+        raise typer.Exit(code=1)
+    for line in lines:
+        typer.echo(line)
+
+
+@publish_app.command("list")
+def publish_list(
+    ready: Annotated[bool, typer.Option("--ready", help="Only what is ready.")] = False,
+) -> None:
+    """Platforms ready to publish (or every prepared one); no direct integrations."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, "ca publish list") as scope:
+        lines = publish_lines(scope.conn, ready)
+    for line in lines:
+        typer.echo(line)
+    if not integrations(settings):
+        typer.echo("Direct integrations: none (config/publishing.json); the user posts, then "
+                   "uv run ca publish mark BG-x --platform <p> --url <url>.")
+
+
+@publish_app.command("mark")
+def publish_mark(
+    ref: Annotated[str, typer.Argument(help="The item (BG ID).")],
+    platform: PlatformOption,
+    url: Annotated[str, typer.Option("--url", help="The live post's URL (required).")],
+) -> None:
+    """The post is live: ready -> published with its URL."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca publish mark {ref} --platform {platform}") as scope:
+        lines = mark_published(scope.conn, ref, platform, url, command=scope.command)
+    for line in lines:
+        typer.echo(line)
+
+
+@publish_app.command("fail")
+def publish_fail(
+    ref: Annotated[str, typer.Argument(help="The item (BG ID).")],
+    reason: Annotated[str, typer.Argument(help="Why it failed (required).")],
+    platform: PlatformOption,
+) -> None:
+    """Publishing failed on a platform: ready -> failed with the reason."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca publish fail {ref} --platform {platform}") as scope:
+        lines = mark_failed(scope.conn, ref, platform, reason, command=scope.command)
     for line in lines:
         typer.echo(line)

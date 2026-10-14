@@ -39,11 +39,12 @@ MANAGER_DEFAULTS = {"Approval status": "Pending", "Publishing status": "Pending"
                     "Publication date": ""}  # written once, when the row is created
 COLUMNS = (*WORKFLOW_COLUMNS, *MANAGER_DEFAULTS)
 REGISTRY_KEYS = ("bg_id", "version", "idea", "generation", "review", "upload", "production",
-                 "updated")
+                 "publication", "updated")
 DEFAULT_REGISTRY_COLUMNS = {
     "bg_id": "BG ID", "version": "Version", "idea": "Idea status",
     "generation": "Generation status", "review": "Review status", "upload": "Upload status",
-    "production": "Production status", "updated": "Last updated",
+    "production": "Production status", "publication": "Publication",
+    "updated": "Last updated",
 }
 APPROVAL_STATUSES = ("Pending", "Approved", "Rejected")
 PUBLISHING_STATUSES = ("Pending", "Posted")

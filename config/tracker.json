@@ -8,6 +8,7 @@
     "review": "Review status",
     "upload": "Upload status",
     "production": "Production status",
+    "publication": "Publication",
     "updated": "Last updated"
   }
 }

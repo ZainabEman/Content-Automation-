@@ -133,6 +133,22 @@ GROUPS: tuple[Group, ...] = (
         Phrase("make thumbnail for BG-x", "ca thumbnail BG-x", "1280x720 with the brief's text"),
         Phrase("export podcast audio for BG-x", "ca podcast audio BG-x", "MP3, -16 LUFS"),
     )),
+    Group("clips", ".agents/skills/clips/SKILL.md", (
+        Phrase("make clips from BG-x", "ca clips handoff BG-x", "the Opus Pro note (manual)"),
+        Phrase("import clips for BG-x <folder>", 'ca clips import BG-x "<folder>"',
+               "candidate shorts (vertical, 15-90 s)"),
+        Phrase("select clips … for BG-x", "ca clips select BG-x <numbers>",
+               "the user's picks approved; the rest not selected"),
+    )),
+    Group("distribute", ".agents/skills/distribute/SKILL.md", (
+        Phrase("prepare BG-x for all platforms", "ca prepare BG-x",
+               "variants per platform; copy with ca copy save"),
+        Phrase("what's ready to publish", "ca publish list --ready", "ready platforms"),
+        Phrase("BG-x is live on LinkedIn <url>",
+               "ca publish mark BG-x --platform linkedin --url <url>", "published with its URL"),
+        Phrase("BG-x failed on TikTok <reason>",
+               'ca publish fail BG-x "<reason>" --platform tiktok', "failed with the reason"),
+    )),
     Group("upload", ".agents/skills/upload/SKILL.md", (
         Phrase("upload approved files", "ca drive record <job> --file-id --link",
                "plugin upload requests, each recorded"),

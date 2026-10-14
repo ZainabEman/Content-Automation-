@@ -1,0 +1,32 @@
+{
+  "_note": "Phase 9 variant sizes (width x height) per platform; client to confirm.",
+  "sizes": {
+    "youtube": [
+      "1920x1080"
+    ],
+    "shorts": [
+      "1080x1920"
+    ],
+    "tiktok": [
+      "1080x1920"
+    ],
+    "reels": [
+      "1080x1920"
+    ],
+    "instagram": [
+      "1080x1080",
+      "1080x1350"
+    ],
+    "linkedin": [
+      "1080x1080"
+    ],
+    "facebook": [
+      "1080x1080"
+    ],
+    "facebook_ads": [
+      "1080x1080",
+      "1080x1350",
+      "1080x1920"
+    ]
+  }
+}

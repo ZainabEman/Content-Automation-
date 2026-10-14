@@ -151,3 +151,6 @@ Needs review: the LoRA was not in outputs/lora/zimage/, so its two files were co
 
 ## L2 — face check + Codex --person review, one automatic redo (in the dry-run max), ad strict, provider defaults — DONE 6279185
 Needs review: IMAGE_PROVIDER=mock now outranks a deliverable's provider (local test mode; --provider still wins); mock images skip the face check (said so in the check); max = estimate + one redo per person image; a new --authorize resets the redo; a face counts in the text zone when its centre is inside it.
+
+## L3 — RunPod Z-Image setup guide, ca verify run comfyui (LoRA sha256, node, files, endpoint format), ca lora strength, full check — DONE f1d5065; TRACK L DONE
+Needs review: env names are reported set/not set but do not fail the offline check; report docs/autorun/REPORT-TRACK-L.md; not merged to main, nothing pushed.

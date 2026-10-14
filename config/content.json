@@ -1,0 +1,5 @@
+{
+  "_note": "client to confirm (DE vs EN): the content language. \"en\" is today's behaviour; platforms may override it. Nothing switches to German without a change here.",
+  "language": "en",
+  "platforms": {}
+}

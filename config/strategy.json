@@ -1,0 +1,39 @@
+{
+  "_note": "client to confirm: draft strategy (BR-02). Pillars, keywords (DE + EN), target shares, audiences and exclusions are a first proposal for idea scoring and calendar balance.",
+  "pillars": {
+    "german_problems": {
+      "description": "Real problems in German society and the German Mittelstand that AI touches",
+      "keywords": {"de": ["mittelstand", "fachkräftemangel", "bürokratie", "digitalisierung", "pflege", "handwerk", "deutschland"],
+                   "en": ["germany", "german", "skills shortage", "bureaucracy", "small business", "sme"]},
+      "targetShare": 0.25
+    },
+    "ai_risks": {
+      "description": "Risks of using AI: data protection, security, dependence",
+      "keywords": {"de": ["datenschutz", "dsgvo", "risiko", "sicherheit", "haftung"],
+                   "en": ["privacy", "gdpr", "risk", "security", "liability", "compliance"]},
+      "targetShare": 0.2
+    },
+    "ai_misuse": {
+      "description": "AI misused: deepfakes, scams, manipulation",
+      "keywords": {"de": ["deepfake", "betrug", "manipulation", "desinformation"],
+                   "en": ["deepfake", "scam", "fraud", "misinformation", "manipulation"]},
+      "targetShare": 0.15
+    },
+    "ai_mistakes": {
+      "description": "AI mistakes: hallucinations, wrong answers, bias",
+      "keywords": {"de": ["fehler", "halluzination", "verzerrung", "falsch"],
+                   "en": ["hallucination", "mistake", "error", "bias", "wrong answer"]},
+      "targetShare": 0.15
+    },
+    "ai_solutions": {
+      "description": "Appropriate AI solutions that solve a real problem",
+      "keywords": {"de": ["automatisierung", "chatbot", "ki-lösung", "effizienz"],
+                   "en": ["automation", "chatbot", "ai solution", "workflow", "efficiency", "crm"]},
+      "targetShare": 0.25
+    }
+  },
+  "audiences": ["German SMEs (Mittelstand)", "practices and clinics", "local service businesses"],
+  "exclusions": ["crypto trading", "medical diagnosis advice", "political campaigning"],
+  "research": {"maxAgeDays": 90, "duplicateThreshold": 0.8},
+  "scoreWeights": {"pillar": 40, "german": 20, "recency": 15, "trust": 15, "evidence": 10}
+}

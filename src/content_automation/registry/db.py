@@ -227,12 +227,68 @@ CREATE TABLE tracker_cells (
 );
 """
 
+# Phase 5 (P5-D1, D4, D5, D9, D10, D11): idea details, sources (SRC-####), idea <-> source
+# links and labelled claims (CL-####).
+SCHEMA_6 = """
+CREATE TABLE ideas (
+    item_id TEXT PRIMARY KEY REFERENCES items (id),
+    pillar TEXT,
+    score INTEGER,
+    score_parts TEXT NOT NULL DEFAULT '{}',
+    flags TEXT NOT NULL DEFAULT '[]',
+    original_text TEXT,
+    assumptions TEXT NOT NULL DEFAULT '[]',
+    duplicate_of TEXT REFERENCES items (id),
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE sources (
+    id TEXT PRIMARY KEY,
+    number INTEGER NOT NULL UNIQUE,
+    type TEXT NOT NULL CHECK (type IN ('newsletter', 'article', 'web', 'manual')),
+    url TEXT,
+    original_url TEXT,
+    title TEXT,
+    publisher TEXT,
+    language TEXT,
+    published_at TEXT,
+    fetched_at TEXT,
+    purpose TEXT,
+    trust TEXT NOT NULL DEFAULT 'unknown' CHECK (trust IN ('primary', 'secondary', 'unknown')),
+    text_path TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX sources_url ON sources (url);
+CREATE INDEX sources_original ON sources (original_url);
+CREATE TABLE idea_sources (
+    item_id TEXT NOT NULL REFERENCES items (id),
+    source_id TEXT NOT NULL REFERENCES sources (id),
+    role TEXT,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (item_id, source_id)
+);
+CREATE TABLE claims (
+    id TEXT PRIMARY KEY,
+    number INTEGER NOT NULL UNIQUE,
+    item_id TEXT NOT NULL REFERENCES items (id),
+    text TEXT NOT NULL,
+    label TEXT NOT NULL CHECK (label IN ('fact', 'opinion', 'speculation')),
+    status TEXT NOT NULL CHECK (status IN ('verified', 'unverified', 'disputed', 'outdated')),
+    source_refs TEXT NOT NULL DEFAULT '[]',
+    counter_refs TEXT NOT NULL DEFAULT '[]',
+    reason TEXT,
+    checked_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX claims_item ON claims (item_id);
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "registry core", SCHEMA_1),
     Migration(2, "item deliverable", SCHEMA_2),
     Migration(3, "jobs, redo and authorization groups", SCHEMA_3),
     Migration(4, "written view files", SCHEMA_4),
     Migration(5, "tracker last-written cells", SCHEMA_5),
+    Migration(6, "ideas, sources and claims", SCHEMA_6),
 )
 
 _SCHEMA_TABLE = """

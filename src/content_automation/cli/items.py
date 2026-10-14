@@ -140,6 +140,7 @@ def _version(item: Item) -> str:
 def _item_json(item: Item) -> dict[str, Any]:
     return {
         "id": item.id, "kind": item.kind, "title": item.title, "deliverable": item.deliverable,
+        "parent_id": item.parent_id,
         "platforms": list(item.platforms),
         "planned_date": item.planned_date.isoformat() if item.planned_date else None,
         "idea": item.idea_status, "generation": item.generation_status,
@@ -194,8 +195,8 @@ def item_list(
                f"{'Review':<18} {'Upload':<13} Ver")
     for item in items:
         typer.echo(f"{item.id:<8} {item.kind:<9} {_short(item.title, 40):<40} "
-                   f"{item.idea_status:<19} {item.generation_status:<12} "
-                   f"{item.review_status:<18} {item.upload_status:<13} {_version(item)}")
+                   f"{item.idea_status:<19} {item.shown('generation'):<12} "
+                   f"{item.shown('review'):<18} {item.shown('upload'):<13} {_version(item)}")
     typer.echo(f"{len(items)} item(s).")
 
 
@@ -221,9 +222,10 @@ def _report_lines(report: ItemReport) -> list[str]:
         f"Aliases: {', '.join(report.aliases) or '—'}",
         f"Planned: {item.planned_date or '—'} · Platforms: {', '.join(item.platforms) or '—'} · "
         f"Package: {item.package_path or '—'}",
-        f"Statuses: idea {item.idea_status} · generation {item.generation_status} · "
-        f"review {item.review_status} · upload {upload_label(item, item.upload_provider)} · "
-        f"publication {pubs}",
+        f"Statuses: idea {item.idea_status} · generation {item.shown('generation')} · "
+        f"review {item.shown('review')} · "
+        f"upload {'—' if item.is_idea else upload_label(item, item.upload_provider)} · "
+        f"publication {pubs}" + (f" · parent {item.parent_id}" if item.parent_id else ""),
         "Versions:",
     ]
     for version in report.versions:

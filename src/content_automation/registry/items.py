@@ -17,7 +17,8 @@ from content_automation.registry.db import RegistryError, now, transaction
 from content_automation.registry.ids import allocate_number, format_id, parse_id, resolve
 from content_automation.registry.statuses import Dimension, check_status, initial, transition
 
-KINDS = ("post", "carousel", "graphic", "youtube", "short", "podcast", "ad")  # PRD D3
+KINDS = ("post", "carousel", "graphic", "youtube", "short", "podcast", "ad",  # PRD D3
+         "idea")  # Phase 5 P5-D1: only the idea gate; generation/review/upload are n/a
 STATUS_COLUMNS: dict[Dimension, str] = {
     "idea": "idea_status",
     "generation": "generation_status",
@@ -53,6 +54,16 @@ class Item:
     notes: str | None
     deliverable: str | None = None  # e.g. linkedin_post (D-1)
     upload_provider: str | None = None  # drive or mock (D-16: mock never counts as real)
+
+    @property
+    def is_idea(self) -> bool:
+        return self.kind == "idea"
+
+    def shown(self, dimension: Dimension) -> str:
+        """The status as shown: "—" for generation, review and upload of an idea (P5-D1)."""
+        if self.is_idea and dimension != "idea":
+            return "—"
+        return self.status(dimension)
 
     def status(self, dimension: Dimension) -> str:
         """The item-level status of idea, generation, review or upload."""

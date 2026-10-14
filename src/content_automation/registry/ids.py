@@ -100,6 +100,19 @@ def allocate_number(conn: sqlite3.Connection) -> int:
     return number
 
 
+def allocate_counter(conn: sqlite3.Connection, name: str) -> int:
+    """The next number of another sequence (sources, claims); never reused."""
+    with transaction(conn):
+        row = conn.execute("SELECT next_value FROM id_counter WHERE name = ?", (name,)).fetchone()
+        number = int(row["next_value"]) if row else 1
+        conn.execute(
+            "INSERT INTO id_counter (name, next_value) VALUES (?, ?) "
+            "ON CONFLICT (name) DO UPDATE SET next_value = excluded.next_value",
+            (name, number + 1),
+        )
+    return number
+
+
 def allocate_id(conn: sqlite3.Connection) -> str:
     """Take the next BG ID (BG-007)."""
     return format_id(allocate_number(conn))

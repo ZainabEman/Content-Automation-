@@ -99,6 +99,8 @@ class Settings(BaseSettings):
     registry_file: Path = Path("config/registry.json")  # the first BG number (next_id)
     jobs_file: Path = Path("config/jobs.json")  # free providers, units, timeouts, estimates
     tracker_file: Path = Path("config/tracker.json")  # the registry's tracker column names
+    strategy_file: Path = Path("config/strategy.json")  # pillars, audiences (Phase 5)
+    content_file: Path = Path("config/content.json")  # content language (Phase 5)
 
     def summary_lines(self) -> tuple[str, ...]:
         """Return non-secret settings suitable for local CLI output."""

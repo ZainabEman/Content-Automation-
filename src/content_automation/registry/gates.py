@@ -27,6 +27,8 @@ _IDEA_ALSO: dict[Action, str] = {  # besides proposed, inside the generation win
 
 def gate_open(item: Item, action: Action, gate: Gate) -> bool:
     """Whether `action` may act on `gate` of the item now."""
+    if gate == "review" and item.is_idea:
+        return False  # an idea has only the idea gate (P5-D1)
     if gate == "idea":
         if item.idea_status == "proposed":
             return True
@@ -89,7 +91,9 @@ def next_actions(item: Item) -> list[NextAction]:
     if item.idea_status == "revision_requested":
         actions.append(NextAction("resubmit", "idea",
                                   f'ca item resubmit {item.id} --title "<new topic>"'))
-    if item.idea_status == "approved" and item.generation_status in IDEA_WINDOW:
+    if item.is_idea and item.idea_status == "approved":
+        actions.append(NextAction("plan", None, "ca calendar plan --week next|--month next"))
+    elif item.idea_status == "approved" and item.generation_status in IDEA_WINDOW:
         actions.append(NextAction("generate", None,
                                   '"generate approved" (calendar) or the make-content build'))
     if item.generation_status in ("queued", "running"):

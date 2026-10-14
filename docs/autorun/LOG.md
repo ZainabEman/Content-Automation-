@@ -55,8 +55,12 @@ Decisions: B4-40 … B4-44
 Needs review: B4-44 design picks are chosen at plan time, so a rebuild after other packages can be a new job (store picks before the provider call?).
 
 ## 2026-10-13 19:41 — Phase 5 Step 0: PRD + conflicts — DONE
-Commit: pending   Tests: 294/294 (no code change)
+Commit: fcbbe3b   Tests: 294/294 (no code change)
 Built: branch phase-5-research from 29c8926; docs/phases/PHASE-5-PRD.md from autorun §6 (sections and wording copied).
 Built: code audit (subagent) → "Conflicts with the current code" C5-1 … C5-21 with the chosen options; PROGRESS Phase 5 checklist.
 Decisions: C5-1 … C5-21 (options chosen per §3.2)
 Needs review: C5-5 plan-only content types for youtube/podcast/shorts in calendar.json; C5-14 Instagram single graphic off by default; C5-17 content language stays en until the client decides.
+
+## 2026-10-14 15:48 — Phase 5 Step 1: kind idea, sources, claims tables, configs — DONE (commit: next entry)
+Built: migration 6 (ideas, sources SRC-####, idea_sources, claims CL-####), registry ideas.py/sources.py/strategy.py, config/strategy.json + config/content.json (client to confirm); ideas show "—" for generation/review/upload.
+Needs review: strategy pillars, keywords and target shares are a draft.

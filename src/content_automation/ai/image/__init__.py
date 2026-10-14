@@ -225,6 +225,7 @@ _COMFYUI_EXPORTS = {
     "is_unset": "is_unset",
     "load_comfyui_config": "load_config",
     "load_comfyui_workflow": "load_workflow",
+    "comfyui_model_file_problems": "model_file_problems",
 }
 
 if TYPE_CHECKING:
@@ -234,6 +235,7 @@ if TYPE_CHECKING:
     is_unset = _comfyui.is_unset
     load_comfyui_config = _comfyui.load_config
     load_comfyui_workflow = _comfyui.load_workflow
+    comfyui_model_file_problems = _comfyui.model_file_problems
 else:
 
     def __getattr__(name: str) -> Any:

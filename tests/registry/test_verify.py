@@ -31,7 +31,7 @@ def test_verify_run_record_list(isolated: Path) -> None:
     assert listed.exit_code == 0, listed.output
     assert "publishing (publishing (manual URL)): not operational (no recorded live pass)" \
         in listed.output
-    assert "comfyui (ComfyUI/RunPod) — blocked: LoRA track" in listed.output
+    assert "comfyui (ComfyUI/RunPod) — live pending (user setup" in listed.output
     assert "0 of 12 operational" in listed.output
 
     assert ca("verify", "record", "publishing", "--live", "maybe", "x").exit_code == 2

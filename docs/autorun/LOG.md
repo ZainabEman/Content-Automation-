@@ -148,3 +148,6 @@ Needs review: German elements are found by umlauts/ß and a short German word li
 
 ## L1 — LoRA registered (sha256 matches MANIFEST.json), Z-Image workflow 9 steps/CFG 1/~1024 px, prompt rules, models, 24 GB/30 GB, BfDI — DONE 39f7082
 Needs review: the LoRA was not in outputs/lora/zimage/, so its two files were copied from Downloads/roman_lora_v2.zip (git-ignored); groups are detected by words (group, team, colleagues, audience, crowd); 24 GB price $0.00031/s unverified; BfDI's new press page found but not fetched, still disabled.
+
+## L2 — face check + Codex --person review, one automatic redo (in the dry-run max), ad strict, provider defaults — DONE 6279185
+Needs review: IMAGE_PROVIDER=mock now outranks a deliverable's provider (local test mode; --provider still wins); mock images skip the face check (said so in the check); max = estimate + one redo per person image; a new --authorize resets the redo; a face counts in the text zone when its centre is inside it.

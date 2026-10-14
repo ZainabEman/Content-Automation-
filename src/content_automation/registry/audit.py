@@ -25,6 +25,7 @@ EVENT_TYPES = frozenset({
     "upload_succeeded", "upload_failed", "tracker_synced", "conflict_found", "migration_run",
     "artifact_saved", "artifact_invalid",
     "verification_recorded",  # Phase 10
+    "config_changed",  # Track L: `ca lora strength`
 })
 
 

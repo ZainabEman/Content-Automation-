@@ -588,6 +588,29 @@ def _local_lora(local: Path) -> tuple[str, str]:
     return local.name, actual
 
 
+STRENGTH_RANGE = (0.5, 1.2)  # `ca lora strength`: the likeness comparison's range
+
+
+def set_lora_strength(settings: Settings, value: float) -> tuple[float, Path]:
+    """config/comfyui.json loraStrength = value; (the old value, the file). The caller logs it."""
+    low, high = STRENGTH_RANGE
+    if not low <= value <= high:
+        raise LoraError(f"The LoRA strength must be {low:g}-{high:g}, not {value:g}.")
+    file = settings.comfyui_config_file
+    path = file if file.is_absolute() or file.exists() else _PROJECT_ROOT / file
+    data = json.loads(path.read_text(encoding="utf-8"))
+    before = float(data.get("loraStrength", 1.0))
+    data["loraStrength"] = round(value, 3)
+    try:
+        ComfyUIConfig.model_validate(data)
+    except ValidationError as error:
+        raise LoraError(
+            f"config/comfyui.json would be invalid: {error.error_count()} problem(s)."
+        ) from None
+    atomic_write_text(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+    return before, path
+
+
 def set_lora(settings: Settings, model: ModelKey, filename: str) -> list[str]:
     """Point the model's ComfyUI workflow at the trained LoRA file (in models/loras). A local
     path (e.g. outputs/lora/zimage/<file>) also records its sha256, checked against the

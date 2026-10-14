@@ -33,10 +33,11 @@ Paid steps always show their dry run first and need the user's "ok".
 2. Run `uv run ca podcast heygen BG-x`: dry run, "ok", `--authorize`, the plugin, then `ca podcast record <job> <file>`.
 3. Pass: the recording is imported and production is recorded. Record: `uv run ca verify record heygen --live pass "<BG-x>"`.
 
-## comfyui — ComfyUI/RunPod — blocked: LoRA track
-1. Blocked until Roman's LoRA track finishes. Do not run it before then.
-2. After that: one image job with the identity workflow (dry run, "ok"), then the person check.
-3. Record: `uv run ca verify record comfyui --live pass "<job>"`.
+## comfyui — ComfyUI/RunPod — live pending (user setup)
+1. Do the setup in `docs/guides/runpod-zimage-setup.md` (volume, the four files, endpoint, `.env` by name).
+2. Run `uv run ca verify run comfyui`. It checks offline that the LoRA is set and its sha256 matches, that the LoRA node and model files are right, and that the endpoint ID has the right format.
+3. Make one LinkedIn post with Roman (dry run, then "ok"). It passes the face check and your look.
+4. Record: `uv run ca verify record comfyui --live pass "<job>"`.
 
 ## openrouter — OpenRouter (Nano Banana fallback): client decision
 1. This is a configured fallback and is off by default: no deliverable names it in `config/deliverables.json`. If the client keeps it, the dry run offers it on its own "Fallback provider" line.

@@ -8,7 +8,7 @@ Type every phrase below in Codex Desktop. Codex runs the matching `uv run ca …
    - `STORAGE_PROVIDER` and `DRIVE_SHARE_WITH`: the Drive route (step 3)
    - `HEYGEN_AVATAR_ID` and `HEYGEN_VOICE_ID`: chosen from the HeyGen plugin's lists
    - `OPENROUTER_API_KEY`: only if the Nano Banana fallback is kept (client decision)
-   - `RUNPOD_API_KEY` and `RUNPOD_ENDPOINT_ID`: ComfyUI, after the LoRA track
+   - `RUNPOD_API_KEY`, `RUNPOD_ENDPOINT_ID`, `RUNPOD_NETWORK_VOLUME_ID` and the S3 keys: ComfyUI with Roman's LoRA (`docs/guides/runpod-zimage-setup.md`)
 3. Choose the Drive route:
    - `STORAGE_PROVIDER=plugin`: the Google Drive plugin uploads each request, then "upload approved files".
    - `STORAGE_PROVIDER=drive`: the Drive API. Run `uv run ca drive setup` once.

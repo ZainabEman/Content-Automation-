@@ -7,7 +7,9 @@ operational only with a recorded live pass (`ca verify record <name> --live pass
 after the manual test in docs/VERIFICATION.md).
 """
 
+import hashlib
 import importlib
+import re
 import sqlite3
 import tempfile
 from collections.abc import Callable
@@ -119,13 +121,60 @@ def _plugin(provider: str, job_type: str) -> Fake:
     return fake
 
 
-def _comfyui(settings: Settings, folder: Path) -> str:
-    from content_automation.ai.image import ImageProviderError, get_provider
+ENDPOINT_ID = re.compile(r"[a-z0-9]{8,32}")  # a RunPod Serverless endpoint ID
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(1 << 20):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _comfyui(settings: Settings, folder: Path) -> str:
+    """Track L: the LoRA is set and its sha256 matches, the workflow has the LoRA node and the
+    listed model files, the endpoint ID looks right (never printed); an unknown workflow stops."""
+    from content_automation.ai.image import (
+        ImageProviderError,
+        comfyui_model_file_problems,
+        get_provider,
+        is_unset,
+        load_comfyui_config,
+        load_comfyui_workflow,
+    )
+
+    config = load_comfyui_config(settings.comfyui_config_file)
+    workflow = load_comfyui_workflow(config, "z_image_turbo")
+    spec = workflow.spec
+    if is_unset(spec.lora_name) or not spec.lora_sha256:
+        raise VerifyFailed("the LoRA is not set: uv run ca lora set zimage "
+                           "outputs/lora/zimage/<file>.safetensors")
+    local = Path(spec.lora_local_path)
+    local = local if local.is_absolute() or local.is_file() else _PROJECT_ROOT / local
+    if not spec.lora_local_path or not local.is_file():
+        where = spec.lora_local_path or "no local path"
+        raise VerifyFailed(f"the LoRA file is not on this computer ({where}); its sha256 "
+                           "cannot be checked")
+    if _sha256(local) != spec.lora_sha256:
+        raise VerifyFailed(f"{local.name}: sha256 does not match config/comfyui.json")
+    node = workflow.graph.get(workflow.mapping.inputs["lora_name"].node, {})
+    if node.get("class_type") != "LoraLoaderModelOnly":
+        raise VerifyFailed("the workflow has no LoraLoaderModelOnly node for the LoRA")
+    problems = comfyui_model_file_problems(config, workflow)
+    if problems:
+        raise VerifyFailed("; ".join(problems))
+    endpoint = (settings.runpod_endpoint_id or "").strip()
+    if endpoint and not ENDPOINT_ID.fullmatch(endpoint):
+        raise VerifyFailed("RUNPOD_ENDPOINT_ID does not look like a RunPod endpoint ID "
+                           "(8-32 lowercase letters and digits; the value is not shown)")
     try:
         get_provider("comfyui", settings.model_copy(update={"image_model": "not-a-workflow"}))
-    except ImageProviderError as error:
-        return f"an unknown workflow stops before any call ({error})"
+    except ImageProviderError:
+        return (f"LoRA {spec.lora_name} sha256 matches; LoraLoaderModelOnly node; model files "
+                f"match config; endpoint ID {'format ok' if endpoint else 'not set'}; an unknown "
+                "workflow stops before any call")
     raise VerifyFailed("an unknown ComfyUI workflow was accepted")
 
 
@@ -240,7 +289,10 @@ INTEGRATIONS: tuple[Integration, ...] = (
     Integration("comfyui", "ComfyUI/RunPod", "an image with Roman's identity comes back from "
                 "the RunPod endpoint", "an unknown workflow or missing key stops before a call",
                 ("comfyui_config_file",), "content_automation.ai.image.providers.comfyui",
-                _comfyui, keys=("runpod_api_key",), note="blocked: LoRA track"),
+                _comfyui, keys=("runpod_api_key", "runpod_endpoint_id",
+                                "runpod_network_volume_id", "runpod_s3_access_key",
+                                "runpod_s3_secret_key"),
+                note="live pending (user setup: docs/guides/runpod-zimage-setup.md)"),
     Integration("openrouter", "OpenRouter (Nano Banana fallback)", "after its own dry run and "
                 "\"ok\", one image comes back", "401/402 stop with the fix; 429/5xx retried",
                 ("deliverables_file",), "content_automation.ai.image.providers.openrouter",

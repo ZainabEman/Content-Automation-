@@ -131,6 +131,7 @@ from content_automation.lora import (
     newest_dataset,
     prepare_dataset,
     set_lora,
+    set_lora_strength,
     training_config,
 )
 from content_automation.lora_remote import plan as remote_plan
@@ -155,6 +156,7 @@ from content_automation.references import (
     tag_assets,
 )
 from content_automation.registry import db_path
+from content_automation.registry.audit import append_event
 from content_automation.registry.db import RegistryError
 from content_automation.registry.dryruns import CostLine
 from content_automation.registry.ids import resolve
@@ -2322,6 +2324,27 @@ def lora_set(
         raise typer.Exit(code=1) from None
     for line in lines:
         typer.echo(line)
+
+
+@lora_app.command("strength")
+def lora_strength(
+    value: Annotated[float, typer.Argument(help="0.5-1.2 (1.0 default; group scenes use "
+                                           "groupLoraStrength).")],
+) -> None:
+    """Set the LoRA strength in config/comfyui.json for the likeness comparison (logged in the
+    audit)."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca lora strength {value:g}") as scope:
+        try:
+            before, path = set_lora_strength(settings, value)
+        except LoraError as error:
+            typer.echo(str(error), err=True)
+            raise typer.Exit(code=1) from None
+        append_event(scope.conn, "config_changed", actor="user", command=scope.command,
+                     details={"file": path.as_posix(), "key": "loraStrength", "from": before,
+                              "to": value})
+    typer.echo(f"loraStrength: {before:g} -> {value:g} ({path.as_posix()}); logged in the audit.")
 
 
 @lora_app.command("train-remote")

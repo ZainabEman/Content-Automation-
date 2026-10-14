@@ -1,5 +1,11 @@
 {
-  "_note": "client to confirm (DE vs EN): the content language. \"en\" is today's behaviour; platforms may override it. Nothing switches to German without a change here.",
+  "_note": "confirmed 2026-10-14: the content language is English (\"en\") with German touches (german_touch); platforms may override the language.",
   "language": "en",
+  "german_touch": {
+    "share": 0.25,
+    "headline_or_cta_de": true,
+    "key_terms_de": true,
+    "hashtags_de": "1-2"
+  },
   "platforms": {}
 }

@@ -1,5 +1,5 @@
 {
-  "_note": "client to confirm: the names of the workflow-owned columns the registry adds to the Content Tracker (PRD Phase 4 §14 D-14). They are appended after the existing columns. Publication status and URL wait for Phase 9.",
+  "_note": "confirmed 2026-10-14: the tracker is the Google Sheet Content Tracker. The names of the workflow-owned columns the registry adds to the Content Tracker (PRD Phase 4 §14 D-14). They are appended after the existing columns. Publication status and URL wait for Phase 9.",
   "registry_columns": {
     "bg_id": "BG ID",
     "version": "Version",

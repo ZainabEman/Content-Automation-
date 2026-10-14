@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "_note": "v2 (Phase 5 P5-D8): language, region, type rss|html, pillarHints, trust, enabled. German candidates are disabled until the client confirms them; their feed URLs are unverified.",
+  "_note": "v2 (Phase 5 P5-D8): language, region, type rss|html, pillarHints, trust, enabled. German sources confirmed 2026-10-14; each feed checked once (BfDI: HTTP 404, disabled).",
   "sources": [
     {
       "name": "Search Engine Journal",
@@ -92,8 +92,8 @@
         "ai_risks"
       ],
       "trust": "secondary",
-      "enabled": false,
-      "_note": "candidate — client to confirm; feed URL unverified"
+      "enabled": true,
+      "_note": "confirmed 2026-10-14; feed checked: HTTP 200, 69 entries"
     },
     {
       "name": "heise online",
@@ -112,8 +112,8 @@
         "ai_solutions"
       ],
       "trust": "secondary",
-      "enabled": false,
-      "_note": "candidate — client to confirm; feed URL unverified"
+      "enabled": true,
+      "_note": "confirmed 2026-10-14; feed checked: HTTP 200, 152 entries"
     },
     {
       "name": "netzpolitik.org",
@@ -131,8 +131,8 @@
         "ai_misuse"
       ],
       "trust": "secondary",
-      "enabled": false,
-      "_note": "candidate — client to confirm; feed URL unverified"
+      "enabled": true,
+      "_note": "confirmed 2026-10-14; feed checked: HTTP 200, 25 entries"
     },
     {
       "name": "golem.de",
@@ -150,8 +150,8 @@
         "ai_solutions"
       ],
       "trust": "secondary",
-      "enabled": false,
-      "_note": "candidate — client to confirm; feed URL unverified"
+      "enabled": true,
+      "_note": "confirmed 2026-10-14; feed checked: HTTP 200, 40 entries"
     },
     {
       "name": "t3n",
@@ -169,8 +169,8 @@
         "german_problems"
       ],
       "trust": "secondary",
-      "enabled": false,
-      "_note": "candidate — client to confirm; feed URL unverified"
+      "enabled": true,
+      "_note": "confirmed 2026-10-14; feed checked: HTTP 200, 20 entries"
     },
     {
       "name": "BSI (press)",
@@ -187,8 +187,8 @@
         "ai_misuse"
       ],
       "trust": "primary",
-      "enabled": false,
-      "_note": "candidate — client to confirm; feed URL unverified"
+      "enabled": true,
+      "_note": "confirmed 2026-10-14; feed checked: HTTP 200, HTML page"
     },
     {
       "name": "Destatis (press)",
@@ -204,8 +204,8 @@
         "german_problems"
       ],
       "trust": "primary",
-      "enabled": false,
-      "_note": "candidate — client to confirm; feed URL unverified"
+      "enabled": true,
+      "_note": "confirmed 2026-10-14; feed checked: HTTP 200, HTML page"
     },
     {
       "name": "BfDI",
@@ -222,7 +222,7 @@
       ],
       "trust": "primary",
       "enabled": false,
-      "_note": "candidate — client to confirm; feed URL unverified"
+      "_note": "feed check 2026-10-14 failed: HTTP 404 (the press page moved); stays disabled until the URL is fixed"
     }
   ]
 }

@@ -61,13 +61,13 @@ def _content_list(folder: Path) -> Path:
     return path
 
 
-def test_german_candidates_are_present_but_disabled() -> None:
+def test_german_sources_confirmed_where_the_feed_works() -> None:
     sources = load_sources(REPO / "config" / "sources.json")
-    german = [s for s in sources if s.language == "de"]
-    assert {s.name for s in german} >= {"tagesschau.de", "heise online", "netzpolitik.org",
-                                        "golem.de", "t3n", "BSI (press)", "Destatis (press)",
-                                        "BfDI"}
-    assert not any(s.runs for s in german) and all(s.note for s in german)
+    german = {s.name: s for s in sources if s.language == "de"}
+    assert set(german) >= {"tagesschau.de", "heise online", "netzpolitik.org", "golem.de", "t3n",
+                           "BSI (press)", "Destatis (press)", "BfDI"}
+    assert [name for name, s in german.items() if not s.runs] == ["BfDI"]  # HTTP 404 on check
+    assert all(s.note for s in german.values())
     assert all(s.runs for s in sources if s.language == "en")
 
 

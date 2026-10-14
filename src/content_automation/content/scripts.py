@@ -10,7 +10,7 @@ an item without a package, `<OUTPUT_DIR>/items/<BG-x>/scripts/v<n>/` (C6-1).
 
 import json
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Literal, Self
 
@@ -21,7 +21,7 @@ from content_automation.core.files import CamelModel
 from content_automation.registry.claims import Claim, list_claims
 from content_automation.registry.decisions import list_decisions
 from content_automation.registry.items import Item, get_item
-from content_automation.registry.strategy import load_content
+from content_automation.registry.strategy import GermanTouch, load_content
 
 SCRIPTS_DIR = "scripts"
 
@@ -162,6 +162,7 @@ class Template:
     feedback: str | None
     total_words: tuple[int, int] | None
     stores_in: Path
+    german_touch: GermanTouch | None = None  # config/content.json (confirmed 2026-10-14)
 
     def skeleton(self) -> Script:
         return Script(item=self.item.id, version=self.version, formula=self.formula_name,
@@ -174,7 +175,8 @@ def build_template(conn: sqlite3.Connection, settings: Settings, ref: str) -> Te
     formulas = load_formulas(settings.formulas_file)
     name, formula = formula_for(item, formulas)
     platform = item.platforms[0] if item.platforms else None
-    language = load_content(settings.content_file).for_platform(platform or "")
+    content = load_content(settings.content_file)
+    language = content.for_platform(platform or "")
     wpm = formulas.words_per_minute.get(language, 150)
     total = ((formula.minutes[0] * wpm, formula.minutes[1] * wpm) if formula.minutes else None)
     return Template(
@@ -183,6 +185,7 @@ def build_template(conn: sqlite3.Connection, settings: Settings, ref: str) -> Te
         claims=research_claims(conn, item), feedback=current_feedback(conn, item),
         total_words=total,
         stores_in=artifact_dir(settings, item, item.current_version),
+        german_touch=content.german_touch if language == "en" else None,
     )
 
 
@@ -191,6 +194,8 @@ def template_json(template: Template) -> dict[str, Any]:
         "item": template.item.id, "title": template.item.title,
         "version": template.version, "formula": template.formula_name,
         "artifact": template.formula.artifact, "language": template.language,
+        "germanTouch": ({**asdict(template.german_touch), "rule": template.german_touch.rule()}
+                        if template.german_touch else None),
         "platform": template.platform,
         "sections": [spec.model_dump(by_alias=True, exclude_defaults=True)
                      for spec in template.formula.sections],
@@ -212,6 +217,8 @@ def template_lines(template: Template) -> list[str]:
              f"Formula {template.formula_name} ({template.formula.artifact}), language "
              f"{template.language}" + (f", platform {template.platform}" if template.platform
                                        else "")]
+    if template.german_touch:
+        lines.append(template.german_touch.rule())
     if template.total_words:
         lines.append(f"Length: {template.total_words[0]}-{template.total_words[1]} words "
                      f"({template.formula.minutes[0] if template.formula.minutes else 0}-"

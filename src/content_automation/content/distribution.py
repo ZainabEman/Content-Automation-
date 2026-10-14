@@ -42,6 +42,7 @@ from content_automation.registry.items import (
     set_publication_url,
     set_status,
 )
+from content_automation.registry.strategy import load_content
 
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
 VIDEO_SUFFIXES = (".mp4", ".mov", ".m4v", ".webm")
@@ -144,9 +145,11 @@ def copy_template(conn: sqlite3.Connection, settings: Settings, ref: str,
         item=item, version=item.current_version, formula_name="social_graphic",
         formula=formula, language="en", platform=platform, rules=None, claims=[],
         feedback=None, total_words=None, stores_in=platform_dir(settings, item, variant))
+    content = load_content(settings.content_file)
+    touch = content.german_touch if content.for_platform(platform) == "en" else None
     return replace(base, formula_name="social_graphic", formula=formula, platform=platform,
                    rules=formula.platforms.get(platform), total_words=None,
-                   stores_in=platform_dir(settings, item, variant))
+                   stores_in=platform_dir(settings, item, variant), german_touch=touch)
 
 
 def _has_formula(conn: sqlite3.Connection, settings: Settings, ref: str) -> bool:

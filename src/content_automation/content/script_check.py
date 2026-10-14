@@ -153,6 +153,10 @@ def check_script(conn: sqlite3.Connection, template: Template, script: Script) -
         if spec.key == "copy" and template.rules:
             _platform(text, script, template, check)
     check.words = sum(words(section.text) for section in script.sections)
+    written = " ".join([*(section.text for section in script.sections), *script.title_options,
+                        script.cta, *script.hashtags])
+    if template.german_touch and not template.german_touch.present(written):
+        check.warnings.append(f"no German element; {template.german_touch.rule()}")
     if template.total_words:
         low, high = template.total_words
         if not low <= check.words <= high:

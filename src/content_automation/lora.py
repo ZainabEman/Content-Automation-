@@ -235,6 +235,12 @@ def _cascade(name: str) -> cv2.CascadeClassifier:
 def count_faces(image: Image.Image) -> int:
     """Faces in the photo: frontal, else profile (both sides); overlapping and tiny
     background boxes are not counted."""
+    return len(face_boxes(image))
+
+
+def face_boxes(image: Image.Image) -> list[tuple[float, float, float, float]]:
+    """The faces counted by count_faces as (left, top, right, bottom) shares of the image
+    (OpenCV Haar cascades; free and local)."""
     scale = min(1.0, _DETECT_SIDE / max(image.size))
     small = image.convert("L").resize(
         (round(image.width * scale), round(image.height * scale)), Image.Resampling.LANCZOS
@@ -251,11 +257,13 @@ def count_faces(image: Image.Image) -> int:
         found = _cascade(name).detectMultiScale(
             source, scaleFactor=1.1, minNeighbors=6, minSize=(side, side)
         )
-        boxes += [(int(x), int(y), int(w), int(h)) for x, y, w, h in found]
+        width = gray.shape[1]  # a mirrored pass: its boxes are mirrored back
+        boxes += [(int(width - x - w) if flip else int(x), int(y), int(w), int(h))
+                  for x, y, w, h in found]
         if boxes:
             break
     if not boxes:
-        return 0
+        return []
     largest = max(w for _, _, w, _ in boxes)
     kept: list[tuple[int, int, int, int]] = []
     for box in sorted(boxes, key=lambda b: -b[2]):
@@ -267,7 +275,8 @@ def count_faces(image: Image.Image) -> int:
                for kx, ky, kw, kh in kept):
             continue
         kept.append(box)
-    return len(kept)
+    high, wide = gray.shape
+    return [(x / wide, y / high, (x + w) / wide, (y + h) / high) for x, y, w, h in kept]
 
 
 def _check_photos(

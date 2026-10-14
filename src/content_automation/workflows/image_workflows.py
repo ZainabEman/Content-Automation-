@@ -1,5 +1,6 @@
 """Named image workflows: check inputs, pick references, build the prompt, run the job."""
 
+import json
 from dataclasses import dataclass, field, replace
 
 from content_automation.ai.image import (
@@ -574,6 +575,7 @@ def prepare_workflow(
         # Checked now (zones, fonts, every text fits), so a problem stops before any cost.
         text = prepare_text_overlay(design, system, brand, company, aspect_ratio=aspect)
         recorded["textOverlay"] = text.describe()
+        recorded["textBoxes"] = json.dumps(text.boxes())
     picks: DesignPicks | None = None
     if design is not None and system is not None:
         prompt = build_design_prompt(

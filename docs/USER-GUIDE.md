@@ -57,6 +57,8 @@ Type every phrase below in Codex Desktop. Codex runs the matching `uv run ca …
 - "make 2 and 5": one package each
 - "make a post about X": a package about X
 - "make an insta post / facebook ad / reel about X": a package with only those deliverables
+- "use comfyui": this build on ComfyUI with Roman's LoRA (its dry run, then "ok")
+- "use the fallback": only the offered fallback line's own dry run, then "ok" (never for ads)
 - "write script for BG-x": a checked, versioned script
 - "write copy for BG-x": the copy for a post, carousel or ad
 - "write brief for BG-x": the production brief

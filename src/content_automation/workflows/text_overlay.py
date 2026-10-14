@@ -330,6 +330,14 @@ class TextOverlay:
             "where the contrast is too low; the image model draws no text"
         )
 
+    def boxes(self) -> list[tuple[float, float, float, float]]:
+        """The text areas (panel, footer) as (left, top, right, bottom) shares: a face must not
+        sit there (workflows/person_check.py)."""
+        found = [self.panel.box]
+        if "footer" in self.texts:
+            found.append(self.spec.footer.box)
+        return found
+
     def areas(self) -> str:
         """The areas the prompt keeps clear for the text."""
         found = [(self.panel.label, self.panel.box)]

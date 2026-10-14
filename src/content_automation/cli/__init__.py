@@ -950,11 +950,26 @@ def job_review(
             "colours, layout family)?"
         ),
     ] = "person",
+    person: Annotated[
+        str | None,
+        typer.Option("--person", help='Track L: pass or fail, then "<reason>" (what Codex '
+                     "saw: likeness, stray text, hands and face)."),
+    ] = None,
+    reason: Annotated[list[str] | None, typer.Argument(help="With --person: why.")] = None,
 ) -> None:
     """Record a person or set check of an image (saved in details.json; the newest counts)."""
     if check not in ("person", "set"):
         typer.echo("--check must be person or set.", err=True)
         raise typer.Exit(code=2)
+    if person is not None:
+        text = " ".join(reason or []).strip()
+        mixed = passed or failed is not None or check != "person"
+        if person not in ("pass", "fail") or not text or mixed:
+            typer.echo('Use: ca job review <job> --person pass|fail "<reason>" (a reason '
+                       "always: what you saw in the image).", err=True)
+            raise typer.Exit(code=2)
+        passed, failed = person == "pass", (text if person == "fail" else None)
+        note = text if person == "pass" else note
     if passed == (failed is not None):
         typer.echo("Give exactly one of --pass or --fail \"<what differs>\".", err=True)
         raise typer.Exit(code=2)

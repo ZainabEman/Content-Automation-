@@ -110,6 +110,10 @@ GROUPS: tuple[Group, ...] = (
         Phrase("make an insta post / facebook ad / reel about X",
                'ca content start --topic "X" --deliverables "…"',
                "a package with those deliverables"),
+        Phrase("use comfyui", 'ca content build "<folder>" --provider comfyui --dry-run',
+               "this run on ComfyUI (Roman's LoRA): its dry run, then ok"),
+        Phrase("use the fallback", 'ca content build "<folder>" --provider <fallback> --dry-run',
+               "only the offered fallback line's own dry run, then ok; never for ads"),
     )),
     Group("write-script", ".agents/skills/write-script/SKILL.md", (
         Phrase("write script for BG-x", "ca script template BG-x --json; ca script save BG-x",

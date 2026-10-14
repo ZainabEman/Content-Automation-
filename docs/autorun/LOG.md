@@ -145,3 +145,6 @@ Needs review: report docs/autorun/REPORT-PHASE-10.md and this entry are uncommit
 
 ## Decisions (user, 2026-10-14) — language, sources, targets — DONE c8c8b4d (main)
 Needs review: German elements are found by umlauts/ß and a short German word list (warning only); 7 German feeds enabled after one GET each, BfDI 404 stays disabled.
+
+## L1 — LoRA registered (sha256 matches MANIFEST.json), Z-Image workflow 9 steps/CFG 1/~1024 px, prompt rules, models, 24 GB/30 GB, BfDI — DONE 39f7082
+Needs review: the LoRA was not in outputs/lora/zimage/, so its two files were copied from Downloads/roman_lora_v2.zip (git-ignored); groups are detected by words (group, team, colleagues, audience, crowd); 24 GB price $0.00031/s unverified; BfDI's new press page found but not fetched, still disabled.

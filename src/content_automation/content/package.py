@@ -21,7 +21,7 @@ slides.
 import json
 import re
 import shutil
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -50,6 +50,7 @@ from content_automation.content.brief import (
 )
 from content_automation.content.carousel_format import package_format
 from content_automation.content.deliverables import (
+    Deliverable,
     DeliverableCatalog,
     DeliverableError,
     load_deliverables,
@@ -85,7 +86,7 @@ from content_automation.registry import runtime
 from content_automation.registry.artifacts import latest_artifact
 from content_automation.registry.db import RegistryError
 from content_automation.registry.dryruns import CostLine
-from content_automation.registry.jobs import JobConfig, load_job_config
+from content_automation.registry.jobs import JobConfig, find_by_result, load_job_config
 from content_automation.research.collectors import CollectorError
 from content_automation.research.models import SourceArticle, SourcesError
 from content_automation.research.run import collect, topic_digest, topic_note
@@ -121,6 +122,7 @@ from content_automation.workflows.image_workflows import (
     prepare_workflow,
     run_workflow,
 )
+from content_automation.workflows.person_check import check_job_image
 from content_automation.workflows.registry import WorkflowError
 from content_automation.workflows.variety import (
     DesignPicks,
@@ -183,6 +185,9 @@ class PackageItem(CamelModel):
     job_ids: list[str] = Field(default_factory=list)  # a carousel has one job per slide
     picks: DesignPicks | None = None  # format, scene, wardrobe, props, style images used
     redo: list[int] = Field(default_factory=list)  # positions a review regenerate makes again
+    # Track L: automatic redos used per image (at most 1 per "ok") and the failed checks' reasons
+    person_redos: dict[int, int] = Field(default_factory=dict)
+    person_reasons: dict[int, list[str]] = Field(default_factory=dict)
     files: list[str] = Field(default_factory=list)  # relative to the package folder
     image_refs: list[str] = Field(default_factory=list)  # "<jobId>/<file>" per image
     image_folders: list[str] = Field(default_factory=list)  # the job folder of each image
@@ -729,6 +734,18 @@ def _brief_template(
 # ----------------------------------------------------------------------------- build
 
 
+def ad_provider_problem(specs: Mapping[str, Deliverable], provider: str | None,
+                        image_provider: str) -> str | None:
+    """Facebook ads (strict, Track L): never a fallback provider. A --provider other than the
+    ad's own (mock aside, for local tests) is refused for a build with an ad."""
+    ads = [name for name, spec in specs.items() if spec.part == "ad"]
+    own = {specs[name].provider or image_provider for name in ads}
+    if not ads or provider is None or provider == "mock" or provider in own:
+        return None
+    return (f"{', '.join(ads)}: never a fallback provider for an ad (--provider {provider}); "
+            f"build it with {', '.join(sorted(own))}, or leave the ad out of this build")
+
+
 def build_package(folder: Path, settings: Settings, *, dry_run: bool,
                   provider: str | None = None) -> PackageResult:
     """Raises BriefError when brief.json is missing or invalid (nothing is made). provider:
@@ -752,9 +769,16 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool,
         checks=lambda checked: _deliverable_problems(checked, settings, folder),
     )
     catalog = load_deliverables(settings.deliverables_file)
-    configured = {catalog.deliverables[name].provider for name in brief.deliverables
-                  if name in catalog.deliverables} - {None}
-    chosen = provider or (configured.pop() if len(configured) == 1 else None)
+    specs = {name: catalog.deliverables[name] for name in brief.deliverables
+             if name in catalog.deliverables}
+    configured = {spec.provider for spec in specs.values()} - {None}
+    # --provider first; IMAGE_PROVIDER=mock (local test mode) stays mock; then the
+    # deliverable's provider; then IMAGE_PROVIDER.
+    chosen = provider or (None if settings.image_provider == "mock" else
+                          configured.pop() if len(configured) == 1 else None)
+    refused = ad_provider_problem(specs, provider, settings.image_provider)
+    if refused is not None:
+        raise BriefError([refused])
     if chosen and chosen != settings.image_provider:
         settings = settings.model_copy(update={"image_provider": chosen})
     package = _load(folder, brief)
@@ -768,15 +792,17 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool,
     if problems:  # format rules, a stat without a research source, ...: nothing is made
         raise BriefError(problems)
     if dry_run:
-        lines, total, image_costs = _dry_run_lines(folder, brief, package, plans, settings)
-        fallbacks = sorted({str(catalog.deliverables[name].fallback_provider)
-                            for name in brief.deliverables if name in catalog.deliverables
-                            and catalog.deliverables[name].fallback_provider} - {chosen or ""})
+        lines, total, image_costs, redo_costs = _dry_run_lines(folder, brief, package, plans,
+                                                               settings)
+        fallbacks = sorted({str(spec.fallback_provider) for spec in specs.values()
+                            if spec.fallback_provider and spec.part != "ad"}  # never for ads
+                           - {chosen or settings.image_provider})
         lines += [f"Fallback provider {name}: not used unless the user says ok to it; its own "
                   f'dry run: uv run ca content build "{folder}" --provider {name} --dry-run'
                   for name in fallbacks]
         result = PackageResult(folder, lines, package, estimated_usd=total)
-        result.cost_lines = _cost_lines(folder, brief, package, image_costs, settings)
+        result.cost_lines = _cost_lines(folder, brief, package, image_costs, settings,
+                                        redo_costs)
         if brief.carousel is not None and is_animated(brief.carousel):
             try:
                 design = load_carousel_design(settings.carousel_design_file)
@@ -857,15 +883,17 @@ def _job_config(settings: Settings) -> JobConfig:
 
 def _cost_lines(
     folder: Path, brief: ContentBrief, package: ContentPackage, image_costs: dict[str, float],
-    settings: Settings,
+    settings: Settings, redo_costs: dict[str, float] | None = None,
 ) -> list[CostLine]:
-    """The dry run per item, job type and provider: what an "ok" would authorize (D-4)."""
+    """The dry run per item, job type and provider: what an "ok" would authorize (D-4). The
+    max of a part with the person includes one automatic redo of each such image."""
     config = _job_config(settings)
     items = runtime.package_items(folder)
     names = _part_names(brief, settings)
     provider = settings.image_provider
     lines = [
-        CostLine(items.get(kind), "image", provider, config.unit(provider), cost, cost, names[kind])
+        CostLine(items.get(kind), "image", provider, config.unit(provider), cost,
+                 round(cost + (redo_costs or {}).get(kind, 0.0), 6), names[kind])
         for kind, cost in image_costs.items() if cost > 0 or config.paid(provider)
     ]
     if brief.carousel is not None and is_animated(brief.carousel):
@@ -1169,6 +1197,39 @@ def _check(
     return review.result if review is not None else None
 
 
+def _review_note(item: PackageItem, position: int, settings: Settings) -> str:
+    found = _image_job(item, position, settings)
+    review = found[0].review(found[1], "person") if found is not None else None
+    return (review.note if review is not None else None) or "differs"
+
+
+def _reject_check(job: Job, name: str, reason: str) -> None:
+    """An automatic check failed: recorded on the image and its result never reused (D-6)."""
+    job.add_review(name, "fail", reason, check="person")
+    scope = runtime.current()
+    found = find_by_result(scope.conn, job.folder.as_posix()) if scope is not None else None
+    if found is not None and not found.rejected_at:
+        runtime.reject(found.id, reason)
+
+
+def _failed_twice(item: PackageItem, kind: str, position: int, folder: Path
+                  ) -> tuple[PackageItem, list[str]]:
+    """The second failed person check of an image: failed, the reasons, the user's choice."""
+    file = item.files[position] if position < len(item.files) else f"{kind} image {position + 1}"
+    reasons = "; ".join(item.person_reasons.get(position, [])) or "no reason recorded"
+    item.status = "failed"
+    item.error = f"person check failed twice for {file}: {reasons}"
+    no_person = ("the ad always shows him: only the retry" if kind == "ad" else
+                 'the no-person version (LinkedIn posts: "post": {"person": false} in '
+                 "brief.json; Facebook posts always show him)")
+    return item, [
+        f"{kind}: {item.error}.",
+        "  Show the user the image and the reasons, then offer: 1) a retry: a new dry run, "
+        f'uv run ca content build "{folder}" --dry-run, and after their "ok" --authorize '
+        f"<dryrun_id>; 2) {no_person}. Never choose for the user.",
+    ]
+
+
 def _person_shown(item: PackageItem, position: int, settings: Settings) -> bool:
     found = _image_job(item, position, settings)
     return found is not None and found[0].inputs.get("personShown") is True
@@ -1255,18 +1316,25 @@ def _person_lines(
         if waiting
         else f"PERSON CHECK: stop here. {file} shows the person."
     )
+    earlier = item.person_reasons.get(position, [])
+    redo = (f"  Made again once already ({'; '.join(earlier)}): a second fail stops."
+            if earlier else "  A fail is made again once automatically (the dry run's max "
+            "included it); a second fail stops.")
     return [
         head,
+        "  Face check (automatic): " + ("skipped (mock image, no face to find)."
+                                         if job.provider == "mock" else "passed."),
         f"  View it: {(folder / file).resolve()}",
-        "  beside his primary photos: "
+        "  beside his photos: "
         + ", ".join(str(path) for path in _identity_photos(job, settings)),
-        "  Same person (hair, build, facial hair, age)? Record the result:",
-        f'    uv run ca job review "{job.folder}" --image {name} --pass',
-        f'    uv run ca job review "{job.folder}" --image {name} --fail "<what differs>"',
-        "  If it differs: stop, show the user the image and ask whether to make it again "
-        f"({_cost_text(job, settings)}). Only after a yes:",
-        f'    uv run ca content build "{folder}"   (makes this image again)',
-        f'  If it passes: uv run ca content build "{folder}"   (continues)',
+        "  Look at the image itself (never pass one you did not look at): is it Roman (hair, "
+        "build, facial hair, age)? No stray text or trigger word visible? Hands and face free "
+        "of obvious defects? Record the result:",
+        f'    uv run ca job review "{job.folder}" --image {name} --person pass "<what you saw>"',
+        f'    uv run ca job review "{job.folder}" --image {name} --person fail "<what differs>"',
+        redo,
+        f'  Then: uv run ca content build "{folder}"   (continues, or makes it again once; '
+        f"{_cost_text(job, settings)})",
     ]
 
 
@@ -1353,7 +1421,20 @@ def _make_images(
     if len(item.image_folders) < len(item.image_refs):  # an item from before this field
         item.image_folders += [""] * (len(item.image_refs) - len(item.image_folders))
     todo = _todo(plan, item if keep else None, settings)
-    for position in todo:
+    scope = runtime.current()
+    if scope is not None and scope.authorizations:  # a new "ok": its own automatic redo
+        item.person_redos, item.person_reasons = {}, {}
+    for position in todo:  # a person check failed by Codex: the one automatic redo, or stop
+        if keep and position < len(item.image_refs) and _check(
+                item, position, "person", settings) == "fail":
+            reason = _review_note(item, position, settings)
+            item.person_reasons.setdefault(position, []).append(f"Codex check: {reason}")
+            if item.person_redos.get(position, 0) >= 1:
+                return _failed_twice(item, kind, position, folder)
+            item.person_redos[position] = item.person_redos.get(position, 0) + 1
+    queue = list(todo)
+    while queue:
+        position = queue.pop(0)
         inputs = plan.jobs[position]
         if position > 0 and plan.slot.format == "carousel" and item.image_refs:
             # Later slides attach slide 1 (it passed the person check): one scene and design.
@@ -1391,6 +1472,16 @@ def _make_images(
             item.status = "failed"
             item.error = f"image check {target.name}: {'; '.join(checked)}"
             return item, [f"{kind}: {item.error}; make it again only after the user agrees"]
+        faces = check_job_image(job, name, settings) if job.inputs.get("personShown") else []
+        if faces:  # Track L face check (free, local): made again once, then stop
+            reason = "face check: " + "; ".join(faces)
+            _reject_check(job, name, reason)
+            item.person_reasons.setdefault(position, []).append(reason)
+            if item.person_redos.get(position, 0) < 1:
+                item.person_redos[position] = item.person_redos.get(position, 0) + 1
+                queue.insert(0, position)
+                continue
+            return _failed_twice(item, kind, position, folder)
         if item.picks is None:
             item.picks = DesignPicks.from_recorded(job.inputs, job.style_asset_ids)
         if job.inputs.get("personShown") is True and batch.warm:
@@ -1590,9 +1681,11 @@ def _dry_run_lines(
     package: ContentPackage,
     plans: dict[str, _ImagePlan],
     settings: Settings,
-) -> tuple[list[str], float, dict[str, float]]:
-    """The dry-run lines, the image total and the image cost per part."""
+) -> tuple[list[str], float, dict[str, float], dict[str, float]]:
+    """The dry-run lines, the image total, the image cost per part and, per part, the cost of
+    one automatic redo of each image with the person (Track L: in the max, not the estimate)."""
     costs: dict[str, float] = {}
+    redos: dict[str, float] = {}
     lines = [
         "DRY RUN: nothing is made and nothing is spent.",
         f"Package: {folder}",
@@ -1615,12 +1708,15 @@ def _dry_run_lines(
             lines.append(f"{names[kind]}: cannot be made yet: {plan.error}")
             continue
         todo = [plan.prepared[position] for position in _todo(plan, item, settings)]
-        cost = 0.0
+        cost = redo = 0.0
         for prepared in todo:
             cost += estimate_cost_usd(prepared.request, settings, cold_start=batch.cold)
             batch.cold = False
+            if prepared.person_shown:
+                redo += estimate_cost_usd(prepared.request, settings, cold_start=False)
         total += cost
         costs[kind] = round(cost, 6)
+        redos[kind] = round(redo, 6)
         lead = plan.prepared[0]
         request = lead.request
         slot = plan.slot
@@ -1660,14 +1756,17 @@ def _dry_run_lines(
             if batch.warm:
                 lines.append(
                     f"  person check: for {which}, after every image of the package is made "
-                    "back-to-back on one warm GPU worker; one check per build, and a failed "
-                    "image is made again only after the user agrees"
+                    "back-to-back on one warm GPU worker; one check per build"
                 )
             else:
                 lines.append(
                     f"  person check: the build stops after {which} so Codex can compare each "
                     "with his photos before anything else is made"
                 )
+            lines.append(
+                "  automatic face check, then Codex's look; a fail is made again once with a "
+                f"new seed (the max includes it: +${redos[kind]:.3f}); a second fail stops"
+            )
         if len(plan.prepared) > 1:
             lines.append(
                 "  set check: when all images exist, the build stops once more so Codex can "
@@ -1692,7 +1791,7 @@ def _dry_run_lines(
         basis = ""
     if basis:  # GPU time (ComfyUI): an estimate; the build shows estimate vs actual
         lines.insert(-1, f"Image cost basis: {basis}")
-    return lines, round(total, 6), costs
+    return lines, round(total, 6), costs, redos
 
 
 def _animated_dry_run(

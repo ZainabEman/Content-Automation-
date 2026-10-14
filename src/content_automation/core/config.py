@@ -102,6 +102,7 @@ class Settings(BaseSettings):
     strategy_file: Path = Path("config/strategy.json")  # pillars, audiences (Phase 5)
     content_file: Path = Path("config/content.json")  # content language (Phase 5)
     newsletters_file: Path = Path("config/newsletters.json")  # senders, fetch limits (Phase 5)
+    formulas_file: Path = Path("config/formulas.json")  # editorial formulas (Phase 6)
 
     def summary_lines(self) -> tuple[str, ...]:
         """Return non-secret settings suitable for local CLI output."""

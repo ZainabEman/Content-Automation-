@@ -282,6 +282,19 @@ CREATE TABLE claims (
 CREATE INDEX claims_item ON claims (item_id);
 """
 
+SCHEMA_7 = """
+CREATE TABLE artifacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id TEXT NOT NULL REFERENCES items (id),
+    version INTEGER NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('script', 'brief', 'copy')),
+    path TEXT NOT NULL,
+    check_result TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX artifacts_item ON artifacts (item_id, version);
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "registry core", SCHEMA_1),
     Migration(2, "item deliverable", SCHEMA_2),
@@ -289,6 +302,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(4, "written view files", SCHEMA_4),
     Migration(5, "tracker last-written cells", SCHEMA_5),
     Migration(6, "ideas, sources and claims", SCHEMA_6),
+    Migration(7, "script and brief artifacts", SCHEMA_7),
 )
 
 _SCHEMA_TABLE = """

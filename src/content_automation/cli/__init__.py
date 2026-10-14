@@ -25,6 +25,7 @@ from content_automation.cli.bridge import (
 )
 from content_automation.cli.help import help_app
 from content_automation.cli.ideas import claims_app, ideas_app
+from content_automation.cli.scripts import script_app
 from content_automation.cli.items import audit_app, items_app
 from content_automation.cli.jobs import auth_app, jobs_app
 from content_automation.cli.scope import (
@@ -243,6 +244,7 @@ app.add_typer(jobs_app, name="jobs")
 app.add_typer(help_app, name="help")
 app.add_typer(ideas_app, name="ideas")
 app.add_typer(claims_app, name="claims")
+app.add_typer(script_app, name="script")
 app.add_typer(auth_app, name="auth")
 registry_app = typer.Typer(no_args_is_help=True, help="The content-item registry.")
 app.add_typer(registry_app, name="registry")

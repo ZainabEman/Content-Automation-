@@ -1,0 +1,87 @@
+{
+  "_note": "Editorial formulas (Phase 6 P6-D2). Section word ranges, durations and the deliverable mapping are a draft — client to confirm.",
+  "wordsPerMinute": {"de": 130, "en": 150},
+  "byDeliverable": {
+    "youtube_longform": "youtube_longform",
+    "podcast_episode": "podcast",
+    "linkedin_post": "social_graphic",
+    "facebook_post": "social_graphic",
+    "instagram_graphic": "social_graphic",
+    "instagram_carousel": "carousel",
+    "facebook_ad": "facebook_ad"
+  },
+  "byKind": {
+    "youtube": "youtube_longform",
+    "podcast": "podcast",
+    "post": "social_graphic",
+    "graphic": "social_graphic",
+    "carousel": "carousel",
+    "ad": "facebook_ad"
+  },
+  "formulas": {
+    "youtube_longform": {
+      "artifact": "script",
+      "brief": "youtube",
+      "minutes": [8, 12],
+      "sections": [
+        {"key": "hook", "what": "The first 20-30 seconds: why this matters to the viewer now", "words": [40, 120]},
+        {"key": "german_problem", "what": "The real problem in Germany (Mittelstand, society) this touches", "words": [150, 450]},
+        {"key": "ai_risk_or_mistake", "what": "The AI risk or mistake: what goes wrong, with sourced examples", "words": [200, 500]},
+        {"key": "why_it_happens", "what": "Why it happens: causes, incentives, missing knowledge", "words": [150, 450]},
+        {"key": "correct_ai_solution", "what": "The correct way to use AI here: concrete steps", "words": [250, 550]},
+        {"key": "cta_outro", "what": "Outro with one call to action", "words": [30, 120]}
+      ]
+    },
+    "podcast": {
+      "artifact": "script",
+      "brief": "podcast",
+      "minutes": [10, 20],
+      "sections": [
+        {"key": "warning", "what": "The warning in one or two sentences", "words": [30, 150]},
+        {"key": "critical_situation", "what": "The critical situation: who, where, what happened (sourced)", "words": [250, 900]},
+        {"key": "why_it_matters", "what": "Why it matters for the listener", "words": [200, 700]},
+        {"key": "what_could_go_wrong", "what": "What could go wrong next", "words": [200, 700]},
+        {"key": "correct_response", "what": "The correct response: what to do instead", "words": [250, 900]}
+      ]
+    },
+    "social_graphic": {
+      "artifact": "copy",
+      "sections": [
+        {"key": "central_message", "what": "The one message of the post", "words": [3, 30]},
+        {"key": "audience", "what": "Who it is for", "words": [1, 15]},
+        {"key": "purpose", "what": "educational, promotional or campaign", "words": [1, 1], "choices": ["educational", "promotional", "campaign"]},
+        {"key": "headline", "what": "The headline on the graphic", "words": [2, 12]},
+        {"key": "copy", "what": "The caption: hook on line 1, then the body", "words": [120, 250]},
+        {"key": "visual_direction", "what": "What the image shows (for the existing image pipeline)", "words": [5, 60]},
+        {"key": "cta", "what": "One call to action with the offer", "words": [2, 25]}
+      ],
+      "platforms": {
+        "linkedin": {"copyWords": [120, 250], "hookFirstLine": true, "hashtags": [3, 5]},
+        "facebook": {"copyWords": [120, 200], "hookFirstLine": true, "hashtags": [3, 5]},
+        "instagram": {"copyWords": [120, 200], "hookFirstLine": true, "hashtags": [3, 5]}
+      }
+    },
+    "carousel": {
+      "artifact": "copy",
+      "sections": [
+        {"key": "slide_01", "what": "Cover: the hook", "words": [2, 14]},
+        {"key": "slide_02", "what": "Point, stat or list", "words": [3, 40]},
+        {"key": "slide_03", "what": "Point, stat or list", "words": [3, 40]},
+        {"key": "slide_04", "what": "Point, stat or list", "words": [3, 40]},
+        {"key": "slide_05", "what": "Point, stat or list", "words": [3, 40]},
+        {"key": "slide_06", "what": "Point, stat or list", "words": [3, 40]},
+        {"key": "slide_07", "what": "Point, stat or list", "words": [3, 40]},
+        {"key": "slide_08", "what": "Final slide: a question for the comments", "words": [3, 20], "endsWith": "?"}
+      ]
+    },
+    "facebook_ad": {
+      "artifact": "copy",
+      "sections": [
+        {"key": "primary_text", "what": "Primary text above the ad", "words": [15, 125]},
+        {"key": "headline", "what": "Headline (at most 6 words)", "words": [1, 6]},
+        {"key": "description", "what": "Description under the headline", "words": [2, 20]},
+        {"key": "cta", "what": "Button text", "words": [1, 4]}
+      ]
+    }
+  }
+}

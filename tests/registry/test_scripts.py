@@ -107,10 +107,11 @@ def _sourced_video(conn: sqlite3.Connection) -> tuple[str, dict[str, str]]:
 
 
 def _draft(path: Path, item: str, version: int, verified: str, **changes: object) -> Path:
-    sections = [{"key": key, "text": " ".join(["Firms"] * count), "claimRefs": []}
-                for key, count in LENGTHS.items()]
-    sections[2]["text"] += " In 2025 calls rose."
-    sections[2]["claimRefs"] = [verified]
+    sections: list[dict[str, object]] = [
+        {"key": key, "text": " ".join(["Firms"] * count)
+         + (" In 2025 calls rose." if key == "ai_risk_or_mistake" else ""),
+         "claimRefs": [verified] if key == "ai_risk_or_mistake" else []}
+        for key, count in LENGTHS.items()]
     data: dict[str, object] = {"item": item, "version": version, "formula": "youtube_longform",
                                "language": "en", "sections": sections,
                                "titleOptions": ["Deepfake calls"]}

@@ -272,6 +272,8 @@ def registry_cells(folder: Path) -> Entry:
         names["generation"]: joined([item.generation_status for item in items]),
         names["review"]: joined([item.review_status for item in items]),
         names["upload"]: joined([upload_label(item, item.upload_provider) for item in items]),
+        names["production"]: joined([item.production_status if item.kind in ("youtube", "podcast")
+                                     else "—" for item in items]),
         names["updated"]: f"{updated[:10]} {updated[11:16]} UTC",
     }
 

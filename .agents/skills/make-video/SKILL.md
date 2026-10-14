@@ -57,3 +57,11 @@ Both `HEYGEN_AVATAR_ID` and `HEYGEN_VOICE_ID` are required. If one is empty, `ca
 6. Report the path of `final.mp4`, the credits used and the video's BG ID (`uv run ca item status "<package folder>#<deliverable>"`, e.g. `#reel_short`).
 
 Never say "ok" for the user, never edit `state/` or request files by hand, and show `ca` errors as they are.
+
+## HeyGen podcast (Phase 8)
+
+A podcast item whose production brief says `recordingSource: heygen` (produce-video):
+1. `uv run ca podcast heygen BG-x`: the dry run (credits per segment). "HeyGen voice ID not configured (client)": stop and tell the user; the client chooses the voice (`uv run ca env set`). Otherwise show the cost and stop for **"ok"**.
+2. Only after the user's "ok": `uv run ca podcast heygen BG-x --authorize <DR-id>` writes `state/heygen/<jobId>.json` (script, voiceId, avatarId).
+3. `uv run ca jobs check <jobId>` (go / skip / stop), then the HeyGen plugin with exactly that script, voice and avatar; save the file it returns.
+4. `uv run ca podcast record <jobId> "<file>" --credits <what the plugin reported>`: the job is recorded and the file imported as the recording (production → recorded). A failed plugin call: report it; never retry without the user's yes.

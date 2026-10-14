@@ -122,6 +122,17 @@ GROUPS: tuple[Group, ...] = (
         Phrase("redo slide 3 of BG-x", "ca regenerate BG-x --only slide3",
                "only that slide; the others are kept"),
     )),
+    Group("produce-video", ".agents/skills/produce-video/SKILL.md", (
+        Phrase("production status", "ca production list [--month]",
+               "youtube and podcast production; finals vs targets"),
+        Phrase("import recording/final for BG-x <path>",
+               'ca import BG-x "<path>" --as recording|final', "a checked copy; status moves"),
+        Phrase("send BG-x to the editor <name>", 'ca handoff BG-x --to "<name>"',
+               "the handoff folder; production editing"),
+        Phrase("BG-x recorded", "ca production set BG-x recorded", "only a legal move"),
+        Phrase("make thumbnail for BG-x", "ca thumbnail BG-x", "1280x720 with the brief's text"),
+        Phrase("export podcast audio for BG-x", "ca podcast audio BG-x", "MP3, -16 LUFS"),
+    )),
     Group("upload", ".agents/skills/upload/SKILL.md", (
         Phrase("upload approved files", "ca drive record <job> --file-id --link",
                "plugin upload requests, each recorded"),

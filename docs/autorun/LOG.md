@@ -121,3 +121,6 @@ Needs review: requireReview true stops auto-upload (old flow: set false); max_at
 
 ## P7S3 — provider per deliverable, image/ad checks, fallback line, review-assets + upload skills — DONE fe57415
 Needs review: no provider/fallbackProvider set in deliverables.json yet (client); image check min side 512 px, blank = grey stddev < 2; "upload" skill is new (no upload skill existed).
+
+## P8S1 — production status, import, handoff — DONE c1340cd
+Needs review: targets 8 YouTube/2 podcasts per month (config/production.json, client); back to editing only after a review revise (after final); handoff needs production recorded.

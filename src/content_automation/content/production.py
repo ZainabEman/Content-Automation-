@@ -42,7 +42,7 @@ IMPORT_MOVES = {"recording": "recorded", "edit": "edited", "final": "final"}
 IMPORT_TYPES = ("recording", "edit", "final", "thumbnail", "audio")
 
 
-def _config(settings: Settings) -> dict[str, Any]:
+def production_config(settings: Settings) -> dict[str, Any]:
     try:
         data = json.loads(settings.production_file.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -50,7 +50,7 @@ def _config(settings: Settings) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-def _produced(conn: sqlite3.Connection, ref: str) -> Item:
+def produced_item(conn: sqlite3.Connection, ref: str) -> Item:
     item = get_item(conn, ref)
     if item.kind not in PRODUCTION_KINDS:
         raise RegistryError(f"{item.id} is a {item.kind}: production is for youtube and podcast "
@@ -87,7 +87,7 @@ def set_production(conn: sqlite3.Connection, ref: str, target: str, *,
                    command: str | None = None) -> list[str]:
     """`ca production set`: only the legal moves; back to editing needs a review revise."""
     with transaction(conn):
-        item = _produced(conn, ref)
+        item = produced_item(conn, ref)
         before = item.production_status
         new_version = False
         if target == "editing" and before in ("edited", "final"):
@@ -117,7 +117,7 @@ def production_lines(conn: sqlite3.Connection, settings: Settings, month: str | 
                                    and days[0] <= item.planned_date <= days[1]))]
     lines = [f"{item.id} {item.kind} v{item.current_version} {item.production_status:<18} "
              f"{item.planned_date or '—'} {item.title}" for item in items]
-    targets = _config(settings).get("targetsPerMonth", {"youtube": 8})
+    targets = production_config(settings).get("targetsPerMonth", {"youtube": 8})
     for kind, target in targets.items():
         finals = sum(item.kind == kind and item.production_status == "final" for item in items)
         lines.append(f"{kind}: {finals} final of {target}" + (f" in {month}" if month else "")
@@ -140,7 +140,7 @@ def _check_media(settings: Settings, item: Item, path: Path, kind: str) -> list[
     if info.duration_sec is None:
         return ["does not decode (no duration)"]
     if kind == "final" and item.kind == "youtube":
-        rules = _config(settings).get("youtubeFinal", {})
+        rules = production_config(settings).get("youtubeFinal", {})
         min_height = int(rules.get("minHeight", 1080))
         width, height = info.width or 0, info.height or 0
         problems = []
@@ -158,7 +158,7 @@ def import_media(conn: sqlite3.Connection, settings: Settings, ref: str, file: P
         raise RegistryError(f"--as must be {', '.join(IMPORT_TYPES)}, not {kind}.")
     if not file.is_file():
         raise RegistryError(f"File not found: {file}")
-    item = _produced(conn, ref)
+    item = produced_item(conn, ref)
     target = IMPORT_MOVES.get(kind)
     if target is not None:  # refuse before copying when the move is not allowed
         expected = {"recorded": "awaiting_recording", "edited": "editing",
@@ -191,7 +191,7 @@ def kind_type(kind: str) -> ArtifactType:
 
 def handoff(conn: sqlite3.Connection, settings: Settings, ref: str, editor: str, *,
             command: str | None = None) -> list[str]:
-    item = _produced(conn, ref)
+    item = produced_item(conn, ref)
     if item.production_status != "recorded":
         raise RegistryError(f"{item.id}: production is {item.production_status}; a handoff "
                             "follows the recording (recorded).")

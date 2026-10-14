@@ -82,6 +82,13 @@ from content_automation.content.plan import (
     plan_calendar,
 )
 from content_automation.content.plan_config import plan_only_types
+from content_automation.content.podcast import (
+    heygen_lines,
+    heygen_request,
+    make_thumbnail,
+    podcast_audio,
+    record_heygen,
+)
 from content_automation.content.production import (
     handoff,
     import_media,
@@ -261,6 +268,8 @@ app.add_typer(review_app, name="review")
 app.add_typer(costs_app, name="costs")
 production_app = typer.Typer(no_args_is_help=True, help="YouTube and podcast production.")
 app.add_typer(production_app, name="production")
+podcast_app = typer.Typer(no_args_is_help=True, help="Podcast recording (HeyGen) and audio.")
+app.add_typer(podcast_app, name="podcast")
 app.add_typer(audit_app, name="audit")
 app.add_typer(jobs_app, name="jobs")
 app.add_typer(help_app, name="help")
@@ -2503,5 +2512,69 @@ def handoff_command(
     settings = _settings(dry_run=True)
     with _registry(settings, f"ca handoff {ref}") as scope:
         lines = handoff(scope.conn, settings, ref, editor, command=scope.command)
+    for line in lines:
+        typer.echo(line)
+
+
+@app.command("thumbnail")
+def thumbnail(ref: Annotated[str, typer.Argument(help="The item (BG ID).")]) -> None:
+    """1280x720 thumbnail: the imported background and the brief's text (at most 5 words)."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca thumbnail {ref}") as scope:
+        lines = make_thumbnail(scope.conn, settings, ref, command=scope.command)
+    for line in lines:
+        typer.echo(line)
+
+
+@podcast_app.command("heygen")
+def podcast_heygen(
+    ref: Annotated[str, typer.Argument(help="The podcast item (BG ID).")],
+    authorize_id: AuthorizeOption = None,
+) -> None:
+    """The HeyGen recording: a dry run; after the user's "ok" --authorize writes the request."""
+    _utf8_output()
+    settings = _settings(check_keys=False)
+    with _registry(settings, f"ca podcast heygen {ref}"
+                   + (" --authorize" if authorize_id else "")) as scope:
+        lines = heygen_lines(scope.conn, settings, ref)
+        key = f"podcast heygen {lines[0].item}"
+        if authorize_id is None:
+            for cost in lines:
+                typer.echo(f"{cost.item} {cost.label}: about {cost.estimate:g} {cost.unit}")
+            for line in save_dry_run_lines(settings, scope, key, lines):
+                typer.echo(line)
+            typer.echo(f"Only after the user says ok: uv run ca podcast heygen {ref} "
+                       "--authorize <the dry run ID above>")
+            return
+        for line in authorization_lines(authorize(settings, scope, authorize_id, key, lines)):
+            typer.echo(line)
+        for line in heygen_request(scope.conn, settings, ref, command=scope.command):
+            typer.echo(line)
+
+
+@podcast_app.command("record")
+def podcast_record(
+    job_id: Annotated[int, typer.Argument(help="The HeyGen request's jobId.")],
+    file: Annotated[Path, typer.Argument(help="The file the HeyGen plugin made.")],
+    credits: Annotated[float | None, typer.Option(help="Credits the plugin reported.")] = None,
+) -> None:
+    """Record the HeyGen result and import it as the recording."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca podcast record {job_id}") as scope:
+        lines = record_heygen(scope.conn, settings, job_id, file, credits=credits,
+                              command=scope.command)
+    for line in lines:
+        typer.echo(line)
+
+
+@podcast_app.command("audio")
+def podcast_audio_command(ref: Annotated[str, typer.Argument(help="The item (BG ID).")]) -> None:
+    """MP3 with FFmpeg loudnorm (-16 LUFS, config/production.json)."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca podcast audio {ref}") as scope:
+        lines = podcast_audio(scope.conn, settings, ref, command=scope.command)
     for line in lines:
         typer.echo(line)

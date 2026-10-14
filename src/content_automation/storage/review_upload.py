@@ -15,6 +15,7 @@ from pathlib import Path
 from content_automation.content.review import package_part
 from content_automation.core.config import Settings
 from content_automation.core.files import atomic_write_text
+from content_automation.registry.artifacts import latest_artifact
 from content_automation.registry.items import Item, get_item
 from content_automation.registry.jobs import get_job, list_jobs, load_job_config, open_job
 from content_automation.registry.jobs import succeed_job as _succeed
@@ -47,7 +48,14 @@ def folder_key(item: Item) -> str:
     return item.platforms[0] if item.platforms else "instagram"
 
 
-def _target(settings: Settings, item: Item) -> tuple[Path, list[Path], str] | None:
+def _target(conn: sqlite3.Connection, settings: Settings, item: Item
+            ) -> tuple[Path, list[Path], str] | None:
+    if item.kind in ("youtube", "podcast"):  # Phase 8: the approved final (+ thumbnail, audio)
+        version = item.approved_version or item.current_version
+        media = [Path(saved.path) for kind in ("final", "thumbnail", "audio")
+                 if (saved := latest_artifact(conn, item.id, kind, version)) is not None]
+        return (media[0].parent if media else Path("."), [p for p in media if p.is_file()],
+                item.id)
     found = package_part(settings, item)
     if found is None:
         return None
@@ -73,7 +81,7 @@ def upload_approved(conn: sqlite3.Connection, settings: Settings, ref: str, *,
     )
 
     item = get_item(conn, ref)
-    target = _target(settings, item)
+    target = _target(conn, settings, item)
     if target is None or not target[1]:
         return [f"{item.id}: no files to upload."]
     _, files, content_id = target

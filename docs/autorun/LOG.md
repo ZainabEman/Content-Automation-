@@ -133,3 +133,6 @@ Needs review: candidates are short items for youtube+tiktok+instagram (deliverab
 
 ## P9S2 — prepare, per-platform copy, publish, clips + distribute skills, full check — DONE 77d7e03 (+ fixes 6bf9de9)
 Needs review: see docs/autorun/REPORT-PHASES-7-9.md; Phase 10 not started.
+
+## P10S1 — monthly report (UC-19), resume --all (UC-21) — DONE a19fffd
+Needs review: a final counts in the month its last status event was recorded (review approved; podcasts production final, against the podcasts planned that month); clips/graphics targets in production.json reportTargets (client); resume --all prints the build for queued image jobs (open authorization) instead of running it.

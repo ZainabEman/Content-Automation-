@@ -58,6 +58,10 @@ GROUPS: tuple[Group, ...] = (
                "this month's recorded finals and publications vs the targets (no mocks)"),
         Phrase("report for <month>", "ca report month YYYY-MM",
                "the same for that month: outputs/reports/<YYYY-MM>.md"),
+        Phrase("verification status", "ca verify list",
+               "12 integrations; operational only with a recorded live pass"),
+        Phrase("verify <integration>", "ca verify run <name>",
+               "offline: config, adapter, failure path with a fake (never live)"),
         Phrase("what can I say", "ca help commands", "this list"),
     )),
     Group("show-content", ".agents/skills/show-content/SKILL.md", (

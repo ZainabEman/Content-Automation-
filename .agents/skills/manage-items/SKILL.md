@@ -1,6 +1,6 @@
 ---
 name: manage-items
-description: Show and decide Branded Genius content items by their BG ID (BG-007) with the `ca item`, `ca audit`, `ca jobs` and `ca auth` commands: list items, show one item's status and history, approve, reject, revise or resubmit, show the audit log, failed or unfinished jobs and the authorizations. Use for "show items", "what's pending", "status BG-x", "approve BG-x [BG-y]", "reject BG-x <reason>", "revise BG-x <feedback>", "resubmit BG-x", "history of BG-x", "show audit log", "what failed", "unfinished jobs", "resume unfinished jobs", "show authorizations", "tracker conflicts", "retry failed jobs", "show costs", "resume everything", "monthly report" or "report for <month>". Free; a retry spends money only after the user's "ok" to its dry run.
+description: Show and decide Branded Genius content items by their BG ID (BG-007) with the `ca item`, `ca audit`, `ca jobs` and `ca auth` commands: list items, show one item's status and history, approve, reject, revise or resubmit, show the audit log, failed or unfinished jobs and the authorizations. Use for "show items", "what's pending", "status BG-x", "approve BG-x [BG-y]", "reject BG-x <reason>", "revise BG-x <feedback>", "resubmit BG-x", "history of BG-x", "show audit log", "what failed", "unfinished jobs", "resume unfinished jobs", "show authorizations", "tracker conflicts", "retry failed jobs", "show costs", "resume everything", "monthly report", "report for <month>", "verification status" or "verify <integration>". Free; a retry spends money only after the user's "ok" to its dry run.
 ---
 
 # Manage items
@@ -27,6 +27,7 @@ Every item has a BG ID (BG-007). Accept a BG ID, a Content ID (2026-W42-03), a p
 | "resume unfinished jobs" | `uv run ca jobs resume [BG-x]`: a carousel prints its next step (follow make-carousel); other job types say "not resumable yet" |
 | "resume everything" | `uv run ca jobs resume --all`: follow each printed line (carousel next steps via make-carousel, upload requests via the upload skill, video plugin steps via make-video); a "needs manual action" line is told to the user, never done for them |
 | "monthly report", "report for <month>" | `uv run ca report month [YYYY-MM]`: show the lines and the report path (`outputs/reports/<YYYY-MM>.md`); mock uploads and results are never counted |
+| "verification status", "verify <integration>" | `uv run ca verify list` / `uv run ca verify run <name>` (offline only: config, adapter, failure path with a fake). Operational only with a live pass the user records after the manual test in docs/VERIFICATION.md: `uv run ca verify record <name> --live pass|fail "<note>"`; never run `record` for the user |
 | "show authorizations" | `uv run ca auth list` (`--open` for the open ones): spent of max per provider |
 | "what can I say" | `uv run ca help commands`: every phrase, grouped by skill |
 | "tracker conflicts" | `uv run ca tracking conflicts`: hand-edited workflow cells, rows missing in the Sheet or the registry, duplicate IDs. Show them and ask per row; only on the user's word: `uv run ca tracking resolve <BG ID or Content ID> --keep-sheet` or `--use-registry` |

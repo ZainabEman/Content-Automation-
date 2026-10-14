@@ -35,6 +35,7 @@ from content_automation.cli.scope import (
     save_dry_run_lines,
 )
 from content_automation.cli.scripts import brief_app, script_app
+from content_automation.cli.verify import verify_app
 from content_automation.content.backlog import RunCounts, newest_list, run_newsletters, run_sources
 from content_automation.content.brief import BriefError
 from content_automation.content.calendar import (
@@ -279,6 +280,7 @@ review_app = typer.Typer(no_args_is_help=True, help="The review gate: what waits
 app.add_typer(review_app, name="review")
 app.add_typer(costs_app, name="costs")
 app.add_typer(report_app, name="report")
+app.add_typer(verify_app, name="verify")
 production_app = typer.Typer(no_args_is_help=True, help="YouTube and podcast production.")
 app.add_typer(production_app, name="production")
 podcast_app = typer.Typer(no_args_is_help=True, help="Podcast recording (HeyGen) and audio.")

@@ -352,6 +352,20 @@ ALTER TABLE artifacts_v9 RENAME TO artifacts;
 CREATE INDEX artifacts_item ON artifacts (item_id, version);
 """
 
+# Phase 10: integration checks; offline by `ca verify run`, live by `ca verify record --live`.
+SCHEMA_10 = """
+CREATE TABLE verifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    integration TEXT NOT NULL,
+    mode TEXT NOT NULL CHECK (mode IN ('offline', 'live')),
+    result TEXT NOT NULL CHECK (result IN ('pass', 'fail')),
+    note TEXT,
+    actor TEXT NOT NULL CHECK (actor IN ('user', 'system')),
+    created_at TEXT NOT NULL
+);
+CREATE INDEX verifications_integration ON verifications (integration, mode);
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "registry core", SCHEMA_1),
     Migration(2, "item deliverable", SCHEMA_2),
@@ -362,6 +376,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(7, "script and brief artifacts", SCHEMA_7),
     Migration(8, "migration actor", SCHEMA_8),
     Migration(9, "production status and media artifacts", SCHEMA_9),
+    Migration(10, "integration verifications", SCHEMA_10),
 )
 
 _SCHEMA_TABLE = """

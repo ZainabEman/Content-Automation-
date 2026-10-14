@@ -24,6 +24,7 @@ EVENT_TYPES = frozenset({
     "job_rejected",
     "upload_succeeded", "upload_failed", "tracker_synced", "conflict_found", "migration_run",
     "artifact_saved", "artifact_invalid",
+    "verification_recorded",  # Phase 10
 })
 
 

@@ -31,6 +31,7 @@ from content_automation.registry.statuses import DIMENSIONS, Dimension
 from content_automation.registry.versions import resubmit, revise
 from content_automation.storage import ROOT_FOLDER
 from content_automation.storage.providers.mock import TRACKER_FILE
+from content_automation.storage.review_upload import load_storage_config, upload_approved
 
 items_app = typer.Typer(
     no_args_is_help=True,
@@ -297,6 +298,11 @@ def item_approve(
                            err=True)
                 continue
             typer.echo(change.line())
+            if change.gate == "review" and load_storage_config(
+                    settings.storage_file).require_review:
+                for line in upload_approved(conn, settings, change.item_id,
+                                            command=_command("item approve", ref)):
+                    typer.echo(line)
     if failed:
         _fail(f"{failed} of {len(refs)} not approved (see above).")
 

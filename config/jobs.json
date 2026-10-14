@@ -19,6 +19,8 @@
     "tracker_write": 300,
     "default": 3600
   },
+  "max_attempts": 2,
+  "_max_attempts_note": "client to confirm: tries per job (the first + 1 retry) for `ca jobs retry`",
   "estimates": {
     "_note": "client to confirm: credits per video scene in the Higgsfield and HeyGen Codex plugins (placeholders; the plugins report the real credits, which are recorded per job)",
     "video_scene": {"higgsfield-plugin": 35},

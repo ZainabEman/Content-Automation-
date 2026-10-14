@@ -1,0 +1,6 @@
+{
+  "_note": "Phase 7: upload only after the review approval (approved version to <Folder>/<Content ID or BG ID>/v<n>/). false = the old upload after generation.",
+  "upload": {
+    "requireReview": true
+  }
+}

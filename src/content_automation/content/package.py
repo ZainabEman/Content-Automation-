@@ -48,6 +48,7 @@ from content_automation.content.brief import (
     load_brief,
     slot_kind,
 )
+from content_automation.content.carousel_format import package_format
 from content_automation.content.deliverables import (
     DeliverableCatalog,
     DeliverableError,
@@ -219,6 +220,7 @@ class ContentPackage(CamelModel):
     total_cost_usd: float | None = None
     reviewer: str | None = None
     note: str | None = None
+    carousel_format: str | None = None  # static, animated or single_video (Phase 7)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -767,6 +769,9 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool) -> Package
             result.estimated_credits, result.max_credits = planned_credits(
                 folder, slides, design
             )
+            split = planned_split(folder, slides, design)
+            if package_format(folder, settings) == "static" and split is not None:
+                result.estimated_credits, result.max_credits = split[0], split[1]
             result.usd_per_credit = design.stills.usd_per_credit
         return result
 
@@ -855,6 +860,8 @@ def _cost_lines(
         split = planned_split(folder, slides, design) if design is not None else None
         if split is not None:
             still_estimate, still_max, clip_estimate, clip_max = split
+            if package_format(folder, settings) == "static":
+                clip_estimate = clip_max = 0.0  # stills only
             unit = config.unit(CAROUSEL_PROVIDER)
             lines += [
                 CostLine(items.get("carousel"), job, CAROUSEL_PROVIDER, unit, estimate, most,
@@ -1653,7 +1660,16 @@ def _animated_dry_run(
         design = load_carousel_design(settings.carousel_design_file)
     except WorkflowError as error:
         return [*lines, f"  stills: {error}"]
-    return lines + credits_dry_run(folder, slides, design)
+    chosen = package_format(folder, settings)
+    lines += credits_dry_run(folder, slides, design)
+    split = planned_split(folder, slides, design)
+    if chosen == "static" and split is not None:
+        lines.append(f"  format static: 8 PNGs from the stills, no clips: about {split[0]:g} "
+                     f"credits (max {split[1]:g})")
+    else:
+        lines.append(f"  format {chosen}" + (": the 8 clips joined into one MP4 (local, free)"
+                                             if chosen == "single_video" else ": 8 MP4 slides"))
+    return lines
 
 
 def _carousel_stills(

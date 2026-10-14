@@ -67,6 +67,7 @@ class JobConfig:
         "higgsfield-plugin": "credits", "heygen-plugin": "credits"})
     timeouts: dict[str, int] = field(default_factory=lambda: {"default": 3600})
     estimates: dict[str, dict[str, float]] = field(default_factory=dict)
+    max_attempts: int = 2  # tries of one job (the first and the retries), Phase 7
 
     def paid(self, provider: str) -> bool:
         return provider not in self.free_providers
@@ -97,6 +98,7 @@ def load_job_config(path: Path = DEFAULT_CONFIG_PATH) -> JobConfig:
     }
     defaults = JobConfig()
     return JobConfig(
+        max_attempts=int(data.get("max_attempts", defaults.max_attempts)),
         dryrun_expiry_hours=float(data.get("dryrun_expiry_hours", defaults.dryrun_expiry_hours)),
         free_providers=tuple(data.get("free_providers", defaults.free_providers)),
         units={str(k): str(v) for k, v in data.get("units", defaults.units).items()},
@@ -500,3 +502,37 @@ def check_job(
     except (NotAuthorized, BudgetExceeded) as error:
         return CheckResult("stop", str(error), get_job(conn, job.id))
     return CheckResult("go", "inside the authorization; it is marked running now", started)
+
+
+def retry_candidates(conn: sqlite3.Connection, *, item_id: str | None, max_attempts: int
+                     ) -> tuple[list[JobRecord], list[JobRecord]]:
+    """(failed jobs that may run again, failed jobs at the cap): the newest job of each
+    input set counts; tries = the jobs made for those inputs (Phase 7 `ca jobs retry`)."""
+    retry: list[JobRecord] = []
+    capped: list[JobRecord] = []
+    newest: dict[str, JobRecord] = {}
+    tries: dict[str, int] = {}
+    for job in list_jobs(conn, item_id=item_id):
+        if job.status == "cancelled":
+            continue
+        newest[job.base_key] = job
+        tries[job.base_key] = tries.get(job.base_key, 0) + 1
+    for key, job in newest.items():
+        if job.status != "failed" or job.rejected_at:
+            continue
+        (retry if tries[key] < max_attempts else capped).append(job)
+    return retry, capped
+
+
+def cost_summary(conn: sqlite3.Connection, provider: str | None = None
+                 ) -> list[tuple[str, str, str, int, float, float, int]]:
+    """Per job type, provider and unit of succeeded jobs: (type, provider, unit, jobs,
+    estimate total, actual total, jobs with an actual amount)."""
+    rows = conn.execute(
+        "SELECT job_type, provider, COALESCE(unit, 'usd') AS unit, COUNT(*) AS n, "
+        "COALESCE(SUM(estimate), 0) AS est, COALESCE(SUM(actual), 0) AS act, "
+        "COUNT(actual) AS with_actual FROM jobs WHERE status = 'succeeded' "
+        "AND (? IS NULL OR provider = ?) GROUP BY job_type, provider, unit "
+        "ORDER BY provider, job_type", (provider, provider))
+    return [(str(r["job_type"]), str(r["provider"]), str(r["unit"]), int(r["n"]),
+             float(r["est"]), float(r["act"]), int(r["with_actual"])) for r in rows]

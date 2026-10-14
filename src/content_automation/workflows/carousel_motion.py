@@ -182,9 +182,11 @@ def render(
     slides: Sequence[SlideText],
     language: str,
     logo: LogoOverlay | None,
+    output: str = "animated",
 ) -> list[str]:
     """`ca carousel render`: carousel/final/slide_NN.mp4 and slide_NN.png for every slide,
-    then the set check. Refused while a request is still with Codex."""
+    then the set check. Refused while a request is still with Codex. Format static: PNGs
+    only; single_video: the MP4s joined into final/carousel.mp4."""
     sources = render_sources(package)
     if [source.type for source in sources] != [slide.type for slide in slides]:
         raise CarouselDesignError(
@@ -210,6 +212,9 @@ def render(
             picture, optimize=True
         )
         pictures.append(picture)
+        if output == "static":
+            lines.append(f"Slide {number} ({slide.type}): {source.note}; {picture.name}")
+            continue
         clip = source.clip or local_animation(
             source, design, language, work / f"local_{number:02d}.mp4"
         )
@@ -229,5 +234,14 @@ def render(
         "Set check: " + ("; ".join(notes) if notes else "every slide matches slide 1 and the style")
         + f" ({final / _SET_FILE})"
     )
+    if output == "single_video":
+        joined = final / "carousel.mp4"
+        listing = work / "concat.txt"
+        videos = [(final / f"slide_{source.slide:02d}.mp4").resolve() for source in sources]
+        listing.write_text("".join(f"file '{video.as_posix()}'\n" for video in videos),
+                           encoding="utf-8")
+        run_ffmpeg(["-y", "-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy",
+                    str(joined)])
+        lines.append(f"Single video: {joined.name}")
     lines.append(f"Final: {final}")
     return lines

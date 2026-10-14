@@ -13,13 +13,28 @@ from typing import Annotated, NoReturn
 
 import typer
 
-from content_automation.cli.scope import registry_scope
+from content_automation.cli.scope import (
+    authorization_lines,
+    authorize,
+    registry_scope,
+    save_dry_run_lines,
+)
+from content_automation.content.costs import calibrate
 from content_automation.core.config import ConfigurationError, Settings, load_settings
 from content_automation.registry.auth import list_authorizations
 from content_automation.registry.db import RegistryError
+from content_automation.registry.dryruns import CostLine
 from content_automation.registry.ids import resolve
 from content_automation.registry.items import get_item
-from content_automation.registry.jobs import JobRecord, JobStatus, cancel_job, check_job, list_jobs
+from content_automation.registry.jobs import (
+    JobRecord,
+    JobStatus,
+    cancel_job,
+    check_job,
+    cost_summary,
+    list_jobs,
+    retry_candidates,
+)
 from content_automation.workflows.carousel_design import load_carousel_design
 from content_automation.workflows.carousel_plugin import continue_lines
 from content_automation.workflows.registry import WorkflowError
@@ -182,3 +197,85 @@ def auth_list(
         return
     for auth in auths:
         typer.echo(auth.line())
+
+
+@jobs_app.command("retry")
+def jobs_retry(
+    ref: Annotated[str | None, typer.Argument(help="An item (BG ID); or --all-failed.")] = None,
+    all_failed: Annotated[bool, typer.Option("--all-failed", help="Every failed job.")] = False,
+    authorize_id: Annotated[str | None, typer.Option(
+        "--authorize", help="Only after the user said ok to this retry's dry run.")] = None,
+) -> None:
+    """Failed jobs once more ("retry failed jobs"): a dry run, then after the user's "ok"
+    --authorize <dryrun_id>; at most max_attempts tries per job (config/jobs.json)."""
+    if (ref is None) == (not all_failed):
+        _fail("Name one item (BG-x) or use --all-failed.", 2)
+    settings = _settings()
+    try:
+        with registry_scope(settings, "ca jobs retry " + (ref or "--all-failed")) as scope:
+            item_id = resolve(scope.conn, ref) if ref else None
+            retry, capped = retry_candidates(scope.conn, item_id=item_id,
+                                             max_attempts=scope.config.max_attempts)
+            for job in capped:
+                typer.echo(f"#{job.id} {job.item_id} {job.job_type}: max attempts reached "
+                           f"({scope.config.max_attempts}); not retried")
+            if not retry:
+                typer.echo("No failed job to retry.")
+                return
+            lines = [CostLine(job.item_id, job.job_type, job.provider, job.unit or "usd",
+                              job.estimate or 0.0, job.estimate or 0.0, f"retry of #{job.id}")
+                     for job in retry]
+            key = f"jobs retry {item_id or 'all-failed'}"
+            if authorize_id is None:
+                for job in retry:
+                    typer.echo(f"#{job.id} {job.item_id} {job.job_type} via {job.provider}: "
+                               f"about {job.estimate or 0:g} {job.unit or 'usd'} ({job.error})")
+                for line in save_dry_run_lines(settings, scope, key, lines):
+                    typer.echo(line)
+                typer.echo("Only after the user says ok: uv run ca jobs retry "
+                           f"{ref or '--all-failed'} --authorize <the dry run ID above>")
+                return
+            for line in authorization_lines(authorize(settings, scope, authorize_id, key,
+                                                      lines)):
+                typer.echo(line)
+    except RegistryError as error:
+        _fail(str(error))
+    typer.echo("Authorized. Run each item's step again (it makes the failed parts once more): "
+               'uv run ca content build "<folder>", "continue carousel <folder>" or the video '
+               "skill.")
+
+
+costs_app = typer.Typer(no_args_is_help=True, help="Estimates against actual amounts.")
+
+
+@costs_app.command("report")
+def costs_report() -> None:
+    """Estimate vs actual per job type and provider ("show costs")."""
+    settings = _settings()
+    try:
+        with registry_scope(settings, "ca costs report") as scope:
+            rows = cost_summary(scope.conn)
+    except RegistryError as error:
+        _fail(str(error))
+    if not rows:
+        typer.echo("No succeeded jobs yet.")
+    for job_type, provider, unit, count, estimate, actual, with_actual in rows:
+        ratio = f", actual/estimate {actual / estimate:.2f}" if estimate and with_actual else ""
+        typer.echo(f"{job_type} via {provider}: {count} job(s), estimate {estimate:g} {unit}, "
+                   f"actual {actual:g} {unit} ({with_actual} reported){ratio}")
+
+
+@costs_app.command("calibrate")
+def costs_calibrate(
+    provider: Annotated[str, typer.Option("--provider", help="e.g. higgsfield-plugin.")],
+    apply: Annotated[bool, typer.Option("--apply", help="Write the new estimates.")] = False,
+) -> None:
+    """New estimates from the actual amounts; written to config only with --apply."""
+    settings = _settings()
+    try:
+        with registry_scope(settings, f"ca costs calibrate --provider {provider}") as scope:
+            lines = calibrate(scope.conn, settings, provider, apply=apply)
+    except (RegistryError, OSError, ValueError) as error:
+        _fail(str(error))
+    for line in lines:
+        typer.echo(line)

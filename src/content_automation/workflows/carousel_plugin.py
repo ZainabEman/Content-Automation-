@@ -684,9 +684,10 @@ _CLIP_AGAIN = (
 )
 
 
-def stills_check(package: Path, design: CarouselDesign) -> list[str]:
+def stills_check(package: Path, design: CarouselDesign, output: str = "animated") -> list[str]:
     """`ca carousel stills-check`: check every still; one re-request inside the max, then the
-    local background. When every still is settled, write the clip requests."""
+    local background. When every still is settled, write the clip requests (none for the
+    static format)."""
     plan = _need_plan(package)
     requests = {request.slide: request for request in _requests(package, plan, "still")}
     spent = _spent(_requests(package, plan))
@@ -736,7 +737,10 @@ def stills_check(package: Path, design: CarouselDesign) -> list[str]:
         f"All {len(plan.slides)} stills ready: {counts['plugin']} from the plugin, "
         f"{counts['local']} local, {counts['fallback']} local fallback."
     )
-    lines += _write_clip_requests(package, plan, design)
+    if output == "static":
+        lines.append("Format static: no clips; next: uv run ca carousel render")
+    else:
+        lines += _write_clip_requests(package, plan, design)
     if plan.stage == "stills":
         plan.stage = "clips" if any(item.clip_request for item in plan.slides) else "render"
         _save(plan_path(package), plan)

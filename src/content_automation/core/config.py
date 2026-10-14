@@ -21,7 +21,7 @@ DesignSize = Literal["1K", "2K", "4K"]
 # "always" = the app; "never" = the image model.
 TextOverlayMode = Literal["auto", "always", "never"]
 # "mock" (default): the Drive layout in a local folder; "drive": Google Drive (`ca drive setup`).
-StorageProvider = Literal["mock", "drive"]
+StorageProvider = Literal["mock", "drive", "plugin"]
 
 
 class ConfigurationError(ValueError):
@@ -103,6 +103,8 @@ class Settings(BaseSettings):
     content_file: Path = Path("config/content.json")  # content language (Phase 5)
     newsletters_file: Path = Path("config/newsletters.json")  # senders, fetch limits (Phase 5)
     formulas_file: Path = Path("config/formulas.json")  # editorial formulas (Phase 6)
+    storage_file: Path = Path("config/storage.json")  # upload after review (Phase 7)
+    carousel_file: Path = Path("config/carousel.json")  # carousel output format (Phase 7)
 
     def summary_lines(self) -> tuple[str, ...]:
         """Return non-secret settings suitable for local CLI output."""

@@ -26,7 +26,7 @@ from content_automation.cli.bridge import (
 from content_automation.cli.help import help_app
 from content_automation.cli.ideas import claims_app, ideas_app
 from content_automation.cli.items import audit_app, items_app
-from content_automation.cli.jobs import auth_app, jobs_app
+from content_automation.cli.jobs import auth_app, costs_app, jobs_app
 from content_automation.cli.scope import (
     authorization_lines,
     authorize,
@@ -55,6 +55,7 @@ from content_automation.content.calendar import (
     sync_calendar_view,
     week_label,
 )
+from content_automation.content.carousel_format import check_format, package_format
 from content_automation.content.deliverables import (
     DeliverableCatalog,
     DeliverableError,
@@ -66,6 +67,8 @@ from content_automation.content.package import (
     build_package,
     carousel_slide_texts,
     finish_carousel,
+    load_package,
+    save_package,
     set_deliverables,
     start_package,
 )
@@ -161,6 +164,7 @@ from content_automation.storage import (
     tracker_conflicts,
     tracker_lines,
 )
+from content_automation.storage.review_upload import record_plugin_upload
 from content_automation.workflows.carousel_design import load_carousel_design
 from content_automation.workflows.carousel_motion import render as render_carousel
 from content_automation.workflows.carousel_plugin import (
@@ -248,6 +252,7 @@ app.add_typer(env_app, name="env")
 app.add_typer(items_app, name="item")
 review_app = typer.Typer(no_args_is_help=True, help="The review gate: what waits, one item.")
 app.add_typer(review_app, name="review")
+app.add_typer(costs_app, name="costs")
 app.add_typer(audit_app, name="audit")
 app.add_typer(jobs_app, name="jobs")
 app.add_typer(help_app, name="help")
@@ -1342,6 +1347,10 @@ def content_build(
         bool, typer.Option("--dry-run", help="Check brief.json and show the cost; make nothing.")
     ] = False,
     authorize_id: AuthorizeOption = None,
+    carousel_format: Annotated[
+        str | None, typer.Option("--format", help="Carousel: static, animated or single_video "
+                                 "(default config/carousel.json).")
+    ] = None,
 ) -> None:
     """Make what is still missing: post images, ad image, reel, post.md, package.json.
 
@@ -1355,6 +1364,15 @@ def content_build(
     settings = _settings(dry_run=dry_run, check_keys=False)
     if not dry_run:
         configure_logging(settings)
+    if carousel_format is not None:
+        try:
+            chosen = check_format(carousel_format)
+            saved = load_package(folder)
+        except (ValueError, OSError) as error:
+            typer.echo(str(error), err=True)
+            raise typer.Exit(code=2) from None
+        saved.carousel_format = chosen
+        save_package(folder, saved)
     key = f"content build {folder.resolve().as_posix()}"
     command = f'ca content build "{folder}"' + (" --dry-run" if dry_run else "")
     with _registry(settings, command) as scope:
@@ -2051,7 +2069,8 @@ def carousel_stills_check(
     settings = _settings(dry_run=True)
     try:
         with _registry(settings, f'ca carousel stills-check "{folder}"'):
-            lines = stills_check(folder, load_carousel_design(settings.carousel_design_file))
+            lines = stills_check(folder, load_carousel_design(settings.carousel_design_file),
+                                 package_format(folder, settings))
     except (WorkflowError, ValidationError, MediaError, OSError) as failure:
         typer.echo(str(failure), err=True)
         raise typer.Exit(code=1) from None
@@ -2093,7 +2112,8 @@ def carousel_render(
         system = load_design_system(settings.design_system_file)
         language, logo = _carousel_brand(settings)
         lines = render_carousel(
-            folder, design, system, carousel_slide_texts(folder), language, logo
+            folder, design, system, carousel_slide_texts(folder), language, logo,
+            package_format(folder, settings),
         )
     except (WorkflowError, BriefError, BrandProfileError, ValidationError, MediaError,
             OSError) as failure:
@@ -2399,3 +2419,18 @@ def regenerate(
             result = build_package(plan.folder, settings, dry_run=False)
             for line in result.lines:
                 typer.echo(line)
+
+
+@drive_app.command("record")
+def drive_record(
+    job_id: Annotated[int, typer.Argument(help="The upload request's jobId.")],
+    file_id: Annotated[str, typer.Option("--file-id", help="The Drive file ID.")],
+    link: Annotated[str, typer.Option("--link", help="The Drive link of the file.")],
+) -> None:
+    """After the Drive plugin uploaded an upload request (STORAGE_PROVIDER=plugin)."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca drive record {job_id}") as scope:
+        lines = record_plugin_upload(scope.conn, job_id, file_id, link, command=scope.command)
+    for line in lines:
+        typer.echo(line)

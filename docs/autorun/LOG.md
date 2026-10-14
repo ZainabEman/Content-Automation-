@@ -112,3 +112,6 @@ Needs review: the stricter number rule now applies to copy saved through the for
 ## 2026-10-14 18:50 — Autorun finished (§8)
 Report: docs/autorun/REPORT-PHASES-4-6.md. Phase 7 not started; nothing pushed or merged.
 Needs review: see the report (needs review + client questions).
+
+## P7S1 — fixes, review list/show, regenerate — DONE cd836bb
+Needs review: auth auto-closes only when planned jobs succeeded (failed keeps it open); history only from older packages; regenerated v(n+1) lives in the package, v<n> kept in versions/v<n>/; animated-carousel slide redo cost uses image provider.

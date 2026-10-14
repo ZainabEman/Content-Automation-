@@ -57,8 +57,11 @@ from content_automation.registry.tracker import CellRecord, last_cells, record_c
 
 ROOT_FOLDER = "Content Automation"
 PLATFORM_FOLDERS = PLATFORM_NAMES  # platform -> folder name (and the tracker's Platform)
+# Phase 7: YouTube, Shorts, Podcasts, Facebook Ads and TikTok folders (made by `ca drive setup`).
+FOLDER_NAMES = {**PLATFORM_FOLDERS, "youtube": "YouTube", "shorts": "Shorts",
+                "podcast": "Podcasts", "facebook_ads": "Facebook Ads", "tiktok": "TikTok"}
 CALENDAR_FOLDER = "Calendar"
-FOLDERS = (*PLATFORM_FOLDERS.values(), CALENDAR_FOLDER)
+FOLDERS = (*FOLDER_NAMES.values(), CALENDAR_FOLDER)
 EXPORT_NAME = f"{TRACKER_NAME}.csv"  # `ca tracking export`, in the main folder
 # Images, MP4s and a carousel's caption.txt; captions.srt etc. stay local.
 UPLOAD_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".mp4", ".txt")
@@ -120,7 +123,12 @@ def get_storage(
 ) -> Storage:
     """The adapter for STORAGE_PROVIDER (or `provider`). Only sign_in (`ca drive setup`) may
     open the browser; otherwise StorageNotSetUpError when Drive has no sign-in or folders."""
-    module = importlib.import_module(_ADAPTERS[provider or settings.storage_provider])
+    name = provider or settings.storage_provider
+    if name not in _ADAPTERS:  # "plugin": the Drive plugin uploads requests after the review
+        raise StorageNotSetUpError(
+            "STORAGE_PROVIDER=plugin: uploads are requests for the Google Drive plugin, written "
+            "when a review is approved (upload skill; ca drive record)")
+    module = importlib.import_module(_ADAPTERS[name])
     storage: Storage = module.create_storage(settings, sign_in=sign_in)
     return storage
 
@@ -134,7 +142,7 @@ def drive_setup_problem(settings: Settings) -> str | None:
 
 def platform_folder(platform: str) -> str:
     try:
-        return PLATFORM_FOLDERS[platform.lower()]
+        return FOLDER_NAMES[platform.lower()]
     except KeyError:
         raise StorageError(f'no Drive folder for platform "{platform}"') from None
 
@@ -516,6 +524,12 @@ class AutoSync:
     def __call__(self, folder: Path) -> list[str]:
         if self._not_set_up:
             return []
+        from content_automation.storage.review_upload import load_storage_config
+
+        if load_storage_config(self._settings.storage_file).require_review:
+            self._not_set_up = True  # said once per command
+            return ["Upload waits for the review approval (config/storage.json "
+                    "upload.requireReview): uv run ca item approve BG-x after the review."]
         try:
             if self._storage is None or self._catalog is None:
                 self._catalog = load_deliverables(self._settings.deliverables_file)

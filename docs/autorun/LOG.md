@@ -136,3 +136,6 @@ Needs review: see docs/autorun/REPORT-PHASES-7-9.md; Phase 10 not started.
 
 ## P10S1 — monthly report (UC-19), resume --all (UC-21) — DONE a19fffd
 Needs review: a final counts in the month its last status event was recorded (review approved; podcasts production final, against the podcasts planned that month); clips/graphics targets in production.json reportTargets (client); resume --all prints the build for queued image jobs (open authorization) instead of running it.
+
+## P10S2 — integration verification (12; list to confirm against spec §7) — DONE c65274b
+Needs review: no client §7 list in the repo, the autorun's 12 used; operational = newest live result is a pass; offline fakes are a temp registry, a mock HTTP transport and broken files; Nano Banana stays off by default (client decision).

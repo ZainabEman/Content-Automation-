@@ -120,28 +120,32 @@ def _plugin(provider: str, job_type: str) -> Fake:
 
 
 def _comfyui(settings: Settings, folder: Path) -> str:
-    from content_automation.ai.image import ImageProviderError
-    from content_automation.ai.image.providers.comfyui import create_provider
+    from content_automation.ai.image import ImageProviderError, get_provider
 
     try:
-        create_provider(settings.model_copy(update={"image_model": "not-a-workflow"}))
+        get_provider("comfyui", settings.model_copy(update={"image_model": "not-a-workflow"}))
     except ImageProviderError as error:
         return f"an unknown workflow stops before any call ({error})"
     raise VerifyFailed("an unknown ComfyUI workflow was accepted")
 
 
 def _openrouter(settings: Settings, folder: Path) -> str:
-    from content_automation.ai.image.providers.openrouter import map_error
+    from content_automation.ai.image import ImageProviderError, ImageRequest, get_provider
     from content_automation.content.deliverables import load_deliverables
 
-    if not map_error(502, "fake").retryable or map_error(401, "fake").retryable:
-        raise VerifyFailed("OpenRouter errors are not mapped (502 retry, 401 stop)")
+    provider = get_provider("openrouter", settings.model_copy(update={"openrouter_api_key": None}))
+    try:
+        provider.generate(ImageRequest(prompt="verify"), settings.image_model)
+    except ImageProviderError as error:
+        stopped = f"no key stops before any call ({error})"
+    else:
+        raise VerifyFailed("an image was made without an OpenRouter key")
     catalog = load_deliverables(settings.deliverables_file)
     named = sorted(key for key, spec in catalog.deliverables.items()
                    if "openrouter" in (spec.provider, spec.fallback_provider))
     state = f"set for {', '.join(named)}" if named else "off by default (no deliverable names it)"
-    return (f"HTTP 401 stops, 502 is retried; Nano Banana fallback {state}, offered only by the "
-            "dry-run fallback line")
+    return (f"{stopped}; Nano Banana fallback {state}, offered only by the dry-run fallback "
+            "line")
 
 
 def _drive(settings: Settings, folder: Path) -> str:

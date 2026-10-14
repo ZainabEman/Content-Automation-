@@ -333,6 +333,25 @@ CREATE TRIGGER events_no_delete BEFORE DELETE ON events
 BEGIN SELECT RAISE(ABORT, 'the audit log is append-only'); END;
 """
 
+SCHEMA_9 = """
+ALTER TABLE items ADD COLUMN production_status TEXT NOT NULL DEFAULT 'not_started';
+CREATE TABLE artifacts_v9 (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id TEXT NOT NULL REFERENCES items (id),
+    version INTEGER NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('script', 'brief', 'copy', 'recording', 'edit', 'final',
+                                       'thumbnail', 'audio', 'handoff')),
+    path TEXT NOT NULL,
+    check_result TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL
+);
+INSERT INTO artifacts_v9 SELECT id, item_id, version, type, path, check_result, created_at
+    FROM artifacts;
+DROP TABLE artifacts;
+ALTER TABLE artifacts_v9 RENAME TO artifacts;
+CREATE INDEX artifacts_item ON artifacts (item_id, version);
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "registry core", SCHEMA_1),
     Migration(2, "item deliverable", SCHEMA_2),
@@ -342,6 +361,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(6, "ideas, sources and claims", SCHEMA_6),
     Migration(7, "script and brief artifacts", SCHEMA_7),
     Migration(8, "migration actor", SCHEMA_8),
+    Migration(9, "production status and media artifacts", SCHEMA_9),
 )
 
 _SCHEMA_TABLE = """

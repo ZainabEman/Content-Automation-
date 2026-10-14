@@ -105,6 +105,7 @@ class Settings(BaseSettings):
     formulas_file: Path = Path("config/formulas.json")  # editorial formulas (Phase 6)
     storage_file: Path = Path("config/storage.json")  # upload after review (Phase 7)
     carousel_file: Path = Path("config/carousel.json")  # carousel output format (Phase 7)
+    production_file: Path = Path("config/production.json")  # targets, final rules (Phase 8)
 
     def summary_lines(self) -> tuple[str, ...]:
         """Return non-secret settings suitable for local CLI output."""

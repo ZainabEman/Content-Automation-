@@ -18,7 +18,7 @@ from typing import Literal
 
 from content_automation.registry.db import RegistryError
 
-Dimension = Literal["idea", "generation", "review", "upload", "publication"]
+Dimension = Literal["idea", "generation", "review", "upload", "publication", "production"]
 Guard = Literal["idea_window", "idea_approved", "generation_generated", "new_version"]
 
 DIMENSIONS: tuple[Dimension, ...] = ("idea", "generation", "review", "upload", "publication")
@@ -28,6 +28,8 @@ STATUSES: dict[Dimension, tuple[str, ...]] = {  # the first one is a new item's 
     "review": ("not_reviewed", "approved", "rejected", "changes_requested"),
     "upload": ("not_uploaded", "uploading", "uploaded", "failed"),
     "publication": ("not_ready", "ready", "published", "failed"),
+    # Phase 8: youtube and podcast items only (recording and editing outside the app).
+    "production": ("not_started", "awaiting_recording", "recorded", "editing", "edited", "final"),
 }
 IDEA_WINDOW = ("not_started", "failed", "partial")  # generation statuses with an open idea gate
 GUARD_TEXT: dict[Guard, str] = {
@@ -88,6 +90,13 @@ TABLE: tuple[Move, ...] = (
     _move("publication", "not_ready", "ready"),
     _move("publication", "ready", "published"),
     _move("publication", "ready", "failed"),
+    _move("production", "not_started", "awaiting_recording"),
+    _move("production", "awaiting_recording", "recorded"),
+    _move("production", "recorded", "editing"),
+    _move("production", "editing", "edited"),
+    _move("production", "edited", "final"),
+    _move("production", "edited", "editing", "new_version"),  # back only after a revise
+    _move("production", "final", "editing", "new_version"),
 )
 
 

@@ -82,6 +82,12 @@ from content_automation.content.plan import (
     plan_calendar,
 )
 from content_automation.content.plan_config import plan_only_types
+from content_automation.content.production import (
+    handoff,
+    import_media,
+    production_lines,
+    set_production,
+)
 from content_automation.content.research_input import ResearchInputError, load_idea
 from content_automation.content.review import (
     apply_regeneration,
@@ -253,6 +259,8 @@ app.add_typer(items_app, name="item")
 review_app = typer.Typer(no_args_is_help=True, help="The review gate: what waits, one item.")
 app.add_typer(review_app, name="review")
 app.add_typer(costs_app, name="costs")
+production_app = typer.Typer(no_args_is_help=True, help="YouTube and podcast production.")
+app.add_typer(production_app, name="production")
 app.add_typer(audit_app, name="audit")
 app.add_typer(jobs_app, name="jobs")
 app.add_typer(help_app, name="help")
@@ -2439,5 +2447,61 @@ def drive_record(
     settings = _settings(dry_run=True)
     with _registry(settings, f"ca drive record {job_id}") as scope:
         lines = record_plugin_upload(scope.conn, job_id, file_id, link, command=scope.command)
+    for line in lines:
+        typer.echo(line)
+
+
+@production_app.command("list")
+def production_list(
+    month: Annotated[str | None, typer.Option(help="A month, e.g. 2026-11.")] = None,
+) -> None:
+    """YouTube and podcast items with their production status; finals vs the targets."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, "ca production list") as scope:
+        lines = production_lines(scope.conn, settings, month)
+    for line in lines:
+        typer.echo(line)
+
+
+@production_app.command("set")
+def production_set(
+    ref: Annotated[str, typer.Argument(help="The item (BG ID).")],
+    status: Annotated[str, typer.Argument(help="recorded, editing, edited or final.")],
+) -> None:
+    """Move the production status (only the legal moves; "BG-x recorded")."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca production set {ref} {status}") as scope:
+        lines = set_production(scope.conn, ref, status, command=scope.command)
+    for line in lines:
+        typer.echo(line)
+
+
+@app.command("import")
+def import_file(
+    ref: Annotated[str, typer.Argument(help="The item (BG ID).")],
+    file: Annotated[Path, typer.Argument(help="The file to import (it is copied).")],
+    kind: Annotated[str, typer.Option("--as", help="recording, edit, final, thumbnail or audio.")],
+) -> None:
+    """Copy a recording, edit, final, thumbnail or audio into the item's version folder."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca import {ref} --as {kind}") as scope:
+        lines = import_media(scope.conn, settings, ref, file, kind, command=scope.command)
+    for line in lines:
+        typer.echo(line)
+
+
+@app.command("handoff")
+def handoff_command(
+    ref: Annotated[str, typer.Argument(help="The item (BG ID).")],
+    editor: Annotated[str, typer.Option("--to", help="The editor's name.")],
+) -> None:
+    """A handoff folder for the editor; production -> editing."""
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca handoff {ref}") as scope:
+        lines = handoff(scope.conn, settings, ref, editor, command=scope.command)
     for line in lines:
         typer.echo(line)

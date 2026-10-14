@@ -118,3 +118,6 @@ Needs review: auth auto-closes only when planned jobs succeeded (failed keeps it
 
 ## P7S2 — upload after review, plugin route, carousel format, retry, costs — DONE 0aa8930
 Needs review: requireReview true stops auto-upload (old flow: set false); max_attempts 2 and carousel default "animated" are client choices; retry authorizes, the item step re-runs the parts.
+
+## P7S3 — provider per deliverable, image/ad checks, fallback line, review-assets + upload skills — DONE fe57415
+Needs review: no provider/fallbackProvider set in deliverables.json yet (client); image check min side 512 px, blank = grey stddev < 2; "upload" skill is new (no upload skill existed).

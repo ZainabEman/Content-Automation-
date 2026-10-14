@@ -16,6 +16,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, TypeAdapter, ValidationError
 
+from content_automation.content.production import start_if_ready
 from content_automation.content.script_check import Check, Saved
 from content_automation.content.scripts import ScriptError, Template, build_template, words
 from content_automation.core.config import Settings
@@ -234,6 +235,9 @@ def save_brief(conn: sqlite3.Connection, settings: Settings, ref: str, draft: Pa
     atomic_write_text(folder / "brief.md", render_brief(template, stored))
     artifact = add_artifact(conn, template.item.id, template.version, "brief", path.as_posix(),
                             check.as_json(), command=command)
+    started = start_if_ready(conn, template.item.id, command=command)
+    if started:
+        check.notes.append(started)
     return Saved(check, artifact, folder)
 
 

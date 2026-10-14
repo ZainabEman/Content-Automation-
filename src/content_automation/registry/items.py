@@ -24,6 +24,7 @@ STATUS_COLUMNS: dict[Dimension, str] = {
     "generation": "generation_status",
     "review": "review_status",
     "upload": "upload_status",
+    "production": "production_status",  # Phase 8: youtube and podcast items
 }
 
 
@@ -54,6 +55,7 @@ class Item:
     notes: str | None
     deliverable: str | None = None  # e.g. linkedin_post (D-1)
     upload_provider: str | None = None  # drive or mock (D-16: mock never counts as real)
+    production_status: str = "not_started"  # Phase 8: youtube and podcast
 
     @property
     def is_idea(self) -> bool:
@@ -101,6 +103,7 @@ def _item(row: sqlite3.Row) -> Item:
         notes=_text(row["notes"]),
         deliverable=_text(row["deliverable"]),
         upload_provider=_text(row["upload_provider"]),
+        production_status=str(row["production_status"]),
     )
 
 

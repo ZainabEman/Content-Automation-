@@ -24,6 +24,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from content_automation.content.copy_apply import apply_copy
+from content_automation.content.production import start_if_ready
 from content_automation.content.scripts import (
     Script,
     ScriptError,
@@ -234,6 +235,9 @@ def save_script(conn: sqlite3.Connection, settings: Settings, ref: str, draft: P
     atomic_write_text(folder / "script.md", render_markdown(template, stored, check))
     artifact = add_artifact(conn, template.item.id, template.version, kind, path.as_posix(),
                             check.as_json(), command=command)
+    started = start_if_ready(conn, template.item.id, command=command)
+    if started:
+        check.notes.append(started)
     return Saved(check, artifact, folder)
 
 

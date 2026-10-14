@@ -15,8 +15,10 @@ from content_automation.registry.audit import Actor, append_event
 from content_automation.registry.db import RegistryError, now, transaction
 from content_automation.registry.ids import resolve
 
-ArtifactType = Literal["script", "brief", "copy"]
-ARTIFACT_TYPES: tuple[ArtifactType, ...] = ("script", "brief", "copy")
+ArtifactType = Literal["script", "brief", "copy", "recording", "edit", "final", "thumbnail",
+                      "audio", "handoff"]
+ARTIFACT_TYPES: tuple[ArtifactType, ...] = ("script", "brief", "copy", "recording", "edit",
+                                            "final", "thumbnail", "audio", "handoff")
 
 
 @dataclass(frozen=True)

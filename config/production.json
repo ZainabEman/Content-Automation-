@@ -1,0 +1,12 @@
+{
+  "_note": "client to confirm: finals per month (Phase 8) and the podcast loudness.",
+  "targetsPerMonth": {
+    "youtube": 8,
+    "podcast": 2
+  },
+  "youtubeFinal": {
+    "aspect": "16:9",
+    "minHeight": 1080
+  },
+  "podcastLoudnessLufs": -16
+}

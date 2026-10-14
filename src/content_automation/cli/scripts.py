@@ -2,12 +2,14 @@
 
 import json
 import sys
+from dataclasses import replace
 from pathlib import Path
 from typing import Annotated, NoReturn
 
 import typer
 
 from content_automation.cli.scope import registry_scope
+from content_automation.content import briefs
 from content_automation.content.script_check import (
     Check,
     recheck,
@@ -25,6 +27,8 @@ from content_automation.registry.db import RegistryError
 
 script_app = typer.Typer(no_args_is_help=True,
                          help="Scripts and copy from the editorial formulas.")
+brief_app = typer.Typer(no_args_is_help=True,
+                        help="Production briefs (YouTube, podcast, social visual direction).")
 JsonOption = Annotated[bool, typer.Option("--json", help="Print JSON (for skills).")]
 RefArgument = Annotated[str, typer.Argument(help="The item (BG ID or Content ID).")]
 VersionOption = Annotated[int | None, typer.Option("--version", min=1,
@@ -125,3 +129,80 @@ def script_show(ref: RefArgument, version: VersionOption = None) -> None:
     markdown = path.with_suffix(".md")
     typer.echo(markdown.read_text(encoding="utf-8") if markdown.is_file()
                else json.dumps(script.model_dump(by_alias=True), indent=2, ensure_ascii=False))
+
+
+@brief_app.command("template")
+def brief_template(ref: RefArgument, as_json: JsonOption = False) -> None:
+    """The production brief skeleton for the item's formula, its sections and rules."""
+    settings = _settings()
+    try:
+        with registry_scope(settings, f"ca brief template {ref}") as scope:
+            template = build_template(scope.conn, settings, ref)
+    except (RegistryError, ScriptError) as error:
+        _fail(str(error), 2)
+    data = briefs.template_json(template)
+    if as_json:
+        typer.echo(json.dumps(data, ensure_ascii=False))
+        return
+    typer.echo(f"{data['item']} v{data['version']}: {data['type']} brief "
+               f"({data['formula']}, {data['language']}); sections {', '.join(data['sections'])}")
+    typer.echo(f"Skeleton: {json.dumps(data['skeleton'], ensure_ascii=False)}")
+    typer.echo(f"Write it to a draft file, then `uv run ca brief save {data['item']} <file>`; "
+               f"it is stored in {data['storesIn']}.")
+
+
+@brief_app.command("save")
+def brief_save(
+    ref: RefArgument,
+    draft: Annotated[Path, typer.Argument(help="The brief.json Codex wrote.")],
+) -> None:
+    """Check the draft; valid: brief.json + brief.md in the current version's folder."""
+    settings = _settings()
+    try:
+        with registry_scope(settings, f"ca brief save {ref}") as scope:
+            saved = briefs.save_brief(scope.conn, settings, ref, draft, command=scope.command)
+    except (RegistryError, ScriptError) as error:
+        _fail(str(error), 2)
+    if not saved.check.ok:
+        typer.echo(f"Not saved: {len(saved.check.problems)} problem(s):")
+        for line in _check_lines(saved.check):
+            typer.echo(line)
+        raise typer.Exit(code=1)
+    version = saved.artifact.version if saved.artifact else 0
+    typer.echo(f"Saved v{version}: {saved.folder.as_posix()}/brief.json + brief.md; check OK.")
+    for line in _check_lines(saved.check):
+        typer.echo(line)
+
+
+@brief_app.command("check")
+def brief_check(ref: RefArgument, version: VersionOption = None) -> None:
+    """Check a saved production brief again."""
+    settings = _settings()
+    try:
+        with registry_scope(settings, f"ca brief check {ref}") as scope:
+            template, brief, _ = briefs.stored_brief(scope.conn, settings, ref, version)
+            if brief.version != template.version:
+                template = replace(template, version=brief.version)
+            check = briefs.check_brief(scope.conn, template, brief)
+    except (RegistryError, ScriptError) as error:
+        _fail(str(error), 2)
+    typer.echo(f"{brief.item} v{brief.version} ({brief.type} brief): "
+               + ("OK" if check.ok else f"{len(check.problems)} problem(s)"))
+    for line in _check_lines(check):
+        typer.echo(line)
+    if not check.ok:
+        raise typer.Exit(code=1)
+
+
+@brief_app.command("show")
+def brief_show(ref: RefArgument, version: VersionOption = None) -> None:
+    """The saved production brief as Markdown (brief.md)."""
+    settings = _settings()
+    try:
+        with registry_scope(settings, f"ca brief show {ref}") as scope:
+            _, brief, path = briefs.stored_brief(scope.conn, settings, ref, version)
+    except (RegistryError, ScriptError) as error:
+        _fail(str(error), 2)
+    markdown = path.with_suffix(".md")
+    typer.echo(markdown.read_text(encoding="utf-8") if markdown.is_file()
+               else json.dumps(brief.model_dump(by_alias=True), indent=2, ensure_ascii=False))

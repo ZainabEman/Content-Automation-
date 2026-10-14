@@ -184,3 +184,40 @@ def test_linkedin_copy_outside_range_fails(conn: sqlite3.Connection, tmp_path: P
         "hashtags": ["#BrandedGenius", "#AI", "#Leads"]}), encoding="utf-8")
     result = ca("script", "save", post.id, str(draft))
     assert result.exit_code == 1 and "copy: 99 words (allowed 120-250)" in result.output
+
+
+def test_youtube_brief_validates_and_renders(conn: sqlite3.Connection, tmp_path: Path) -> None:
+    video, _ = _sourced_video(conn)
+    skeleton = json.loads(ca("brief", "template", video, "--json").output)["skeleton"]
+    skeleton["bRoll"][0]["description"] = "Screen recording of a fake CEO call"
+    skeleton["captions"]["style"] = "burned-in, two lines"
+    skeleton["thumbnail"] = {"concept": "Roman with a phone", "text": "Your CEO never called"}
+    skeleton["chapters"] = [{"title": c["section"].replace("_", " "), "section": c["section"]}
+                            for c in skeleton["chapters"]]
+    skeleton["musicMood"] = "calm, tense"
+    skeleton["presenter"]["setting"] = "Office, desk, evening light"
+    draft = tmp_path / "brief.json"
+    draft.write_text(json.dumps(skeleton), encoding="utf-8")
+    saved = ca("brief", "save", video, str(draft))
+    assert saved.exit_code == 0 and "warning: no saved script for v1" in saved.output
+    assert "Thumbnail: Roman with a phone" in ca("brief", "show", video).output
+    skeleton["thumbnail"]["text"] = "Your CEO never called you today"
+    draft.write_text(json.dumps(skeleton), encoding="utf-8")
+    refused = ca("brief", "save", video, str(draft))
+    assert refused.exit_code == 1 and "thumbnail.text: 6 words (at most 5)" in refused.output
+
+
+def test_podcast_brief_validates_segments(conn: sqlite3.Connection, tmp_path: Path) -> None:
+    episode = create_item(conn, kind="podcast", title="Voice clones", topic="t",
+                          platforms=["podcast"], deliverable="podcast_episode")
+    skeleton = json.loads(ca("brief", "template", episode.id, "--json").output)["skeleton"]
+    for segment in skeleton["segments"]:
+        segment.update({"title": segment["section"], "minutes": 3})
+    skeleton.update({"showNotes": "Links and sources", "episodeTitle": "Voice clones",
+                     "episodeDescription": "Why finance teams get fake calls"})
+    draft = tmp_path / "brief.json"
+    draft.write_text(json.dumps(skeleton), encoding="utf-8")
+    saved = ca("brief", "save", episode.id, str(draft))
+    assert saved.exit_code == 0, saved.output
+    assert "## Segments" in ca("brief", "show", episode.id).output
+    assert ca("brief", "check", episode.id).exit_code == 0

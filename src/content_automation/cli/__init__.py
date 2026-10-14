@@ -34,7 +34,7 @@ from content_automation.cli.scope import (
     require_budget,
     save_dry_run_lines,
 )
-from content_automation.cli.scripts import script_app
+from content_automation.cli.scripts import brief_app, script_app
 from content_automation.content.backlog import RunCounts, newest_list, run_newsletters, run_sources
 from content_automation.content.brief import BriefError
 from content_automation.content.calendar import (
@@ -245,6 +245,7 @@ app.add_typer(help_app, name="help")
 app.add_typer(ideas_app, name="ideas")
 app.add_typer(claims_app, name="claims")
 app.add_typer(script_app, name="script")
+app.add_typer(brief_app, name="brief")
 app.add_typer(auth_app, name="auth")
 registry_app = typer.Typer(no_args_is_help=True, help="The content-item registry.")
 app.add_typer(registry_app, name="registry")

@@ -93,6 +93,10 @@ Needs review: C6-1 artifact folder per BG ID inside the package; C6-3 current ve
 Built: config/formulas.json (5 formulas, wpm de 130/en 150, deliverable/kind mapping); migration 7 `artifacts`; registry/artifacts.py; content/scripts.py (models, lineage claims, feedback); `ca script template [--json]`.
 Needs review: section word ranges and podcast 10-20 min are a draft (client to confirm).
 
-## 2026-10-14 17:45 — Phase 6 Step 2: check rules, `ca script save|check|show`, markdown — DONE (commit: next entry)
+## 2026-10-14 17:45 — Phase 6 Step 2: check rules, `ca script save|check|show`, markdown — DONE 3712344 (+ typing a6c5606)
 Built: content/script_check.py (sections, word ranges, claim refs via lineage, outdated/disputed/unverified, "number without verified source", platform rules); save writes v<current> only; invalid saves logged `artifact_invalid`.
 Needs review: disputed claims need a source of each side named in the section notes; any digit counts as a number (BR-07).
+
+## 2026-10-14 18:00 — Phase 6 Step 3: production briefs, `ca brief template|save|check|show` — DONE (commit: next entry)
+Built: content/briefs.py (youtube, podcast, social briefs; sections, thumbnail ≤5 words, caption language, podcast minutes); brief.json + brief.md in v<n>.
+Needs review: a brief without a saved script for its version is allowed with a warning.

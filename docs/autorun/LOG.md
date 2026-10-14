@@ -105,6 +105,10 @@ Needs review: a brief without a saved script for its version is allowed with a w
 Built: content/copy_apply.py — a saved social_graphic/facebook_ad/carousel script fills only its deliverable's brief.json fields (post.headline, captions.<deliverable>, ad.*, carousel.slides); no brief.json or no fit → kept in the script with a warning; packages without a script unchanged.
 Needs review: caption mapping expects copy as hook line, 3-5 takeaway lines, question line; ad primary text stays in the script (caption rules differ).
 
-## 2026-10-14 18:40 — Phase 6 Step 5: write-script skill, make-content, AGENTS.md, help, e2e — DONE (commit: next entry); PHASE 6 DONE
+## 2026-10-14 18:40 — Phase 6 Step 5: write-script skill, make-content, AGENTS.md, help, e2e — DONE 4cd19b1; PHASE 6 DONE
 Built: write-script skill; make-content step 2b (copy via `ca script save`); AGENTS.md + help group; scripts/e2e_phase6.py 7/7 PASS; full suite 322 passed, mypy --strict 160 files clean.
 Needs review: the stricter number rule now applies to copy saved through the formulas (topic packages without claims: no numbers).
+
+## 2026-10-14 18:50 — Autorun finished (§8)
+Report: docs/autorun/REPORT-PHASES-4-6.md. Phase 7 not started; nothing pushed or merged.
+Needs review: see the report (needs review + client questions).

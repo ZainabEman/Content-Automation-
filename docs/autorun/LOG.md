@@ -73,6 +73,10 @@ Needs review: sender purposes/pillar affinities are a draft (client to confirm).
 Built: Source v2 fields (optional; `active` still read), 8 German candidates enabled:false; content/backlog.py (URL/title duplicates merged, keyword pillar guess, off_strategy flag, run counts); `ca research run [--sources] [--newsletters] [--list] [--limit]`.
 Needs review: German feed URLs unverified; scraper articles become ideas up to --limit (default 20) per run.
 
-## 2026-10-14 16:05 — Phase 5 Step 4: dedupe, scoring, review queue, manual topics, claims — DONE (commit: next entry)
+## 2026-10-14 16:05 — Phase 5 Step 4: dedupe, scoring, review queue, manual topics, claims — DONE e0fa281
 Built: registry/claims.py (status decided by rules only), score_idea/merge_ideas/review_queue; `ca ideas list|review|add|score|merge`, `ca claims add|list|check`.
 Needs review: score weights 40/20/15/15/10 are a draft; a repeated manual topic adds a second note to the older idea.
+
+## 2026-10-14 16:25 — Phase 5 Step 5: calendar v2 — DONE (commit: next entry)
+Built: calendar.json `plan` block (plan-only types, slots, targets, pillar tolerance); content/plan.py (`ca calendar plan --week|--month`, inherited approval, shorts +2 days, blocked notes); `ca calendar show --month`; generate skips plan-only rows; `idea:BG-x` sources.
+Needs review: draft slot template (10 posts/week, 2 YouTube, 1 carousel, podcast every 2nd week) — client to confirm.

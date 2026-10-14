@@ -386,3 +386,10 @@ def set_status(
         append_event(conn, "status_changed", actor=actor, command=command, item_id=item.id,
                      version=item.current_version, details=details)
         return get_item(conn, item.id)
+
+
+def children(conn: sqlite3.Connection, ref: str) -> list[Item]:
+    """The items whose parent is `ref` (an idea's planned content, a video's shorts)."""
+    item_id = resolve(conn, ref)
+    rows = conn.execute("SELECT id FROM items WHERE parent_id = ? ORDER BY number", (item_id,))
+    return [get_item(conn, str(row["id"])) for row in rows]

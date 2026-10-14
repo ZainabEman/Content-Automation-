@@ -1,9 +1,140 @@
 {
+  "_note": "slots: the weekly cadence of `ca calendar new` (make calendar next week). plan: calendar v2 for `ca calendar plan --week|--month` (Phase 5 P5-D12).",
   "slots": [
-    {"weekday": "mon", "deliverable": "linkedin_post"},
-    {"weekday": "tue", "deliverable": "facebook_post"},
-    {"weekday": "wed", "deliverable": "linkedin_post"},
-    {"weekday": "thu", "deliverable": "facebook_post"},
-    {"weekday": "fri", "deliverable": "instagram_carousel"}
-  ]
+    {
+      "weekday": "mon",
+      "deliverable": "linkedin_post"
+    },
+    {
+      "weekday": "tue",
+      "deliverable": "facebook_post"
+    },
+    {
+      "weekday": "wed",
+      "deliverable": "linkedin_post"
+    },
+    {
+      "weekday": "thu",
+      "deliverable": "facebook_post"
+    },
+    {
+      "weekday": "fri",
+      "deliverable": "instagram_carousel"
+    }
+  ],
+  "plan": {
+    "_note": "draft targets — client to confirm: 1-2 posts a day (LinkedIn, Facebook), 1 Instagram carousel and 2 YouTube videos a week, a podcast every second week, a YouTube Short and a TikTok 2 days after each video.",
+    "types": {
+      "youtube_longform": {
+        "platform": "youtube",
+        "kind": "youtube"
+      },
+      "podcast_episode": {
+        "platform": "podcast",
+        "kind": "podcast"
+      },
+      "youtube_short": {
+        "platform": "youtube",
+        "kind": "short",
+        "parent": "youtube_longform",
+        "bufferDays": 2
+      },
+      "tiktok_short": {
+        "platform": "tiktok",
+        "kind": "short",
+        "parent": "youtube_longform",
+        "bufferDays": 2
+      },
+      "instagram_graphic": {
+        "platform": "instagram",
+        "kind": "graphic",
+        "enabled": false,
+        "_note": "C5-14: single Instagram graphic, off until the client confirms"
+      }
+    },
+    "slots": [
+      {
+        "weekday": "mon",
+        "types": [
+          "linkedin_post",
+          "facebook_post"
+        ]
+      },
+      {
+        "weekday": "tue",
+        "types": [
+          "linkedin_post"
+        ]
+      },
+      {
+        "weekday": "tue",
+        "types": [
+          "youtube_longform"
+        ]
+      },
+      {
+        "weekday": "wed",
+        "types": [
+          "facebook_post"
+        ]
+      },
+      {
+        "weekday": "thu",
+        "types": [
+          "linkedin_post",
+          "facebook_post"
+        ]
+      },
+      {
+        "weekday": "thu",
+        "types": [
+          "podcast_episode"
+        ],
+        "everyWeeks": 2
+      },
+      {
+        "weekday": "fri",
+        "types": [
+          "facebook_post"
+        ]
+      },
+      {
+        "weekday": "fri",
+        "types": [
+          "instagram_carousel"
+        ]
+      },
+      {
+        "weekday": "fri",
+        "types": [
+          "youtube_longform"
+        ]
+      },
+      {
+        "weekday": "sat",
+        "types": [
+          "linkedin_post"
+        ]
+      },
+      {
+        "weekday": "sun",
+        "types": [
+          "facebook_post"
+        ]
+      }
+    ],
+    "targets": {
+      "postTypes": [
+        "linkedin_post",
+        "facebook_post"
+      ],
+      "postsPerDayMin": 1,
+      "postsPerDayMax": 2,
+      "perWeek": {
+        "instagram_carousel": 1,
+        "youtube_longform": 2
+      }
+    },
+    "pillarTolerance": 0.15
+  }
 }

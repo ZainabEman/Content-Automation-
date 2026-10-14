@@ -59,7 +59,7 @@ PRD: [docs/phases/PHASE-5-PRD.md](phases/PHASE-5-PRD.md) (conflicts with the cur
 - [x] Step 2 – Newsletter senders config, `ca research fetch` with link resolution, source storage (fixtures).
 - [x] Step 3 – Sources config v2 + scraper update + German candidates (disabled) + `ca research run`.
 - [x] Step 4 – Dedupe, scoring, the review queue, manual topics, claim rules and commands.
-- [ ] Step 5 – Calendar v2 (slots, targets, inherited approval, dependencies, month view, skip unbuilt kinds).
+- [x] Step 5 – Calendar v2 (slots, targets, inherited approval, dependencies, month view, skip unbuilt kinds).
 - [ ] Step 6 – Skills (research-ideas; show-content and make-calendar updates), AGENTS.md, help, `scripts/e2e_phase5.py`, PHASE-5-E2E.md, PROGRESS.
 
 ## Phase 4 done (2026-10-13)

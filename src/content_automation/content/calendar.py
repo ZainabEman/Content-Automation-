@@ -47,6 +47,12 @@ from content_automation.content.package import (
     save_package,
     start_package,
 )
+from content_automation.content.plan_config import (
+    NOT_PRODUCIBLE,
+    WEEKDAYS,
+    Weekday,
+    plan_only_types,
+)
 from content_automation.content.research_input import ResearchFile, ResearchIdea, load_idea
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
@@ -80,11 +86,10 @@ CHANGES_FROM: dict[Decision, tuple[str, ...]] = {  # the statuses each decision 
 NEWSLETTER_DIR = "newsletters"  # under RESEARCH_DIR, written by the show-content skill
 LIST_SUFFIX = "_content-list.json"
 ARTICLE_DAYS = 14  # scraper articles from the last N days fill the remaining slots
-Weekday = Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
-WEEKDAYS: tuple[Weekday, ...] = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
-SOURCE_HELP = '"topic:<text>", "newsletter:<YYYY-MM-DD>#<n>" or "article:<id>"'
+SOURCE_HELP = ('"topic:<text>", "newsletter:<YYYY-MM-DD>#<n>", "article:<id>" or '
+               '"idea:<BG-x>"')
 _WEEK = re.compile(r"(\d{4})-W(\d{1,2})")
-_SOURCE = re.compile(r"(topic|newsletter|article):(\S.*)")
+_SOURCE = re.compile(r"(topic|newsletter|article|idea):(\S.*)")
 _NEWSLETTER = re.compile(r"(\d{4}-\d{2}-\d{2})#(\d+)")
 
 Row = dict[str, str]
@@ -117,7 +122,9 @@ class Slot(_Model):
 
 
 class Cadence(_Model):
+    note: str | None = Field(default=None, alias="_note")
     slots: list[Slot] = Field(min_length=1)
+    plan: dict[str, object] | None = None  # calendar v2, read by content/plan_config.py
 
 
 @dataclass(frozen=True)
@@ -362,14 +369,15 @@ def new_calendar(
 
 
 def check_calendar(path: Path, label: str, catalog: DeliverableCatalog,
-                   research_dir: Path) -> list[str]:
-    """Every problem in the calendar file (an empty list: it is fine)."""
+                   research_dir: Path, plan_types: dict[str, str] | None = None) -> list[str]:
+    """Every problem in the calendar file (an empty list: it is fine). `plan_types`: the
+    plan-only content types and their platforms (C5-5); rows of one idea may share a topic."""
     rows = read_view(path)
     if not rows:
         return ["the calendar has no rows"]
     days = set(week_days(label))
     problems: list[str] = []
-    topics: dict[str, str] = {}
+    topics: dict[str, tuple[str, str]] = {}
     for row in rows:
         where = f"row {row['Row'] or '?'}"
         try:
@@ -380,27 +388,33 @@ def check_calendar(path: Path, label: str, catalog: DeliverableCatalog,
         if day is not None and day not in days:
             problems.append(f"{where}: {day} is not in {label}")
         platform = row["Platform"]
-        if platform not in PLATFORMS:
-            problems.append(f'{where}: unknown platform "{platform}" (use {", ".join(PLATFORMS)})')
         item = catalog.deliverables.get(row["Content type"])
-        if item is None:
+        plan_platform = None if item else (plan_types or {}).get(row["Content type"])
+        if plan_platform is not None:  # a plan-only type (C5-5)
+            if platform != plan_platform:
+                problems.append(f"{where}: {row['Content type']} is for {plan_platform}, not "
+                                f"{platform}")
+        elif platform not in PLATFORMS:
+            problems.append(f'{where}: unknown platform "{platform}" (use {", ".join(PLATFORMS)})')
+        if item is None and plan_platform is None:
             problems.append(
                 f'{where}: unknown content type "{row["Content type"]}" (see `uv run ca content '
                 "deliverables`)"
             )
-        elif item.platform and item.platform != platform:
+        elif item is not None and item.platform and item.platform != platform:
             problems.append(
                 f"{where}: {row['Content type']} is for {item.platform}, not {platform}"
             )
         if row["Status"] not in STATUSES:
             problems.append(f'{where}: status "{row["Status"]}" must be {", ".join(STATUSES)}')
         key = _topic_key(row["Topic"])
+        idea = row["Research source"] if row["Research source"].startswith("idea:") else ""
         if not key:
             problems.append(f"{where}: no topic")
-        elif key in topics:
-            problems.append(f"{where}: same topic as row {topics[key]}")
+        elif key in topics and not (idea and topics[key][1] == idea):  # C5-13: one idea, rows
+            problems.append(f"{where}: same topic as row {topics[key][0]}")  # per platform
         else:
-            topics[key] = row["Row"]
+            topics.setdefault(key, (row["Row"], idea))
         source_problem = _source_problem(row["Research source"], research_dir)
         if source_problem:
             problems.append(f"{where}: {source_problem}")
@@ -553,7 +567,8 @@ def generate_rows(
     from the row if needed) and the dry run's cost lines are added to `costs`.
     """
     path = calendar_path(settings, label)
-    problems = check_calendar(path, label, catalog, settings.research_dir)
+    plan_types = plan_only_types(settings.calendar_file)
+    problems = check_calendar(path, label, catalog, settings.research_dir, plan_types)
     if problems:
         raise CalendarError(
             f"{path.name} has {len(problems)} problem(s): run `uv run ca calendar check --week "
@@ -571,6 +586,9 @@ def generate_rows(
     ready = 0
     for row in approved:
         where = f"Row {row['Row']} ({row['Planned date']}, {row['Content type']})"
+        if row["Content type"] in plan_types and row["Content type"] not in catalog.deliverables:
+            lines.append(f"{where} {row['BG ID']}: {NOT_PRODUCIBLE}; skipped.")
+            continue
         item_id = _row_item(row, label, catalog)
         if item_id:
             row["BG ID"] = item_id
@@ -793,14 +811,16 @@ def _failed_part(package: ContentPackage) -> str:
     return ""
 
 
-def show_lines(rows: list[Row]) -> list[str]:
-    """A Markdown table for Codex to show."""
+def show_lines(rows: list[Row], notes: dict[str, str] | None = None) -> list[str]:
+    """A Markdown table for Codex to show; `notes` (by BG ID) go after the Status."""
     columns = ("Row", "BG ID", "Planned date", "Platform", "Content type", "Status", "Topic",
                "Research source")
     lines = ["| " + " | ".join(columns) + " |", "|" + "---|" * len(columns)]
     for row in rows:
         cells = [(row.get(column) or "—").replace("|", "/") for column in columns]
         cells[2] = _with_weekday(cells[2])
+        if notes and row.get("BG ID") in notes:
+            cells[5] += f" ({notes[row['BG ID']]})"
         lines.append("| " + " | ".join(cells) + " |")
     return lines
 
@@ -874,6 +894,16 @@ def _source_problem(source: str, research_dir: Path) -> str | None:
     if match is None:
         return f"research source must be {SOURCE_HELP}"
     kind, value = match[1], match[2].strip()
+    if kind == "idea":
+        scope = runtime.current()
+        if not re.fullmatch(r"BG-\d+", value.upper()):
+            return f"research source must be {SOURCE_HELP}"
+        if scope is not None:
+            try:
+                if get_item(scope.conn, value).kind != "idea":
+                    return f"{value} is not an idea"
+            except RegistryError:
+                return f"idea {value} not found"
     if kind == "newsletter":
         found = _NEWSLETTER.fullmatch(value)
         if found is None:

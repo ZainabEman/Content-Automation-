@@ -156,3 +156,29 @@ def _carry_status(conn: sqlite3.Connection, item: Item, status: str, label: str,
         reject(conn, item.id, note, gate="idea", actor="user", command=command)
     if status == "Generated":
         part_done(conn, item.id, command=command)
+
+
+def plan_item(
+    conn: sqlite3.Connection, row: Mapping[str, str], label: str, *, kind: str,
+    platform: str | None, parent_id: str, idea_id: str, command: str | None = None,
+) -> Item:
+    """A calendar row planned from an approved idea (Phase 5 P5-D12): a child of `parent_id`
+    (the idea, or the video of a short) whose idea gate starts approved, inherited and logged
+    with the idea's ID. Refused when the idea is not approved."""
+    with transaction(conn):
+        idea = get_item(conn, idea_id)
+        if idea.kind != "idea" or idea.idea_status != "approved":
+            raise RegistryError(f"{idea.id} is not an approved idea: approve it first.")
+        content_id = row.get("Content ID") or f"{label}-{int(row['Row']):02d}"
+        planned = row.get("Planned date") or ""
+        item = create_item(
+            conn, kind=kind, title=row["Topic"], topic=row["Topic"],
+            platforms=[platform] if platform else [], parent_id=parent_id,
+            planned_date=date.fromisoformat(planned) if planned else None,
+            source_refs=[f"idea:{idea.id}"], deliverable=row.get("Content type") or None,
+            command=command,
+        )
+        move_alias(conn, content_id, item.id, command=command)
+        approve(conn, item.id, gate="idea", actor="system", command=command,
+                note=f"inherited from approved idea {idea.id} (parent {parent_id})")
+        return get_item(conn, item.id)

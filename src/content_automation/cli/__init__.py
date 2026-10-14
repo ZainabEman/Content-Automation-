@@ -68,6 +68,16 @@ from content_automation.content.package import (
     set_deliverables,
     start_package,
 )
+from content_automation.content.plan import (
+    blocked_notes,
+    load_plan_or_none,
+    month_days,
+    month_label,
+    period,
+    period_rows,
+    plan_calendar,
+)
+from content_automation.content.plan_config import plan_only_types
 from content_automation.content.research_input import ResearchInputError, load_idea
 from content_automation.content.tracking import TrackerError, status_lines
 from content_automation.core.agent_steps import record_agent_output, request_path
@@ -1434,7 +1444,8 @@ def calendar_check(week: WeekOption = "next") -> None:
         with _registry(settings, f"ca calendar check --week {label}"):
             check_edits(calendar_path(settings, label))
             problems = check_calendar(
-                calendar_path(settings, label), label, catalog, settings.research_dir
+                calendar_path(settings, label), label, catalog, settings.research_dir,
+                plan_only_types(settings.calendar_file),
             )
     except (CalendarError, DeliverableError) as error:
         typer.echo(str(error), err=True)
@@ -1447,23 +1458,68 @@ def calendar_check(week: WeekOption = "next") -> None:
     typer.echo(f"Calendar {label} is OK.")
 
 
+MonthOption = Annotated[
+    str | None, typer.Option(help='The month: "next", "this" or e.g. 2026-11.')
+]
+
+
 @calendar_app.command("show")
-def calendar_show(week: WeekOption = "next") -> None:
-    """Show the week's calendar as a Markdown table."""
+def calendar_show(week: WeekOption = "next", month: MonthOption = None) -> None:
+    """Show the week's calendar (or --month: the month's rows of every week) as a table."""
     _utf8_output()
     settings = _settings(dry_run=True)
     try:
-        label = week_label(week)
-        path = calendar_path(settings, label)
-        with _registry(settings, f"ca calendar show --week {label}"):
-            check_edits(path)
-            rows = read_view(path)
-    except CalendarError as error:
+        catalog = load_deliverables(settings.deliverables_file)
+        plan = load_plan_or_none(settings, catalog)
+        if month is not None:
+            label = month_label(month)
+            with _registry(settings, f"ca calendar show --month {label}") as scope:
+                rows = period_rows(settings, month_days(label), numbered=True)
+                notes = blocked_notes(scope.conn, rows, plan)
+            heading = f"Calendar {label}: {len(rows)} row(s) from the week files"
+        else:
+            label = week_label(week)
+            path = calendar_path(settings, label)
+            with _registry(settings, f"ca calendar show --week {label}") as scope:
+                check_edits(path)
+                rows = read_view(path)
+                notes = blocked_notes(scope.conn, rows, plan)
+            heading = f"Calendar {label}: {path}"
+    except (CalendarError, DeliverableError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from None
-    typer.echo(f"Calendar {label}: {path}")
-    for line in show_lines(rows):
+    typer.echo(heading)
+    for line in show_lines(rows, notes):
         typer.echo(line)
+
+
+@calendar_app.command("plan")
+def calendar_plan(
+    week: Annotated[
+        str | None, typer.Option(help='The ISO week: "next" (default), "this" or 2026-W42.')
+    ] = None,
+    month: MonthOption = None,
+) -> None:
+    """Fill the plan slots of config/calendar.json from approved ideas (score, pillar balance);
+    rows start Approved, inherited from their idea. Nothing is generated."""
+    _utf8_output()
+    settings = _settings(check_keys=False)
+    try:
+        label, days = period(week, month)
+        catalog = load_deliverables(settings.deliverables_file)
+        strategy = load_strategy(settings.strategy_file)
+        flag = "--month" if month else "--week"
+        with _registry(settings, f"ca calendar plan {flag} {label}") as scope:
+            paths, lines = plan_calendar(settings, catalog, strategy, label, days)
+            rows = period_rows(settings, days, numbered=month is not None)
+            notes = blocked_notes(scope.conn, rows, load_plan_or_none(settings, catalog))
+    except (CalendarError, DeliverableError, RegistryError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from None
+    for line in [*lines, *show_lines(rows, notes)]:
+        typer.echo(line)
+    for path in paths:
+        typer.echo(sync_calendar(path, settings))
 
 
 @calendar_app.command("approve")

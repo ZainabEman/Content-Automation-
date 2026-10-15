@@ -20,6 +20,7 @@ from content_automation.ai.image import (
     is_unset,
     load_comfyui_config,
     load_comfyui_workflow,
+    model_for,
 )
 from content_automation.content.deliverables import DeliverableError, load_deliverables
 from content_automation.core.config import ConfigurationError, Settings, load_settings
@@ -204,16 +205,17 @@ def _comfyui(settings: Settings) -> list[Check]:
     checks = [Check("ok", "ComfyUI config", f"valid: {', '.join(config.workflows)}")]
     if not active:
         return checks
-    spec = config.workflows.get(settings.image_model)
+    model = model_for(settings)  # IMAGE_MODEL if it names a workflow, else defaultWorkflow
+    spec = config.workflows.get(model)
     if spec is None:
-        checks.append(Check("fail", "ComfyUI model", f"IMAGE_MODEL={settings.image_model}",
-                            f"Set IMAGE_MODEL to one of: {', '.join(config.workflows)}."))
+        checks.append(Check("fail", "ComfyUI model", f"workflow {model}",
+                            f"Set defaultWorkflow to one of: {', '.join(config.workflows)}."))
     elif is_unset(spec.lora_name) or is_unset(config.trigger_word):
         checks.append(Check("warn", "ComfyUI LoRA", "not set yet: images with the person are "
                             "refused before any call",
                             "Set loraName and triggerWord in config/comfyui.json (Step 4)."))
     else:
-        checks.append(Check("ok", "ComfyUI LoRA", f"{spec.lora_name} ({settings.image_model})"))
+        checks.append(Check("ok", "ComfyUI LoRA", f"{spec.lora_name} ({model})"))
     return checks
 
 

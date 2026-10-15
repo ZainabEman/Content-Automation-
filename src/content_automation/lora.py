@@ -651,7 +651,7 @@ def set_lora(settings: Settings, model: ModelKey, filename: str) -> list[str]:
         lines.append("WARNING: triggerWord is still a placeholder; person images stay refused.")
     pod = config.pod
     lines.append(
-        f"The worker must find {pod.serverless_volume}/{pod.loras}/{name} (worker 5.11.0 names "
-        "missing files before running). Next: a dry run, then the Step 5 comparison."
+        f"The worker must find {pod.serverless_volume}/{pod.loras}/{name} (worker 5.10.0-base "
+        "names missing files before running). Next: a dry run, then the Step 5 comparison."
     )
     return lines

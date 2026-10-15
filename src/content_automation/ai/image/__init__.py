@@ -205,12 +205,22 @@ def estimate_cost_usd(
     return round(per_image * request.count + per_request, 4)
 
 
+def model_for(settings: Settings) -> str:
+    """The model the selected provider runs: IMAGE_MODEL; ComfyUI runs its own workflow
+    (IMAGE_MODEL only when it names a ComfyUI workflow, else config/comfyui.json
+    defaultWorkflow), so an OpenRouter model never blocks it."""
+    if settings.image_provider != "comfyui":
+        return settings.image_model
+    workflow: str = importlib.import_module(_ADAPTERS["comfyui"]).workflow_for(settings)
+    return workflow
+
+
 def generate_image(request: ImageRequest, settings: Settings | None = None) -> ImageResult:
     """Validate the request against the selected adapter, then generate the images."""
     settings = settings or load_settings()
     provider = get_provider(settings.image_provider, settings)
     validate_request(request, provider.capabilities)
-    result = provider.generate(request, settings.image_model)
+    result = provider.generate(request, model_for(settings))
     if len(result.images) != request.count:
         raise ImageProviderError(
             f"Provider returned {len(result.images)} images; {request.count} were requested."

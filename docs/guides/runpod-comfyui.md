@@ -40,7 +40,7 @@ models/
 ComfyUI's own docs name these folders `diffusion_models/` and `text_encoders/`. The
 worker-comfyui customization guide lists the older names `unet/` and `clip/`, which ComfyUI
 reads for the same purpose. **Unverified:** whether the worker also maps the new names on the
-volume. Worker 5.11.0 checks every model file before it runs a workflow and lists the missing
+volume. Worker 5.10.0-base checks every model file before it runs a workflow and lists the missing
 ones. If it reports a file as missing, move it to `diffusion_models/` or `text_encoders/`.
 
 ## 2. Copy the models onto the volume
@@ -76,7 +76,7 @@ RunPod → Serverless → New Endpoint → Docker image.
 | Network volume | the volume from step 1 |
 | Environment | none. Without S3 settings the worker returns images as base64. |
 
-**Unverified:** that the ComfyUI inside `5.11.0-base` is new enough for Qwen-Image-2512 and
+**Unverified:** that the ComfyUI inside `5.10.0-base` is new enough for Qwen-Image-2512 and
 Z-Image, which need a ComfyUI release from late 2025 or newer. If the first test run reports
 an unknown node or model type, build your own image `FROM runpod/worker-comfyui:5.10.0-base`
 with an updated ComfyUI. See the worker's `docs/customization.md`.
@@ -122,7 +122,7 @@ for each model, the cold start and the idle time.
 - **Timeout:** the job is cancelled on RunPod, so the GPU stops billing. The app reports it and
   does not retry.
 - **Worker error or empty output:** the job fails with RunPod's message and the RunPod job ID.
-- **A file is missing on the volume:** worker 5.11.0 names it before running. Fix the folder or
+- **A file is missing on the volume:** worker 5.10.0-base names it before running. Fix the folder or
   the file name.
 - **Nano Banana instead:** set `IMAGE_PROVIDER=openrouter` yourself, then run a new dry run for
   the cost. The app never falls back on its own.

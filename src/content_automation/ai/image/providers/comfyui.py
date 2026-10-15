@@ -1,7 +1,9 @@
 """ComfyUI image adapter: a workflow in ComfyUI API format, run on a RunPod Serverless
 endpoint with runpod-workers/worker-comfyui (providers/runpod.py).
 
-IMAGE_MODEL names the workflow in config/comfyui.json (qwen_image_2512 or z_image_turbo). Each
+The workflow: IMAGE_MODEL when it names one in config/comfyui.json (qwen_image_2512 or
+z_image_turbo), else defaultWorkflow (z_image_turbo), so an OpenRouter IMAGE_MODEL never blocks
+ComfyUI (workflow_for; the dry run and the job record name the workflow used). Each
 workflow is an API-format JSON plus a mapping file naming the node and input of every value the
 app sets (prompt, negative, seed, width, height, steps, cfg, lora_name, lora_strength): values
 are filled through the mapping, never by string replacement.
@@ -124,6 +126,7 @@ class ComfyUIConfig(_Model):
     identity_prompt: str = Field(min_length=1)  # "{trigger}" is the trigger word
     upscale_node: UpscaleNode = Field(default_factory=UpscaleNode)
     workflows: dict[str, WorkflowConfig] = Field(min_length=1)
+    default_workflow: str = "z_image_turbo"  # when IMAGE_MODEL names no ComfyUI workflow
 
     @model_validator(mode="after")
     def _check(self) -> Self:
@@ -136,6 +139,8 @@ class ComfyUIConfig(_Model):
             problems.append("{trigger} in identityPrompt")
         if self.upscale_node.enabled and not self.upscale_node.model.strip():
             problems.append("upscaleNode.model (needed when enabled)")
+        if self.default_workflow not in self.workflows:
+            problems.append(f"defaultWorkflow {self.default_workflow} (not under workflows)")
         if problems:
             raise ValueError("missing or invalid " + ", ".join(problems))
         return self
@@ -508,22 +513,26 @@ def _image(client: RunPodClient, job: RunPodJob, size: tuple[int, int]) -> Gener
     return GeneratedImage(data=buffer.getvalue(), mime_type="image/png")
 
 
+def workflow_for(settings: Settings) -> str:
+    """The ComfyUI workflow to run: IMAGE_MODEL if it names one, else defaultWorkflow."""
+    config = load_config(settings.comfyui_config_file)
+    if settings.image_model in config.workflows:
+        return settings.image_model
+    return config.default_workflow
+
+
 def create_provider(settings: Settings | None = None) -> ComfyUIImageProvider:
-    """Loads config/comfyui.json; an IMAGE_MODEL that names no workflow stops here."""
+    """Loads config/comfyui.json; the workflow comes from workflow_for (never an OpenRouter
+    IMAGE_MODEL)."""
     config = load_config(settings.comfyui_config_file if settings else DEFAULT_CONFIG)
     if settings is None:
         return ComfyUIImageProvider(
-            config, next(iter(config.workflows)), api_key=None, endpoint_id=None
-        )
-    if settings.image_model not in config.workflows:
-        raise ImageProviderError(
-            f"IMAGE_MODEL={settings.image_model} is not a ComfyUI workflow; set IMAGE_MODEL to "
-            f"one of: {', '.join(config.workflows)} (config/comfyui.json)."
+            config, config.default_workflow, api_key=None, endpoint_id=None
         )
     key = settings.runpod_api_key.get_secret_value().strip() if settings.runpod_api_key else ""
     return ComfyUIImageProvider(
         config,
-        settings.image_model,
+        workflow_for(settings),
         api_key=key or None,
         endpoint_id=(settings.runpod_endpoint_id or "").strip() or None,
     )

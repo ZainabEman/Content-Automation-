@@ -14,7 +14,7 @@ import typer
 from pydantic import ValidationError
 
 from content_automation.ai.avatar import AvatarError
-from content_automation.ai.image import ASPECT_RATIOS, ImageError, ImageRequest
+from content_automation.ai.image import ASPECT_RATIOS, ImageError, ImageRequest, model_for
 from content_automation.ai.video import VideoError
 from content_automation.cli.bridge import (
     image_cost_line,
@@ -645,7 +645,7 @@ def _image_cost(workflow: str | None, inputs: WorkflowInputs, settings: Settings
     request = (_raw_request(inputs) if workflow is None
                else prepare_workflow(workflow, inputs, settings).request)
     line = image_cost_line(request, settings, label=workflow or "raw")
-    extra = json.dumps([workflow, settings.image_provider, settings.image_model,
+    extra = json.dumps([workflow, settings.image_provider, model_for(settings),
                         asdict(inputs)], sort_keys=True, default=str)
     return line, extra
 

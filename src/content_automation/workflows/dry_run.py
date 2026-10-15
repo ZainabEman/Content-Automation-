@@ -8,6 +8,7 @@ from content_automation.ai.image import (
     ReferenceImage,
     estimate_cost_usd,
     get_provider,
+    model_for,
     validate_request,
 )
 from content_automation.core.config import Settings
@@ -52,7 +53,7 @@ def dry_run_lines(
     lines = [
         "DRY RUN: no job created, no provider call, not counted toward the daily limit.",
         f"Workflow: {workflow}",
-        f"Provider: {settings.image_provider}, model {settings.image_model}",
+        f"Provider: {settings.image_provider}, model {model_for(settings)}",
         f"Output: {request.count} image(s), {request.aspect_ratio}, {request.image_size}",
         f"Provider calls: {calls}",
         f"Estimated cost: ${total:.3f} ({request.count} x ${per_image:.3f})",

@@ -139,7 +139,6 @@ def _comfyui(settings: Settings, folder: Path) -> str:
     from content_automation.ai.image import (
         ImageProviderError,
         comfyui_model_file_problems,
-        get_provider,
         is_unset,
         load_comfyui_config,
         load_comfyui_workflow,
@@ -170,7 +169,7 @@ def _comfyui(settings: Settings, folder: Path) -> str:
         raise VerifyFailed("RUNPOD_ENDPOINT_ID does not look like a RunPod endpoint ID "
                            "(8-32 lowercase letters and digits; the value is not shown)")
     try:
-        get_provider("comfyui", settings.model_copy(update={"image_model": "not-a-workflow"}))
+        load_comfyui_workflow(config, "not-a-workflow")
     except ImageProviderError:
         return (f"LoRA {spec.lora_name} sha256 matches; LoraLoaderModelOnly node; model files "
                 f"match config; endpoint ID {'format ok' if endpoint else 'not set'}; an unknown "

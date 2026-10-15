@@ -66,3 +66,15 @@ def test_person_prompt_rules_and_the_workflow() -> None:
     plain = build_graph(workflow, config, prompt="a laptop", width=1024, height=1024, seed=1,
                         person=False)
     assert lora not in plain  # no person: the LoRA node is bypassed
+
+
+def test_comfyui_runs_its_own_workflow(make_settings: Callable[..., Settings]) -> None:
+    from content_automation.ai.image import model_for
+
+    comfy = make_settings().model_copy(update={
+        "image_provider": "comfyui", "image_model": "google/gemini-3.1-flash-image"})
+    assert model_for(comfy) == "z_image_turbo"  # an OpenRouter IMAGE_MODEL never blocks it
+    assert model_for(comfy.model_copy(update={"image_model": "qwen_image_2512"})) == (
+        "qwen_image_2512")
+    openrouter = comfy.model_copy(update={"image_provider": "openrouter"})
+    assert model_for(openrouter) == "google/gemini-3.1-flash-image"

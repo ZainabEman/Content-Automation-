@@ -12,6 +12,7 @@ from content_automation.ai.image import (
     estimate_cost_usd,
     generate_image,
     get_provider,
+    model_for,
 )
 from content_automation.core.config import Settings
 from content_automation.core.jobs import DETAILS_FILE, Job, JobParams, JobReference, create_job
@@ -105,7 +106,7 @@ def run_image_job(
         request=user_request or request.prompt,
         prompt=request.prompt,
         provider=settings.image_provider,
-        model=settings.image_model,
+        model=model_for(settings),
         params=JobParams(
             aspect_ratio=request.aspect_ratio,
             image_size=request.image_size,
@@ -206,7 +207,7 @@ def _job_inputs(
 ) -> dict[str, object]:
     """What makes two image jobs the same (the idempotency key's inputs)."""
     return {
-        "workflow": workflow_id, "prompt": request.prompt, "model": settings.image_model,
+        "workflow": workflow_id, "prompt": request.prompt, "model": model_for(settings),
         "aspect": request.aspect_ratio, "size": request.image_size, "count": request.count,
         "identity": [ref.asset_id for ref in request.identity_refs],
         "objects": [ref.asset_id for ref in request.object_refs],

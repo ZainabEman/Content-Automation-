@@ -57,6 +57,7 @@
     "enabled": false,
     "model": ""
   },
+  "defaultWorkflow": "z_image_turbo",
   "workflows": {
     "qwen_image_2512": {
       "workflow": "config/comfyui/workflows/qwen_image_2512.json",

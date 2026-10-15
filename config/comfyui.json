@@ -101,13 +101,13 @@
     "z_image_turbo": {
       "diffusionModel": {
         "file": "z_image_turbo_bf16.safetensors",
-        "volumePath": "models/diffusion_models/z_image_turbo_bf16.safetensors",
+        "volumePath": "models/unet/z_image_turbo_bf16.safetensors",
         "source": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/diffusion_models/z_image_turbo_bf16.safetensors",
         "sizeGb": 12.31
       },
       "textEncoder": {
         "file": "qwen_3_4b.safetensors",
-        "volumePath": "models/text_encoders/qwen_3_4b.safetensors",
+        "volumePath": "models/clip/qwen_3_4b.safetensors",
         "source": "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors",
         "sizeGb": 8.04
       },

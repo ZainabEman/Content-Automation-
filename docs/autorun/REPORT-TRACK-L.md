@@ -8,7 +8,7 @@ Side effect: `uv run ca verify run comfyui` was run once on the real registry. I
 Your next steps (`docs/guides/runpod-zimage-setup.md`):
 1. Create a ~30 GB network volume in a region that offers a 24 GB GPU (check current RunPod prices).
 2. Upload the four files to the paths listed in `config/comfyui.json` `models` and `models/loras/`.
-3. Create the endpoint: `runpod/worker-comfyui:5.11.0-base`, 0/1 workers, idle 5 s, timeout 600 s, FlashBoot, volume attached.
+3. Create the endpoint: `runpod/worker-comfyui:5.10.0-base`, 0/1 workers, idle 5 s, timeout 600 s, FlashBoot, volume attached.
 4. Put the RunPod keys in `.env` by name, then run `uv run ca verify run comfyui`.
 5. In Codex: "make a linkedin post about <topic> with Roman", check the dry run, then "ok".
 6. Compare the likeness, trying `ca lora strength 0.8` against 1.0. Then run `ca verify record comfyui --live pass|fail "<note>"`, and after 5–10 images `ca costs calibrate --provider comfyui`.

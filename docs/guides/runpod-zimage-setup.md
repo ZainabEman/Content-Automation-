@@ -4,13 +4,15 @@ This is your one-time setup for making images with Roman on RunPod (ComfyUI, Z-I
 
 1. **Create the network volume.** In RunPod, go to Storage → New Network Volume. Make it about 30 GB, in a region that offers a 24 GB GPU (RTX 4090, L4 or RTX A5000) for Serverless. The models take about 21 GB (12.3 + 8.0 + 0.3 GB) and the LoRA 0.1 GB; the rest is room to spare.
 2. **Upload the four files** to the volume, at exactly these paths (they are listed in `config/comfyui.json` under `models`). Use RunPod's S3 API or a small temporary Pod, and stop the Pod when you are done.
-   - `models/diffusion_models/z_image_turbo_bf16.safetensors`
-   - `models/text_encoders/qwen_3_4b.safetensors`
+   - `models/unet/z_image_turbo_bf16.safetensors`
+   - `models/clip/qwen_3_4b.safetensors`
    - `models/vae/ae.safetensors`
    - `models/loras/r0man_bg_v2_step3000.safetensors`, copied from `outputs/lora/zimage/`. Its sha256 is recorded in config.
 
-   The three model files come from the Hugging Face repo `Comfy-Org/z_image_turbo` (folder `split_files/`).
-3. **Create the Serverless endpoint.** Go to Serverless → New Endpoint → Docker image `runpod/worker-comfyui:5.11.0-base`, and set:
+   Download the three model files from the Hugging Face repo `Comfy-Org/z_image_turbo`: `split_files/diffusion_models/z_image_turbo_bf16.safetensors` goes into `models/unet/`, `split_files/text_encoders/qwen_3_4b.safetensors` into `models/clip/`, and `split_files/vae/ae.safetensors` into `models/vae/`.
+
+   Note: worker-comfyui reads models only from these folders under `/runpod-volume/models/`: checkpoints, clip, clip_vision, configs, controlnet, embeddings, loras, upscale_models, vae and unet. Files in `diffusion_models/` or `text_encoders/` are not found.
+3. **Create the Serverless endpoint.** Go to Serverless → New Endpoint → Docker image `runpod/worker-comfyui:5.10.0-base`, and set:
    - GPU: 24 GB
    - workers: 0 active, max 1
    - idle timeout: 5 s

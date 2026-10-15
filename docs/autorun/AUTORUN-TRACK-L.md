@@ -85,7 +85,7 @@ Save as `docs/autorun/AUTORUN-TRACK-L.md`. This file is the spec. Don't write a 
 - Write `docs/guides/runpod-zimage-setup.md` (one page, numbered, for the user):
   1. create the network volume (~30 GB, a region that has the GPU)
   2. upload the diffusion model, text encoder, VAE and LoRA to the exact paths from config (`models/diffusion_models/…`, `models/text_encoders/…`, `models/vae/…`, `models/loras/r0man_bg_v2_step3000.safetensors`) via RunPod S3 or a temporary pod
-  3. create a Serverless endpoint: `runpod/worker-comfyui:5.11.0-base`, 0 active / max 1 worker, idle 5 s, execution timeout 600 s, FlashBoot, volume attached
+  3. create a Serverless endpoint: `runpod/worker-comfyui:5.10.0-base`, 0 active / max 1 worker, idle 5 s, execution timeout 600 s, FlashBoot, volume attached
   4. put RUNPOD_API_KEY, RUNPOD_ENDPOINT_ID, RUNPOD_NETWORK_VOLUME_ID and the S3 keys in `.env`, **by name only**
   5. in Codex: "make a linkedin post about <topic> with Roman" → check the dry run → "ok"
   6. compare the likeness with real photos and try strength 0.8 vs 1.0 (`ca lora strength 0.9`, a config write logged in the audit)

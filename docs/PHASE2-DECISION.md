@@ -269,7 +269,7 @@ https://huggingface.co/datasets/John6666/forum3 (z_image_turbo_colab_kaggle_1.md
 
 - Release used: **5.11.0** (released 21 Sep; the releases page shows no year). It checks every
   model file a workflow needs before running and lists all missing ones. Image:
-  `runpod/worker-comfyui:5.11.0-base` with the models on a network volume
+  `runpod/worker-comfyui:5.10.0-base` with the models on a network volume
   (`/runpod-volume/models/...`).
 - `POST https://api.runpod.ai/v2/<endpoint>/run` with `{"input": {"workflow": {...API format...},
   "images": [{"name", "image": base64}]}}`. `images` is optional and the app sends none (the

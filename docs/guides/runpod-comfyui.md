@@ -66,7 +66,7 @@ RunPod → Serverless → New Endpoint → Docker image.
 
 | Setting | Value |
 |---|---|
-| Container image | `runpod/worker-comfyui:5.11.0-base` (the release checked on 2026-10-10) |
+| Container image | `runpod/worker-comfyui:5.10.0-base` (the release checked on 2026-10-10) |
 | GPU | 24 GB (RTX 4090, L4, RTX A5000; Z-Image Turbo only); check current RunPod prices |
 | Active (minimum) workers | 0 (nothing runs, and nothing is billed, between jobs) |
 | Max workers | 1 |
@@ -78,7 +78,7 @@ RunPod → Serverless → New Endpoint → Docker image.
 
 **Unverified:** that the ComfyUI inside `5.11.0-base` is new enough for Qwen-Image-2512 and
 Z-Image, which need a ComfyUI release from late 2025 or newer. If the first test run reports
-an unknown node or model type, build your own image `FROM runpod/worker-comfyui:5.11.0-base`
+an unknown node or model type, build your own image `FROM runpod/worker-comfyui:5.10.0-base`
 with an updated ComfyUI. See the worker's `docs/customization.md`.
 
 ## 4. .env

@@ -20,6 +20,8 @@ dependencies = [
     "pydantic>=2.9",
     "pydantic-settings>=2.5",
     "python-dotenv>=1.0",
+    "rapidocr-onnxruntime>=1.4",
+    "rembg>=2.0.60",
     "trafilatura>=2.2.0",
     "typer>=0.12",
 ]
@@ -36,6 +38,9 @@ dev = [
 
 [tool.uv]
 cache-dir = ".uv-cache"  # inside the project: Codex's sandbox runs `uv run ca` without prompts
+# rapidocr-onnxruntime asks for the full opencv-python (5.x drops CascadeClassifier); the
+# headless 4.x package already provides cv2.
+override-dependencies = ["opencv-python ; sys_platform == 'never'"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/content_automation"]
@@ -61,6 +66,8 @@ module = [
     "oauthlib.*",
     "boto3",
     "botocore.*",
+    "rapidocr_onnxruntime",
+    "rembg",
 ]
 ignore_missing_imports = true
 

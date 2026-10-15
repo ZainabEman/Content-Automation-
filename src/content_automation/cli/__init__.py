@@ -58,6 +58,7 @@ from content_automation.content.calendar import (
 )
 from content_automation.content.carousel_format import check_format, package_format
 from content_automation.content.clips import clips_handoff, clips_import, clips_select
+from content_automation.content.compose_preview import preview as compose_preview
 from content_automation.content.deliverables import (
     DeliverableCatalog,
     DeliverableError,
@@ -204,6 +205,7 @@ from content_automation.workflows.carousel_plugin import (
 )
 from content_automation.workflows.carousel_render import PREVIEW_DIR, extract_style
 from content_automation.workflows.carousel_render import preview as carousel_preview_slides
+from content_automation.workflows.compose import MODES as COMPOSE_MODES
 from content_automation.workflows.design_system import load_design_system, resolve_design
 from content_automation.workflows.dry_run import dry_run_lines
 from content_automation.workflows.image_job import run_image_job
@@ -2788,5 +2790,32 @@ def publish_fail(
     settings = _settings(dry_run=True)
     with _registry(settings, f"ca publish fail {ref} --platform {platform}") as scope:
         lines = mark_failed(scope.conn, ref, platform, reason, command=scope.command)
+    for line in lines:
+        typer.echo(line)
+
+
+compose_app = typer.Typer(no_args_is_help=True, help="Person posts composed in the app.")
+app.add_typer(compose_app, name="compose")
+
+
+@compose_app.command("preview")
+def compose_preview_command(
+    ref: Annotated[str, typer.Argument(help="The item (BG ID) with a saved raw image.")],
+    mode: Annotated[str | None, typer.Option(
+        "--mode", help="cutout or photo-crop (default: config/compose.json).")] = None,
+) -> None:
+    """Free preview: raw checks, cutout, composition and overlay on the newest raw photo of the
+    item (no RunPod call); writes the PNG and the raw-check results."""
+    _utf8_output()
+    if mode is not None and mode not in COMPOSE_MODES:
+        typer.echo("--mode must be cutout or photo-crop.", err=True)
+        raise typer.Exit(code=2)
+    settings = _settings(dry_run=True)
+    with _registry(settings, f"ca compose preview {ref}") as scope:
+        try:
+            lines = compose_preview(scope.conn, settings, ref, mode)
+        except (WorkflowError, OSError, ValueError) as error:
+            typer.echo(str(error), err=True)
+            raise typer.Exit(code=1) from None
     for line in lines:
         typer.echo(line)

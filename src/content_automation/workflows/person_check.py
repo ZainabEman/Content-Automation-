@@ -16,6 +16,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from content_automation.core.config import Settings
 from content_automation.core.jobs import Job
 from content_automation.lora import face_boxes
+from content_automation.workflows.compose import raw_checks
 from content_automation.workflows.image_job import raw_image
 
 DEFAULT_GROUP_WORDS = ("group", "team", "colleagues", "audience", "crowd")
@@ -72,5 +73,7 @@ def check_job_image(job: Job, name: str, settings: Settings) -> list[str]:
     if job.provider == "mock":
         return []
     image = raw_image(job.folder, name) or job.folder / name
+    if job.provider == "comfyui":  # live fix: the raw studio photo: no text, one big face
+        return raw_checks(image, settings)
     return face_problems(image, group=is_group(job.prompt, group_words(settings)),
                          text_boxes=text_boxes(job))

@@ -6,6 +6,7 @@ from datetime import date
 from content_automation.ai.image import (
     ImageRequest,
     ReferenceImage,
+    comfyui_photo_prompt,
     estimate_cost_usd,
     get_provider,
     model_for,
@@ -80,5 +81,9 @@ def dry_run_lines(
     ]
     if text is not None:  # only when the app renders the text (TEXT_OVERLAY)
         lines.append(f"Text: {text.describe()}")
+    if request.person and settings.image_provider == "comfyui" and text is not None:
+        return [*lines, "Photo prompt (all ComfyUI gets; the app composes the post: headline, "
+                "one sub-line, website pill, logo; points stay in the caption):",
+                comfyui_photo_prompt(settings)]
     lines += ["Final prompt:", request.prompt]
     return lines

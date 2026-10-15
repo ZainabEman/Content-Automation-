@@ -1,0 +1,45 @@
+{
+  "_note": "Live fix: person images are made as a clean studio photo (config/comfyui.json personPhoto) and designed by the app. mode cutout (default) or photo-crop (the fallback when the cutout is not clean).",
+  "mode": "cutout",
+  "outputSizes": {
+    "1:1": [1080, 1080],
+    "4:5": [1080, 1350],
+    "9:16": [1080, 1920],
+    "16:9": [1920, 1080]
+  },
+  "rawChecks": {
+    "minFaceHeight": 0.18,
+    "minTextScore": 0.6
+  },
+  "cutout": {
+    "model": "u2net_human_seg",
+    "minCover": 0.15,
+    "maxCover": 0.70,
+    "minMainShare": 0.9,
+    "maxEdgeNoise": 0.04,
+    "headTop": 0.18,
+    "bodyHeight": 0.85,
+    "centerX": 0.70
+  },
+  "photoCrop": {
+    "faceX": 0.78,
+    "faceY": 0.30,
+    "fadeTo": 0.62
+  },
+  "look": {
+    "glowCenter": [0.70, 0.42],
+    "glowRadius": 0.55,
+    "glowOpacity": 0.38,
+    "blueGrade": 0.08,
+    "shadowOpacity": 0.38,
+    "rimOpacity": 0.45
+  },
+  "overlay": {
+    "panelOpacity": 0.88,
+    "margin": 0.06,
+    "textRight": 0.50,
+    "textTop": 0.18,
+    "headlineMaxWords": 8,
+    "sublineMaxWords": 14
+  }
+}

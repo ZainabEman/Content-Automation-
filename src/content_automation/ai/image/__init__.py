@@ -236,6 +236,7 @@ _COMFYUI_EXPORTS = {
     "load_comfyui_config": "load_config",
     "load_comfyui_workflow": "load_workflow",
     "comfyui_model_file_problems": "model_file_problems",
+    "comfyui_photo_prompt": "photo_prompt_for",
 }
 
 if TYPE_CHECKING:
@@ -246,6 +247,7 @@ if TYPE_CHECKING:
     load_comfyui_config = _comfyui.load_config
     load_comfyui_workflow = _comfyui.load_workflow
     comfyui_model_file_problems = _comfyui.model_file_problems
+    comfyui_photo_prompt = _comfyui.photo_prompt_for
 else:
 
     def __getattr__(name: str) -> Any:

@@ -4,11 +4,15 @@ Named workflows (person_lifestyle, person_product, social_creative) build an
 ImageRequest and final prompt, then call run_image_job().
 """
 
+import io
 from pathlib import Path
+
+from PIL import Image
 
 from content_automation.ai.image import (
     ImageRequest,
     ReferenceImage,
+    comfyui_photo_prompt,
     estimate_cost_usd,
     generate_image,
     get_provider,
@@ -22,6 +26,7 @@ from content_automation.core.retry import call_with_retry
 from content_automation.references import asset_id_for
 from content_automation.registry import runtime
 from content_automation.registry.jobs import JobRecord, NotAuthorized, load_job_config
+from content_automation.workflows.compose import compose_post, copy_from_overlay
 from content_automation.workflows.logo import LogoOverlay, apply_logo
 from content_automation.workflows.text_overlay import TextOverlay, apply_text
 
@@ -97,6 +102,8 @@ def run_image_job(
     registered, reused = _registry_job(request, settings, workflow_id, inputs, cold_start)
     if reused is not None:
         return reused
+    # Live fix: ComfyUI makes only a clean photo of the person; the app composes the post.
+    composed = request.person and settings.image_provider == "comfyui" and text is not None
     object_ids = [ref.asset_id for ref in request.object_refs]
     job = create_job(
         settings.output_dir,
@@ -104,7 +111,7 @@ def run_image_job(
         workflow_version=workflow_version,
         requested_by=requested_by or settings.user_name,
         request=user_request or request.prompt,
-        prompt=request.prompt,
+        prompt=comfyui_photo_prompt(settings) if composed else request.prompt,
         provider=settings.image_provider,
         model=model_for(settings),
         params=JobParams(
@@ -149,6 +156,19 @@ def run_image_job(
         job.provider_metrics = result.metrics
         for index, image in enumerate(result.images, start=1):
             extension = _EXTENSIONS.get(image.mime_type, "png")
+            if composed and text is not None:  # raw photo kept; the post is designed here
+                raw = job.folder / RAW_DIR / f"image-{index}.{extension}"
+                raw.parent.mkdir(exist_ok=True)
+                raw.write_bytes(image.data)
+                written.append(raw)
+                with Image.open(io.BytesIO(image.data)) as source:
+                    made = compose_post(source.convert("RGB"), settings, request.aspect_ratio,
+                                        copy_from_overlay(text), logo)
+                path = job.folder / f"image-{index}.png"
+                made.image.save(path, format="PNG", optimize=True)
+                job.notes += made.notes
+                written.append(path)
+                continue
             if logo is None and text is None:
                 path = job.folder / f"image-{index}.{extension}"
                 path.write_bytes(image.data)
@@ -168,11 +188,11 @@ def run_image_job(
                 path.write_bytes(final)
             written.append(path)
         finals = [path for path in written if path.parent == job.folder]
-        if text is not None:
+        if text is not None and not composed:
             job.notes.append(
                 f"Text: {text.describe()}; scrims: {'; '.join(scrims) or 'none needed'}."
             )
-        if logo is not None:
+        if logo is not None and not composed:
             job.notes.append(
                 f"Logo: {logo.describe()}; used: {', '.join(versions)}; the images without it "
                 f"are in {RAW_DIR}/."

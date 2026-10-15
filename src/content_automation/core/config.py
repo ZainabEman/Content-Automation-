@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     image_design_size: DesignSize = "2K"  # designed graphics (social_creative); photos stay 1K
     text_overlay: TextOverlayMode = "auto"
     design_system_file: Path = Path("config/design_system.json")
+    compose_file: Path = Path("config/compose.json")  # person posts composed in the app
     carousel_design_file: Path = Path("config/carousel_design.json")  # animated carousel
     default_identity_set: str = Field(default="identity/person_01", min_length=1)
     openrouter_api_key: SecretStr | None = None

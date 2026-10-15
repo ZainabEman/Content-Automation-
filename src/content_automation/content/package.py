@@ -107,6 +107,7 @@ from content_automation.workflows.carousel_plugin import (
     write_still_requests,
 )
 from content_automation.workflows.carousel_render import fit_problems
+from content_automation.workflows.compose import Copy, compose_config, copy_problems
 from content_automation.workflows.design_system import (
     STEP_SEPARATOR,
     DesignSystem,
@@ -115,6 +116,7 @@ from content_automation.workflows.design_system import (
     load_design_system,
 )
 from content_automation.workflows.image_checks import image_problems
+from content_automation.workflows.image_job import raw_image
 from content_automation.workflows.image_workflows import (
     AD_VARIANTS,
     PreparedWorkflow,
@@ -789,6 +791,7 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool,
         if isinstance(plan.error, WorkflowError)
     ]
     problems += _ad_claim_problems(brief, folder)
+    problems += _person_copy_problems(plans, settings)
     if problems:  # format rules, a stat without a research source, ...: nothing is made
         raise BriefError(problems)
     if dry_run:
@@ -1197,6 +1200,22 @@ def _check(
     return review.result if review is not None else None
 
 
+def _person_copy_problems(plans: dict[str, "_ImagePlan"], settings: Settings) -> list[str]:
+    """Live fix: a person post on ComfyUI is composed by the app: headline <= 8 words and one
+    sub-line <= 14 words (config/compose.json); bullet points stay in the caption."""
+    if settings.image_provider != "comfyui":
+        return []
+    config = compose_config(settings)
+    problems = []
+    for kind, plan in plans.items():
+        if not any(prepared.person_shown for prepared in plan.prepared):
+            continue
+        slot = plan.slot
+        copy = Copy(slot.headline or "", slot.subheadline or slot.audience_line or "")
+        problems += [f"{kind}: {problem}" for problem in copy_problems(copy, config)]
+    return problems
+
+
 def _review_note(item: PackageItem, position: int, settings: Settings) -> str:
     found = _image_job(item, position, settings)
     review = found[0].review(found[1], "person") if found is not None else None
@@ -1320,11 +1339,16 @@ def _person_lines(
     redo = (f"  Made again once already ({'; '.join(earlier)}): a second fail stops."
             if earlier else "  A fail is made again once automatically (the dry run's max "
             "included it); a second fail stops.")
+    raw = raw_image(job.folder, name) if job.provider == "comfyui" else None
+    checked = ("Raw checks (automatic: no text, one face, big enough): passed." if raw else
+               "Face check (automatic): " + ("skipped (mock image, no face to find)."
+                                             if job.provider == "mock" else "passed."))
+    view = (f"  View the RAW photo: {raw.resolve()} (the composed post: "
+            f"{(folder / file).resolve()})" if raw else f"  View it: {(folder / file).resolve()}")
     return [
         head,
-        "  Face check (automatic): " + ("skipped (mock image, no face to find)."
-                                         if job.provider == "mock" else "passed."),
-        f"  View it: {(folder / file).resolve()}",
+        f"  {checked}",
+        view,
         "  beside his photos: "
         + ", ".join(str(path) for path in _identity_photos(job, settings)),
         "  Look at the image itself (never pass one you did not look at): is it Roman (hair, "

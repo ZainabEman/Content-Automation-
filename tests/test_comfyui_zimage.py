@@ -9,12 +9,13 @@ from pathlib import Path
 import pytest
 
 from content_automation.ai.image.providers.comfyui import (
+    PersonPhoto,
     build_graph,
     load_config,
     load_workflow,
     model_file_problems,
     model_sizes,
-    person_prompt,
+    person_photo_prompt,
 )
 from content_automation.core.config import Settings
 from content_automation.lora import LoraError, set_lora
@@ -46,13 +47,14 @@ def test_lora_set_records_the_manifest_sha256(isolated: Path,
         set_lora(settings, "zimage", "outputs/lora/zimage/r0man_test.safetensors")
 
 
-def test_person_prompt_rules_and_the_workflow() -> None:
+def test_person_photo_prompt_and_the_workflow() -> None:
     config = load_config(REPO / "config" / "comfyui.json")
-    prompt, strength, removed = person_prompt(
-        config, "He stands at a reception desk, a neon sign behind him, warm light.")
-    assert prompt.startswith("r0man_bg, a man, He stands at a reception desk,")
-    assert "sign" not in prompt and removed == ["a neon sign behind him,"] and strength == 1.0
-    assert person_prompt(config, "He leads his team in a bright office.")[1] == 0.8
+    prompt = person_photo_prompt(config)  # the template only: never the post's copy or scene
+    assert prompt.startswith("r0man_bg, a man, dark navy blazer, white open-collar shirt, ")
+    assert prompt.endswith("nothing written anywhere, no objects")
+    assert config.person_photo.size == (1024, 1280)
+    with pytest.raises(ValueError, match="no numbers, signs or screen words"):
+        PersonPhoto(outfits=["navy blazer with a laptop"])
 
     workflow = load_workflow(config, "z_image_turbo")
     assert model_file_problems(config, workflow) == []

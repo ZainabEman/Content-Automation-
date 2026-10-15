@@ -52,6 +52,24 @@
     "banner",
     "whiteboard"
   ],
+  "personPhoto": {
+    "_note": "Live fix: the model makes only this clean studio photo of Roman; headline, copy, CTA, numbers, hashtags, brand, logo, topic and screen words never go in. The app composes the post (config/compose.json).",
+    "template": "{prefix}{outfit}, {pose}, medium shot from the waist up, centered, facing the camera slightly turned, filling most of the frame, plain light-grey seamless studio background, soft even studio light, realistic professional portrait photo, sharp focus on the face, nothing written anywhere, no objects",
+    "outfits": [
+      "dark navy blazer, white open-collar shirt",
+      "charcoal blazer over a plain dark crew-neck T-shirt",
+      "light-blue open-collar shirt, sleeves rolled up"
+    ],
+    "poses": [
+      "arms relaxed, confident friendly expression",
+      "arms crossed, calm confident look",
+      "one hand in a pocket, warm slight smile"
+    ],
+    "size": [
+      1024,
+      1280
+    ]
+  },
   "identityPrompt": "Person: {trigger}, the only person allowed in this image; nobody else appears. He is that exact person: same face, facial structure, hairline and hair, skin tone and age. Do not beautify, idealize or change him. Do not add glasses, a beard or accessories he does not have.",
   "upscaleNode": {
     "enabled": false,

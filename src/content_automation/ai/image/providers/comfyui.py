@@ -10,9 +10,10 @@ are filled through the mapping, never by string replacement.
 
 Identity: the person's trained LoRA. No reference images are sent (all reference limits are 0);
 the prompt names the person by the LoRA trigger word (capabilities.identity_prompt). An image
-without the person bypasses the LoRA node. A person prompt (person_prompt) starts with the
-trigger prefix ("r0man_bg, a man, "), loses every clause that asks for a screen, sign or poster
-(the trigger word can appear as text there), and a group scene uses groupLoraStrength.
+without the person bypasses the LoRA node. Live fix: an image with the person is only a clean
+studio photo built from personPhoto (the template, an outfit and a pose from config; never the
+post's copy or scene), made at personPhoto.size and returned unscaled: the app composes the post
+(workflows/compose.py).
 Text: the model draws none (draws_text False), so the app overlays it
 (workflows/text_overlay.py).
 
@@ -89,6 +90,42 @@ class WorkflowConfig(_Model):
         return self
 
 
+PHOTO_TEMPLATE = (
+    "{prefix}{outfit}, {pose}, medium shot from the waist up, centered, facing the camera "
+    "slightly turned, filling most of the frame, plain light-grey seamless studio background, "
+    "soft even studio light, realistic professional portrait photo, sharp focus on the face, "
+    "nothing written anywhere, no objects")
+# Words that never go into a person photo (they invite painted text or objects).
+PHOTO_BANNED = ("screen", "monitor", "display", "sign", "poster", "billboard", "banner",
+                "whiteboard", "hologram", "chart", "document", "logo", "text", "headline",
+                "laptop", "phone", "tablet", "ui", "dashboard")
+
+
+class PersonPhoto(_Model):
+    """config/comfyui.json personPhoto: what the model makes of Roman: a clean studio photo."""
+
+    note: str | None = Field(default=None, alias="_note")
+    template: str = PHOTO_TEMPLATE
+    outfits: list[str] = Field(default_factory=lambda: [
+        "dark navy blazer, white open-collar shirt"], min_length=1)
+    poses: list[str] = Field(default_factory=lambda: [
+        "arms relaxed, confident friendly expression"], min_length=1)
+    size: tuple[int, int] = (1024, 1280)
+
+    @model_validator(mode="after")
+    def _check(self) -> Self:
+        problems = [f"template needs {key}" for key in ("{prefix}", "{outfit}", "{pose}")
+                    if key not in self.template]
+        banned = re.compile(r"\b(" + "|".join(PHOTO_BANNED) + r")s?\b|[0-9%#]", re.IGNORECASE)
+        problems += [f'"{text}" (no numbers, signs or screen words)'
+                     for text in (*self.outfits, *self.poses) if banned.search(text)]
+        if any(side % 16 or side <= 0 for side in self.size):
+            problems.append("size (multiples of 16)")
+        if problems:
+            raise ValueError("personPhoto: " + ", ".join(problems))
+        return self
+
+
 class ModelFile(_Model):
     """A base model file of a workflow: where it comes from and where the worker reads it."""
 
@@ -123,6 +160,7 @@ class ComfyUIConfig(_Model):
         "whiteboard")
     network_volume: str = ""  # the planned size (setup guide)
     models: dict[str, dict[str, ModelFile]] = Field(default_factory=dict)  # per workflow
+    person_photo: PersonPhoto = Field(default_factory=PersonPhoto)
     identity_prompt: str = Field(min_length=1)  # "{trigger}" is the trigger word
     upscale_node: UpscaleNode = Field(default_factory=UpscaleNode)
     workflows: dict[str, WorkflowConfig] = Field(min_length=1)
@@ -245,24 +283,16 @@ def _has_input(graph: dict[str, Any], node: str, name: str) -> bool:
     )
 
 
-def _words(words: tuple[str, ...]) -> re.Pattern[str]:
-    return re.compile(r"\b(" + "|".join(re.escape(word) for word in words) + r")s?\b",
-                      re.IGNORECASE)
-
-
-def person_prompt(config: ComfyUIConfig, prompt: str) -> tuple[str, float, list[str]]:
-    """(prompt, LoRA strength, removed clauses) for an image with the person: no clause that
-    asks for a screen, sign or poster, the trigger prefix first, the group strength for a
-    group scene."""
-    blocked = _words(config.person_blocked_words)
-    pieces = re.split(r"(?<=[.;,\n])", prompt)
-    removed = [piece.strip() for piece in pieces if blocked.search(piece)]
-    text = "".join(piece for piece in pieces if not blocked.search(piece)).strip()
+def person_photo_prompt(config: ComfyUIConfig) -> str:
+    """The only prompt an image with the person gets: the personPhoto template with the
+    trigger prefix, the first outfit and the first pose (nothing from the post)."""
+    photo = config.person_photo
     prefix = config.person_prefix.replace("{trigger}", config.trigger_word)
-    if not text.startswith(prefix.strip()):
-        text = prefix + text
-    group = _words(config.group_words).search(text) is not None
-    return text, config.group_lora_strength if group else config.lora_strength, removed
+    return photo.template.format(prefix=prefix, outfit=photo.outfits[0], pose=photo.poses[0])
+
+
+def photo_prompt_for(settings: Settings) -> str:
+    return person_photo_prompt(load_config(settings.comfyui_config_file))
 
 
 def model_sizes(config: ComfyUIConfig, spec: WorkflowConfig | None
@@ -402,9 +432,9 @@ class ComfyUIImageProvider:
         width, height = model_sizes(self._config, workflow.spec)[request.aspect_ratio]
         size = target_size(request.aspect_ratio, self._config.target_long_side[request.image_size])
         prompt, strength = request.prompt, None
-        removed: list[str] = []
-        if request.person:
-            prompt, strength, removed = person_prompt(self._config, request.prompt)
+        if request.person:  # a clean studio photo; the app composes the post from it
+            prompt, strength = person_photo_prompt(self._config), self._config.lora_strength
+            (width, height), size = self._config.person_photo.size, self._config.person_photo.size
         images: list[GeneratedImage] = []
         request_ids: list[str] = []
         metrics: dict[str, float] = {
@@ -412,7 +442,6 @@ class ComfyUIImageProvider:
         }
         if request.person:
             metrics["loraStrength"] = strength if strength is not None else 0.0
-            metrics["removedClauses"] = len(removed)
         cost = 0.0
         for index in range(1, request.count + 1):
             seed = secrets.randbelow(2**32)

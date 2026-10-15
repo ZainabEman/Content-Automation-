@@ -12,6 +12,8 @@ description: The review gate for generated Branded Genius content. Shows what wa
 - Regeneration costs money for image parts: show the dry run, stop for **"ok"**, then `--authorize <DR-id>`. Text-only changes of an animated carousel are free.
 - Unchanged parts are kept; the reviewed version stays in `<package>/versions/v<n>/`.
 
+- **Person-post checklist** (the branded card, before "approve"): the hook is clear; no jargon; his face is uncovered (no text over the face or shoulders); the logo is crisp; the CTA is there (English and German). Name every point that fails; the user decides.
+
 ## Steps
 
 1. "what needs review" → `uv run ca review list`. Show the list; ask which to look at.

@@ -173,7 +173,7 @@ def test_linkedin_copy_outside_range_fails(conn: sqlite3.Connection, tmp_path: P
     post = create_item(conn, kind="post", title="A post", topic="t", platforms=["linkedin"],
                        deliverable="linkedin_post")
     texts = {"central_message": "Answer every lead", "audience": "Clinic owners",
-             "purpose": "educational", "headline": "Leads wait for nobody",
+             "purpose": "educational", "headline": "Leads wait for *nobody*",
              "copy": "Leads wait for nobody.\n" + " ".join(["word"] * 95),
              "visual_direction": "Roman at a reception desk with a phone",
              "cta": "Book a free analysis"}
@@ -224,7 +224,7 @@ def test_podcast_brief_validates_segments(conn: sqlite3.Connection, tmp_path: Pa
 
 
 SOCIAL = {"central_message": "Answer every lead", "audience": "Clinic owners",
-          "purpose": "educational", "headline": "Leads wait for nobody",
+          "purpose": "educational", "headline": "Leads wait for *nobody*",
           "visual_direction": "Roman at a reception desk with a phone", "cta": "Book a call"}
 
 
@@ -252,7 +252,8 @@ def test_post_copy_fills_its_brief_fields_only(conn: sqlite3.Connection, tmp_pat
     assert result.exit_code == 0, result.output
     assert "brief.json updated: post.headline, captions.linkedin_post" in result.output
     data = json.loads((package / "brief.json").read_text("utf-8"))
-    assert data["post"] == {"format": "statement", "headline": "Leads wait for nobody"}
+    assert data["post"] == {"format": "statement", "headline": "Leads wait for nobody",
+                            "highlight": ["nobody"]}
     assert data["captions"]["linkedin_post"]["question"] == "How fast do you answer?"
     assert data["captions"]["facebook_post"]["hook"] == "keep" and data["cta"] == "Old cta"
     assert (package / "scripts" / post.id / "v1" / "script.md").is_file()

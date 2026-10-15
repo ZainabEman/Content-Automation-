@@ -110,6 +110,19 @@ class SlideSlot(_BriefModel):
         )
 
 
+class CardCopy(_BriefModel):
+    """Live fix: the branded person-post card (insight/stat template): tag, German subtitle,
+    an icon per bullet, the CTA in English and German, an optional verified stat."""
+
+    tag: str | None = None  # "AI RISK · HR"
+    subtitle: str | None = None  # German
+    icons: list[str] = Field(default_factory=list, max_length=3)
+    cta_en: str | None = None
+    cta_de: str | None = None
+    stat: str | None = None  # only with a verified fact claim (the copy check)
+    stat_label: str | None = None
+
+
 class ImageSlot(_BriefModel):
     """A post or ad image: a designed graphic (social_creative) from the design system.
 
@@ -146,6 +159,7 @@ class ImageSlot(_BriefModel):
     scene: str | None = None
     wardrobe: str | None = None
     props: str | None = None
+    card: CardCopy | None = None  # live fix: the branded person-post card (from saved copy)
 
 
 def is_animated(slot: ImageSlot) -> bool:
@@ -163,6 +177,7 @@ class Caption(_BriefModel):
     hook: str = Field(min_length=1)  # line 1
     takeaways: list[str] = Field(min_length=MIN_TAKEAWAYS, max_length=MAX_TAKEAWAYS)
     question: str = Field(min_length=1)  # one question that invites comments
+    closing_de: str | None = None  # live fix: the one German line after the question
 
 
 class Insight(_BriefModel):

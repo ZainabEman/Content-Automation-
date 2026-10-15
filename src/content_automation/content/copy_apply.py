@@ -14,6 +14,7 @@ brief.json is left alone. Packages without a script build and render unchanged.
 """
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -29,13 +30,22 @@ def _lines(text: str) -> list[str]:
 
 
 def _caption(text: str) -> dict[str, Any] | None:
-    lines = _lines(text)
-    if len(lines) < 2 + MIN_TAKEAWAYS or not lines[-1].endswith("?"):
+    """Hook, takeaways, the question and (live fix) the German line after it; hashtag lines
+    at the end are left out (the script keeps the hashtags)."""
+    lines = [line for line in _lines(text)
+             if not all(word.startswith("#") for word in line.split())]
+    asked = [index for index, line in enumerate(lines) if line.endswith("?")]
+    if not asked or asked[-1] < 1 + MIN_TAKEAWAYS:
         return None
-    takeaways = lines[1:-1]
+    question = asked[-1]
+    takeaways = lines[1:question]
     if len(takeaways) > MAX_TAKEAWAYS:
         return None
-    return {"hook": lines[0], "takeaways": takeaways, "question": lines[-1]}
+    caption: dict[str, Any] = {"hook": lines[0], "takeaways": takeaways,
+                               "question": lines[question]}
+    if lines[question + 1:]:
+        caption["closingDe"] = " ".join(lines[question + 1:])
+    return caption
 
 
 def apply_copy(item: Item, script: Script) -> tuple[list[str], list[str]]:
@@ -54,14 +64,25 @@ def apply_copy(item: Item, script: Script) -> tuple[list[str], list[str]]:
     if script.formula == "social_graphic":
         slot = brief.get("post")
         if isinstance(slot, dict):
-            slot["headline"] = texts["headline"]
+            marked = re.findall(r"\*([^*]+)\*", texts["headline"])
+            slot["headline"] = texts["headline"].replace("*", "")
+            if marked:
+                slot["highlight"] = marked[:2]
             applied.append("post.headline")
-            if texts.get("body"):
-                slot["subheadline"] = texts["body"]
+            if texts.get("subtitle"):
+                slot["subheadline"] = texts["subtitle"]
                 applied.append("post.subheadline")
             if texts.get("bullets"):
                 slot["points"] = _lines(texts["bullets"])
                 applied.append("post.points")
+            card = {name: value for name, value in (
+                ("tag", texts.get("tag")), ("subtitle", texts.get("subtitle")),
+                ("icons", _lines(texts.get("icons", ""))), ("ctaEn", texts.get("cta_en")),
+                ("ctaDe", texts.get("cta_de")), ("stat", texts.get("stat")),
+                ("statLabel", texts.get("stat_label"))) if value}
+            if card:
+                slot["card"] = card
+                applied.append("post.card")
         caption = _caption(texts.get("copy", ""))
         if caption is None:
             warnings.append(f"copy kept in the script only: captions.{deliverable} needs the "

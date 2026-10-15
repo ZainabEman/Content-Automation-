@@ -91,6 +91,7 @@ from content_automation.research.collectors import CollectorError
 from content_automation.research.models import SourceArticle, SourcesError
 from content_automation.research.run import collect, topic_digest, topic_note
 from content_automation.research.store import find_article, known_article_ids, load_articles
+from content_automation.workflows.card import Copy
 from content_automation.workflows.carousel_design import (
     CarouselDesign,
     SlideText,
@@ -107,7 +108,7 @@ from content_automation.workflows.carousel_plugin import (
     write_still_requests,
 )
 from content_automation.workflows.carousel_render import fit_problems
-from content_automation.workflows.compose import Copy, compose_config, copy_problems
+from content_automation.workflows.compose import compose_config, copy_problems, person_card
 from content_automation.workflows.design_system import (
     STEP_SEPARATOR,
     DesignSystem,
@@ -1034,6 +1035,13 @@ def _in_brief_words(message: str) -> str:
     return re.sub(r"--([a-z]+(?:-[a-z]+)*)", field_name, message)
 
 
+def _marked(slot: ImageSlot) -> str:
+    """The headline with its highlight words marked like *word* (for the card)."""
+    words = {word.casefold() for phrase in slot.highlight for word in phrase.split()}
+    return " ".join(f"*{word}*" if word.casefold().strip(".,:;!?") in words else word
+                    for word in (slot.headline or "").split())
+
+
 def _slot_inputs(
     name: str,
     slot: ImageSlot,
@@ -1077,6 +1085,9 @@ def _slot_inputs(
         aspect_ratio=aspect,
         count=count,
         request=request,
+        card=json.dumps({"platform": brief.platform, "headline": _marked(slot),
+                         **(slot.card.model_dump(by_alias=True, exclude_none=True)
+                            if slot.card else {})}, ensure_ascii=False),
         history=history,
         context=" ".join([brief.topic, brief.audience, brief.objective, *brief.key_points]),
     )
@@ -1201,19 +1212,28 @@ def _check(
 
 
 def _person_copy_problems(plans: dict[str, "_ImagePlan"], settings: Settings) -> list[str]:
-    """Live fix: a person post on ComfyUI is composed by the app; its copy limits depend on
-    personImage.mode (scene: headline <= 8 words, body <= 25, exactly 3 bullets <= 10 each)."""
+    """Live fix: a person post on ComfyUI is the app's branded card; its copy limits depend
+    on personImage.mode (scene: tag, headline 3-7 words with one highlight, German subtitle,
+    3 bullets with icons, CTA in English and German). Ads keep their own rules."""
     if settings.image_provider != "comfyui":
         return []
     config = compose_config(settings)
+    allowed = tuple(person_card(settings)["icons"].get("allowed", ()))
     problems = []
     for kind, plan in plans.items():
-        if not any(prepared.person_shown for prepared in plan.prepared):
+        if kind != "post" or not any(prepared.person_shown for prepared in plan.prepared):
             continue
         slot = plan.slot
-        copy = Copy(slot.headline or "", slot.subheadline or slot.audience_line or "",
-                    bullets=tuple(slot.points))
-        problems += [f"{kind}: {problem}" for problem in copy_problems(copy, config)]
+        card = slot.card
+        copy = Copy(slot.headline or "",
+                    (card.subtitle if card and card.subtitle else None) or slot.subheadline
+                    or slot.audience_line or "",
+                    bullets=tuple(slot.points), tag=card.tag or "" if card else "",
+                    icons=tuple(card.icons) if card else (),
+                    cta_en=card.cta_en or "" if card else "",
+                    cta_de=card.cta_de or "" if card else "", highlight=tuple(slot.highlight))
+        problems += [f"{kind}: {problem}" for problem in copy_problems(copy, config,
+                                                                       icons=allowed)]
     return problems
 
 
@@ -2007,6 +2027,7 @@ def _post_markdown(
             *(f"- {line.strip()}" for line in caption.takeaways),
             "",
             caption.question.strip(),
+            *([caption.closing_de.strip()] if caption.closing_de else []),
             "",
             f"{brief.cta.strip()} {brief.link}",
             "",

@@ -1,22 +1,26 @@
 """Live fix: person photos composed in the app (fake OCR, fake rembg, fake face boxes)."""
 
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from PIL import Image, ImageDraw
 
 from content_automation.core.config import Settings
-from content_automation.workflows import compose
-from content_automation.workflows.compose import Copy, compose_post, copy_problems, raw_checks
+from content_automation.workflows import card, compose
+from content_automation.workflows.card import Copy
+from content_automation.workflows.compose import compose_post, copy_problems, raw_checks
 
 REPO = Path(__file__).resolve().parents[1]
 COPY = Copy("Automate The Routine", "One approved workflow, one accountable person.",
             "https://brandedgenius.de")
-SCENE = Copy("KI entlastet Ihren Kundenservice",
-             "Viele Anfragen bleiben liegen. Ein KI-Agent beantwortet einfache Fragen sofort.",
+SCENE = Copy("Your hiring AI can be *wrong*", "KI im Recruiting braucht menschliche Kontrolle",
              "https://brandedgenius.de",
-             ("Häufige Fragen sammeln", "Antworten freigeben", "Zuerst im Chat testen"))
+             ("Review every AI shortlist", "Ask why candidates were rejected",
+              "Keep the final decision human"),
+             tag="AI RISK · HR", icons=("checklist", "search", "user-check"),
+             cta_en="Follow for weekly AI checks", cta_de="Jetzt folgen")
 
 
 @pytest.fixture
@@ -66,15 +70,19 @@ def test_compose_cutout_then_photo_crop(tmp_path: Path, settings: Settings,
     assert "cutout not clean" in fallback.notes[0]
 
 
-def test_scene_is_the_default_layout(tmp_path: Path, settings: Settings,
-                                     monkeypatch: pytest.MonkeyPatch) -> None:
+def test_scene_draws_the_branded_card(tmp_path: Path, settings: Settings,
+                                      monkeypatch: pytest.MonkeyPatch) -> None:
     photo = Image.open(_photo(tmp_path / "raw.png")).convert("RGB")
-    monkeypatch.setattr(compose, "face_boxes", lambda image: [(0.7, 0.16, 0.85, 0.3)])
-    made = compose_post(photo, settings, "1:1", SCENE, None)
-    assert made.mode == "scene" and made.image.size == (1080, 1080)
-    head, body, bullets = made.boxes["headline"], made.boxes["body"], made.boxes["bullets"]
-    assert body[1] - head[3] == 24 and bullets[1] - body[3] == 24  # stacked, never overlapping
-    assert bullets[3] < made.boxes["pill"][1]  # the pill keeps its own bottom area
+    monkeypatch.setattr(card, "face_boxes", lambda image: [(0.62, 0.16, 0.8, 0.3)])
+    made = compose_post(photo, settings, "4:5", SCENE, None, platform="linkedin")
+    assert made.mode == "scene" and made.image.size == (1080, 1350)
+    assert {"tag", "headline", "subtitle", "bullet1", "bullet2", "bullet3", "cta", "bar"} <= set(
+        made.boxes)
+    assert made.boxes["bar"] == (0, 1350 - 72, 1080, 1350)  # the full-width brand bar
+    assert "face and shoulders clear of the text" in made.notes
+    stat = compose_post(photo, settings, "1:1", replace(SCENE, stat="42%", stat_label="label"),
+                        None, platform="facebook")
+    assert stat.image.size == (1080, 1080) and "stat" in stat.boxes and "bullet3" not in stat.boxes
 
 
 def test_person_copy_limits(settings: Settings) -> None:
@@ -84,8 +92,12 @@ def test_person_copy_limits(settings: Settings) -> None:
     assert copy_problems(long, config, "cutout") == [
         "headline: 9 words; a person post allows 8 (shorten it)",
         "sub-line: 15 words; a person post allows 14 (the rest goes in the caption)"]
-    assert copy_problems(SCENE, config) == []  # scene: body <= 25, exactly 3 bullets <= 10
-    wordy = Copy("KI hilft", " ".join(["word"] * 26), bullets=("a", " ".join(["b"] * 11)))
-    assert copy_problems(wordy, config) == [
-        "body: 26 words; a person post allows 25", "bullets: 2; a person post needs exactly 3",
-        "bullet 2: 11 words; at most 10"]
+    allowed = ("checklist", "search", "user-check")
+    assert copy_problems(SCENE, config, icons=allowed) == []  # scene: the card rules
+    loose = Copy("AI is wrong", "Answer every lead fast in every case now please",
+                 bullets=("Review it",), tag="ai risk", cta_en="Follow")
+    assert copy_problems(loose, config, icons=allowed) == [
+        "headline: mark exactly 1 highlight word (found 0)", "tag: 2-3 words in capitals",
+        "subtitle: 9 words; at most 8", "bullets: 1; exactly 3",
+        "icons: one allowed icon per bullet (checklist, search, user-check)",
+        "cta_de: 1-3 German words"]

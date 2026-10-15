@@ -1,4 +1,4 @@
-"""Confirmed 2026-10-14: English content with German touches (config/content.json)."""
+"""Live fix: the layout language (config/content.json layoutLanguage) in templates and checks."""
 
 import json
 import shutil
@@ -29,22 +29,25 @@ def conn(isolated: Path) -> Iterator[sqlite3.Connection]:
     connection.close()
 
 
-def test_templates_carry_the_german_touch_and_the_check_warns(conn: sqlite3.Connection) -> None:
+def test_templates_carry_the_layout_language_and_the_check_warns(
+        conn: sqlite3.Connection) -> None:
     post = create_item(conn, kind="post", title="Leads", topic="t", platforms=["linkedin"],
                        deliverable="linkedin_post")
     shown = CliRunner().invoke(app, ["script", "template", post.id])
     assert shown.exit_code == 0, shown.output
-    assert "German touch: write mostly English with about 25% German touches; the headline " \
-           "or the CTA in German; key terms in German; 1-2 German hashtags." in shown.output
+    assert "subtitle in German; the CTA in English plus a short German CTA" in shown.output
     data = json.loads(CliRunner().invoke(app, ["script", "template", post.id, "--json"]).output)
-    assert data["germanTouch"]["share"] == 0.25 and data["germanTouch"]["rule"]
+    assert data["layoutLanguage"]["subtitle"] == "de" and data["layoutLanguage"]["rule"]
 
     template = build_template(conn, load_settings(env_file=None), post.id)
     english = Script(item=post.id, version=1, formula=template.formula_name, language="en",
-                     sections=[ScriptSection(key="copy", text="Answer every lead fast.")],
-                     cta="Book a free analysis")
-    warned = check_script(conn, template, english)
-    assert any(w.startswith("no German element") for w in warned.warnings)
-    touched = check_script(conn, template, english.model_copy(update={
-        "cta": "Jetzt Termin buchen", "hashtags": ["#Mittelstand"]}))
-    assert not any(w.startswith("no German element") for w in touched.warnings)
+                     sections=[ScriptSection(key="subtitle", text="Answer every lead fast"),
+                               ScriptSection(key="copy", text="Hook line.\nWhy does it matter?")])
+    warned = check_script(conn, template, english).warnings
+    assert any(w.startswith("subtitle: reads as not German") for w in warned)
+    assert any(w.startswith("copy: the caption should end with one German line") for w in warned)
+    german = english.model_copy(update={"sections": [
+        ScriptSection(key="subtitle", text="KI im Recruiting braucht Kontrolle"),
+        ScriptSection(key="copy", text="Hook line.\nWhy does it matter?\nJetzt mehr erfahren.")]})
+    warned = check_script(conn, template, german).warnings
+    assert not any(w.startswith(("subtitle:", "copy: the caption")) for w in warned)

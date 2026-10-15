@@ -27,6 +27,7 @@ from content_automation.references import (
     select_style_refs,
 )
 from content_automation.research.store import find_article, number_in_article
+from content_automation.workflows.compose import card_aspect_for
 from content_automation.workflows.design_system import (
     DEFAULT_FORMAT,
     MAX_SOURCE_WORDS,
@@ -107,6 +108,7 @@ class WorkflowInputs:
     slide: str | None = None  # "N/TOTAL"
     slide_role: str | None = None
     no_person: bool = False  # post formats only: leave the man out (a LinkedIn post)
+    card: str | None = None  # live fix: JSON of the person-post card (platform, tag, icons, ...)
     # Variable parts: a pool ID from the design system or own words; picked when left out.
     scene: str | None = None
     wardrobe: str | None = None
@@ -597,6 +599,11 @@ def prepare_workflow(
             spec, inputs.prompt, counts, brand, service=service, company=company,
             logo=logo is not None,
         )
+    if (inputs.card and person_shown and text is not None
+            and settings.image_provider == "comfyui"):
+        # Live fix: the app draws the card; the scene is generated at the card's canvas aspect.
+        recorded["card"] = inputs.card
+        aspect = card_aspect_for(settings, json.loads(inputs.card).get("platform"))
     request = ImageRequest(
         prompt=prompt,
         aspect_ratio=aspect,  # type: ignore[arg-type]

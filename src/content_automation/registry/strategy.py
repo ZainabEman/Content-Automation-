@@ -2,8 +2,8 @@
 
 config/strategy.json: pillars (description, keywords DE + EN, target share), audiences,
 exclusions. config/content.json: the content language (default "en", today's behaviour),
-per-platform overrides and the German touch (confirmed 2026-10-14: mostly English with German
-touches; templates show the rule, the script check warns when no German element is present).
+per-platform overrides and the layout language (live fix: which part of a post is English and
+which German; templates show the rule, the script check warns where German is missing).
 Missing files give the defaults; nothing switches to German silently.
 """
 
@@ -41,32 +41,39 @@ class Strategy:
 # German words that mark a German touch in English copy (umlauts and ß count as well).
 _GERMAN = re.compile(r"[äöüß]|\b(und|der|das|mit|für|nicht|jetzt|ihr|ihre|ihren|wir|kostenlos|"
                      r"mehr|erfahren|termin|buchen|kunden|praxis|beratung|ist|auf|zum|zur|"
-                     r"eine|oder|auch|schon|hier|anfrage|gespräch|ki|mittelstand|"
+                     r"eine|oder|auch|schon|hier|anfrage|gespräch|ki|mittelstand|im|zu|den|dem|von|bei|"
+                     r"ohne|wie|braucht|brauchen|folgen|kontrolle|menschliche|sicher|nutzen|"
                      r"digitalisierung|unternehmen|datenschutz|zahnarzt|kanzlei|handwerk)\b",
                      re.IGNORECASE)
 
 
 @dataclass(frozen=True)
-class GermanTouch:
-    """config/content.json "german_touch": English content with German touches."""
+class LayoutLanguage:
+    """config/content.json "layoutLanguage": the language of each part of a post."""
 
-    share: float = 0.25
-    headline_or_cta_de: bool = True
-    key_terms_de: bool = True
-    hashtags_de: str = "1-2"
+    headline: str = "en"
+    subtitle: str = "de"
+    tag: str = "en"
+    bullets: str = "en"
+    body: str = "en"
+    caption: str = "en"
+    cta: str = "en+de"
+    caption_ends_german: bool = True
 
     def rule(self) -> str:
-        parts = [f"write mostly English with about {self.share:.0%} German touches"]
-        if self.headline_or_cta_de:
-            parts.append("the headline or the CTA in German")
-        if self.key_terms_de:
-            parts.append("key terms in German")
-        if self.hashtags_de:
-            parts.append(f"{self.hashtags_de} German hashtags")
-        return "German touch: " + "; ".join(parts) + "."
+        parts = {"headline": self.headline, "tag": self.tag, "bullets": self.bullets,
+                 "body": self.body, "caption": self.caption, "subtitle": self.subtitle}
+        english = [name for name, lang in parts.items() if lang == "en"]
+        german = [name for name, lang in parts.items() if lang == "de"]
+        cta = ("the CTA in English plus a short German CTA (e.g. \"Jetzt folgen\", \"Mehr "
+               "erfahren\")" if self.cta == "en+de" else f"the CTA in {self.cta}")
+        end = "; the caption ends with one German line" if self.caption_ends_german else ""
+        return (f"Layout language: {', '.join(english)} in English; {', '.join(german)} in "
+                f"German; {cta}{end}.")
 
     @staticmethod
     def present(text: str) -> bool:
+        """A German element: an umlaut, ß or a common German word."""
         return _GERMAN.search(text) is not None
 
 
@@ -74,7 +81,7 @@ class GermanTouch:
 class ContentLanguage:
     language: str = "en"
     platforms: dict[str, str] = field(default_factory=dict)
-    german_touch: GermanTouch | None = None
+    layout_language: LayoutLanguage | None = None
 
     def for_platform(self, platform: str | None) -> str:
         return self.platforms.get(platform or "", self.language)
@@ -128,12 +135,13 @@ def load_content(path: Path) -> ContentLanguage:
     data = _read(path)
     platforms = data.get("platforms") if isinstance(data.get("platforms"), dict) else {}
     assert isinstance(platforms, dict)
-    touch = data.get("german_touch")
+    found = data.get("layoutLanguage")
+    layout = None
+    if isinstance(found, dict):
+        layout = LayoutLanguage(**{key: str(found[name]) for key, name in (
+            ("headline", "headline"), ("subtitle", "subtitle"), ("tag", "tag"),
+            ("bullets", "bullets"), ("body", "body"), ("caption", "caption"), ("cta", "cta"))
+            if name in found}, caption_ends_german=bool(found.get("captionEndsGerman", True)))
     return ContentLanguage(str(data.get("language", "en")),
                            {str(k): str(v) for k, v in platforms.items()
-                            if not str(k).startswith("_")},
-                           GermanTouch(float(touch.get("share", 0.25)),
-                                       bool(touch.get("headline_or_cta_de", True)),
-                                       bool(touch.get("key_terms_de", True)),
-                                       str(touch.get("hashtags_de", "1-2")))
-                           if isinstance(touch, dict) else None)
+                            if not str(k).startswith("_")}, layout)

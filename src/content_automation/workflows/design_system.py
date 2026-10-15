@@ -9,7 +9,7 @@ builder maps each role to a brand.json colour. Fonts and the logo come from bran
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Protocol, Self
+from typing import Any, Literal, Protocol, Self
 
 from pydantic import ConfigDict, Field, ValidationError, model_validator
 
@@ -378,6 +378,8 @@ class DesignSystem(_DesignModel):
     headline_formulas: dict[str, str] = Field(default_factory=dict)  # name -> example
     rules: DesignRules
     text_overlay: TextOverlaySpec | None = None  # for image providers that draw no text
+    # Live fix: the branded person-post card (workflows/card.py; insight, stat).
+    person_templates: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _check_complete(self) -> Self:

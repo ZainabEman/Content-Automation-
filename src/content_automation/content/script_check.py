@@ -48,6 +48,14 @@ from content_automation.registry.db import RegistryError
 from content_automation.registry.items import get_item
 
 _NUMBER = re.compile(r"\d")
+_QUOTES = re.compile(r"[\"“”„«»]|(^|\s)['‘’]|['‘’](\s|$)")
+_HIGHLIGHT = re.compile(r"\*([^*\s][^*]*)\*")
+# First words that are not verbs (a bullet starts with what to do: "Review", "Ask", "Keep").
+_NOT_VERBS = frozenset({
+    "the", "a", "an", "your", "our", "their", "his", "her", "its", "this", "that", "these",
+    "those", "my", "ai", "ki", "every", "all", "no", "each", "more", "less", "one", "two",
+    "three", "why", "how", "what", "when", "who", "it", "we", "you", "they", "i", "if", "for",
+    "with", "without", "in", "on", "at", "by", "to", "from", "and", "or", "but"})
 _HASHTAG = re.compile(r"#\w+")
 
 
@@ -137,7 +145,31 @@ def check_script(conn: sqlite3.Connection, template: Template, script: Script) -
             check.problems += [f"{spec.key} line {number}: {words(line)} words (at most "
                                f"{spec.line_words})" for number, line in enumerate(lines, 1)
                                if words(line) > spec.line_words]
-        found = [term for term in formula.banned_terms if term.lower() in text.lower()]
+        found = [term for term in formula.banned_terms
+                 if re.search(rf"\b{re.escape(term)}s?\b", text, re.IGNORECASE)]
+        plain = text.replace("*", "")
+        if spec.uppercase and plain != plain.upper():
+            check.problems.append(f"{spec.key}: write it in capitals")
+        if spec.prefixes and not any(plain.upper().startswith(prefix.upper())
+                                     for prefix in spec.prefixes):
+            check.problems.append(f"{spec.key}: start with one of {', '.join(spec.prefixes)}")
+        if spec.highlights is not None and len(_HIGHLIGHT.findall(text)) != spec.highlights:
+            check.problems.append(f"{spec.key}: mark exactly {spec.highlights} highlight "
+                                  f"word like *word* (found {len(_HIGHLIGHT.findall(text))})")
+        unknown = [line for line in lines if spec.line_choices and line not in spec.line_choices]
+        if unknown:
+            check.problems.append(f"{spec.key}: {', '.join(unknown)} not allowed (one of "
+                                  f"{', '.join(spec.line_choices)})")
+        if spec.verb_first:
+            check.problems += [
+                f"{spec.key} line {number}: start with a verb (\"{line.split()[0]}\" is not one)"
+                for number, line in enumerate(lines, 1)
+                if line.split()[0].lower().strip(".,:;!?") in _NOT_VERBS]
+        if spec.no_quotes and _QUOTES.search(text):
+            check.problems.append(f"{spec.key}: no quotes")
+        layout = template.layout_language
+        if spec.language == "de" and layout is not None and not layout.present(text):
+            check.warnings.append(f"{spec.key}: reads as not German; {layout.rule()}")
         if found:
             check.problems.append(f"{spec.key}: jargon ({', '.join(found)}): say it in plain "
                                   "words")
@@ -166,10 +198,14 @@ def check_script(conn: sqlite3.Connection, template: Template, script: Script) -
         if spec.key == "copy" and template.rules:
             _platform(text, script, template, check)
     check.words = sum(words(section.text) for section in script.sections)
-    written = " ".join([*(section.text for section in script.sections), *script.title_options,
-                        script.cta, *script.hashtags])
-    if template.german_touch and not template.german_touch.present(written):
-        check.warnings.append(f"no German element; {template.german_touch.rule()}")
+    layout = template.layout_language
+    caption = given.get("copy")
+    if layout is not None and layout.caption_ends_german and caption is not None:
+        ending = [line for line in caption.text.splitlines()
+                  if line.strip() and not line.strip().startswith("#")]
+        if ending and not layout.present(ending[-1]):
+            check.warnings.append(f"copy: the caption should end with one German line; "
+                                  f"{layout.rule()}")
     if template.total_words:
         low, high = template.total_words
         if not low <= check.words <= high:

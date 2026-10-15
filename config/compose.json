@@ -50,8 +50,7 @@
     "glowOpacity": 0.38,
     "blueGrade": 0.08,
     "shadowOpacity": 0.38,
-    "rimOpacity": 0.45,
-    "sceneGlowOpacity": 0.22
+    "rimOpacity": 0.45
   },
   "overlay": {
     "panelOpacity": 0.88,
@@ -61,12 +60,19 @@
     "headlineMaxWords": 8,
     "sublineMaxWords": 14
   },
-  "scene": {
-    "textRight": 0.52,
-    "textTop": 0.06,
-    "gap": 24,
-    "bodyMaxWords": 25,
+  "insight": {
+    "tagWords": [
+      2,
+      3
+    ],
+    "headlineWords": [
+      3,
+      7
+    ],
+    "subtitleMaxWords": 8,
     "bullets": 3,
-    "bulletMaxWords": 10
+    "bulletMaxWords": 6,
+    "ctaEnMaxWords": 5,
+    "ctaDeMaxWords": 3
   }
 }

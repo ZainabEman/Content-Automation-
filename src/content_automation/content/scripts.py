@@ -21,7 +21,7 @@ from content_automation.core.files import CamelModel
 from content_automation.registry.claims import Claim, list_claims
 from content_automation.registry.decisions import list_decisions
 from content_automation.registry.items import Item, get_item
-from content_automation.registry.strategy import GermanTouch, load_content
+from content_automation.registry.strategy import LayoutLanguage, load_content
 
 SCRIPTS_DIR = "scripts"
 
@@ -40,9 +40,16 @@ class SectionSpec(_Model):
     words: tuple[int, int]
     choices: list[str] = Field(default_factory=list)
     ends_with: str | None = None
-    optional: bool = False  # may be left out (e.g. body and bullets of a post without him)
+    optional: bool = False  # may be left out (the image fields of a post without him)
     lines: int | None = None  # exactly this many non-empty lines (e.g. 3 bullets)
     line_words: int | None = None  # at most this many words per line
+    line_choices: list[str] = Field(default_factory=list)  # each line one of these (icons)
+    uppercase: bool = False  # written in capitals (the tag)
+    prefixes: list[str] = Field(default_factory=list)  # starts with one of these (pillar tags)
+    highlights: int | None = None  # exactly this many *highlight* marks (the headline)
+    verb_first: bool = False  # every line starts with a verb (bullets)
+    no_quotes: bool = False  # no quotation marks
+    language: str | None = None  # "de": the check warns when it reads as not German
 
 
 class PlatformRules(_Model):
@@ -150,7 +157,8 @@ def artifact_dir(settings: Settings, item: Item, version: int) -> Path:
 
 
 def words(text: str) -> int:
-    return len(text.split())
+    """Words with a letter or digit (a "·" separator or a "-" dash is not a word)."""
+    return sum(any(char.isalnum() for char in token) for token in text.split())
 
 
 @dataclass(frozen=True)
@@ -166,7 +174,7 @@ class Template:
     feedback: str | None
     total_words: tuple[int, int] | None
     stores_in: Path
-    german_touch: GermanTouch | None = None  # config/content.json (confirmed 2026-10-14)
+    layout_language: LayoutLanguage | None = None  # config/content.json layoutLanguage
 
     def skeleton(self) -> Script:
         return Script(item=self.item.id, version=self.version, formula=self.formula_name,
@@ -189,7 +197,7 @@ def build_template(conn: sqlite3.Connection, settings: Settings, ref: str) -> Te
         claims=research_claims(conn, item), feedback=current_feedback(conn, item),
         total_words=total,
         stores_in=artifact_dir(settings, item, item.current_version),
-        german_touch=content.german_touch if language == "en" else None,
+        layout_language=content.layout_language if language == "en" else None,
     )
 
 
@@ -199,8 +207,9 @@ def template_json(template: Template) -> dict[str, Any]:
         "version": template.version, "formula": template.formula_name,
         "artifact": template.formula.artifact, "language": template.language,
         "bannedTerms": template.formula.banned_terms,
-        "germanTouch": ({**asdict(template.german_touch), "rule": template.german_touch.rule()}
-                        if template.german_touch else None),
+        "layoutLanguage": ({**asdict(template.layout_language),
+                            "rule": template.layout_language.rule()}
+                           if template.layout_language else None),
         "platform": template.platform,
         "sections": [spec.model_dump(by_alias=True, exclude_defaults=True)
                      for spec in template.formula.sections],
@@ -222,8 +231,8 @@ def template_lines(template: Template) -> list[str]:
              f"Formula {template.formula_name} ({template.formula.artifact}), language "
              f"{template.language}" + (f", platform {template.platform}" if template.platform
                                        else "")]
-    if template.german_touch:
-        lines.append(template.german_touch.rule())
+    if template.layout_language:
+        lines.append(template.layout_language.rule())
     if template.total_words:
         lines.append(f"Length: {template.total_words[0]}-{template.total_words[1]} words "
                      f"({template.formula.minutes[0] if template.formula.minutes else 0}-"
@@ -233,6 +242,13 @@ def template_lines(template: Template) -> list[str]:
             f'; ends with "{spec.ends_with}"' if spec.ends_with else "") + (
             f"; exactly {spec.lines} lines" if spec.lines else "") + (
             f", at most {spec.line_words} words each" if spec.line_words else "") + (
+            f"; one of {', '.join(spec.line_choices)} per line" if spec.line_choices else "") + (
+            "; in capitals" if spec.uppercase else "") + (
+            f"; starts with {' / '.join(spec.prefixes)}" if spec.prefixes else "") + (
+            f"; mark {spec.highlights} word like *word*" if spec.highlights else "") + (
+            "; each line starts with a verb" if spec.verb_first else "") + (
+            "; no quotes" if spec.no_quotes else "") + (
+            f"; in {spec.language.upper()}" if spec.language else "") + (
             "; optional" if spec.optional else "")
         lines.append(f"- {spec.key} ({spec.words[0]}-{spec.words[1]} words{extra}): {spec.what}")
     if template.formula.banned_terms:

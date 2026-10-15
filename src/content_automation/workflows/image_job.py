@@ -5,6 +5,7 @@ ImageRequest and final prompt, then call run_image_job().
 """
 
 import io
+import json
 from pathlib import Path
 
 from PIL import Image
@@ -161,9 +162,11 @@ def run_image_job(
                 raw.parent.mkdir(exist_ok=True)
                 raw.write_bytes(image.data)
                 written.append(raw)
+                card = json.loads(str((inputs or {}).get("card") or "{}"))
                 with Image.open(io.BytesIO(image.data)) as source:
                     made = compose_post(source.convert("RGB"), settings, request.aspect_ratio,
-                                        copy_from_overlay(text), logo)
+                                        copy_from_overlay(text, card), logo,
+                                        platform=card.get("platform"))
                 path = job.folder / f"image-{index}.png"
                 made.image.save(path, format="PNG", optimize=True)
                 job.notes += made.notes

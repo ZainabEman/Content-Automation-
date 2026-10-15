@@ -710,5 +710,118 @@
         ]
       }
     }
+  },
+  "personTemplates": {
+    "_note": "Live fix: the branded person-post card drawn by the app over the photo scene (workflows/card.py). insight is the default; stat puts a badge in place of bullet 1 when a verified stat exists.",
+    "default": "insight",
+    "canvas": {
+      "linkedin": [
+        1080,
+        1350
+      ],
+      "instagram": [
+        1080,
+        1350
+      ],
+      "facebook": [
+        1080,
+        1080
+      ]
+    },
+    "colors": {
+      "navy": "#010208",
+      "accent": "#0970EB",
+      "subtitle": "#9CC8FF",
+      "text": "#FFFFFF",
+      "bar": "#020B1F"
+    },
+    "textWidth": 0.45,
+    "margin": 64,
+    "faceClear": 0.05,
+    "gradient": {
+      "opacity": 0.94,
+      "solidTo": 0.3,
+      "fadeTo": 0.66
+    },
+    "pattern": {
+      "points": 34,
+      "particles": 90,
+      "opacity": 0.2,
+      "seed": 11
+    },
+    "tag": {
+      "size": 22,
+      "padX": 18,
+      "padY": 10
+    },
+    "headline": {
+      "sizes": [
+        80,
+        68
+      ],
+      "maxLines": 3,
+      "lineHeight": 1.04,
+      "gap": 30
+    },
+    "subtitle": {
+      "size": 28,
+      "rule": [
+        56,
+        4
+      ],
+      "gap": 22
+    },
+    "bullets": {
+      "circle": 44,
+      "icon": 24,
+      "size": 26,
+      "spacing": 20,
+      "gap": 40
+    },
+    "cta": {
+      "size": 24,
+      "deSize": 21,
+      "height": 54,
+      "gap": 40
+    },
+    "bar": {
+      "height": 72,
+      "opacity": 0.9,
+      "logoHeight": 30,
+      "size": 22
+    },
+    "logo": {
+      "width": 0.19,
+      "margin": 0.045,
+      "shadow": 0.6
+    },
+    "stat": {
+      "numberSize": 72,
+      "labelSize": 22,
+      "pad": 20
+    },
+    "icons": {
+      "font": "assets/icons/tabler-icons.ttf",
+      "codepoints": "assets/icons/tabler-codepoints.json",
+      "licence": "assets/icons/LICENSE-tabler-icons.txt",
+      "allowed": [
+        "shield-check",
+        "search",
+        "user-check",
+        "alert-triangle",
+        "scale",
+        "lock",
+        "eye",
+        "checklist",
+        "bulb",
+        "chart-line",
+        "clock",
+        "message-circle",
+        "target",
+        "users",
+        "rocket",
+        "file-check"
+      ]
+    }
   }
 }

@@ -1,11 +1,10 @@
 """Person images composed in the app (live fixes).
 
 config/comfyui.json personImage.mode picks the look (config/compose.json holds the rules):
-- scene (default, the previous post format): the model makes a photo scene of Roman in a bright
-  office (personScene); the app lays it full-bleed, adds the brand blue glow and the overlay:
-  logo top right (no box), a headline panel, a body panel and a panel with 3 bullets on the left,
-  stacked top-down with a 24 px gap and never overlapping (panels at 0.88 opacity), the website
-  pill in its own bottom area. Copy: headline <= 8 words, body <= 25, exactly 3 bullets <= 10.
+- scene (default): the model makes a photo scene of Roman (personScene); the app draws the
+  branded card over it (workflows/card.py, templates insight and stat from design_system.json
+  personTemplates). Copy: tag 2-3 words, headline 3-7 words with one highlight, German subtitle
+  <= 8 words, exactly 3 bullets <= 6 words with an icon each, CTA <= 5 words + German <= 3.
 - cutout / photo-crop (off): a clean studio photo (personPhoto) cut out onto the brand background
   (rembg u2net_human_seg, CPU, model in .cache/rembg) or cropped with a navy fade; headline <= 8
   words and one sub-line <= 14.
@@ -28,6 +27,15 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 from content_automation.core.config import Settings
 from content_automation.lora import face_boxes
 from content_automation.references import BrandProfileError, load_brand
+from content_automation.workflows.card import (
+    CardError,
+    Copy,
+    Template,
+    card_aspect,
+    card_fonts,
+    card_spec,
+    render_card,
+)
 from content_automation.workflows.design_system import load_design_system
 from content_automation.workflows.logo import LogoOverlay, logo_zone, paste_logo
 from content_automation.workflows.registry import WorkflowError
@@ -53,24 +61,13 @@ DEFAULTS: dict[str, Any] = {
              "sceneGlowOpacity": 0.22},
     "overlay": {"panelOpacity": 0.88, "margin": 0.06, "textRight": 0.50, "textTop": 0.18,
                 "headlineMaxWords": 8, "sublineMaxWords": 14},
-    "scene": {"textRight": 0.52, "textTop": 0.06, "gap": 24, "bodyMaxWords": 25, "bullets": 3,
-              "bulletMaxWords": 10},
+    "insight": {"tagWords": [2, 3], "headlineWords": [3, 7], "subtitleMaxWords": 8,
+                "bullets": 3, "bulletMaxWords": 6, "ctaEnMaxWords": 5, "ctaDeMaxWords": 3},
 }
 
 
 class ComposeError(WorkflowError):
     """The post cannot be composed (e.g. the text does not fit)."""
-
-
-@dataclass(frozen=True)
-class Copy:
-    """What the app writes onto a person post: the headline, the sub-line (the body in a scene),
-    the website and, in a scene only, the 3 bullets."""
-
-    headline: str
-    subline: str = ""
-    website: str = ""
-    bullets: tuple[str, ...] = ()
 
 
 @dataclass
@@ -81,15 +78,35 @@ class Composed:
     boxes: dict[str, PixelBox] = field(default_factory=dict)  # panel, pill, logo
 
 
-def copy_from_overlay(overlay: TextOverlay) -> Copy:
-    """Headline, the sub-line or body (or the audience line), the website and the points."""
+def copy_from_overlay(overlay: TextOverlay, card: dict[str, Any] | None = None) -> Copy:
+    """Headline (with its highlight words), the subtitle or sub-line, the website, the points
+    and the card fields (tag, icons, CTA in English and German, stat) from the brief."""
     def joined(field: str) -> str:
         found = overlay.texts.get(field)  # type: ignore[call-overload]
         return " ".join(found.paragraphs) if found is not None else ""
 
+    card = card or {}
     points = overlay.texts.get("points")
-    return Copy(joined("headline"), joined("subheadline") or joined("audience_line"),
-                joined("footer"), tuple(points.paragraphs) if points is not None else ())
+    head = overlay.texts.get("headline")
+    return Copy(
+        str(card.get("headline") or joined("headline")),
+        str(card.get("subtitle") or joined("subheadline") or joined("audience_line")),
+        joined("footer"), tuple(points.paragraphs) if points is not None else (),
+        tag=str(card.get("tag") or ""), icons=tuple(card.get("icons") or ()),
+        cta_en=str(card.get("ctaEn") or ""), cta_de=str(card.get("ctaDe") or ""),
+        stat=str(card.get("stat") or ""), stat_label=str(card.get("statLabel") or ""),
+        highlight=tuple(sorted(head.highlight)) if head is not None else ())
+
+
+def person_card(settings: Settings) -> dict[str, Any]:
+    """design_system.json personTemplates over the card defaults."""
+    return card_spec(load_design_system(settings.design_system_file).person_templates)
+
+
+def card_aspect_for(settings: Settings, platform: str | None) -> str:
+    """The canvas aspect of a person post on this platform (4:5 LinkedIn and Instagram, 1:1
+    Facebook): the scene is generated at it."""
+    return card_aspect(person_card(settings), platform)
 
 
 def compose_config(settings: Settings) -> dict[str, Any]:
@@ -115,29 +132,53 @@ def compose_config(settings: Settings) -> dict[str, Any]:
     return merged
 
 
-def copy_problems(copy: Copy, config: dict[str, Any], mode: Mode | None = None) -> list[str]:
+def _words(text: str) -> int:
+    return sum(any(char.isalnum() for char in token) for token in text.replace("*", "").split())
+
+
+def copy_problems(copy: Copy, config: dict[str, Any], mode: Mode | None = None,
+                  icons: tuple[str, ...] = ()) -> list[str]:
     """Copy that breaks the person post's limits (the free dry run refuses it)."""
-    rules, scene = config["overlay"], config["scene"]
+    rules = config["overlay"]
     problems = []
-    head, sub = len(copy.headline.split()), len(copy.subline.split())
+    head, sub = _words(copy.headline), _words(copy.subline)
     if not head:
         problems.append("headline: missing")
-    if head > rules["headlineMaxWords"]:
-        problems.append(f"headline: {head} words; a person post allows "
-                        f"{rules['headlineMaxWords']} (shorten it)")
     if (mode or config["mode"]) != "scene":
+        if head > rules["headlineMaxWords"]:
+            problems.append(f"headline: {head} words; a person post allows "
+                            f"{rules['headlineMaxWords']} (shorten it)")
         if sub > rules["sublineMaxWords"]:
             problems.append(f"sub-line: {sub} words; a person post allows "
                             f"{rules['sublineMaxWords']} (the rest goes in the caption)")
         return problems
-    if sub > scene["bodyMaxWords"]:
-        problems.append(f"body: {sub} words; a person post allows {scene['bodyMaxWords']}")
-    if len(copy.bullets) != scene["bullets"]:
-        problems.append(f"bullets: {len(copy.bullets)}; a person post needs exactly "
-                        f"{scene['bullets']}")
-    problems += [f"bullet {number}: {len(text.split())} words; at most "
-                 f"{scene['bulletMaxWords']}" for number, text in enumerate(copy.bullets, 1)
-                 if len(text.split()) > scene["bulletMaxWords"]]
+    card = config["insight"]
+    low, high = card["headlineWords"]
+    if head and not low <= head <= high:
+        problems.append(f"headline: {head} words (allowed {low}-{high})")
+    marks = len({word for word in copy.headline_words()[1]})
+    if marks != 1:
+        problems.append(f"headline: mark exactly 1 highlight word (found {marks})")
+    tag_low, tag_high = card["tagWords"]
+    if not copy.tag:
+        problems.append("tag: missing (e.g. AI RISK · HR)")
+    elif not tag_low <= _words(copy.tag) <= tag_high or copy.tag != copy.tag.upper():
+        problems.append(f"tag: {tag_low}-{tag_high} words in capitals")
+    if not sub:
+        problems.append("subtitle: missing (German, the core message)")
+    elif sub > card["subtitleMaxWords"]:
+        problems.append(f"subtitle: {sub} words; at most {card['subtitleMaxWords']}")
+    if len(copy.bullets) != card["bullets"]:
+        problems.append(f"bullets: {len(copy.bullets)}; exactly {card['bullets']}")
+    problems += [f"bullet {number}: {_words(text)} words; at most {card['bulletMaxWords']}"
+                 for number, text in enumerate(copy.bullets, 1)
+                 if _words(text) > card["bulletMaxWords"]]
+    if len(copy.icons) != card["bullets"] or (icons and not set(copy.icons) <= set(icons)):
+        problems.append(f"icons: one allowed icon per bullet ({', '.join(icons) or 'see config'})")
+    if not copy.cta_en or _words(copy.cta_en) > card["ctaEnMaxWords"]:
+        problems.append(f"cta_en: 1-{card['ctaEnMaxWords']} words")
+    if not copy.cta_de or _words(copy.cta_de) > card["ctaDeMaxWords"]:
+        problems.append(f"cta_de: 1-{card['ctaDeMaxWords']} German words")
     return problems
 
 
@@ -403,122 +444,6 @@ def _overlay(canvas: Image.Image, copy: Copy, colors: dict[str, RGB], fonts: dic
     return boxes
 
 
-def _scene(photo: Image.Image, size: tuple[int, int], colors: dict[str, RGB],
-           look: dict[str, Any], text_right: float) -> Image.Image:
-    """The photo scene full-bleed with the brand blue glow. Centred, unless his face would sit
-    under the text column: then it zooms in (at most 1.6x) to move the face to the right."""
-    width, height = size
-    scale = max(width / photo.width, height / photo.height)
-    faces = face_boxes(photo)
-    fx = (faces[0][0] + faces[0][2]) / 2 if faces else 1.0
-    target = text_right + 0.20  # the face centre, as a share of the width
-    if fx * photo.width * scale - (photo.width * scale - width) / 2 < (text_right + 0.05) * width:
-        scale = min(max(scale, target * width / (fx * photo.width)), 1.6 * scale)
-    scaled = photo.resize((round(photo.width * scale), round(photo.height * scale)),
-                          Image.Resampling.LANCZOS)
-    left = (scaled.width - width) // 2
-    if faces and fx * scaled.width - left < (text_right + 0.05) * width:
-        left = min(max(round(fx * scaled.width - target * width), 0), scaled.width - width)
-    top = (scaled.height - height) // 2
-    if faces:  # keep his head in the frame
-        top = min(top, max(0, round(faces[0][1] * scaled.height - 0.12 * height)))
-    canvas = scaled.crop((left, top, left + width, top + height))
-    glow = Image.new("L", size, 0)
-    cx, cy = (float(v) for v in look["glowCenter"])
-    radius = float(look["glowRadius"]) * width
-    ImageDraw.Draw(glow).ellipse((cx * width - radius, cy * height - radius,
-                                 cx * width + radius, cy * height + radius), fill=255)
-    glow = glow.filter(ImageFilter.GaussianBlur(radius * 0.45))
-    canvas.paste(_solid(size, colors["accent"]), (0, 0),
-                 _scaled(glow, float(look["sceneGlowOpacity"])))
-    return canvas
-
-
-def _scene_overlay(canvas: Image.Image, copy: Copy, colors: dict[str, RGB],
-                   fonts: dict[str, Path], rules: dict[str, Any], scene: dict[str, Any],
-                   logo: LogoOverlay | None) -> dict[str, PixelBox]:
-    """The previous format, fixed: headline, body and bullet panels stacked top-down on the
-    left with a fixed gap (never overlapping), the website pill in its own bottom area."""
-    width, height = canvas.size
-    unit = width / 1080
-    margin, pad = round(float(rules["margin"]) * width), round(26 * unit)
-    gap = round(float(scene["gap"]) * unit)
-    pill_font = ImageFont.truetype(str(fonts["medium"]), max(14, round(width * 0.024)))
-    site = copy.website.removeprefix("https://").removeprefix("http://").rstrip("/")
-    pill_h = round(pill_font.size * 2.2)
-    pill_top = height - margin - pill_h
-    left, right = margin, round(float(scene["textRight"]) * width)
-    top = round(float(scene["textTop"]) * height)
-    room = pill_top - gap - top
-    inner = right - left - 2 * pad
-    blocks: list[tuple[str, list[str], ImageFont.FreeTypeFont, int]] = []
-    for size in range(round(width * 0.07), round(width * 0.034) - 1, -2):
-        head_font = ImageFont.truetype(str(fonts["bold"]), size)
-        text_font = ImageFont.truetype(str(fonts["medium"]), max(15, round(size * 0.46)))
-        bullet_inner = inner - round(text_font.size * 1.1)
-        blocks = [("headline", _wrap(copy.headline, head_font, inner), head_font,
-                   round(size * 1.08))]
-        if copy.subline:
-            blocks.append(("body", _wrap(copy.subline, text_font, inner), text_font,
-                           round(text_font.size * 1.32)))
-        if copy.bullets:
-            lines: list[str] = []
-            for bullet in copy.bullets:  # "*" marks a bullet's first line (drawn as a dot)
-                wrapped = _wrap(bullet, text_font, bullet_inner)
-                lines += [("*" if index == 0 else " ") + line
-                          for index, line in enumerate(wrapped)]
-            blocks.append(("bullets", lines, text_font, round(text_font.size * 1.32)))
-        needed = sum(2 * pad + len(lines) * step for _, lines, _, step in blocks)
-        needed += gap * (len(blocks) - 1)
-        if needed <= room and len(blocks[0][1]) <= 4:
-            break
-    else:
-        raise ComposeError(f"the headline, body and bullets do not fit beside the person in "
-                           f"{width}x{height}; shorten them")
-    layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(layer)
-    alpha = round(float(rules["panelOpacity"]) * 255)
-    boxes: dict[str, PixelBox] = {}
-    y = top
-    for name, lines, font, step in blocks:
-        box = (left, y, right, y + 2 * pad + len(lines) * step)
-        draw.rounded_rectangle(box, radius=round(width * 0.02),
-                               fill=(*colors["background"], alpha))
-        color = colors["text"] if name != "body" else colors["accent"]
-        line_y = y + pad
-        indent = round(font.size * 1.1) if name == "bullets" else 0
-        for line in lines:
-            text = line[1:] if name == "bullets" else line
-            if name == "bullets" and line.startswith("*"):
-                radius, cy = font.size * 0.17, line_y + font.size * 0.62
-                draw.ellipse((left + pad, cy - radius, left + pad + 2 * radius, cy + radius),
-                             fill=(*colors["accent"], 255))
-            draw.text((left + pad + indent, line_y), text, font=font, fill=(*color, 255))
-            line_y += step
-        boxes[name] = box
-        y = box[3] + gap
-    if site:
-        pill = (margin, pill_top, margin + round(pill_font.getlength(site)) + 2 * pad,
-                pill_top + pill_h)
-        draw.rounded_rectangle(pill, radius=pill_h // 2, fill=(*colors["background"], alpha),
-                               outline=(*colors["accent"], 255), width=max(2, width // 400))
-        draw.text((pill[0] + pad, pill_top + pill_h / 2), site, font=pill_font, anchor="lm",
-                  fill=(*colors["text"], 255))
-        boxes["pill"] = pill
-    if logo is not None:
-        boxes["logo"] = logo_zone(canvas.size)
-    named = list(boxes.items())
-    for index, (name, box) in enumerate(named):
-        for other, second in named[index + 1:]:
-            if _overlaps(box, second):
-                raise ComposeError(f"the {name} would overlap the {other}")
-    composed = Image.alpha_composite(canvas.convert("RGBA"), layer)
-    if logo is not None:
-        paste_logo(composed, composed, logo)  # top right, no box behind it
-    canvas.paste(composed.convert("RGB"))
-    return boxes
-
-
 # --- Together ---------------------------------------------------------------------------------
 
 
@@ -537,20 +462,30 @@ def brand_look(settings: Settings) -> tuple[dict[str, RGB], dict[str, Path]]:
 
 
 def compose_post(photo: Image.Image, settings: Settings, aspect: str, copy: Copy,
-                 logo: LogoOverlay | None, mode: Mode | None = None) -> Composed:
+                 logo: LogoOverlay | None, mode: Mode | None = None, *,
+                 platform: str | None = None, template: Template | None = None,
+                 strict: bool = True) -> Composed:
     """The finished person post from the raw photo (no model call)."""
     config = compose_config(settings)
     size = cast(tuple[int, int], tuple(config["outputSizes"].get(aspect, [1080, 1080])))
-    colors, fonts = brand_look(settings)
     chosen: Mode = mode or cast(Mode, config["mode"])
+    if chosen == "scene":  # the branded card (insight, or stat when a verified stat exists)
+        system = load_design_system(settings.design_system_file)
+        if system.text_overlay is None:
+            raise ComposeError("design_system.json has no textOverlay (fonts)")
+        spec = card_spec(system.person_templates)
+        picked: Template = template or ("stat" if copy.stat else cast(Template, spec["default"]))
+        try:
+            image, boxes, card_notes = render_card(photo, copy, spec,
+                                              card_fonts(system.text_overlay.fonts), logo,
+                                              picked, platform, strict)
+        except CardError as error:
+            raise ComposeError(str(error)) from None
+        return Composed(image, chosen, [*card_notes, f"composed in the app: mode scene, "
+                                                f"{image.width}x{image.height}"], boxes)
+    colors, fonts = brand_look(settings)
     notes: list[str] = []
     canvas: Image.Image | None = None
-    if chosen == "scene":
-        canvas = _scene(photo, size, colors, config["look"], float(config["scene"]["textRight"]))
-        boxes = _scene_overlay(canvas, copy, colors, fonts, config["overlay"], config["scene"],
-                               logo)
-        return Composed(canvas, chosen, [f"composed in the app: mode scene, {size[0]}x{size[1]}"],
-                        boxes)
     if chosen == "cutout":
         mask = _human_mask(photo, str(config["cutout"]["model"]))
         problems = mask_problems(mask, config["cutout"])

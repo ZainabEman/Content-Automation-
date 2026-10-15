@@ -146,10 +146,10 @@ def copy_template(conn: sqlite3.Connection, settings: Settings, ref: str,
         formula=formula, language="en", platform=platform, rules=None, claims=[],
         feedback=None, total_words=None, stores_in=platform_dir(settings, item, variant))
     content = load_content(settings.content_file)
-    touch = content.german_touch if content.for_platform(platform) == "en" else None
+    touch = content.layout_language if content.for_platform(platform) == "en" else None
     return replace(base, formula_name="social_graphic", formula=formula, platform=platform,
                    rules=formula.platforms.get(platform), total_words=None,
-                   stores_in=platform_dir(settings, item, variant), german_touch=touch)
+                   stores_in=platform_dir(settings, item, variant), layout_language=touch)
 
 
 def _has_formula(conn: sqlite3.Connection, settings: Settings, ref: str) -> bool:

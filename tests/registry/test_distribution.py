@@ -53,7 +53,7 @@ def ca(*args: str) -> Result:
 
 def _copy(path: Path, item: str) -> Path:
     texts = {"central_message": "Answer every lead", "audience": "Clinic owners",
-             "purpose": "educational", "headline": "Leads wait for nobody",
+             "purpose": "educational", "headline": "Leads wait for *nobody*",
              "copy": "Leads wait for nobody.\n" + " ".join(["Answer"] * 130),
              "visual_direction": "Roman at a reception desk with a phone",
              "cta": "Book a free analysis"}

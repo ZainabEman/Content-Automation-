@@ -6,6 +6,7 @@ with its brief copy or placeholder copy. No model or RunPod call. Writes
 
 import json
 import sqlite3
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -25,8 +26,8 @@ from content_automation.references import (
 )
 from content_automation.registry.db import RegistryError
 from content_automation.registry.items import get_item
+from content_automation.workflows.card import Copy, Template
 from content_automation.workflows.compose import (
-    Copy,
     Mode,
     compose_config,
     compose_post,
@@ -37,12 +38,12 @@ from content_automation.workflows.image_job import raw_image
 from content_automation.workflows.logo import LogoOverlay
 
 PREVIEW_DIR = "previews"
-PLACEHOLDER = (  # --placeholder: layout copy that meets the scene limits
-    "KI-Agenten entlasten Ihren Kundenservice",
-    "Viele Mittelständler verlieren Anfragen, weil niemand rechtzeitig antwortet. Ein "
-    "KI-Agent beantwortet einfache Fragen sofort und gibt den Rest an Ihr Team.",
-    ("Die zehn häufigsten Kundenfragen sammeln", "Antworten mit Ihrem Team freigeben",
-     "Den KI-Agenten zuerst im Chat testen"))
+PLACEHOLDER = Copy(  # --placeholder: card copy that meets the rules
+    "Your hiring AI can be *wrong*", "KI im Recruiting braucht menschliche Kontrolle",
+    bullets=("Review every AI shortlist", "Ask why candidates were rejected",
+             "Keep the final decision human"),
+    tag="AI RISK · HR", icons=("checklist", "search", "user-check"),
+    cta_en="Follow for weekly AI checks", cta_de="Jetzt folgen")
 
 
 def _logo(settings: Settings) -> LogoOverlay | None:
@@ -59,7 +60,7 @@ def _logo(settings: Settings) -> LogoOverlay | None:
 
 
 def preview(conn: sqlite3.Connection, settings: Settings, ref: str, mode: Mode | None,
-            placeholder: bool = False) -> list[str]:
+            placeholder: bool = False, template: Template | None = None) -> list[str]:
     item = get_item(conn, ref)
     found = package_part(settings, item)
     if found is None or not found[2].image_folders or not found[2].image_refs:
@@ -81,19 +82,31 @@ def preview(conn: sqlite3.Connection, settings: Settings, ref: str, mode: Mode |
     website = company.website if company is not None else ""
     found_points = slot.get("points")
     points: list[Any] = found_points if isinstance(found_points, list) else []
-    copy = (Copy(PLACEHOLDER[0], PLACEHOLDER[1], website, PLACEHOLDER[2]) if placeholder else
-            Copy(str(slot.get("headline") or ""),
-                 str(slot.get("subheadline") or slot.get("audienceLine") or ""), website,
-                 tuple(str(point) for point in points)))
+    found_card = slot.get("card")
+    card: dict[str, Any] = found_card if isinstance(found_card, dict) else {}
+    if placeholder:
+        copy = replace(PLACEHOLDER, website=website)
+        if template == "stat":
+            copy = replace(copy, stat="00%", stat_label="PREVIEW ONLY")
+    else:
+        copy = Copy(str(slot.get("headline") or ""),
+                    str(card.get("subtitle") or slot.get("subheadline") or ""), website,
+                    tuple(str(point) for point in points), tag=str(card.get("tag") or ""),
+                    icons=tuple(card.get("icons") or ()), cta_en=str(card.get("ctaEn") or ""),
+                    cta_de=str(card.get("ctaDe") or ""), stat=str(card.get("stat") or ""),
+                    stat_label=str(card.get("statLabel") or ""),
+                    highlight=tuple(str(word) for word in slot.get("highlight") or ()))
     checks = raw_checks(raw, settings)
     copy_issues = copy_problems(copy, compose_config(settings), mode)
     with Image.open(raw) as source:
         made = compose_post(source.convert("RGB"), settings, job.params.aspect_ratio, copy,
-                            _logo(settings), mode)
-    out = folder / PREVIEW_DIR / f"{item.id}-{made.mode}.png"
+                            _logo(settings), mode, template=template, strict=False,
+                            platform=item.platforms[0] if item.platforms else None)
+    name = f"{template or made.mode}"
+    out = folder / PREVIEW_DIR / f"{item.id}-{name}.png"
     out.parent.mkdir(parents=True, exist_ok=True)
     made.image.save(out, format="PNG", optimize=True)
-    report = out.with_name(f"{item.id}-raw-checks.json")
+    report = out.with_name(f"{item.id}-{name}-raw-checks.json")
     atomic_write_text(report, json.dumps({
         "item": item.id, "raw": raw.as_posix(), "rawChecks": checks, "passed": not checks,
         "copy": copy_issues, "mode": made.mode, "notes": made.notes,

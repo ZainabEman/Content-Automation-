@@ -1,11 +1,15 @@
 {
-  "_note": "confirmed 2026-10-14: the content language is English (\"en\") with German touches (german_touch); platforms may override the language.",
+  "_note": "confirmed 2026-10-14 (language), live fix (layoutLanguage): the content language is English (\"en\"); a post's subtitle and short CTA are German, and its caption ends with one German line; platforms may override the language.",
   "language": "en",
-  "german_touch": {
-    "share": 0.25,
-    "headline_or_cta_de": true,
-    "key_terms_de": true,
-    "hashtags_de": "1-2"
-  },
-  "platforms": {}
+  "platforms": {},
+  "layoutLanguage": {
+    "headline": "en",
+    "subtitle": "de",
+    "tag": "en",
+    "bullets": "en",
+    "body": "en",
+    "caption": "en",
+    "cta": "en+de",
+    "captionEndsGerman": true
+  }
 }

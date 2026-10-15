@@ -194,6 +194,7 @@ from content_automation.storage import (
     tracker_lines,
 )
 from content_automation.storage.review_upload import record_plugin_upload, upload_approved
+from content_automation.workflows.card import TEMPLATES as CARD_TEMPLATES
 from content_automation.workflows.carousel_design import load_carousel_design
 from content_automation.workflows.carousel_motion import render as render_carousel
 from content_automation.workflows.carousel_plugin import (
@@ -2805,6 +2806,8 @@ def compose_preview_command(
         "--mode", help="scene, cutout or photo-crop (default: personImage.mode).")] = None,
     placeholder: Annotated[bool, typer.Option(
         "--placeholder", help="Layout copy instead of the brief's.")] = False,
+    template: Annotated[str | None, typer.Option(
+        "--template", help="insight or stat (scene mode; default: personTemplates).")] = None,
 ) -> None:
     """Free preview: raw checks, cutout, composition and overlay on the newest raw photo of the
     item (no RunPod call); writes the PNG and the raw-check results."""
@@ -2812,10 +2815,13 @@ def compose_preview_command(
     if mode is not None and mode not in COMPOSE_MODES:
         typer.echo("--mode must be scene, cutout or photo-crop.", err=True)
         raise typer.Exit(code=2)
+    if template is not None and template not in CARD_TEMPLATES:
+        typer.echo("--template must be insight or stat.", err=True)
+        raise typer.Exit(code=2)
     settings = _settings(dry_run=True)
     with _registry(settings, f"ca compose preview {ref}") as scope:
         try:
-            lines = compose_preview(scope.conn, settings, ref, mode, placeholder)
+            lines = compose_preview(scope.conn, settings, ref, mode, placeholder, template)
         except (WorkflowError, OSError, ValueError) as error:
             typer.echo(str(error), err=True)
             raise typer.Exit(code=1) from None

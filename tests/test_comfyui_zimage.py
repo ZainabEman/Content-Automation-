@@ -59,7 +59,8 @@ def test_person_photo_prompt_and_the_workflow() -> None:
     assert config.person_image.mode == "scene"  # the default look: a photo scene
     scene = person_image_prompt(config)
     assert scene.startswith("r0man_bg, a man, dark navy blazer, white open-collar shirt, "
-                            "standing in a modern bright office, in the right half")
+                            "standing on the right side of the frame, waist-up shot")
+    assert "dark modern office at dusk" in scene
     assert scene.endswith("plain walls, nothing written anywhere")
 
     workflow = load_workflow(config, "z_image_turbo")

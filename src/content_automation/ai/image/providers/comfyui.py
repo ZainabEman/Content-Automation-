@@ -101,11 +101,11 @@ PHOTO_BANNED = ("screen", "monitor", "display", "sign", "poster", "billboard", "
                 "whiteboard", "hologram", "chart", "document", "logo", "text", "headline",
                 "laptop", "phone", "tablet", "ui", "dashboard", "crm", "branded", "genius")
 SCENE_TEMPLATE = (
-    "{prefix}{outfit}, standing in a modern bright office, in the right half of the frame, "
-    "three-quarter shot from the knees up, looking toward the camera, natural confident "
-    "expression, cinematic cool blue lighting, soft glowing blue light particles and faint light "
-    "rings in the background, shallow depth of field, realistic photo, the left side is a softly "
-    "blurred office background, plain walls, nothing written anywhere")
+    "{prefix}{outfit}, standing on the right side of the frame, waist-up shot, face in the "
+    "upper third, looking at the camera, calm confident expression, dark modern office at "
+    "dusk, deep navy and electric blue cinematic lighting, high contrast, soft glowing blue "
+    "light particles and bokeh lights in the background, shallow depth of field, realistic "
+    "photo, left side darker and softly blurred, plain walls, nothing written anywhere")
 
 
 def _banned(texts: tuple[str, ...]) -> list[str]:

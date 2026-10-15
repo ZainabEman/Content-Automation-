@@ -15,6 +15,7 @@ from content_automation.ai.image.providers.comfyui import (
     load_workflow,
     model_file_problems,
     model_sizes,
+    person_image_prompt,
     person_photo_prompt,
 )
 from content_automation.core.config import Settings
@@ -55,6 +56,11 @@ def test_person_photo_prompt_and_the_workflow() -> None:
     assert config.person_photo.size == (1024, 1280)
     with pytest.raises(ValueError, match="no numbers, signs or screen words"):
         PersonPhoto(outfits=["navy blazer with a laptop"])
+    assert config.person_image.mode == "scene"  # the default look: a photo scene
+    scene = person_image_prompt(config)
+    assert scene.startswith("r0man_bg, a man, dark navy blazer, white open-collar shirt, "
+                            "standing in a modern bright office, in the right half")
+    assert scene.endswith("plain walls, nothing written anywhere")
 
     workflow = load_workflow(config, "z_image_turbo")
     assert model_file_problems(config, workflow) == []

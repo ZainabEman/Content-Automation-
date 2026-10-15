@@ -2,7 +2,8 @@
 
 A saved social_graphic, carousel or facebook_ad script fills only the fields of its own
 deliverable, so build, the overlay and post.md read them as before:
-- social_graphic: headline -> post.headline; copy -> captions.<deliverable> (line 1 the hook,
+- social_graphic: headline -> post.headline; body -> post.subheadline and bullets (3 lines) ->
+  post.points (the scene layout's panels); copy -> captions.<deliverable> (line 1 the hook,
   then 3-5 takeaway lines, the last line the question ending in "?");
 - facebook_ad: primary_text -> ad.primaryText, headline -> ad.headline, description ->
   ad.subheadline, cta -> ad.cta;
@@ -55,7 +56,13 @@ def apply_copy(item: Item, script: Script) -> tuple[list[str], list[str]]:
         if isinstance(slot, dict):
             slot["headline"] = texts["headline"]
             applied.append("post.headline")
-        caption = _caption(texts["copy"])
+            if texts.get("body"):
+                slot["subheadline"] = texts["body"]
+                applied.append("post.subheadline")
+            if texts.get("bullets"):
+                slot["points"] = _lines(texts["bullets"])
+                applied.append("post.points")
+        caption = _caption(texts.get("copy", ""))
         if caption is None:
             warnings.append(f"copy kept in the script only: captions.{deliverable} needs the "
                             f"hook line, {MIN_TAKEAWAYS}-{MAX_TAKEAWAYS} takeaway lines and a "

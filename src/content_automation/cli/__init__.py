@@ -2802,18 +2802,20 @@ app.add_typer(compose_app, name="compose")
 def compose_preview_command(
     ref: Annotated[str, typer.Argument(help="The item (BG ID) with a saved raw image.")],
     mode: Annotated[str | None, typer.Option(
-        "--mode", help="cutout or photo-crop (default: config/compose.json).")] = None,
+        "--mode", help="scene, cutout or photo-crop (default: personImage.mode).")] = None,
+    placeholder: Annotated[bool, typer.Option(
+        "--placeholder", help="Layout copy instead of the brief's.")] = False,
 ) -> None:
     """Free preview: raw checks, cutout, composition and overlay on the newest raw photo of the
     item (no RunPod call); writes the PNG and the raw-check results."""
     _utf8_output()
     if mode is not None and mode not in COMPOSE_MODES:
-        typer.echo("--mode must be cutout or photo-crop.", err=True)
+        typer.echo("--mode must be scene, cutout or photo-crop.", err=True)
         raise typer.Exit(code=2)
     settings = _settings(dry_run=True)
     with _registry(settings, f"ca compose preview {ref}") as scope:
         try:
-            lines = compose_preview(scope.conn, settings, ref, mode)
+            lines = compose_preview(scope.conn, settings, ref, mode, placeholder)
         except (WorkflowError, OSError, ValueError) as error:
             typer.echo(str(error), err=True)
             raise typer.Exit(code=1) from None

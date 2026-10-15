@@ -116,7 +116,8 @@ def check_script(conn: sqlite3.Connection, template: Template, script: Script) -
     for spec in formula.sections:
         section = given.get(spec.key)
         if section is None or not section.text.strip():
-            check.problems.append(f"{spec.key}: missing or empty")
+            if not spec.optional:
+                check.problems.append(f"{spec.key}: missing or empty")
             continue
         text, count = section.text.strip(), words(section.text)
         low, high = spec.words
@@ -128,6 +129,18 @@ def check_script(conn: sqlite3.Connection, template: Template, script: Script) -
             check.problems.append(f"{spec.key}: must be one of {', '.join(spec.choices)}")
         if spec.ends_with and not text.endswith(spec.ends_with):
             check.problems.append(f'{spec.key}: must end with "{spec.ends_with}"')
+        lines = [line.strip().lstrip("-•* ").strip() for line in text.splitlines()
+                 if line.strip()]
+        if spec.lines and len(lines) != spec.lines:
+            check.problems.append(f"{spec.key}: {len(lines)} lines (exactly {spec.lines})")
+        if spec.line_words:
+            check.problems += [f"{spec.key} line {number}: {words(line)} words (at most "
+                               f"{spec.line_words})" for number, line in enumerate(lines, 1)
+                               if words(line) > spec.line_words]
+        found = [term for term in formula.banned_terms if term.lower() in text.lower()]
+        if found:
+            check.problems.append(f"{spec.key}: jargon ({', '.join(found)}): say it in plain "
+                                  "words")
         claims = _claims(conn, template, section.claim_refs, spec.key, check)
         for claim in claims:
             if claim.status == "outdated":

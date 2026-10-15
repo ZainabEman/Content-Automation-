@@ -10,10 +10,11 @@ are filled through the mapping, never by string replacement.
 
 Identity: the person's trained LoRA. No reference images are sent (all reference limits are 0);
 the prompt names the person by the LoRA trigger word (capabilities.identity_prompt). An image
-without the person bypasses the LoRA node. Live fix: an image with the person is only a clean
-studio photo built from personPhoto (the template, an outfit and a pose from config; never the
-post's copy or scene), made at personPhoto.size and returned unscaled: the app composes the post
-(workflows/compose.py).
+without the person bypasses the LoRA node. Live fixes: an image with the person gets only the
+prompt of personImage.mode, never the post's copy: scene (default) = the personScene template (a
+photo scene of him in a bright office, at the aspect's model size); cutout / photo-crop = the
+personPhoto studio template at personPhoto.size. The image comes back unscaled: the app composes
+the post (workflows/compose.py).
 Text: the model draws none (draws_text False), so the app overlays it
 (workflows/text_overlay.py).
 
@@ -98,7 +99,43 @@ PHOTO_TEMPLATE = (
 # Words that never go into a person photo (they invite painted text or objects).
 PHOTO_BANNED = ("screen", "monitor", "display", "sign", "poster", "billboard", "banner",
                 "whiteboard", "hologram", "chart", "document", "logo", "text", "headline",
-                "laptop", "phone", "tablet", "ui", "dashboard")
+                "laptop", "phone", "tablet", "ui", "dashboard", "crm", "branded", "genius")
+SCENE_TEMPLATE = (
+    "{prefix}{outfit}, standing in a modern bright office, in the right half of the frame, "
+    "three-quarter shot from the knees up, looking toward the camera, natural confident "
+    "expression, cinematic cool blue lighting, soft glowing blue light particles and faint light "
+    "rings in the background, shallow depth of field, realistic photo, the left side is a softly "
+    "blurred office background, plain walls, nothing written anywhere")
+
+
+def _banned(texts: tuple[str, ...]) -> list[str]:
+    """Words and characters that never go into a person image: numbers, %, #, screen words."""
+    pattern = re.compile(r"\b(" + "|".join(PHOTO_BANNED) + r")s?\b|[0-9%#]", re.IGNORECASE)
+    return [f'"{text}" (no numbers, signs or screen words)' for text in texts
+            if pattern.search(text.replace("{prefix}", "").replace("{outfit}", "")
+                              .replace("{pose}", ""))]
+
+
+class PersonImage(_Model):
+    """config/comfyui.json personImage: which look person images get (live fix)."""
+
+    note: str | None = Field(default=None, alias="_note")
+    mode: Literal["scene", "cutout", "photo-crop"] = "scene"
+
+
+class PersonScene(_Model):
+    """config/comfyui.json personScene: the scene prompt (an outfit from personPhoto.outfits)."""
+
+    note: str | None = Field(default=None, alias="_note")
+    template: str = SCENE_TEMPLATE
+
+    @model_validator(mode="after")
+    def _check(self) -> Self:
+        problems = [f"template needs {key}" for key in ("{prefix}", "{outfit}")
+                    if key not in self.template] + _banned((self.template,))
+        if problems:
+            raise ValueError("personScene: " + ", ".join(problems))
+        return self
 
 
 class PersonPhoto(_Model):
@@ -116,9 +153,7 @@ class PersonPhoto(_Model):
     def _check(self) -> Self:
         problems = [f"template needs {key}" for key in ("{prefix}", "{outfit}", "{pose}")
                     if key not in self.template]
-        banned = re.compile(r"\b(" + "|".join(PHOTO_BANNED) + r")s?\b|[0-9%#]", re.IGNORECASE)
-        problems += [f'"{text}" (no numbers, signs or screen words)'
-                     for text in (*self.outfits, *self.poses) if banned.search(text)]
+        problems += _banned((*self.outfits, *self.poses))
         if any(side % 16 or side <= 0 for side in self.size):
             problems.append("size (multiples of 16)")
         if problems:
@@ -161,6 +196,8 @@ class ComfyUIConfig(_Model):
     network_volume: str = ""  # the planned size (setup guide)
     models: dict[str, dict[str, ModelFile]] = Field(default_factory=dict)  # per workflow
     person_photo: PersonPhoto = Field(default_factory=PersonPhoto)
+    person_image: PersonImage = Field(default_factory=PersonImage)
+    person_scene: PersonScene = Field(default_factory=PersonScene)
     identity_prompt: str = Field(min_length=1)  # "{trigger}" is the trigger word
     upscale_node: UpscaleNode = Field(default_factory=UpscaleNode)
     workflows: dict[str, WorkflowConfig] = Field(min_length=1)
@@ -291,8 +328,22 @@ def person_photo_prompt(config: ComfyUIConfig) -> str:
     return photo.template.format(prefix=prefix, outfit=photo.outfits[0], pose=photo.poses[0])
 
 
+def person_scene_prompt(config: ComfyUIConfig) -> str:
+    """Scene mode: the personScene template with the trigger prefix and the first outfit."""
+    prefix = config.person_prefix.replace("{trigger}", config.trigger_word)
+    return config.person_scene.template.format(prefix=prefix,
+                                               outfit=config.person_photo.outfits[0])
+
+
+def person_image_prompt(config: ComfyUIConfig) -> str:
+    """The only prompt an image with the person gets (personImage.mode)."""
+    if config.person_image.mode == "scene":
+        return person_scene_prompt(config)
+    return person_photo_prompt(config)
+
+
 def photo_prompt_for(settings: Settings) -> str:
-    return person_photo_prompt(load_config(settings.comfyui_config_file))
+    return person_image_prompt(load_config(settings.comfyui_config_file))
 
 
 def model_sizes(config: ComfyUIConfig, spec: WorkflowConfig | None
@@ -432,9 +483,11 @@ class ComfyUIImageProvider:
         width, height = model_sizes(self._config, workflow.spec)[request.aspect_ratio]
         size = target_size(request.aspect_ratio, self._config.target_long_side[request.image_size])
         prompt, strength = request.prompt, None
-        if request.person:  # a clean studio photo; the app composes the post from it
-            prompt, strength = person_photo_prompt(self._config), self._config.lora_strength
-            (width, height), size = self._config.person_photo.size, self._config.person_photo.size
+        if request.person:  # only the mode's prompt; the app composes the post from the image
+            prompt, strength = person_image_prompt(self._config), self._config.lora_strength
+            if self._config.person_image.mode != "scene":
+                width, height = self._config.person_photo.size
+            size = (width, height)
         images: list[GeneratedImage] = []
         request_ids: list[str] = []
         metrics: dict[str, float] = {

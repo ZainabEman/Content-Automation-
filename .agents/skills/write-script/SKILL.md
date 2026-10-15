@@ -14,6 +14,9 @@ description: Write a Branded Genius script, social copy or production brief for 
 - **Show** a short summary (title, version, words, minutes) and the check result; the full text only when the user asks ("show script BG-x").
 - **Versions:** a saved version is never overwritten by a later one. A rewrite after feedback is a new version: `ca item revise` first (only with the user's own words), then the new template, then save.
 
+- **Post copy (social_graphic):** the headline names one concrete problem or benefit of AI for German businesses or society (at most 8 words); `body` says in plain words why it matters (at most 25 words); `bullets` are exactly 3 concrete actions the reader can take (one per line, at most 10 words each); no jargon (nurture workflow, lifecycle context, leverage, synergy, exceptions: the check refuses them); one German touch (a term, a headline word or the CTA); the claim and number rules stay as they are.
+- **Approval before images:** after the copy is saved, show the user the headline, body and 3 bullets and wait for their approval before any dry run or image is made; a change means saving the copy again.
+
 ## Write ("write script for BG-x", "write copy for BG-x")
 
 1. `uv run ca script template BG-x --json`: formula, sections with word ranges, platform rules, language, claims, the current version's feedback, `storesIn` and a `skeleton`. Exit code 2: show the message (e.g. shorts and clips get scripts in Phase 9).

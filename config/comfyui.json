@@ -52,6 +52,14 @@
     "banner",
     "whiteboard"
   ],
+  "personImage": {
+    "_note": "Live fix: scene (default, the previous post format: a photo scene, the app adds glow, panels, bullets, logo and pill) or cutout / photo-crop (a studio photo; off).",
+    "mode": "scene"
+  },
+  "personScene": {
+    "_note": "Scene mode prompt: an outfit from personPhoto.outfits; never the post's copy, numbers, brand or screen words.",
+    "template": "{prefix}{outfit}, standing in a modern bright office, in the right half of the frame, three-quarter shot from the knees up, looking toward the camera, natural confident expression, cinematic cool blue lighting, soft glowing blue light particles and faint light rings in the background, shallow depth of field, realistic photo, the left side is a softly blurred office background, plain walls, nothing written anywhere"
+  },
   "personPhoto": {
     "_note": "Live fix: the model makes only this clean studio photo of Roman; headline, copy, CTA, numbers, hashtags, brand, logo, topic and screen words never go in. The app composes the post (config/compose.json).",
     "template": "{prefix}{outfit}, {pose}, medium shot from the waist up, centered, facing the camera slightly turned, filling most of the frame, plain light-grey seamless studio background, soft even studio light, realistic professional portrait photo, sharp focus on the face, nothing written anywhere, no objects",

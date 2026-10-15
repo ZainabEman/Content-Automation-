@@ -40,6 +40,9 @@ class SectionSpec(_Model):
     words: tuple[int, int]
     choices: list[str] = Field(default_factory=list)
     ends_with: str | None = None
+    optional: bool = False  # may be left out (e.g. body and bullets of a post without him)
+    lines: int | None = None  # exactly this many non-empty lines (e.g. 3 bullets)
+    line_words: int | None = None  # at most this many words per line
 
 
 class PlatformRules(_Model):
@@ -54,6 +57,7 @@ class Formula(_Model):
     minutes: tuple[int, int] | None = None
     sections: list[SectionSpec] = Field(min_length=1)
     platforms: dict[str, PlatformRules] = Field(default_factory=dict)
+    banned_terms: list[str] = Field(default_factory=list)  # jargon the check refuses
 
     def section(self, key: str) -> SectionSpec | None:
         return next((spec for spec in self.sections if spec.key == key), None)
@@ -194,6 +198,7 @@ def template_json(template: Template) -> dict[str, Any]:
         "item": template.item.id, "title": template.item.title,
         "version": template.version, "formula": template.formula_name,
         "artifact": template.formula.artifact, "language": template.language,
+        "bannedTerms": template.formula.banned_terms,
         "germanTouch": ({**asdict(template.german_touch), "rule": template.german_touch.rule()}
                         if template.german_touch else None),
         "platform": template.platform,
@@ -225,8 +230,13 @@ def template_lines(template: Template) -> list[str]:
                      f"{template.formula.minutes[1] if template.formula.minutes else 0} min)")
     for spec in template.formula.sections:
         extra = (f"; one of {', '.join(spec.choices)}" if spec.choices else "") + (
-            f'; ends with "{spec.ends_with}"' if spec.ends_with else "")
+            f'; ends with "{spec.ends_with}"' if spec.ends_with else "") + (
+            f"; exactly {spec.lines} lines" if spec.lines else "") + (
+            f", at most {spec.line_words} words each" if spec.line_words else "") + (
+            "; optional" if spec.optional else "")
         lines.append(f"- {spec.key} ({spec.words[0]}-{spec.words[1]} words{extra}): {spec.what}")
+    if template.formula.banned_terms:
+        lines.append("No jargon: " + ", ".join(template.formula.banned_terms))
     if template.rules:
         lines.append("Platform rules: " + json.dumps(
             template.rules.model_dump(by_alias=True, exclude_none=True)))

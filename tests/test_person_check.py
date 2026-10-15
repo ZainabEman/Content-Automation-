@@ -72,13 +72,19 @@ def test_one_automatic_redo_then_stop(tmp_path: Path, monkeypatch: pytest.Monkey
     folder.mkdir()
     item, lines = package._make_images("post", plan, folder, settings, None)
     assert len(made) == 2 and item.status == "failed"  # the first + one redo
-    assert item.error and "failed twice" in item.error and "a new dry run" in lines[1]
+    assert item.error and "person check failed" in item.error and "a new dry run" in lines[1]
     first = made[0].review("image-1.png")
     assert first is not None and first.result == "fail"
 
     monkeypatch.setattr(package, "check_job_image", lambda job, name, s: [])
     item, lines = package._make_images("post", plan, folder, settings, None)
     assert item.status == "review" and any("--person pass" in line for line in lines)
+
+    made[-1].add_review("image-1.png", "fail", "the hairline differs")  # Codex: not Roman
+    count = len(made)
+    item, lines = package._make_images("post", plan, folder, settings, item)
+    assert len(made) == count and item.status == "failed"  # reported, never redone by itself
+    assert item.error and "Codex check: the hairline differs" in item.error
 
 
 def test_ads_never_take_a_fallback_provider() -> None:

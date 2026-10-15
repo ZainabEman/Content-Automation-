@@ -50,11 +50,14 @@
         {"key": "central_message", "what": "The one message of the post", "words": [3, 30]},
         {"key": "audience", "what": "Who it is for", "words": [1, 15]},
         {"key": "purpose", "what": "educational, promotional or campaign", "words": [1, 1], "choices": ["educational", "promotional", "campaign"]},
-        {"key": "headline", "what": "The headline on the graphic", "words": [2, 12]},
+        {"key": "headline", "what": "One concrete problem or benefit of AI for German businesses or society, in plain words (at most 8 words on the image)", "words": [2, 8]},
+        {"key": "body", "what": "Under the headline: in plain words, why it matters for the reader (at most 25 words)", "words": [8, 25], "optional": true},
+        {"key": "bullets", "what": "3 concrete actions the reader can take, one per line", "words": [6, 30], "optional": true, "lines": 3, "lineWords": 10},
         {"key": "copy", "what": "The caption: hook on line 1, then the body", "words": [120, 250]},
         {"key": "visual_direction", "what": "What the image shows (for the existing image pipeline)", "words": [5, 60]},
         {"key": "cta", "what": "One call to action with the offer", "words": [2, 25]}
       ],
+      "bannedTerms": ["nurture workflow", "lifecycle context", "leverage", "synergy", "exceptions"],
       "platforms": {
         "linkedin": {"copyWords": [120, 250], "hookFirstLine": true, "hashtags": [3, 5]},
         "facebook": {"copyWords": [120, 200], "hookFirstLine": true, "hashtags": [3, 5]},

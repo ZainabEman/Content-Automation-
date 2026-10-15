@@ -1,6 +1,7 @@
-"""`ca compose preview BG-x [--mode cutout|photo-crop]` (live fix): the raw checks, the cutout,
-the composition and the overlay on the newest raw photo already saved for the item. No model or
-RunPod call. Writes `<package>/previews/<BG-x>-<mode>.png` and `<BG-x>-raw-checks.json`.
+"""`ca compose preview BG-x [--mode scene|cutout|photo-crop] [--placeholder]` (live fixes): the
+raw checks, the composition and the overlay on the newest raw image already saved for the item,
+with its brief copy or placeholder copy. No model or RunPod call. Writes
+`<package>/previews/<BG-x>-<mode>.png` and `<BG-x>-raw-checks.json`.
 """
 
 import json
@@ -36,6 +37,12 @@ from content_automation.workflows.image_job import raw_image
 from content_automation.workflows.logo import LogoOverlay
 
 PREVIEW_DIR = "previews"
+PLACEHOLDER = (  # --placeholder: layout copy that meets the scene limits
+    "KI-Agenten entlasten Ihren Kundenservice",
+    "Viele Mittelständler verlieren Anfragen, weil niemand rechtzeitig antwortet. Ein "
+    "KI-Agent beantwortet einfache Fragen sofort und gibt den Rest an Ihr Team.",
+    ("Die zehn häufigsten Kundenfragen sammeln", "Antworten mit Ihrem Team freigeben",
+     "Den KI-Agenten zuerst im Chat testen"))
 
 
 def _logo(settings: Settings) -> LogoOverlay | None:
@@ -51,8 +58,8 @@ def _logo(settings: Settings) -> LogoOverlay | None:
     return LogoOverlay(path=ref.path, source=ref.source, asset_id=ref.asset_id)
 
 
-def preview(conn: sqlite3.Connection, settings: Settings, ref: str, mode: Mode | None
-            ) -> list[str]:
+def preview(conn: sqlite3.Connection, settings: Settings, ref: str, mode: Mode | None,
+            placeholder: bool = False) -> list[str]:
     item = get_item(conn, ref)
     found = package_part(settings, item)
     if found is None or not found[2].image_folders or not found[2].image_refs:
@@ -71,11 +78,15 @@ def preview(conn: sqlite3.Connection, settings: Settings, ref: str, mode: Mode |
     found_slot = brief.get(part)
     slot: dict[str, Any] = found_slot if isinstance(found_slot, dict) else {}
     company = load_company(settings.company_file)
-    copy = Copy(str(slot.get("headline") or ""),
-                str(slot.get("subheadline") or slot.get("audienceLine") or ""),
-                company.website if company is not None else "")
+    website = company.website if company is not None else ""
+    found_points = slot.get("points")
+    points: list[Any] = found_points if isinstance(found_points, list) else []
+    copy = (Copy(PLACEHOLDER[0], PLACEHOLDER[1], website, PLACEHOLDER[2]) if placeholder else
+            Copy(str(slot.get("headline") or ""),
+                 str(slot.get("subheadline") or slot.get("audienceLine") or ""), website,
+                 tuple(str(point) for point in points)))
     checks = raw_checks(raw, settings)
-    copy_issues = copy_problems(copy, compose_config(settings))
+    copy_issues = copy_problems(copy, compose_config(settings), mode)
     with Image.open(raw) as source:
         made = compose_post(source.convert("RGB"), settings, job.params.aspect_ratio, copy,
                             _logo(settings), mode)
@@ -92,7 +103,8 @@ def preview(conn: sqlite3.Connection, settings: Settings, ref: str, mode: Mode |
         f"{item.id}: preview {out.as_posix()} ({made.image.width}x{made.image.height}, mode "
         f"{made.mode}); no model call",
         "Raw checks: " + ("passed" if not checks else "FAIL: " + "; ".join(checks)),
-        "Copy: " + ("ok" if not copy_issues else "; ".join(copy_issues)),
+        ("Copy (placeholder): " if placeholder else "Copy: ")
+        + ("ok" if not copy_issues else "; ".join(copy_issues)),
         *[f"Note: {note}" for note in made.notes],
         f"Results: {report.as_posix()}",
     ]

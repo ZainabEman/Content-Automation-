@@ -1201,8 +1201,8 @@ def _check(
 
 
 def _person_copy_problems(plans: dict[str, "_ImagePlan"], settings: Settings) -> list[str]:
-    """Live fix: a person post on ComfyUI is composed by the app: headline <= 8 words and one
-    sub-line <= 14 words (config/compose.json); bullet points stay in the caption."""
+    """Live fix: a person post on ComfyUI is composed by the app; its copy limits depend on
+    personImage.mode (scene: headline <= 8 words, body <= 25, exactly 3 bullets <= 10 each)."""
     if settings.image_provider != "comfyui":
         return []
     config = compose_config(settings)
@@ -1211,7 +1211,8 @@ def _person_copy_problems(plans: dict[str, "_ImagePlan"], settings: Settings) ->
         if not any(prepared.person_shown for prepared in plan.prepared):
             continue
         slot = plan.slot
-        copy = Copy(slot.headline or "", slot.subheadline or slot.audience_line or "")
+        copy = Copy(slot.headline or "", slot.subheadline or slot.audience_line or "",
+                    bullets=tuple(slot.points))
         problems += [f"{kind}: {problem}" for problem in copy_problems(copy, config)]
     return problems
 
@@ -1233,11 +1234,12 @@ def _reject_check(job: Job, name: str, reason: str) -> None:
 
 def _failed_twice(item: PackageItem, kind: str, position: int, folder: Path
                   ) -> tuple[PackageItem, list[str]]:
-    """The second failed person check of an image: failed, the reasons, the user's choice."""
+    """A failed person check that is not redone by itself (Codex's look, or the automatic
+    checks a second time): failed, the reasons, the user's choice."""
     file = item.files[position] if position < len(item.files) else f"{kind} image {position + 1}"
     reasons = "; ".join(item.person_reasons.get(position, [])) or "no reason recorded"
     item.status = "failed"
-    item.error = f"person check failed twice for {file}: {reasons}"
+    item.error = f"person check failed for {file}: {reasons}"
     no_person = ("the ad always shows him: only the retry" if kind == "ad" else
                  'the no-person version (LinkedIn posts: "post": {"person": false} in '
                  "brief.json; Facebook posts always show him)")
@@ -1336,9 +1338,9 @@ def _person_lines(
         else f"PERSON CHECK: stop here. {file} shows the person."
     )
     earlier = item.person_reasons.get(position, [])
-    redo = (f"  Made again once already ({'; '.join(earlier)}): a second fail stops."
-            if earlier else "  A fail is made again once automatically (the dry run's max "
-            "included it); a second fail stops.")
+    redo = ((f"  Made again once already ({'; '.join(earlier)})." if earlier else "")
+            + "  Only a failed automatic check (text, no face, face too small) is made again "
+            "once; your look is reported to the user, never redone by itself.")
     raw = raw_image(job.folder, name) if job.provider == "comfyui" else None
     checked = ("Raw checks (automatic: no text, one face, big enough): passed." if raw else
                "Face check (automatic): " + ("skipped (mock image, no face to find)."
@@ -1351,14 +1353,15 @@ def _person_lines(
         view,
         "  beside his photos: "
         + ", ".join(str(path) for path in _identity_photos(job, settings)),
-        "  Look at the image itself (never pass one you did not look at): is it Roman (hair, "
-        "build, facial hair, age)? No stray text or trigger word visible? Hands and face free "
-        "of obvious defects? Record the result:",
+        "  Look at the one raw photo beside the 2 reference photos (never pass one you did "
+        "not look at) and report whether it looks like Roman (hair, build, facial hair, age); "
+        "no stray text or trigger word, hands and face free of obvious defects. Record it:",
         f'    uv run ca job review "{job.folder}" --image {name} --person pass "<what you saw>"',
         f'    uv run ca job review "{job.folder}" --image {name} --person fail "<what differs>"',
         redo,
-        f'  Then: uv run ca content build "{folder}"   (continues, or makes it again once; '
-        f"{_cost_text(job, settings)})",
+        f'  A pass: uv run ca content build "{folder}" (continues). A fail: tell the user '
+        f"what differs; they choose a retry (new dry run, {_cost_text(job, settings)}) or the "
+        "no-person version.",
     ]
 
 
@@ -1448,14 +1451,13 @@ def _make_images(
     scope = runtime.current()
     if scope is not None and scope.authorizations:  # a new "ok": its own automatic redo
         item.person_redos, item.person_reasons = {}, {}
-    for position in todo:  # a person check failed by Codex: the one automatic redo, or stop
+    for position in todo:  # Codex says it is not Roman: reported, never redone by itself
         if keep and position < len(item.image_refs) and _check(
-                item, position, "person", settings) == "fail":
+                item, position, "person", settings) == "fail" and not any(
+                reason.startswith("Codex") for reason in item.person_reasons.get(position, [])):
             reason = _review_note(item, position, settings)
             item.person_reasons.setdefault(position, []).append(f"Codex check: {reason}")
-            if item.person_redos.get(position, 0) >= 1:
-                return _failed_twice(item, kind, position, folder)
-            item.person_redos[position] = item.person_redos.get(position, 0) + 1
+            return _failed_twice(item, kind, position, folder)
     queue = list(todo)
     while queue:
         position = queue.pop(0)

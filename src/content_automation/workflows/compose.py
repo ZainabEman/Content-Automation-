@@ -1,18 +1,17 @@
-"""Person images: "generate big, compose in the app" (live fix).
+"""Person images composed in the app (live fixes).
 
-The model makes only a clean studio photo of Roman (config/comfyui.json personPhoto); the app
-checks it and does all design (config/compose.json), locally and for free:
-
-1. raw_checks: OCR (rapidocr-onnxruntime): any text fails; the face check (OpenCV): exactly one
-   face, at least minFaceHeight of the image height. A fail is the one allowed redo.
-2. Cutout: rembg with u2net_human_seg on the CPU (model cached in .cache/rembg). The mask must
-   cover 15-70% of the image in one piece with a clean edge, else mode photo-crop.
-3. cutout mode: the brand background (navy gradient + soft blue glow), Roman on the right (head
-   top at headTop, body bodyHeight of the canvas), a light blue grade, drop shadow and rim glow.
-   photo-crop mode: the photo cropped so his face is in the right third, a navy fade on the left.
-4. Overlay, laid out top-down so no panel overlaps another: logo top right (no box), headline
-   (<= 8 words) and one sub-line (<= 14 words) on a panel at 0.88 opacity, the website pill in
-   its own bottom area. Bullet points never go into the image (they belong in the caption).
+config/comfyui.json personImage.mode picks the look (config/compose.json holds the rules):
+- scene (default, the previous post format): the model makes a photo scene of Roman in a bright
+  office (personScene); the app lays it full-bleed, adds the brand blue glow and the overlay:
+  logo top right (no box), a headline panel, a body panel and a panel with 3 bullets on the left,
+  stacked top-down with a 24 px gap and never overlapping (panels at 0.88 opacity), the website
+  pill in its own bottom area. Copy: headline <= 8 words, body <= 25, exactly 3 bullets <= 10.
+- cutout / photo-crop (off): a clean studio photo (personPhoto) cut out onto the brand background
+  (rembg u2net_human_seg, CPU, model in .cache/rembg) or cropped with a navy fade; headline <= 8
+  words and one sub-line <= 14.
+raw_checks (free, local) run on the raw image first: OCR (rapidocr-onnxruntime) finds no text,
+exactly one face, at least minFaceHeight of the image height (10% in a scene). A fail is the one
+automatic redo within the dry run's max.
 """
 
 import json
@@ -34,25 +33,28 @@ from content_automation.workflows.logo import LogoOverlay, logo_zone, paste_logo
 from content_automation.workflows.registry import WorkflowError
 from content_automation.workflows.text_overlay import TextOverlay, overlay_colors, resolve_fonts
 
-Mode = Literal["cutout", "photo-crop"]
+Mode = Literal["scene", "cutout", "photo-crop"]
 RGB = tuple[int, int, int]
 PixelBox = tuple[int, int, int, int]
-MODES: tuple[Mode, ...] = ("cutout", "photo-crop")
+MODES: tuple[Mode, ...] = ("scene", "cutout", "photo-crop")
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 CACHE_DIR = _PROJECT_ROOT / ".cache" / "rembg"  # git-ignored
 DEFAULTS: dict[str, Any] = {
-    "mode": "cutout",
     "outputSizes": {"1:1": [1080, 1080], "4:5": [1080, 1350], "9:16": [1080, 1920],
                     "16:9": [1920, 1080]},
-    "rawChecks": {"minFaceHeight": 0.18, "minTextScore": 0.6},
+    "rawChecks": {"minFaceHeight": {"scene": 0.10, "cutout": 0.18, "photo-crop": 0.18},
+                  "minTextScore": 0.6},
     "cutout": {"model": "u2net_human_seg", "minCover": 0.15, "maxCover": 0.70,
                "minMainShare": 0.9, "maxEdgeNoise": 0.04, "headTop": 0.18, "bodyHeight": 0.85,
                "centerX": 0.70},
     "photoCrop": {"faceX": 0.78, "faceY": 0.30, "fadeTo": 0.62},
     "look": {"glowCenter": [0.70, 0.42], "glowRadius": 0.55, "glowOpacity": 0.38,
-             "blueGrade": 0.08, "shadowOpacity": 0.38, "rimOpacity": 0.45},
+             "blueGrade": 0.08, "shadowOpacity": 0.38, "rimOpacity": 0.45,
+             "sceneGlowOpacity": 0.22},
     "overlay": {"panelOpacity": 0.88, "margin": 0.06, "textRight": 0.50, "textTop": 0.18,
                 "headlineMaxWords": 8, "sublineMaxWords": 14},
+    "scene": {"textRight": 0.52, "textTop": 0.06, "gap": 24, "bodyMaxWords": 25, "bullets": 3,
+              "bulletMaxWords": 10},
 }
 
 
@@ -62,11 +64,13 @@ class ComposeError(WorkflowError):
 
 @dataclass(frozen=True)
 class Copy:
-    """What the app writes onto a person post (bullet points stay in the caption)."""
+    """What the app writes onto a person post: the headline, the sub-line (the body in a scene),
+    the website and, in a scene only, the 3 bullets."""
 
     headline: str
     subline: str = ""
     website: str = ""
+    bullets: tuple[str, ...] = ()
 
 
 @dataclass
@@ -78,13 +82,14 @@ class Composed:
 
 
 def copy_from_overlay(overlay: TextOverlay) -> Copy:
-    """Headline, one sub-line (or the audience line) and the website; never the points."""
+    """Headline, the sub-line or body (or the audience line), the website and the points."""
     def joined(field: str) -> str:
         found = overlay.texts.get(field)  # type: ignore[call-overload]
         return " ".join(found.paragraphs) if found is not None else ""
 
+    points = overlay.texts.get("points")
     return Copy(joined("headline"), joined("subheadline") or joined("audience_line"),
-                joined("footer"))
+                joined("footer"), tuple(points.paragraphs) if points is not None else ())
 
 
 def compose_config(settings: Settings) -> dict[str, Any]:
@@ -101,12 +106,18 @@ def compose_config(settings: Settings) -> dict[str, Any]:
             merged[key].update(value)
         elif not key.startswith("_"):
             merged[key] = value
+    from content_automation.ai.image import ImageError, load_comfyui_config
+
+    try:  # the mode lives with the prompts: config/comfyui.json personImage.mode
+        merged["mode"] = load_comfyui_config(settings.comfyui_config_file).person_image.mode
+    except ImageError:
+        merged["mode"] = "scene"
     return merged
 
 
-def copy_problems(copy: Copy, config: dict[str, Any]) -> list[str]:
-    """Over-long copy for a person post (the free dry run refuses it)."""
-    rules = config["overlay"]
+def copy_problems(copy: Copy, config: dict[str, Any], mode: Mode | None = None) -> list[str]:
+    """Copy that breaks the person post's limits (the free dry run refuses it)."""
+    rules, scene = config["overlay"], config["scene"]
     problems = []
     head, sub = len(copy.headline.split()), len(copy.subline.split())
     if not head:
@@ -114,9 +125,19 @@ def copy_problems(copy: Copy, config: dict[str, Any]) -> list[str]:
     if head > rules["headlineMaxWords"]:
         problems.append(f"headline: {head} words; a person post allows "
                         f"{rules['headlineMaxWords']} (shorten it)")
-    if sub > rules["sublineMaxWords"]:
-        problems.append(f"sub-line: {sub} words; a person post allows "
-                        f"{rules['sublineMaxWords']} (the rest goes in the caption)")
+    if (mode or config["mode"]) != "scene":
+        if sub > rules["sublineMaxWords"]:
+            problems.append(f"sub-line: {sub} words; a person post allows "
+                            f"{rules['sublineMaxWords']} (the rest goes in the caption)")
+        return problems
+    if sub > scene["bodyMaxWords"]:
+        problems.append(f"body: {sub} words; a person post allows {scene['bodyMaxWords']}")
+    if len(copy.bullets) != scene["bullets"]:
+        problems.append(f"bullets: {len(copy.bullets)}; a person post needs exactly "
+                        f"{scene['bullets']}")
+    problems += [f"bullet {number}: {len(text.split())} words; at most "
+                 f"{scene['bulletMaxWords']}" for number, text in enumerate(copy.bullets, 1)
+                 if len(text.split()) > scene["bulletMaxWords"]]
     return problems
 
 
@@ -144,7 +165,10 @@ def _ocr_texts(image: Image.Image, min_score: float) -> list[str]:
 
 def raw_checks(image: Path, settings: Settings) -> list[str]:
     """What is wrong with the raw photo (empty: passed): text, not one face, a small face."""
-    rules = compose_config(settings)["rawChecks"]
+    config = compose_config(settings)
+    rules = config["rawChecks"]
+    minimum = rules["minFaceHeight"]
+    min_face = float(minimum.get(config["mode"], 0.18) if isinstance(minimum, dict) else minimum)
     photo = _load(image)
     problems = []
     texts = _ocr_texts(photo, float(rules["minTextScore"]))
@@ -153,9 +177,9 @@ def raw_checks(image: Path, settings: Settings) -> list[str]:
     faces = face_boxes(photo)
     if len(faces) != 1:
         problems.append(f"{len(faces)} faces found (exactly 1 needed)")
-    elif faces[0][3] - faces[0][1] < float(rules["minFaceHeight"]):
+    elif faces[0][3] - faces[0][1] < min_face:
         problems.append(f"face height {faces[0][3] - faces[0][1]:.0%} of the image (at least "
-                        f"{float(rules['minFaceHeight']):.0%})")
+                        f"{min_face:.0%})")
     return problems
 
 
@@ -379,6 +403,122 @@ def _overlay(canvas: Image.Image, copy: Copy, colors: dict[str, RGB], fonts: dic
     return boxes
 
 
+def _scene(photo: Image.Image, size: tuple[int, int], colors: dict[str, RGB],
+           look: dict[str, Any], text_right: float) -> Image.Image:
+    """The photo scene full-bleed with the brand blue glow. Centred, unless his face would sit
+    under the text column: then it zooms in (at most 1.6x) to move the face to the right."""
+    width, height = size
+    scale = max(width / photo.width, height / photo.height)
+    faces = face_boxes(photo)
+    fx = (faces[0][0] + faces[0][2]) / 2 if faces else 1.0
+    target = text_right + 0.20  # the face centre, as a share of the width
+    if fx * photo.width * scale - (photo.width * scale - width) / 2 < (text_right + 0.05) * width:
+        scale = min(max(scale, target * width / (fx * photo.width)), 1.6 * scale)
+    scaled = photo.resize((round(photo.width * scale), round(photo.height * scale)),
+                          Image.Resampling.LANCZOS)
+    left = (scaled.width - width) // 2
+    if faces and fx * scaled.width - left < (text_right + 0.05) * width:
+        left = min(max(round(fx * scaled.width - target * width), 0), scaled.width - width)
+    top = (scaled.height - height) // 2
+    if faces:  # keep his head in the frame
+        top = min(top, max(0, round(faces[0][1] * scaled.height - 0.12 * height)))
+    canvas = scaled.crop((left, top, left + width, top + height))
+    glow = Image.new("L", size, 0)
+    cx, cy = (float(v) for v in look["glowCenter"])
+    radius = float(look["glowRadius"]) * width
+    ImageDraw.Draw(glow).ellipse((cx * width - radius, cy * height - radius,
+                                 cx * width + radius, cy * height + radius), fill=255)
+    glow = glow.filter(ImageFilter.GaussianBlur(radius * 0.45))
+    canvas.paste(_solid(size, colors["accent"]), (0, 0),
+                 _scaled(glow, float(look["sceneGlowOpacity"])))
+    return canvas
+
+
+def _scene_overlay(canvas: Image.Image, copy: Copy, colors: dict[str, RGB],
+                   fonts: dict[str, Path], rules: dict[str, Any], scene: dict[str, Any],
+                   logo: LogoOverlay | None) -> dict[str, PixelBox]:
+    """The previous format, fixed: headline, body and bullet panels stacked top-down on the
+    left with a fixed gap (never overlapping), the website pill in its own bottom area."""
+    width, height = canvas.size
+    unit = width / 1080
+    margin, pad = round(float(rules["margin"]) * width), round(26 * unit)
+    gap = round(float(scene["gap"]) * unit)
+    pill_font = ImageFont.truetype(str(fonts["medium"]), max(14, round(width * 0.024)))
+    site = copy.website.removeprefix("https://").removeprefix("http://").rstrip("/")
+    pill_h = round(pill_font.size * 2.2)
+    pill_top = height - margin - pill_h
+    left, right = margin, round(float(scene["textRight"]) * width)
+    top = round(float(scene["textTop"]) * height)
+    room = pill_top - gap - top
+    inner = right - left - 2 * pad
+    blocks: list[tuple[str, list[str], ImageFont.FreeTypeFont, int]] = []
+    for size in range(round(width * 0.07), round(width * 0.034) - 1, -2):
+        head_font = ImageFont.truetype(str(fonts["bold"]), size)
+        text_font = ImageFont.truetype(str(fonts["medium"]), max(15, round(size * 0.46)))
+        bullet_inner = inner - round(text_font.size * 1.1)
+        blocks = [("headline", _wrap(copy.headline, head_font, inner), head_font,
+                   round(size * 1.08))]
+        if copy.subline:
+            blocks.append(("body", _wrap(copy.subline, text_font, inner), text_font,
+                           round(text_font.size * 1.32)))
+        if copy.bullets:
+            lines: list[str] = []
+            for bullet in copy.bullets:  # "*" marks a bullet's first line (drawn as a dot)
+                wrapped = _wrap(bullet, text_font, bullet_inner)
+                lines += [("*" if index == 0 else " ") + line
+                          for index, line in enumerate(wrapped)]
+            blocks.append(("bullets", lines, text_font, round(text_font.size * 1.32)))
+        needed = sum(2 * pad + len(lines) * step for _, lines, _, step in blocks)
+        needed += gap * (len(blocks) - 1)
+        if needed <= room and len(blocks[0][1]) <= 4:
+            break
+    else:
+        raise ComposeError(f"the headline, body and bullets do not fit beside the person in "
+                           f"{width}x{height}; shorten them")
+    layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    alpha = round(float(rules["panelOpacity"]) * 255)
+    boxes: dict[str, PixelBox] = {}
+    y = top
+    for name, lines, font, step in blocks:
+        box = (left, y, right, y + 2 * pad + len(lines) * step)
+        draw.rounded_rectangle(box, radius=round(width * 0.02),
+                               fill=(*colors["background"], alpha))
+        color = colors["text"] if name != "body" else colors["accent"]
+        line_y = y + pad
+        indent = round(font.size * 1.1) if name == "bullets" else 0
+        for line in lines:
+            text = line[1:] if name == "bullets" else line
+            if name == "bullets" and line.startswith("*"):
+                radius, cy = font.size * 0.17, line_y + font.size * 0.62
+                draw.ellipse((left + pad, cy - radius, left + pad + 2 * radius, cy + radius),
+                             fill=(*colors["accent"], 255))
+            draw.text((left + pad + indent, line_y), text, font=font, fill=(*color, 255))
+            line_y += step
+        boxes[name] = box
+        y = box[3] + gap
+    if site:
+        pill = (margin, pill_top, margin + round(pill_font.getlength(site)) + 2 * pad,
+                pill_top + pill_h)
+        draw.rounded_rectangle(pill, radius=pill_h // 2, fill=(*colors["background"], alpha),
+                               outline=(*colors["accent"], 255), width=max(2, width // 400))
+        draw.text((pill[0] + pad, pill_top + pill_h / 2), site, font=pill_font, anchor="lm",
+                  fill=(*colors["text"], 255))
+        boxes["pill"] = pill
+    if logo is not None:
+        boxes["logo"] = logo_zone(canvas.size)
+    named = list(boxes.items())
+    for index, (name, box) in enumerate(named):
+        for other, second in named[index + 1:]:
+            if _overlaps(box, second):
+                raise ComposeError(f"the {name} would overlap the {other}")
+    composed = Image.alpha_composite(canvas.convert("RGBA"), layer)
+    if logo is not None:
+        paste_logo(composed, composed, logo)  # top right, no box behind it
+    canvas.paste(composed.convert("RGB"))
+    return boxes
+
+
 # --- Together ---------------------------------------------------------------------------------
 
 
@@ -405,6 +545,12 @@ def compose_post(photo: Image.Image, settings: Settings, aspect: str, copy: Copy
     chosen: Mode = mode or cast(Mode, config["mode"])
     notes: list[str] = []
     canvas: Image.Image | None = None
+    if chosen == "scene":
+        canvas = _scene(photo, size, colors, config["look"], float(config["scene"]["textRight"]))
+        boxes = _scene_overlay(canvas, copy, colors, fonts, config["overlay"], config["scene"],
+                               logo)
+        return Composed(canvas, chosen, [f"composed in the app: mode scene, {size[0]}x{size[1]}"],
+                        boxes)
     if chosen == "cutout":
         mask = _human_mask(photo, str(config["cutout"]["model"]))
         problems = mask_problems(mask, config["cutout"])

@@ -1,45 +1,72 @@
 {
-  "_note": "Live fix: person images are made as a clean studio photo (config/comfyui.json personPhoto) and designed by the app. mode cutout (default) or photo-crop (the fallback when the cutout is not clean).",
-  "mode": "cutout",
+  "_note": "Live fixes: rules for person posts composed in the app. The look is config/comfyui.json personImage.mode: scene (default), cutout or photo-crop.",
   "outputSizes": {
-    "1:1": [1080, 1080],
-    "4:5": [1080, 1350],
-    "9:16": [1080, 1920],
-    "16:9": [1920, 1080]
+    "1:1": [
+      1080,
+      1080
+    ],
+    "4:5": [
+      1080,
+      1350
+    ],
+    "9:16": [
+      1080,
+      1920
+    ],
+    "16:9": [
+      1920,
+      1080
+    ]
   },
   "rawChecks": {
-    "minFaceHeight": 0.18,
+    "minFaceHeight": {
+      "scene": 0.1,
+      "cutout": 0.18,
+      "photo-crop": 0.18
+    },
     "minTextScore": 0.6
   },
   "cutout": {
     "model": "u2net_human_seg",
     "minCover": 0.15,
-    "maxCover": 0.70,
+    "maxCover": 0.7,
     "minMainShare": 0.9,
     "maxEdgeNoise": 0.04,
     "headTop": 0.18,
     "bodyHeight": 0.85,
-    "centerX": 0.70
+    "centerX": 0.7
   },
   "photoCrop": {
     "faceX": 0.78,
-    "faceY": 0.30,
+    "faceY": 0.3,
     "fadeTo": 0.62
   },
   "look": {
-    "glowCenter": [0.70, 0.42],
+    "glowCenter": [
+      0.7,
+      0.42
+    ],
     "glowRadius": 0.55,
     "glowOpacity": 0.38,
     "blueGrade": 0.08,
     "shadowOpacity": 0.38,
-    "rimOpacity": 0.45
+    "rimOpacity": 0.45,
+    "sceneGlowOpacity": 0.22
   },
   "overlay": {
     "panelOpacity": 0.88,
     "margin": 0.06,
-    "textRight": 0.50,
+    "textRight": 0.5,
     "textTop": 0.18,
     "headlineMaxWords": 8,
     "sublineMaxWords": 14
+  },
+  "scene": {
+    "textRight": 0.52,
+    "textTop": 0.06,
+    "gap": 24,
+    "bodyMaxWords": 25,
+    "bullets": 3,
+    "bulletMaxWords": 10
   }
 }

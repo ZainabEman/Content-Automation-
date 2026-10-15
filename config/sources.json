@@ -1,6 +1,12 @@
 {
   "version": 2,
   "_note": "v2 (Phase 5 P5-D8): language, region, type rss|html, pillarHints, trust, enabled. German sources confirmed 2026-10-14; each feed checked once (BfDI: HTTP 404, disabled).",
+  "run": {
+    "_note": "live fix: one research run stays at about 1-2 minutes; what was saved before the cap is kept.",
+    "requestTimeoutSeconds": 10,
+    "maxRunSeconds": 120,
+    "maxFailuresPerSource": 2
+  },
   "sources": [
     {
       "name": "Search Engine Journal",

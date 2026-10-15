@@ -189,7 +189,7 @@ class FreeCollector:
         headers = {"User-Agent": USER_AGENT, "Accept-Language": "en"}
         with httpx.Client(
             headers=headers,
-            timeout=self._timeout_s,
+            timeout=request.timeout_s or self._timeout_s,
             follow_redirects=True,
             transport=self._transport,
         ) as client:
@@ -213,6 +213,11 @@ class FreeCollector:
             stats.found = len(candidates)
             seen: set[str] = set()
             for candidate in candidates[: request.max_items]:
+                if request.deadline is not None and datetime.now(UTC) >= request.deadline:
+                    stats.errors.append("stopped: the run's time cap")
+                    break
+                if request.max_new is not None and len(articles) >= request.max_new:
+                    break
                 key = article_id(candidate.url)
                 if key in request.known_ids or key in seen:
                     stats.duplicates += 1  # already saved: not fetched again
@@ -229,6 +234,9 @@ class FreeCollector:
                 except Exception as error:  # one article never stops the others
                     stats.failed += 1
                     stats.errors.append(f"{candidate.url}: {_short(error)}")
+                    if request.max_failures is not None and stats.failed >= request.max_failures:
+                        stats.errors.append(f"stopped after {stats.failed} failures")
+                        break
                     continue
                 if article is not None:
                     articles.append(article)

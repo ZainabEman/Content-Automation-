@@ -51,11 +51,23 @@ class Source(CamelModel):
         return bool(self.rss_url) and self.type != "html"
 
 
+class RunLimits(CamelModel):
+    """sources.json "run": how long one research run may take (live fix, Phase 10)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    note: str | None = Field(default=None, alias="_note")
+    request_timeout_seconds: float = Field(default=10.0, gt=0)  # each HTTP request
+    max_run_seconds: float = Field(default=120.0, gt=0)  # the whole run; then partial results
+    max_failures_per_source: int = Field(default=2, ge=1)  # then the source stops
+
+
 class SourcesFile(CamelModel):
     model_config = ConfigDict(extra="forbid")
 
     version: int = 1
     note: str | None = Field(default=None, alias="_note")
+    run: RunLimits = Field(default_factory=RunLimits)
     sources: list[Source]
 
 
@@ -108,6 +120,14 @@ class RunReport(CamelModel):
     @property
     def duplicates(self) -> int:
         return sum(stats.duplicates for stats in self.sources)
+
+
+def load_run_limits(path: Path) -> RunLimits:
+    """sources.json "run" (the defaults if it is missing or unreadable)."""
+    try:
+        return SourcesFile.model_validate_json(path.read_text(encoding="utf-8")).run
+    except (OSError, ValidationError):
+        return RunLimits()
 
 
 def load_sources(path: Path) -> list[Source]:

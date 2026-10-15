@@ -42,6 +42,10 @@ class CollectRequest(BaseModel):
     since: datetime  # only articles published after this
     max_items: int = Field(ge=1)  # newest article links looked at per source
     known_ids: frozenset[str] = frozenset()  # already saved: skipped without fetching
+    timeout_s: float | None = None  # per HTTP request (sources.json run)
+    deadline: datetime | None = None  # the run cap: no new request after it
+    max_failures: int | None = None  # the source stops after this many failed articles
+    max_new: int | None = None  # at most this many new articles from this source
 
 
 class CollectResult(BaseModel):

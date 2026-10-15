@@ -17,7 +17,7 @@ description: The Branded Genius idea backlog. Turn newsletters, links and the us
 ## Find new ideas ("find new ideas")
 
 1. Newsletters: run show-content steps 1-10 (Gmail, read-only) so the newest `research/newsletters/<date>_content-list.json` exists. If Gmail is not available, say so and continue with the sources only.
-2. `uv run ca research run` (both: the enabled scraper sources and the newest content list; `--sources` or `--newsletters` for one). Senders that allow it have their links followed to the original article. Show its counts line: collected, new ideas, duplicates, off_strategy, flagged claims, failed fetches, unknown senders.
+2. Tell the user "fetching ~1–2 min" first, then `uv run ca research run --sources --limit 8` (the enabled scraper sources; one progress line per source, 10 s per request, the run capped at 120 s with partial results kept; plain `uv run ca research run` adds the newest content list, `--newsletters` only that). Senders that allow it have their links followed to the original article. Show its counts line: collected, new ideas, duplicates, off_strategy, flagged claims, failed fetches, unknown senders.
 3. For each new BG ID: Score and claims (below). Then show `uv run ca ideas review` and ask: **"Approve, reject or revise which ideas?"** Stop and wait.
 
 ## Research this link ("research this link <url>")

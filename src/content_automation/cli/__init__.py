@@ -1217,7 +1217,7 @@ def research_run(
     list_file: Annotated[
         Path | None, typer.Option("--list", help="A content list file (default: the newest).")
     ] = None,
-    limit: Annotated[int, typer.Option(min=1, help="At most this many article ideas.")] = 20,
+    limit: Annotated[int, typer.Option(min=1, help="At most this many new articles (ideas).")] = 8,
 ) -> None:
     """Find new ideas ("find new ideas"): scraper articles and newsletter ideas into the backlog,
     duplicates merged, off-strategy ones flagged; prints the run counts. Both without options."""
@@ -1231,7 +1231,7 @@ def research_run(
                        + (" --newsletters" if newsletters else "")) as scope:
             if sources or both:
                 run_sources(scope.conn, settings, strategy, counts, limit=limit,
-                            command=scope.command)
+                            command=scope.command, progress=typer.echo)
             if newsletters or both:
                 chosen = list_file or newest_list(settings)
                 if chosen is None:

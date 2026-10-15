@@ -12,6 +12,7 @@ Every candidate — a scraper article, a newsletter idea, a manual topic — tak
 import difflib
 import re
 import sqlite3
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -170,9 +171,11 @@ def ingest(conn: sqlite3.Connection, settings: Settings, candidate: Candidate,
 
 
 def run_sources(conn: sqlite3.Connection, settings: Settings, strategy: Strategy,
-                counts: RunCounts, *, limit: int, command: str | None) -> None:
-    """The enabled scraper sources: this run's new articles become ideas (up to `limit`)."""
-    report, _ = collect(settings)
+                counts: RunCounts, *, limit: int, command: str | None,
+                progress: Callable[[str], None] | None = None) -> None:
+    """The enabled scraper sources: this run's new articles (at most `limit`, spread over the
+    sources) become ideas; `progress` gets one line per source as it finishes."""
+    report, _ = collect(settings, limit=limit, progress=progress)
     configs = {source.name: source for source in load_sources(settings.sources_file)}
     counts.collected += report.new
     for article_id in report.new_articles[:limit]:

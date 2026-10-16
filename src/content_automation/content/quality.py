@@ -10,7 +10,7 @@
 - Insights: at least 6 specific findings from the research, each with its source; their
   numbers must be in the article they cite.
 - Captions: 120-200 words, 3-5 takeaways, a question, the CTA with the offer.
-- Numbers that read as results come only from docs/company/proof.md or the cited research.
+- Numbers that read as results come only from brand/proof.md or the cited research.
 """
 
 import re
@@ -213,7 +213,7 @@ def carousel_problems(
         if label and label.lower() not in last_text:
             problems.append(
                 f'{name}.slides[{len(slot.slides)}]: the call to action names the offer '
-                f'"{label}" (from docs/company/services.md)'
+                f'"{label}" (from brand/services.md)'
             )
     return problems
 
@@ -348,7 +348,7 @@ def caption_problems(
                 problems.append(f'{where}.takeaways[{number}] "{takeaway}": {reason}')
     label = offer_label(offer)
     if label and label.lower() not in brief.cta.lower():
-        problems.append(f'cta: name the offer "{label}" (from docs/company/services.md)')
+        problems.append(f'cta: name the offer "{label}" (from brand/services.md)')
     return problems
 
 
@@ -440,7 +440,7 @@ def proof_problems(brief: ContentBrief, proof: str, research: Iterable[str]) -> 
             if not all(number in allowed for number in numbers):
                 problems.append(
                     f'{where}: "{match.group(0).strip()}" reads as a result; cite results only '
-                    "from docs/company/proof.md (or a stat with its research source), otherwise "
+                    "from brand/proof.md (or a stat with its research source), otherwise "
                     "describe a concrete scenario"
                 )
     return problems

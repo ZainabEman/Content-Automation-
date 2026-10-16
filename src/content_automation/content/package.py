@@ -92,6 +92,7 @@ from content_automation.references import (
     ReferenceLibraryError,
     load_brand,
     load_company,
+    load_services,
     load_set,
 )
 from content_automation.registry import runtime
@@ -383,6 +384,7 @@ def _apply_deliverables(
         post_format,
         settings.default_identity_set,
         suggested,
+        settings.services_file,
     )
     atomic_write_text(
         folder / TEMPLATE_FILE, json.dumps(template, indent=2, ensure_ascii=False) + "\n"
@@ -398,7 +400,7 @@ def _apply_deliverables(
     lines += [
         f"Next (Codex): write {BRIEF_FILE} for only these deliverables: start from "
         f"{TEMPLATE_FILE} (and {CONTENT_FILE} if it exists) and replace every <...> (English; "
-        "use docs/company/services.md and the brand and design rules in _help; no invented "
+        "use brand/services.md and the brand and design rules in _help; no invented "
         "results, statistics, prices or client names; one caption per deliverable).",
         f'Then run: uv run ca content build "{folder}" --dry-run',
     ]
@@ -479,7 +481,11 @@ def _brand(settings: Settings) -> BrandProfile | None:
         return None
 
 
-def service_names(brand: BrandProfile | None, company: CompanyProfile | None) -> list[str]:
+def service_names(brand: BrandProfile | None, company: CompanyProfile | None,
+                  services_file: Path | None = None) -> list[str]:
+    """The verified services of config/services.json; older setups: brand.json, services.md."""
+    if services_file is not None and services_file.is_file():
+        return [service.name for service in load_services(services_file).verified()]
     if brand is not None and brand.services:
         return list(brand.services)
     if company is None:
@@ -686,6 +692,7 @@ def _brief_template(
     post_format: PostFormat | None,
     identity_set: str,
     suggested: FormatId | None,
+    services_file: Path | None = None,
 ) -> dict[str, Any]:
     brand_tag = brand_hashtag(brand.brand_name) if brand else "<#BrandName>"
     chosen = {key: catalog.deliverables[key] for key in deliverables}
@@ -695,14 +702,14 @@ def _brief_template(
         "_help": {
             "howTo": (
                 f"Save a copy as {BRIEF_FILE} in this folder and replace every <...>. English "
-                "only. Use docs/company/services.md "
+                "only. Use brand/services.md and config/services.json (verified services only) "
                 "and the brand and design rules below. "
                 "Never invent results, statistics, prices or client names. Keep deliverables "
                 "and formats unchanged: build only what the user named. This _help block is "
                 "ignored."
             ),
             "deliverables": {key: item.label for key, item in chosen.items()},
-            "services": service_names(brand, company),
+            "services": service_names(brand, company, services_file),
             "brandRules": {
                 "tone": brand.tone if brand else "",
                 "language": "English",
@@ -824,7 +831,7 @@ def _brief_template(
     website = company.website if company else ""
     template["link"] = website or (
         "<https://... the page to open; ask the user, never guess (to pre-fill it, add a "
-        '"Website: https://..." line to docs/company/services.md)>'
+        '"Website: https://..." line to brand/services.md)>'
     )
     template["hashtags"] = [brand_tag, "<#TopicTag>", "<#TopicTag>"]
     return template
@@ -879,7 +886,7 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool,
     known = known_article_ids(settings.research_dir)
     brief = load_brief(
         folder / BRIEF_FILE,
-        services=service_names(brand, company),
+        services=service_names(brand, company, settings.services_file),
         known_article_ids=known,
         brand_tag=brand_hashtag(brand.brand_name) if brand else None,
         checks=lambda checked: _deliverable_problems(checked, settings, folder),

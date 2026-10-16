@@ -3,7 +3,7 @@
 
 Run:  uv run python scripts/e2e_phase4.py [--keep]
 
-Everything happens in a new temp folder (copies of config/, docs/company/ and the Jost fonts,
+Everything happens in a new temp folder (copies of config/, brand/ and the Jost fonts,
 a small fake reference library); mock providers only, no network, no paid call. The mock image
 provider is counted as paid here (config/jobs.json in the temp folder), so the dry run ->
 "ok" -> --authorize path runs as it would for a real provider. Prints PASS or FAIL per
@@ -75,7 +75,7 @@ def _sandbox(keep: bool) -> Iterator[Path]:
 def _setup(work: Path) -> None:
     from PIL import Image
 
-    for name in ("config", "docs/company"):
+    for name in ("config", "brand"):
         shutil.copytree(REPO / name, work / name)
     fonts = work / "assets" / "fonts"
     fonts.mkdir(parents=True)
@@ -147,13 +147,13 @@ def _fill_brief(template: Path) -> None:
     brief = {key: value for key, value in data.items() if key != "_help"}
     ids = brief["sourceArticleIds"]
     brief.update({
-        "service": "AI Chatbots & AI Development",
+        "service": "AI chatbots",
         "objective": "Show practices how a chatbot books appointments after hours",
         "keyPoints": ["Answers WhatsApp questions at night", "Books free slots by SMS",
                       "Hands open cases to reception"],
         "insights": [{"text": text, "source": ids[i % len(ids)]}
                      for i, text in enumerate(INSIGHTS)],
-        "cta": ("Book a free consultation call and we show you how a practice chatbot answers, "
+        "cta": ("Request a free AI potential analysis: we show how a practice chatbot answers, "
                 "books and reminds your patients on WhatsApp."),
         "hashtags": ["#BrandedGenius", "#Healthcare", "#Chatbots"],
     })

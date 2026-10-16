@@ -1,4 +1,4 @@
-"""Company profile read from docs/company/services.md (COMPANY_FILE).
+"""Company profile read from brand/services.md (COMPANY_FILE).
 
 The file is plain Markdown for people: a "# <Name> — ..." heading, a summary paragraph,
 "Label: text" lines (Positioning, Core message, Content rules, ...) and a numbered

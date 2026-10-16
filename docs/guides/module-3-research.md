@@ -71,7 +71,7 @@ Some sites block automated readers (for example Search Engine Land and MarTech a
 
 The easiest way: **ask Codex**. For research it runs `ca research collect`, then
 `ca research digest --topic "…"`, and uses the list to suggest trends and ideas based on
-`docs/company/services.md`.
+`brand/services.md`.
 
 ### Topic research
 
@@ -127,7 +127,7 @@ with no deliverables (research and text only) and get them later; until then not
    picks are saved in `package.json`. The caption has a fixed shape: `hook` (line 1), 3–5
    specific `takeaways`, one `question` to get comments, the `cta` with the offer and the
    `link`, and 3–5 English hashtags including `#BrandedGenius`; 120–200 words.
-   To pre-fill the link, add a line `Website: https://…` to `docs/company/services.md`.
+   To pre-fill the link, add a line `Website: https://…` to `brand/services.md`.
 3. `uv run ca content build "<folder>" --dry-run` checks `brief.json` (every problem is listed)
    and shows the count and cost. It refuses generic lines (no channel, tool, timing, number or
    example wording), middle slides that do not say who sends what, when and through which

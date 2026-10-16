@@ -77,6 +77,28 @@ PRD: [docs/phases/PHASE-6-PRD.md](phases/PHASE-6-PRD.md) (conflicts with the cur
 
 Phase 6 done (2026-10-14): e2e 7/7 PASS ([PHASE-6-E2E.md](phases/PHASE-6-E2E.md)); 322 tests, ruff + mypy --strict clean.
 
+## Phase D — design directions, brand consistency, Roman identity, service relevance
+
+Plan: 12 config-driven design directions replace the post formats; brand-strict tokens; service relevance; `ca design check`. Branch `phase-d-design` (from `live-fixes`, the newest line with phases 4-10, track L and the live fixes; `phase-q-quality` is unmerged and forked from Phase 3).
+
+- [x] Step 0 – Inspection + green baseline (5 tests left stale by the live fixes repaired).
+- [x] Step 1 – Brand tokens (config/brand.json) + services (config/services.json, brand/services.md).
+- [ ] Step 2 – config/design_directions.json (replaces post_formats.json) + typed loader.
+- [ ] Step 3 – Rendering (new elements, logo placement, FD-1 cutout, `ca design preview`).
+- [ ] Step 4 – Selection and rotation (registry history, override, dry-run line).
+- [ ] Step 5 – Service relevance (calendar pass, copy checks, skills).
+- [ ] Step 6 – Roman identity rules (real photos, LoRA rules, identity sheet + verdict).
+- [ ] Step 7 – `ca design check`.
+- [ ] Step 8 – Tests, previews, mock e2e, docs.
+
+Decisions (2026-10-17):
+- D-1 The brand guide wins: tokens use only Royal Blue, Sky Blue, Medium Gray and White (user: "follow brand guidelines strictly"). The Phase 3 carousel palette (carousel_style/palette.json: #010208, #06122E, #0970EB …) and the post-format themes are retired; dark designs are Royal Blue, gradients only blue (Royal→Sky) and silver (Gray→White). Medium Gray is decorative only (under 4.5:1 on both backgrounds).
+- D-2 Services come from brandedgenius.de (user: "find from there"): 5 verified services in config/services.json with URL + German quote. The 5 older services of the first profile (SEO, web design, PPC, photo/video, content creation) are not on the site: status unverified, never used. brand.json `services` is replaced by `servicesFile`; docs/company/ moved to brand/ (services.md, proof.md).
+- D-3 Website case-study percentages, customer quotes and the KI-Potenzialanalyse demo figures are not used (unconfirmed; proofCandidates in services.json). Proof stays brand/proof.md.
+- D-4 Contact: website + info@brandedgenius.de on graphics; the Impressum phone number stays off until the client OKs it; no social handles (the site's links point to facebook.com root), so no social icons.
+- D-5 Logo clear space (0.25 × logo height) and minimum width (160 px at 1080) are project defaults: the guide has none.
+- D-6 Roman: quiet luxury allowed besides business settings (rooftop at dusk, hotel lounge, airport business lounge, corner office, car interior); no jets, sports cars, jet skis or yachts. No Roman in carousels. The docx captions are competitor posts: layout reference only.
+
 ## Phase 4 done (2026-10-13)
 
 - Registry (`src/content_automation/registry/`, `state/registry.db`): BG IDs, five statuses, versions, decisions, jobs with idempotency, authorizations from saved dry runs, append-only redacted audit log; calendar CSV as a view with a hand-edit guard; tracker registry columns with last-written values and a conflict report (mock); `ca registry migrate`.

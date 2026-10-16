@@ -30,10 +30,12 @@ from content_automation.references import (
     BrandProfileError,
     ReferenceLibraryError,
     ReferenceSet,
+    ServicesError,
     brand_path,
     list_sets,
     load_brand,
     load_company,
+    load_services,
     select_logo_ref,
     untagged_style_refs,
 )
@@ -383,9 +385,16 @@ def _brand_and_company(settings: Settings) -> list[Check]:
     company = load_company(settings.company_file)
     if company is None:
         checks.append(Check("fail", "services.md", f"{settings.company_file} not found",
-                            "Restore docs/company/services.md (company profile)."))
+                            "Restore brand/services.md (company profile)."))
     else:
         checks.append(Check("ok", "services.md", f"{len(company.services)} services"))
+    try:
+        services = load_services(settings.services_file)
+        checks.append(Check("ok", "services.json", f"{len(services.verified())} verified of "
+                            f"{len(services.services)} services"))
+    except ServicesError as error:
+        checks.append(Check("fail", "services.json", str(error),
+                            "Restore config/services.json (Phase D: services with sources)."))
     return checks
 
 

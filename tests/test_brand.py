@@ -75,3 +75,47 @@ def test_brand_show(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert "Royal Blue #004BA0" in result.output
     assert "Language: English" in result.output
     assert "tone: drafted" in result.output
+
+
+REPO_BRAND = Path(__file__).resolve().parents[1] / "config" / "brand.json"
+
+
+def _repo_brand() -> dict[str, object]:
+    data: dict[str, object] = json.loads(REPO_BRAND.read_text(encoding="utf-8"))
+    return data
+
+
+def test_repo_brand_tokens_are_the_guide_colours(tmp_path: Path) -> None:
+    write_brand(tmp_path, _repo_brand())
+    brand = load_brand(tmp_path)
+    assert brand.tokens is not None and brand.typography is not None
+    palette = {color.hex.upper() for color in brand.colors}
+    assert palette == {"#004BA0", "#69BFF8", "#969595", "#FFFFFF"}
+    assert set(brand.tokens.hexes().values()) <= palette
+    assert brand.tokens.get("bg_dark").hex == "#004BA0"
+    assert all(token.source for token in (brand.tokens.get(role) for role in
+                                          ("bg_dark", "accent", "muted")))
+    assert brand.typography.families() == ["Futura", "Jost"]
+    assert brand.logo_variant("dark").id == "white"
+    assert brand.logo_variant("light").sha256.startswith("ff800645c78e")
+    assert brand.social_handles() == {}
+    assert brand.website is not None and brand.website.display == "brandedgenius.de"
+    assert brand.contact.phone is not None and not brand.contact.phone.on_graphics
+
+
+def test_a_token_outside_the_guide_is_refused(tmp_path: Path) -> None:
+    data = _repo_brand()
+    tokens = dict(data["tokens"])  # type: ignore[call-overload]
+    tokens["bg_dark"] = {"hex": "#06122E", "source": "old carousel palette"}
+    write_brand(tmp_path, {**data, "tokens": tokens})
+    with pytest.raises(BrandProfileError, match="tokens"):
+        load_brand(tmp_path)
+
+
+def test_a_logo_file_needs_its_hash(tmp_path: Path) -> None:
+    data = _repo_brand()
+    data["logoVariants"] = [{"id": "x", "file": "brand/logo/x.png", "backgrounds": ["light"],
+                             "source": "test"}]
+    write_brand(tmp_path, data)
+    with pytest.raises(BrandProfileError, match="logoVariants"):
+        load_brand(tmp_path)

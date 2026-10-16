@@ -34,7 +34,7 @@ Ask Codex for a post, ad or reel about a topic. Codex follows `AGENTS.md`:
    a video, reel, UGC ad or podcast clip is a real video part) in
    `outputs/content/YYYY-MM-DD_<topic>/` with `research.md` and `brief.template.json`.
 2. Codex writes `brief.json` (designs, reel, caption) from the research, the company
-   profile (`docs/company/services.md`), the brand rules and the design system
+   profile (`brand/services.md`), the brand rules and the design system
    (`config/design_system.json`).
 3. `uv run ca content build "<folder>" --dry-run` shows the cost; Codex waits for your OK.
 4. `uv run ca content build "<folder>"` makes 2 post images (in a format that changes from
@@ -85,7 +85,7 @@ You can also ask for single images, videos or research (see the guides).
 | `config/sources.json` | The news sites to read. |
 | `config/deliverables.json` | What can be asked for by name (insta post, facebook ad, reel, ...). |
 | `config/design_system.json` | The look of designed graphics: layouts, poses, text rules. |
-| `docs/company/services.md` | Company profile: services, message, content rules. |
+| `brand/services.md` | Company profile: services, message, content rules. |
 
 ## Guides
 

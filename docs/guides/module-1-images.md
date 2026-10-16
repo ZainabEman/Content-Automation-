@@ -123,7 +123,7 @@ photos of people who have agreed to this use.
   research article you name as its source.
 - **Services, not products**: `person_service` shows the person delivering one of the
   company's services, described in words (no product photos needed).
-- **Company profile** (`docs/company/services.md`): who Branded Genius is, its 7 services, core
+- **Company profile** (`brand/services.md`): who Branded Genius is, its 5 verified services (structured in `config/services.json`), core
   message and content rules. Codex reads it for scenes, headlines and captions, and the tool
   adds the company line and the content rules ("never invent results, statistics, prices or
   client names") to every prompt that needs them.
@@ -199,8 +199,8 @@ Fix anything wrong, remove each item from `needsReview` once you have checked it
 `brand/logo/` that the app pastes onto every design; it must be a PNG with a transparent
 background. `language` is `"en"`, so any text in an
 image is written in English. `services` lists the company's 7 services (from
-`docs/company/services.md`); pick one for `person_service`. To change what the company offers,
-edit `docs/company/services.md` and `services` in `brand.json` together.
+`brand/services.md`); pick one for `person_service`. To change what the company offers,
+edit `config/services.json` (with a source) and the summary in `brand/services.md` together.
 
 ## How to use
 
@@ -249,7 +249,7 @@ Then the details:
 
 | Choice | Options | How to pick |
 |---|---|---|
-| `--kind` | `organic` (default), `ad`, `story` | **Organic** = educational; a soft CTA where the format has one ("Learn more", "Read now"). **Ad** (only with format `ad`) = one message, one offer, one CTA; offer words (free, analysis, demo, in 15 minutes); at most one proof number and only if it is real (from `docs/company/services.md`); short text; 3 variants. **Story** = 9:16 with the top and bottom 13% kept free of text and logo. |
+| `--kind` | `organic` (default), `ad`, `story` | **Organic** = educational; a soft CTA where the format has one ("Learn more", "Read now"). **Ad** (only with format `ad`) = one message, one offer, one CTA; offer words (free, analysis, demo, in 15 minutes); at most one proof number and only if it is real (from `brand/services.md`); short text; 3 variants. **Story** = 9:16 with the top and bottom 13% kept free of text and logo. |
 | `--layout` (posts and ads; leave it out to rotate) | `A`, `B`, `C`, `D` | All four show the man. **A** text left + a system visual with the man beside it (product or feature). **B** text left + person right, **C** person left + text right (trust and authority). **D** before/after split: the same person stressed on the left, relaxed on the right (pain vs gain). |
 | `--headline` + `--highlight` | 1–2 highlight words from the headline | Format `ad`: use one formula: contrast, pair, principle, question, idiom twist or promise (examples in `config/design_system.json`). Shown in capitals (not in `news`). |
 | `--subheadline` + `--sub-highlight` | one short sentence; one highlight word | Format `ad`: always fill it. |

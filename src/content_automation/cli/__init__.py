@@ -139,11 +139,13 @@ from content_automation.references import (
     REF_TYPES,
     BrandProfileError,
     ReferenceLibraryError,
+    ServicesError,
     brand_path,
     extract_frames,
     list_sets,
     load_brand,
     load_company,
+    load_services,
     mask_copies,
     scan,
     select_logo_ref,
@@ -812,7 +814,16 @@ def brand_show() -> None:
     typer.echo(f"Tone: {brand.tone or '-'}")
     typer.echo(f"Audience: {brand.audience or '-'}")
     typer.echo(f"Content pillars: {', '.join(brand.content_pillars) or '-'}")
-    typer.echo(f"Services: {', '.join(brand.services) or '- (add them to brand.json)'}")
+    try:
+        services = [s.name for s in load_services(settings.services_file).verified()]
+    except ServicesError as error:
+        services = [f"- ({error})"]
+    typer.echo(f"Services (verified): {', '.join(services) or '-'}")
+    if brand.tokens is not None:
+        typer.echo("Tokens: " + ", ".join(f"{role} {value}"
+                                          for role, value in brand.tokens.hexes().items()))
+    if brand.website is not None:
+        typer.echo(f"Website: {brand.website.url}")
     typer.echo(f"Do: {len(brand.do)} rules; Don't: {len(brand.dont)} rules")
     if brand.needs_review:
         typer.echo("Needs review:")

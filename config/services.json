@@ -1,0 +1,138 @@
+{
+  "_note": "What Branded Genius sells, one entry per service (Phase D). Generation uses only status \"verified\" entries: copy names a service only with the wording below (whatItDoes, useCases), and a CTA only from allowedCtas. Every entry cites the page it comes from; the German quote is the original, the English text a plain rendering of it. proof stays empty until the client confirms a real, checkable result (brand/proof.md). Human summary: brand/services.md.",
+  "checkedOn": "2026-10-17",
+  "ctaTypes": {
+    "question": "a genuine question that invites comments; no sales ask",
+    "enquiry": "ask for a conversation or a DM (e.g. the free KI-Potenzialanalyse or a first call)",
+    "visit_site": "point to brandedgenius.de",
+    "none": "no call to action"
+  },
+  "insightOnlyCtas": ["question", "none"],
+  "services": [
+    {
+      "id": "ai_agents_workflows",
+      "name": "AI agents & workflows",
+      "nameDe": "KI-Agenten & Workflows",
+      "whatItDoes": "AI agents and automated workflows that take over recurring processes, connect systems and make internal processes more efficient.",
+      "forWhom": ["teams in marketing, sales, customer service and internal processes"],
+      "problemsSolved": ["recurring manual work", "tools that are not connected", "slow internal processes"],
+      "useCases": ["lead qualification and routing", "automated research", "internal knowledge assistants", "reporting and notifications", "document and data processing", "CRM updates and task creation", "customer service workflows", "multi-step business processes"],
+      "topicKeywords": ["ai agent", "agents", "agentic", "workflow", "automation", "automate", "process", "back office", "operations", "integration", "repetitive", "manual work", "data processing", "reporting", "ki-agent", "automatisierung", "prozess"],
+      "allowedCtas": [
+        {"type": "question"},
+        {"type": "enquiry", "label": "KI-Agenten entdecken"},
+        {"type": "enquiry", "label": "KI-Potenzialanalyse anfragen"},
+        {"type": "visit_site"}
+      ],
+      "proof": [],
+      "source": {
+        "url": "https://brandedgenius.de/",
+        "section": "Leistungen: KI-Agenten & Workflows; use cases from https://brandedgenius.de/leistungen/ (Einsatzbereiche)",
+        "quoteDe": "Intelligente KI-Agenten und automatisierte Workflows, die wiederkehrende Prozesse übernehmen … Systeme verbinden und interne Abläufe effizienter machen."
+      },
+      "status": "verified"
+    },
+    {
+      "id": "ai_chatbots",
+      "name": "AI chatbots",
+      "nameDe": "KI-Chatbots (WhatsApp- & Telegram-Chatbots)",
+      "whatItDoes": "Intelligent chatbots for the website, WhatsApp and Telegram that handle support, customer service and lead qualification, tailored to the company's processes and systems, and hand complex cases to staff.",
+      "forWhom": ["customer service and sales teams", "teams in marketing, sales, customer service and internal processes"],
+      "problemsSolved": ["slow replies to customer and lead enquiries", "repeated FAQ questions", "enquiries outside office hours"],
+      "useCases": ["customer service via WhatsApp and Telegram", "lead capture and qualification", "appointment booking", "internal employee support", "FAQ automation", "automatic handover to staff"],
+      "topicKeywords": ["chatbot", "chat bot", "whatsapp", "telegram", "customer service", "support", "faq", "enquiry", "messaging", "24/7", "lead qualification", "kundenservice"],
+      "allowedCtas": [
+        {"type": "question"},
+        {"type": "enquiry", "label": "KI-Chatbot entwickeln"},
+        {"type": "enquiry", "label": "KI-Potenzialanalyse anfragen"},
+        {"type": "visit_site"}
+      ],
+      "proof": [],
+      "source": {
+        "url": "https://brandedgenius.de/leistungen/",
+        "section": "WhatsApp- & Telegram-Chatbots; home page: KI-Chatbots",
+        "quoteDe": "Intelligente Chatbots für Website, Support, Kundenservice und Lead-Qualifizierung … individuell auf Unternehmen, Prozesse und Systeme abgestimmt."
+      },
+      "status": "verified"
+    },
+    {
+      "id": "ai_callbots",
+      "name": "AI callbots",
+      "nameDe": "KI-Callbots",
+      "whatItDoes": "AI voice assistants for incoming and outgoing phone calls: lead qualification, appointment booking, support and follow-ups, with handover to staff.",
+      "forWhom": ["customer service and sales teams"],
+      "problemsSolved": ["missed or slow phone calls", "manual appointment booking by phone", "follow-up calls that never happen"],
+      "useCases": ["inbound: customer enquiries, appointment requests, qualification, support, call routing", "outbound: lead qualification, follow-ups, appointment booking, reactivation, customer surveys"],
+      "topicKeywords": ["callbot", "voice", "phone", "call", "calls", "telephone", "voice assistant", "voice ai", "appointment", "missed calls", "telefon", "anruf"],
+      "allowedCtas": [
+        {"type": "question"},
+        {"type": "enquiry", "label": "KI-Callbots entdecken"},
+        {"type": "enquiry", "label": "KI-Potenzialanalyse anfragen"},
+        {"type": "visit_site"}
+      ],
+      "proof": [],
+      "source": {
+        "url": "https://brandedgenius.de/",
+        "section": "Leistungen: KI-Callbots; inbound/outbound from https://brandedgenius.de/leistungen/",
+        "quoteDe": "KI-gestützte Sprachassistenten für eingehende und ausgehende Telefonate … Lead-Qualifizierung, Terminvereinbarung, Support und Follow-ups."
+      },
+      "status": "verified"
+    },
+    {
+      "id": "marketing_sales_automation",
+      "name": "AI marketing & sales automation",
+      "nameDe": "KI-Marketing & Vertriebsautomatisierung",
+      "whatItDoes": "Automated marketing and sales processes for lead generation, follow-ups and CRM, with personalised communication and more efficient conversion processes across the customer journey.",
+      "forWhom": ["marketing and sales teams"],
+      "problemsSolved": ["leads that slip through between marketing and sales", "manual follow-ups", "tools and CRM that are not connected"],
+      "useCases": ["automated lead capture", "CRM workflows", "lead qualification and scoring", "email and follow-up sequences", "sales pipeline automation", "appointment workflows", "lead nurturing", "customer reactivation", "AI-assisted outreach", "automated reporting"],
+      "topicKeywords": ["marketing automation", "sales automation", "crm", "lead", "leads", "lead generation", "follow-up", "pipeline", "nurturing", "conversion", "customer journey", "outreach", "email sequence", "vertrieb", "leadgenerierung"],
+      "allowedCtas": [
+        {"type": "question"},
+        {"type": "enquiry", "label": "Wachstum automatisieren"},
+        {"type": "enquiry", "label": "KI-Potenzialanalyse anfragen"},
+        {"type": "visit_site"}
+      ],
+      "proof": [],
+      "source": {
+        "url": "https://brandedgenius.de/",
+        "section": "Leistungen: KI-Marketing & Vertriebsautomatisierung; automations from https://brandedgenius.de/leistungen/",
+        "quoteDe": "Automatisierte Marketing- und Vertriebsprozesse für Leadgenerierung, Follow-ups, CRM … personalisierte Kommunikation und effizientere Conversion-Prozesse."
+      },
+      "status": "verified"
+    },
+    {
+      "id": "ai_workshops",
+      "name": "AI workshops",
+      "nameDe": "KI-Workshops",
+      "whatItDoes": "Hands-on AI workshops with Roman Tränkle as trainer (on site, online, hybrid or tailored) where teams learn to use AI safely and sensibly in daily work.",
+      "forWhom": ["teams and leaders", "management", "marketing teams", "sales teams", "customer service", "back office and operations", "HR and team leads"],
+      "problemsSolved": ["employees do not know which AI tools they may use or how to work with them", "no clear roadmap for AI"],
+      "useCases": ["recognising relevant AI use cases", "using suitable tools safely", "better prompts and workflows", "simplifying recurring tasks", "judging chances and risks realistically", "agreeing clear next steps"],
+      "topicKeywords": ["workshop", "training", "upskilling", "ai literacy", "employees", "leadership", "prompting", "ai policy", "schulung", "weiterbildung"],
+      "allowedCtas": [
+        {"type": "question"},
+        {"type": "enquiry", "label": "KI-Workshop anfragen"},
+        {"type": "enquiry", "label": "Workshop mit Roman anfragen"},
+        {"type": "visit_site"}
+      ],
+      "proof": [],
+      "source": {
+        "url": "https://brandedgenius.de/ki-workshop/",
+        "section": "headline, Für Teams und Führungskräfte, formats, learning outcomes",
+        "quoteDe": "In praxisnahen Workshops lernt Ihr Team, wie künstliche Intelligenz sicher und sinnvoll im Arbeitsalltag eingesetzt wird."
+      },
+      "status": "verified"
+    },
+    {"id": "ai_content_creation", "name": "AI marketing & content creation", "nameDe": "", "whatItDoes": "", "forWhom": [], "problemsSolved": [], "useCases": [], "topicKeywords": [], "allowedCtas": [], "proof": [], "source": {"url": "", "section": "docs/company/services.md (2026-10-01), not on brandedgenius.de on 2026-10-17", "quoteDe": ""}, "status": "unverified"},
+    {"id": "ppc_lead_generation", "name": "Lead generation & performance marketing (PPC)", "nameDe": "", "whatItDoes": "", "forWhom": [], "problemsSolved": [], "useCases": [], "topicKeywords": [], "allowedCtas": [], "proof": [], "source": {"url": "", "section": "docs/company/services.md (2026-10-01), not on brandedgenius.de on 2026-10-17", "quoteDe": ""}, "status": "unverified"},
+    {"id": "seo", "name": "SEO", "nameDe": "", "whatItDoes": "", "forWhom": [], "problemsSolved": [], "useCases": [], "topicKeywords": [], "allowedCtas": [], "proof": [], "source": {"url": "", "section": "docs/company/services.md (2026-10-01), not on brandedgenius.de on 2026-10-17", "quoteDe": ""}, "status": "unverified"},
+    {"id": "web_design", "name": "Web design", "nameDe": "", "whatItDoes": "", "forWhom": [], "problemsSolved": [], "useCases": [], "topicKeywords": [], "allowedCtas": [], "proof": [], "source": {"url": "", "section": "docs/company/services.md (2026-10-01), not on brandedgenius.de on 2026-10-17", "quoteDe": ""}, "status": "unverified"},
+    {"id": "photo_video", "name": "Photo & video production", "nameDe": "", "whatItDoes": "", "forWhom": [], "problemsSolved": [], "useCases": [], "topicKeywords": [], "allowedCtas": [], "proof": [], "source": {"url": "", "section": "docs/company/services.md (2026-10-01), not on brandedgenius.de on 2026-10-17", "quoteDe": ""}, "status": "unverified"}
+  ],
+  "proofCandidates": {
+    "_note": "On brandedgenius.de (2026-10-17) but NOT usable: case-study percentages (e.g. +43 % qualified leads in 90 days, one case study listed twice), customer quotes with generic names, and the KI-Potenzialanalyse demo figures (61 %, 90 h/week, 194.400 EUR/year). They read like template or calculator output; never used until the client confirms each one with evidence.",
+    "status": "unverified",
+    "source": "https://brandedgenius.de/ (Fallstudien, Kundenstimmen) and https://brandedgenius.de/leistungen/ (KI-Potenzialanalyse)"
+  }
+}

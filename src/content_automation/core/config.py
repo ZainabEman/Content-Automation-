@@ -43,7 +43,8 @@ class Settings(BaseSettings):
     references_dir: Path = Path("assets/reference")  # photos: git-ignored
     brand_file: Path = Path("config/brand.json")  # tracked; fallback: <references>/brand/
     references_file: Path = Path("config/references.json")  # tracked tags, primaries, masks
-    company_file: Path = Path("docs/company/services.md")
+    company_file: Path = Path("brand/services.md")  # company profile (people); proof.md beside it
+    services_file: Path = Path("config/services.json")  # services for generation (Phase D)
     output_dir: Path = Path("outputs/jobs")
     research_dir: Path = Path("research")
     packages_dir: Path = Path("outputs/content")

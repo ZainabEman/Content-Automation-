@@ -2,7 +2,7 @@
 
 Run:  uv run python scripts/e2e_phase5.py [--keep]
 
-A new temp folder with copies of config/ and docs/company/; mock scraper and storage, link
+A new temp folder with copies of config/ and brand/; mock scraper and storage, link
 fetching through httpx's MockTransport (no network, no paid call). Main flow: newsletter list ->
 ideas with sources -> manual topic -> scores and claims -> approvals -> month plan -> generate.
 Prints PASS or FAIL per criterion; exit code 0 only when all pass. --keep leaves the folder.
@@ -33,7 +33,7 @@ def _sandbox(keep: bool) -> Iterator[Path]:
     old_cwd, old_env = Path.cwd(), dict(os.environ)
     try:
         os.chdir(work)
-        for name in ("config", "docs/company"):
+        for name in ("config", "brand"):
             shutil.copytree(REPO / name, work / name)
         for name in list(os.environ):
             if name.isupper() and name.endswith(("_PROVIDER", "_MODEL", "_FILE", "_DIR")):

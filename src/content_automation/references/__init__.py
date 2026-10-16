@@ -40,8 +40,18 @@ from content_automation.references.models import (
     ReferenceSet,
     RefType,
 )
+from content_automation.references.services import (
+    Service,
+    ServiceCatalog,
+    ServicesError,
+    load_services,
+)
 
 __all__ = [
+    "Service",
+    "ServiceCatalog",
+    "ServicesError",
+    "load_services",
     "PRIMARY_COUNT",
     "REF_TYPES",
     "BrandColor",

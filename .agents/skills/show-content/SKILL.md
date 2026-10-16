@@ -20,13 +20,13 @@ description: Show new Branded Genius content ideas from the Gmail newsletters of
 4. If the search returns 0 emails, say: "The Gmail search of `<account>` returned 0 emails for: `<the exact query>`", then check that the plugin connection really is that account and that it has a label named exactly `<label>`. Stop there; never show an empty idea list.
 5. Before extracting any ideas, confirm which account you searched ("Searched: <account>") and list the 5 newest emails for the query (date, sender, subject).
 6. Skip rule. Read `research/newsletters/seen.json` (treat a missing file as empty). Skip an email only if its message ID is in seen.json **and** it appears as an `emailId` in a saved `research/newsletters/*_content-list.json`. For **"show content --all"**, ignore seen.json and skip nothing. If every email is skipped, say "<N> emails found for `<query>`, all already used in saved idea lists; say "show content --all" to read them again" and stop.
-7. Read the remaining emails and `docs/company/services.md`. Pick 5-10 ideas that fit the services; merge duplicates (the same news from several newsletters is one idea with several sources). Skip items that fit no service.
+7. Read the remaining emails and `brand/services.md`. Pick 5-10 ideas that fit the services; merge duplicates (the same news from several newsletters is one idea with several sources). Skip items that fit no service.
 8. Save `research/newsletters/<YYYY-MM-DD>_content-list.md`, numbered, one block per idea:
    - title
    - a 2-line summary
    - why now
    - source, date and link (one line per source)
-   - the matching service (one of `docs/company/services.md`)
+   - the matching service (one of `brand/services.md`)
    - suggested deliverables, using the names from `uv run ca content deliverables`
 9. Save its twin `research/newsletters/<YYYY-MM-DD>_content-list.json` with the source excerpts (`ca content start --research-file` reads it):
 

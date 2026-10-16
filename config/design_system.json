@@ -583,12 +583,12 @@
   },
   "ctaRules": {
     "instagram": {
-      "use": "Ask for a comment with one keyword, a save, or a DM; never a \"Learn more\" button. Use the offer from docs/company/services.md.",
+      "use": "Ask for a comment with one keyword, a save, or a DM; never a \"Learn more\" button. Use the offer from brand/services.md.",
       "require": ["comment", "save", "dm", "direct message", "message us"],
       "avoid": ["learn more", "read more", "click", "visit", "link in bio", "website"]
     },
     "facebook": {
-      "use": "Point to the link in the caption. Use the offer from docs/company/services.md.",
+      "use": "Point to the link in the caption. Use the offer from brand/services.md.",
       "require": ["link", "caption", "below"],
       "avoid": ["link in bio", "dm", "direct message"]
     }
@@ -609,7 +609,7 @@
     "ad": [
       "One message, one offer, one CTA.",
       "Use offer words: free, analysis, demo, in 15 minutes.",
-      "At most one proof number, and only from docs/company/proof.md; without proof there, use a concrete scenario instead of a number.",
+      "At most one proof number, and only from brand/proof.md; without proof there, use a concrete scenario instead of a number.",
       "Short text.",
       "3 variants: a different headline or visual, the same branding."
     ]

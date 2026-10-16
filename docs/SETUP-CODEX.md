@@ -107,7 +107,7 @@ copies of the past ads. More detail: [Module 1 guide](guides/module-1-images.md)
 
 Ask Codex: **"Run uv run ca doctor."** It checks the tools, your `.env` (it shows only whether
 each key is set, never the key itself), the photos, `brand.json`, the company profile
-(`docs/company/services.md`), the news sites, the providers and the output folders. Every
+(`brand/services.md`), the news sites, the providers and the output folders. Every
 `[FAIL]` line comes with a **Fix:** line; do that and run it again until there are no problems.
 `[WARN]` lines are fine for a start (for example `HEYGEN_AVATAR_ID` or `HEYGEN_VOICE_ID` not
 set yet; Codex helps you choose them when the first HeyGen video is made).

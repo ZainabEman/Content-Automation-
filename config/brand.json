@@ -2,7 +2,8 @@
   "brandName": "Branded Genius",
   "status": "draft",
   "sources": [
-    "assets/reference/brand/guidelines/Branded Genius Brand Style Guide.pdf"
+    "assets/reference/brand/guidelines/Branded Genius Brand Style Guide.pdf",
+    "https://brandedgenius.de/impressum/ (checked 2026-10-17)"
   ],
   "colors": [
     {
@@ -26,6 +27,29 @@
       "usage": "Light end of the silver/metallic gradient in the \"GENIUS\" wordmark; backgrounds"
     }
   ],
+  "tokens": {
+    "_note": "Colour roles for app-rendered designs (Phase D). Every token is one of the four guide colours above (checked at load): the guide defines no other colour, so dark designs are Royal Blue, never navy, charcoal or black. Medium Gray fails 4.5:1 on both backgrounds: decorative only (rules, dividers, icons, the silver gradient).",
+    "bg_dark": {"hex": "#004BA0", "source": "guide p.1 FARBAUSWAHL: Royal Blue HEX #004BA0 (darkest guide colour; user decision 2026-10-17: follow the guide strictly)"},
+    "bg_light": {"hex": "#FFFFFF", "source": "guide p.1 FARBAUSWAHL: White HEX #FFFFFF"},
+    "primary": {"hex": "#004BA0", "source": "guide p.1 FARBAUSWAHL: Royal Blue, \"BRANDED\" gradient"},
+    "accent": {"hex": "#69BFF8", "source": "guide p.1 FARBAUSWAHL: Sky Blue HEX #69BFF8, \"BRANDED\" gradient"},
+    "highlight": {"hex": "#69BFF8", "source": "guide p.1 FARBAUSWAHL: Sky Blue (pill fills, accent rules)"},
+    "text_on_dark": {"hex": "#FFFFFF", "source": "guide p.1 LOGO-NUTZUNG: Dunkles Logo = white lettering on dark"},
+    "text_on_light": {"hex": "#004BA0", "source": "guide p.1 FARBAUSWAHL: Royal Blue (8.4:1 on White)"},
+    "muted": {"hex": "#969595", "source": "guide p.1 FARBAUSWAHL: Medium Gray HEX #969595, \"GENIUS\" silver gradient"}
+  },
+  "gradients": {
+    "blue": {"from": "primary", "to": "accent", "source": "guide p.1 FARBAUSWAHL: \"Blauer Farbverlauf (verwendet in BRANDED)\""},
+    "silver": {"from": "muted", "to": "bg_light", "source": "guide p.1 FARBAUSWAHL: \"Silber/Metallic-Farbverlauf (verwendet in GENIUS)\""}
+  },
+  "typography": {
+    "headline": {"family": "Futura", "weight": "bold", "source": "guide p.1 TYPOGRAFIE: HEADING = Futura Bold"},
+    "body": {"family": "Futura", "weight": "medium", "source": "guide p.1 TYPOGRAFIE: SUB-HEAD = Futura Medium"},
+    "logoOnly": {"family": "Good Times", "source": "guide p.1 TYPOGRAFIE: LOGO FONT = Good Times (never for headings or text)"},
+    "fallback": {"family": "Jost", "licence": "SIL Open Font License 1.1 (assets/fonts/OFL.txt)", "source": "Phase 2 decision (docs/PROGRESS.md): geometric stand-in while no licensed Futura files are in assets/fonts/"},
+    "licence": "Futura is a commercial font: not in the repo; licence check is with the user (docs/PROGRESS.md Phase 2). Futura files dropped into assets/fonts/ win over Jost.",
+    "maxFamilies": 2
+  },
   "fonts": [
     {
       "name": "Futura Bold",
@@ -51,16 +75,50 @@
     "SEO & web",
     "AI chatbots"
   ],
-  "services": [
-    "AI Marketing & Content Creation",
-    "Lead Generation & Performance Marketing (PPC)",
-    "SEO",
-    "Web Design",
-    "AI Chatbots & AI Development",
-    "CRM & Marketing Automation",
-    "Photo & Video Production"
-  ],
+  "servicesFile": "config/services.json",
   "logoFile": "logo (1).png",
+  "logoVariants": [
+    {
+      "id": "full_colour",
+      "file": "brand/logo/logo (1).png",
+      "sha256": "ff800645c78e76732368fd56ddd12aea5041dfaab5112a9e697a65b9bc2df418",
+      "backgrounds": ["light"],
+      "source": "guide p.1 LOGO-NUTZUNG: full-colour wordmark; brand.json logoFile since Module 1"
+    },
+    {
+      "id": "white",
+      "derivedFrom": "full_colour",
+      "backgrounds": ["dark", "photo"],
+      "source": "guide p.1 LOGO-NUTZUNG: \"Dunkles Logo\" (white lettering); made by the app from the logo's own shape (workflows/logo.py white_version)"
+    }
+  ],
+  "logoSpec": {
+    "minWidthPx": 160,
+    "clearSpaceRatio": 0.25,
+    "source": "project default (Phase D): the guide gives no clear-space or minimum-size rule; clear space = 0.25 x the logo's height on every side; minimum width at a 1080 px canvas"
+  },
+  "website": {
+    "url": "https://brandedgenius.de",
+    "display": "brandedgenius.de",
+    "source": "https://brandedgenius.de/impressum/ and brand/services.md Website line"
+  },
+  "contact": {
+    "email": {"value": "info@brandedgenius.de", "onGraphics": true, "source": "https://brandedgenius.de/impressum/ and /kontakt/ (checked 2026-10-17)"},
+    "phone": {"value": "+49 176 24624981", "onGraphics": false, "source": "https://brandedgenius.de/impressum/ only (checked 2026-10-17); off on graphics until the client OKs it"}
+  },
+  "handles": {
+    "_note": "None verified: on 2026-10-17 the website's LinkedIn and Facebook links point to https://www.facebook.com/ (no profile). Add {\"linkedin\": \"...\", \"instagram\": \"...\"} with a source when the client gives them; until then designs show no social icons."
+  },
+  "footer": {
+    "elements": ["website"],
+    "optional": ["email"],
+    "source": "Phase D: every design shows the website; email only where a direction asks for it and contact.email.onGraphics is true"
+  },
+  "taglines": [
+    {"text": "KI-Automatisierung, die Ergebnisse schafft.", "lang": "de", "source": "https://brandedgenius.de/ (hero)"},
+    {"text": "Strategisch. Automatisiert. Messbar.", "lang": "de", "source": "https://brandedgenius.de/"},
+    {"text": "Alle Tools. Ein System. Intelligent vernetzt.", "lang": "de", "source": "https://brandedgenius.de/"}
+  ],
   "logoRules": [
     "The logo is the wordmark \"BRANDED\" (bold, blue gradient) above \"GENIUS\" (bold, silver/metallic gradient) with a short line on each side of \"GENIUS\".",
     "Approved versions: full colour, dark logo (white lettering on dark grey), white-background logo (black lettering), and greyscale logo (grey lettering on dark grey).",
@@ -80,5 +138,9 @@
     "Don't recolour the logo outside the brand palette.",
     "Don't stretch, rotate, crop or add effects to the logo."
   ],
-  "needsReview": []
+  "needsReview": [
+    "logoSpec: clear space and minimum width are project defaults (the guide has none)",
+    "contact.phone: shown on graphics only after the client OKs it",
+    "handles: no verified social profiles yet"
+  ]
 }

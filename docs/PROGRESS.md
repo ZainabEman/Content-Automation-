@@ -83,7 +83,7 @@ Plan: 12 config-driven design directions replace the post formats; brand-strict 
 
 - [x] Step 0 – Inspection + green baseline (5 tests left stale by the live fixes repaired).
 - [x] Step 1 – Brand tokens (config/brand.json) + services (config/services.json, brand/services.md).
-- [ ] Step 2 – config/design_directions.json (replaces post_formats.json) + typed loader.
+- [x] Step 2 – config/design_directions.json (12 directions) + typed loader (content/directions.py); refs renamed R01-R36, C1-C7 (config/social_refs.json); 89 Tabler icon names.
 - [ ] Step 3 – Rendering (new elements, logo placement, FD-1 cutout, `ca design preview`).
 - [ ] Step 4 – Selection and rotation (registry history, override, dry-run line).
 - [ ] Step 5 – Service relevance (calendar pass, copy checks, skills).

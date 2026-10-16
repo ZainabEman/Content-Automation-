@@ -109,7 +109,7 @@
   },
   "languages": {"en": "English", "de": "German"},
   "stills": {
-    "provider": "higgsfield",
+    "provider": "mock",
     "model": "",
     "referenceImages": "unknown",
     "styleReferences": 2,

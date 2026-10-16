@@ -287,6 +287,8 @@ def _provider_problem(design: CarouselDesign) -> str | None:
 
 def _planned(design: CarouselDesign, slide_type: SlideType) -> tuple[bool, bool]:
     """Whether the type gets a plugin still and a plugin clip (before any fallback)."""
+    if design.stills.provider == "mock":
+        return False, False
     spec = design.slide_types[slide_type]
     still = spec.still == "plugin"
     return still, still and spec.clip == "higgsfield"
@@ -333,6 +335,8 @@ def credits_dry_run(
         return [f"  stills: {problem}"]
     stills, clips = design.stills, design.clips
     lines = [
+        f"  stills.provider mock: {PLUGIN} off, every slide local (free):"
+        if stills.provider == "mock" else
         f"  via the {PLUGIN} plugin (plan credits; image {stills.model or 'default model'}, "
         f"reference images {stills.reference_images}; video {clips.model or 'default model'}):"
     ]
@@ -473,6 +477,13 @@ def write_still_requests(
         slides=entries,
     )
     _save(plan_path(package), plan)
+    if still_count == 0:
+        return [
+            f"Carousel stills: no {PLUGIN} requests, {len(entries)} local still(s) written "
+            f"(stills.provider {stills.provider}).",
+            f'Next (no plugin): uv run ca carousel stills-check "{package}", then '
+            f'uv run ca carousel render "{package}".',
+        ]
     cap = _credits(plan.approved_max_credits, design)
     return [
         f"Carousel stills: {still_count} requests for the {PLUGIN} plugin in "

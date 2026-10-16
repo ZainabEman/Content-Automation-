@@ -42,6 +42,7 @@ from content_automation.workflows.carousel_plugin import (
     output_file,
     planned_split,
     record_attempt,
+    stills_check,
     write_still_requests,
 )
 from content_automation.workflows.carousel_render import background
@@ -150,7 +151,7 @@ def test_require_budget(conn: sqlite3.Connection) -> None:
 
 def _design() -> CarouselDesign:
     design = load_carousel_design(REPO / "config" / "carousel_design.json")
-    stills = design.stills.model_copy(update={"reference_images": "no"})
+    stills = design.stills.model_copy(update={"reference_images": "no", "provider": "higgsfield"})
     return design.model_copy(update={"stills": stills})
 
 
@@ -168,6 +169,26 @@ def _record_still(package: Path, slide: int, design: CarouselDesign, conn: sqlit
     target.parent.mkdir(parents=True, exist_ok=True)
     background(design).save(target)
     record_attempt(package, "still", slide, design, credits=5)
+
+
+def test_mock_carousel_makes_every_slide_local(isolated: Path, conn: sqlite3.Connection) -> None:
+    design = _design()
+    design = design.model_copy(
+        update={"stills": design.stills.model_copy(update={"provider": "mock"})})
+    package = Path("outputs/content/2026-10-16_carousel")
+    package.mkdir(parents=True)
+    item = _item(conn, package)
+    assert planned_split(package, _slides(), design) == (0, 0, 0, 0)
+    with activate(Scope(conn, JobConfig(), command="test", part_of=PART_OF)):
+        lines = write_still_requests(package, "Chatbots", _slides(), design)
+    assert "no Higgsfield requests, 8 local still(s)" in lines[0]
+    plan = load_plan(package)
+    assert plan is not None and plan.estimated_credits == 0
+    assert all(slide.source == "local" and slide.motion == "local" and not slide.request
+               for slide in plan.slides)
+    assert all((package / slide.still).is_file() for slide in plan.slides)
+    assert list_jobs(conn, item_id=item.id) == []
+    assert "No clips to make (all local)" in stills_check(package, design)[-1]
 
 
 def test_carousel_interrupted_then_resumed(

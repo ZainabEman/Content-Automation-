@@ -22,7 +22,7 @@ from content_automation.workflows.design_system import Box, OverlayFonts, TextZo
 from content_automation.workflows.registry import WorkflowError
 
 SlideType = Literal["cover", "point", "stat", "list", "final"]
-StillsProvider = Literal["higgsfield", "comfyui"]
+StillsProvider = Literal["higgsfield", "comfyui", "mock"]  # mock: every slide local, free
 StillSource = Literal["plugin", "local"]  # local: the app-drawn background, no request
 ClipSource = Literal["higgsfield", "local"]  # local: the app's own animation, no request
 ReferenceSupport = Literal["unknown", "yes", "no"]
@@ -132,7 +132,9 @@ class StillCheckSpec(_Model):
 
 
 class StillsSpec(_Model):
-    provider: StillsProvider = "higgsfield"  # comfyui: a stub until RunPod has credit
+    # comfyui: a stub until RunPod has credit; mock: Higgsfield off, the local background and
+    # local animation on every slide (no requests, no credits)
+    provider: StillsProvider = "higgsfield"
     model: str = ""  # "" = the plugin tool's default image model (PHASE3-DECISION section 10)
     # Style frames go with the request; Codex attaches them only when the image tool accepts
     # reference images ("unknown" until the plugin listing, section 10).

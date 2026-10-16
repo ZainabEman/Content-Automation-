@@ -105,6 +105,7 @@ def _setup(work: Path) -> None:
     design_path = work / "config" / "carousel_design.json"
     design = json.loads(design_path.read_text(encoding="utf-8"))
     design["stills"]["referenceImages"] = "no"  # no style frames in the temp folder
+    design["stills"]["provider"] = "higgsfield"  # c6 tests the plugin requests (live may be mock)
     design_path.write_text(json.dumps(design), encoding="utf-8")
     for name in list(os.environ):
         if name.isupper() and name.endswith(("_PROVIDER", "_MODEL", "_FILE", "_DIR")):

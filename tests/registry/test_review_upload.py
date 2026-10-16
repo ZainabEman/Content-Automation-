@@ -24,7 +24,7 @@ def env(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[sqlit
                                                                              str]]:
     monkeypatch.setenv("DELIVERABLES_FILE", str(REPO / "config" / "deliverables.json"))
     (isolated / "config").mkdir()
-    for name in ("jobs.json", "storage.json"):
+    for name in ("jobs.json", "storage.json", "drive_folders.json"):
         shutil.copy(REPO / "config" / name, isolated / "config" / name)
     package = isolated / "packages" / "pkg"
     (package / "images").mkdir(parents=True)
@@ -60,12 +60,19 @@ def test_plugin_route_and_drive_record(env: tuple[sqlite3.Connection, str],
     conn, item = env
     monkeypatch.setenv("STORAGE_PROVIDER", "plugin")
     approved = ca("item", "approve", item)
-    assert "Upload request #1" in approved.output, approved.output
-    request = json.loads(Path("state/uploads/1.json").read_text("utf-8"))
-    assert request["folder"] == "Content Automation/Facebook/2026-W45-01/v1/"
-    recorded = ca("drive", "record", "1", "--file-id", "abc", "--link", "https://drive/abc")
-    assert recorded.exit_code == 0 and "every file uploaded" in recorded.output
-    assert get_item(conn, item).upload_status == "uploaded"
+    assert "upload_manifest.json" in approved.output, approved.output
+    manifest = json.loads(Path("packages/pkg/upload_manifest.json").read_text("utf-8"))
+    results = [{"id": entry["id"], "folder_id": f"f{n}"} if entry["kind"] == "folder" else
+               {"id": entry["id"], "file_id": f"x{n}", "link": f"https://drive/x{n}"}
+               for n, entry in enumerate(manifest["entries"])
+               if entry["kind"] in ("folder", "file")]
+    assert any(entry["kind"] == "file" for entry in manifest["entries"])
+    recorded = ca("drive", "record", "packages/pkg", "--results", json.dumps(results))
+    assert recorded.exit_code == 0, recorded.output
+    assert f"Recorded {len(results)}" in recorded.output
+    assert "0 entries left (all done)" in recorded.output
+    uploads = json.loads(Path("packages/pkg/package.json").read_text("utf-8"))["uploads"]
+    assert uploads["v1/images/post-1.png"]["status"] == "uploaded"
 
 
 def test_jobs_retry_makes_a_dry_run(env: tuple[sqlite3.Connection, str]) -> None:
@@ -81,11 +88,12 @@ def test_jobs_retry_makes_a_dry_run(env: tuple[sqlite3.Connection, str]) -> None
 def test_costs_report_and_calibrate(env: tuple[sqlite3.Connection, str]) -> None:
     conn, item = env
     config = load_job_config(Path("config/jobs.json"))
-    job = open_job(conn, item_id=item, job_type="still", provider="higgsfield-plugin",
+    job = open_job(conn, item_id=item, job_type="video_scene", provider="higgsfield-plugin",
                    inputs={"slide": 1}, config=config, estimate=5).job
     succeed_job(conn, job.id, actual=4)
     report = ca("costs", "report")
-    assert "still via higgsfield-plugin: 1 job(s), estimate 5 credits, actual 4" in report.output
+    assert ("video_scene via higgsfield-plugin: 1 job(s), estimate 5 credits, actual 4"
+            in report.output)
     calibrated = ca("costs", "calibrate", "--provider", "higgsfield-plugin")
     assert calibrated.exit_code == 0 and "-> 4" in calibrated.output
     assert "Nothing written" in calibrated.output

@@ -61,7 +61,9 @@ def test_person_photo_prompt_and_the_workflow() -> None:
     assert scene.startswith("r0man_bg, a man, dark navy blazer, white open-collar shirt, "
                             "standing on the right side of the frame, waist-up shot")
     assert "dark modern office at dusk" in scene
-    assert scene.endswith("plain walls, nothing written anywhere")
+    assert "plain walls, nothing written anywhere" in scene
+    assert scene.endswith("no other people, faces, silhouettes, figures, or human reflections "
+                          "anywhere in the image")
 
     workflow = load_workflow(config, "z_image_turbo")
     assert model_file_problems(config, workflow) == []

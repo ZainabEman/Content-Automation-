@@ -88,6 +88,7 @@ GROUPS: tuple[Group, ...] = (
     Group("make-calendar", ".agents/skills/make-calendar/SKILL.md", (
         Phrase("make calendar", "ca calendar new --week next", "a proposed week, BG IDs"),
         Phrase("make calendar next week", "ca calendar new --week next", "as make calendar"),
+        Phrase("show calendar", "ca calendar show", "the week's rows and statuses (free)"),
         Phrase("plan next week", "ca calendar plan --week next",
                "slots filled from approved ideas (inherited approval)"),
         Phrase("plan next month", "ca calendar plan --month next",
@@ -168,9 +169,12 @@ GROUPS: tuple[Group, ...] = (
                "plugin upload requests, each recorded"),
     )),
     Group("make-carousel", ".agents/skills/make-carousel/SKILL.md", (
-        Phrase("make an insta post about TOPIC [as ig_steps]",
-               'ca content start --topic "TOPIC" --deliverables "instagram carousel" [--as X]',
+        Phrase("make an insta post about TOPIC",
+               'ca content start --topic "TOPIC" --deliverables "instagram carousel"',
                "a static carousel (6-8 PNGs): dry run with the cost, then ok"),
+        Phrase("make an insta carousel about TOPIC [as <format>]",
+               'ca content start --topic "TOPIC" --deliverables "instagram carousel" [--as X]',
+               "the same, in that format"),
     )),
     Group("Playbooks (AGENTS.md)", "AGENTS.md", (
         Phrase("sync drive", "ca drive sync", "uploads finished files and the tracker rows"),

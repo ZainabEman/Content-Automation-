@@ -127,6 +127,21 @@ def _ca(*args: str) -> tuple[int, str, str]:
     return result.exit_code, result.stdout, result.stderr
 
 
+COPY_LINES = ["Answers patient questions after closing time", "Offers free slots by SMS",
+              "Hands open cases to reception", "Reminds patients by email the day before"]
+
+
+def _copy_value(name: str, value: Any) -> Any:
+    """A filled value for one placeholder of a post format's copy (lists keep their length)."""
+    if isinstance(value, list):
+        return COPY_LINES[:len(value)]
+    if name == "illustration":
+        return "a tidy reception desk with a plant and a closed notebook in soft daylight"
+    if name in ("source", "attribution", "sourceName"):
+        return "Branded Genius"
+    return "Your chatbot books patients while you sleep"
+
+
 def _fill_brief(template: Path) -> None:
     data: dict[str, Any] = json.loads(template.read_text(encoding="utf-8"))
     brief = {key: value for key, value in data.items() if key != "_help"}
@@ -152,6 +167,9 @@ def _fill_brief(template: Path) -> None:
     })
     for key in ("stat", "source", "sourceName"):
         brief["post"].pop(key, None)
+    if isinstance(brief["post"].get("copy"), dict):  # a post format: fill only its fields
+        brief["post"]["copy"] = {name: _copy_value(name, value)
+                                 for name, value in brief["post"]["copy"].items()}
     caption = brief["captions"][next(iter(brief["captions"]))]
     caption.update({
         "hook": "Most patients who message your practice after 18:00 never hear back before "

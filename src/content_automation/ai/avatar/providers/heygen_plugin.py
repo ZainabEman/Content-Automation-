@@ -1,6 +1,6 @@
 """HeyGen avatar clips made by Codex with the HeyGen plugin (agent adapter).
 
-The app calls nothing: it writes requests/<stepId>.json (script, avatar, voice, 9:16,
+The app calls nothing: it writes requests/<stepId>.json (script, avatar, voice, aspect,
 numbered instructions) and returns an awaiting_agent step. Codex finds the HeyGen plugin's
 avatar video tool at run time (no tool name is assumed), shows the user the cost, makes the
 clip with the person's own avatar and the chosen voice, saves it and records it with
@@ -47,7 +47,8 @@ class HeygenPluginProvider:
             f"the user that the {PLUGIN} plugin is missing.",
             f"2. Inputs: script = the prompt above, spoken word for word; avatar = {avatar}; "
             f"voice = {voice} (pass this voice ID explicitly in every request; never leave the "
-            f"voice out or rely on the avatar's default voice); portrait {request.aspect_ratio}; "
+            f"voice out or rely on the avatar's default voice); aspect ratio "
+            f"{request.aspect_ratio}; "
             f"about {request.duration_sec:g} s.",
             f"3. Person: {PERSON_RULE}",
             "4. Before generating, show the user the script, the provider, the avatar, the voice, "

@@ -1,6 +1,7 @@
 """Video workflow definitions: allowed scene types, length limits and plan checks."""
 
 from dataclasses import dataclass
+from typing import Literal
 
 from content_automation.ai.voice import estimate_speech_sec
 from content_automation.workflows.video_plan import SceneType, VideoPlan
@@ -16,6 +17,8 @@ class VideoWorkflowSpec:
     max_duration_sec: int
     scene_types: tuple[SceneType, ...]
     required_scene_type: SceneType
+    aspect: Literal["9:16", "16:9"] = "9:16"
+    size: tuple[int, int] = (1080, 1920)  # final.mp4 width, height
 
 
 VIDEO_WORKFLOWS: dict[str, VideoWorkflowSpec] = {
@@ -44,6 +47,17 @@ VIDEO_WORKFLOWS: dict[str, VideoWorkflowSpec] = {
             max_duration_sec=90,
             scene_types=("avatar", "video"),
             required_scene_type="avatar",
+        ),
+        VideoWorkflowSpec(
+            workflow_id="youtube",
+            version="1",
+            description="YouTube video (16:9): the HeyGen avatar speaking the script, with "
+            "optional b-roll clips and images.",
+            max_duration_sec=600,
+            scene_types=("avatar", "video", "image"),
+            required_scene_type="avatar",
+            aspect="16:9",
+            size=(1920, 1080),
         ),
     )
 }

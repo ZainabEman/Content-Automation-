@@ -238,7 +238,7 @@ refs_app = typer.Typer(no_args_is_help=True, help="Reference photo library.")
 brand_app = typer.Typer(no_args_is_help=True, help="Brand profile (brand.json).")
 job_app = typer.Typer(no_args_is_help=True, help="Job records, agent steps and person checks.")
 env_app = typer.Typer(no_args_is_help=True, help="Set one allowed line in .env (never shown).")
-video_app = typer.Typer(help="Short vertical videos (1080x1920) from a plan.json.")
+video_app = typer.Typer(help="Videos from a plan.json (1080x1920; youtube 1920x1080).")
 research_app = typer.Typer(no_args_is_help=True, help="News research: collect and digest articles.")
 content_app = typer.Typer(
     no_args_is_help=True, help="Content packages: research, brief, images, reel, post text."
@@ -1098,6 +1098,40 @@ def video_resume(job_dir: JobDir) -> None:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from None
     _report_video(job, settings)
+
+
+@video_app.command("upload")
+def video_upload(
+    job_dir: JobDir,
+    content_id: Annotated[
+        str | None,
+        typer.Option("--content-id", help="Drive folder name (default: the job folder's name)."),
+    ] = None,
+) -> None:
+    """Upload a finished youtube video's final.mp4 to Drive YouTube/<Content ID>/."""
+    _utf8_output()
+    settings = _settings(check_keys=False)
+    job = _load_job(job_dir)
+    final = job.folder / "final.mp4"
+    if job.workflow_id != "youtube":
+        typer.echo(f"{job.workflow_id} is not a youtube video; packages upload with ca drive "
+                   "sync.", err=True)
+        raise typer.Exit(code=2)
+    if job.status != "completed" or not final.is_file():
+        typer.echo(f'Not finished ({job.status}): run uv run ca video resume "{job.folder}" '
+                   "first.", err=True)
+        raise typer.Exit(code=1)
+    target = content_id or job.folder.name
+    try:
+        uploaded = get_storage(settings).upload(final, "youtube", target)
+    except (StorageNotSetUpError, StorageError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    job.notes.append(f"Drive ({settings.storage_provider}): {ROOT_FOLDER}/YouTube/{target}/"
+                     f"final.mp4 {uploaded.link}")
+    job.save()
+    typer.echo(f"Uploaded: {ROOT_FOLDER}/YouTube/{target}/final.mp4 ({settings.storage_provider})")
+    typer.echo(f"Link: {uploaded.link}")
 
 
 def _report_video(job: Job, settings: Settings) -> None:

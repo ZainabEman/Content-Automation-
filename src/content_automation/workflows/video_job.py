@@ -17,7 +17,6 @@ failed job behind; Codex confirms both IDs with the HeyGen plugin before the "ok
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
 
 from content_automation.ai.avatar import AvatarRequest, generate_avatar_video
 from content_automation.ai.avatar import get_provider as get_avatar_provider
@@ -58,7 +57,6 @@ from content_automation.workflows.video_workflows import (
 
 PLAN_FILE = "plan.json"
 SCRIPT_FILE = "script.md"
-ASPECT: Literal["9:16"] = "9:16"
 # Credits per scene, by provider; agent providers are estimated in M2.C.
 _CREDITS = {"mock": "0", "library": "0", "none": "0"}
 MAX_IDENTITY_PHOTOS = 14  # all of the person's usable photos (the model limit)
@@ -266,7 +264,7 @@ def dry_run_lines(prepared: PreparedVideo, settings: Settings) -> list[str]:
     lines.append(f"Estimated credits: {credits}")
     font, note = assembly_text_support()
     text = note if font else f"not burned in ({note}); captions.srt instead"
-    lines.append(f"Output: final.mp4, 1080x1920, 30 fps, H.264/AAC; text {text}")
+    lines.append(f"Output: final.mp4, {_size(spec)}, 30 fps, H.264/AAC; text {text}")
     return lines
 
 
@@ -308,7 +306,8 @@ def start_video_job(
         prompt=plan.script,
         provider="+".join(providers),
         model="+".join(sorted(_models(prepared, settings))),
-        params=JobParams(aspect_ratio=ASPECT, image_size="1080x1920", count=1),
+        params=JobParams(aspect_ratio=prepared.spec.aspect, image_size=_size(prepared.spec),
+                         count=1),
         identity_asset_ids=list(prepared.identity_asset_ids),
         inputs=_inputs(prepared) | ({REAL_ONLY: True} if real_only else {}),
         est_cost_usd=0.0 if set(providers) <= set(_CREDITS) else None,
@@ -355,15 +354,15 @@ def advance(job: Job, prepared: PreparedVideo, settings: Settings) -> Job:
         for item in prepared.scenes:
             if any(step.step_id == item.step_id for step in job.steps):
                 continue
-            step = _run_scene(job, item, settings, prepared.identity_paths)
+            step = _run_scene(job, item, settings, prepared.spec, prepared.identity_paths)
             job.add_step(step)
             if step.mode == "agent" and step.status == "awaiting_agent":
                 _registry_job(job, item)
         if job.waiting_steps():
             return job
-        result = assemble(_segments(job, prepared), job.folder)
+        result = assemble(_segments(job, prepared), job.folder, prepared.spec.size)
         job.notes.append(
-            f"final.mp4: 1080x1920, 30 fps, {result.duration_sec:.1f}s, "
+            f"final.mp4: {_size(prepared.spec)}, 30 fps, {result.duration_sec:.1f}s, "
             f"{len(prepared.scenes)} scenes."
         )
         if result.text_burned_in:
@@ -386,7 +385,8 @@ def advance(job: Job, prepared: PreparedVideo, settings: Settings) -> Job:
 
 
 def _run_scene(
-    job: Job, item: PreparedScene, settings: Settings, identity: tuple[Path, ...] = ()
+    job: Job, item: PreparedScene, settings: Settings, spec: VideoWorkflowSpec,
+    identity: tuple[Path, ...] = (),
 ) -> JobStep:
     scene = item.scene
     if scene.type == "video":
@@ -396,7 +396,7 @@ def _run_scene(
                 job_dir=job.folder,
                 prompt=scene.prompt,
                 duration_sec=scene.duration_sec,
-                aspect_ratio=ASPECT,
+                aspect_ratio=spec.aspect,
                 start_image_path=item.start_image.path if item.start_image else None,
                 start_image_asset_id=item.start_image.asset_id if item.start_image else None,
                 identity_image_paths=list(identity),
@@ -410,7 +410,7 @@ def _run_scene(
                 job_dir=job.folder,
                 script=scene.prompt,
                 duration_sec=scene.duration_sec,
-                aspect_ratio=ASPECT,
+                aspect_ratio=spec.aspect,
                 avatar_id=settings.heygen_avatar_id,
                 voice_id=settings.heygen_voice_id,
             ),
@@ -492,6 +492,10 @@ def agent_checklist(job: Job) -> list[str]:
         f'  When all are recorded: uv run ca video resume "{folder}"',
     ]
     return lines
+
+
+def _size(spec: VideoWorkflowSpec) -> str:
+    return f"{spec.size[0]}x{spec.size[1]}"
 
 
 def _voice_note(plan: VideoPlan, settings: Settings) -> str:

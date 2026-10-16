@@ -1,6 +1,6 @@
-"""Assemble scene clips into final.mp4: 1080×1920, 30 fps, H.264 video with AAC sound.
+"""Assemble scene clips into final.mp4: 1080×1920 (YouTube: 1920×1080), 30 fps, H.264 + AAC.
 
-Each scene is first normalized on its own (scale + pad to 1080×1920, 30 fps, 48 kHz stereo,
+Each scene is first normalized on its own (scale + pad to the size, 30 fps, 48 kHz stereo,
 silence when the clip has no sound) with its text burned in; the scenes are then joined in
 order. An image scene becomes a slow zoom for its duration. Video scenes are cut to their
 planned length; avatar clips keep their full length so speech is never cut off.
@@ -126,8 +126,10 @@ def _wrap(text: str, width: int) -> str:
     return "\n".join(textwrap.wrap(text, width))
 
 
-def assemble(segments: list[Segment], job_dir: Path) -> Assembly:
-    """Build job_dir/final.mp4 (and captions.srt when there is any text)."""
+def assemble(
+    segments: list[Segment], job_dir: Path, size: tuple[int, int] = (WIDTH, HEIGHT)
+) -> Assembly:
+    """Build job_dir/final.mp4 at size (width, height), and captions.srt when there is text."""
     if not segments:
         raise MediaError("There are no scenes to assemble.")
     job_dir = job_dir.resolve()  # ffmpeg runs inside the work folder
@@ -142,7 +144,7 @@ def assemble(segments: list[Segment], job_dir: Path) -> Assembly:
             shutil.copyfile(font, work / "font.ttf")  # relative path: no filter escaping
         parts: list[str] = []
         for index, segment in enumerate(segments, start=1):
-            name, duration, scene_cues = _normalize(segment, index, work, font is not None)
+            name, duration, scene_cues = _normalize(segment, index, work, font is not None, size)
             parts.append(name)
             cues += [
                 TextCue(c.start_sec + offset, c.end_sec + offset, c.text, c.position)
@@ -161,8 +163,8 @@ def assemble(segments: list[Segment], job_dir: Path) -> Assembly:
         os.replace(work / FINAL_FILE, final)
 
     info = probe_media(final)
-    if (info.width, info.height) != (WIDTH, HEIGHT):
-        raise MediaError(f"final.mp4 is {info.width}x{info.height}, not {WIDTH}x{HEIGHT}.")
+    if (info.width, info.height) != size:
+        raise MediaError(f"final.mp4 is {info.width}x{info.height}, not {size[0]}x{size[1]}.")
     captions = None
     if cues:
         captions = job_dir / CAPTIONS_FILE
@@ -177,9 +179,10 @@ def assemble(segments: list[Segment], job_dir: Path) -> Assembly:
 
 
 def _normalize(
-    segment: Segment, index: int, work: Path, burn_text: bool
+    segment: Segment, index: int, work: Path, burn_text: bool, size: tuple[int, int]
 ) -> tuple[str, float, list[TextCue]]:
     """Encode one scene as work/scene-NN.mkv (H.264 + PCM, so joining adds no gaps)."""
+    width, height = size
     inputs = ["-i", str(segment.path.resolve())]
     if segment.kind == "image":
         if not segment.duration_sec:
@@ -187,10 +190,10 @@ def _normalize(
         duration = segment.duration_sec
         frames = max(1, round(duration * FPS))
         video = (
-            f"[0:v]scale={2 * WIDTH}:{2 * HEIGHT}:force_original_aspect_ratio=decrease,"
-            f"pad={2 * WIDTH}:{2 * HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,"
+            f"[0:v]scale={2 * width}:{2 * height}:force_original_aspect_ratio=decrease,"
+            f"pad={2 * width}:{2 * height}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,"
             f"zoompan=z='1+{ZOOM}*on/{frames}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
-            f":d={frames}:s={WIDTH}x{HEIGHT}:fps={FPS}"
+            f":d={frames}:s={width}x{height}:fps={FPS}"
         )
         has_audio = False
     else:
@@ -201,8 +204,8 @@ def _normalize(
         if segment.duration_sec:
             duration = min(duration, segment.duration_sec)
         video = (
-            f"[0:v]scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=decrease,"
-            f"pad={WIDTH}:{HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps={FPS}"
+            f"[0:v]scale={width}:{height}:force_original_aspect_ratio=decrease,"
+            f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps={FPS}"
         )
         has_audio = info.has_audio
 

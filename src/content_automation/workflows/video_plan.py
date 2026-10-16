@@ -10,10 +10,10 @@ from pydantic_core import ErrorDetails
 from content_automation.core.files import CamelModel
 
 MAX_SCENE_SEC = 15
-MAX_VIDEO_SEC = 90
+MAX_VIDEO_SEC = 600  # the longest workflow (youtube); each workflow has its own limit
 DURATION_TOLERANCE_SEC = 1.0
 
-VideoWorkflow = Literal["ugc_ad", "reel_short", "podcast_clip"]
+VideoWorkflow = Literal["ugc_ad", "reel_short", "podcast_clip", "youtube"]
 SceneType = Literal["video", "avatar", "image"]
 
 

@@ -96,7 +96,7 @@ def run_image_job(
     new call); a paid provider needs an open authorization with room, otherwise NotAuthorized or
     BudgetExceeded is raised before anything is made.
     """
-    if settings.image_provider != "mock":
+    if settings.image_provider not in ("mock", "template"):  # free, no picture made
         check_daily_limit(
             settings.output_dir, limit=settings.image_daily_limit, requested=request.count
         )

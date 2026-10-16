@@ -18,6 +18,7 @@ from pathlib import Path
 from content_automation.content.calendar import (
     CalendarError,
     Row,
+    assign_roman,
     calendar_path,
     check_edits,
     read_calendar,
@@ -180,6 +181,7 @@ def plan_calendar(settings: Settings, catalog: DeliverableCatalog, strategy: Str
                         planned.append(child.id)
     for week, rows in weeks.items():
         if rows:
+            assign_roman(rows, week, catalog)  # Roman exactly once a week
             write_calendar(calendar_path(settings, week), rows)
     used -= len(ideas)
     lines = [f"Plan {label}: {len(planned)} new row(s) from {used} approved idea(s); each row's "

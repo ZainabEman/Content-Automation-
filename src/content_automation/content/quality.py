@@ -14,7 +14,7 @@
 """
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 
 from content_automation.content.brief import (
     MIN_INSIGHTS,
@@ -23,7 +23,12 @@ from content_automation.content.brief import (
     ImageSlot,
     SlideSlot,
 )
-from content_automation.content.formats import FormatCatalog, FormatError, copy_problems
+from content_automation.content.formats import (
+    BANNED,
+    FormatCatalog,
+    FormatError,
+    copy_problems,
+)
 from content_automation.workflows.design_system import DesignSystem
 
 SAME_POINT = 0.6  # tips whose key words overlap this much make the same point
@@ -234,6 +239,7 @@ def format_problems(
             if slot.slides:
                 problems.append(f"{name}.slides: {chosen.id} is one image; remove the slides")
             problems += copy_problems(chosen, slot.copy_text, name, research=texts)
+            problems += _concrete_problems(slot.copy_text, f"{name}.copy")
             continue
         low, high = chosen.slides
         if not low <= len(slot.slides) <= high:
@@ -247,11 +253,46 @@ def format_problems(
                 continue
             problems += copy_problems(chosen, slide.copy_text, where, slide_type=wanted,
                                       research=texts)
-            if not (slide.illustration or "").strip():
-                problems.append(f"{where}.illustration: what the picture shows (no text)")
+            if wanted == "body":
+                problems += _concrete_problems(slide.copy_text, f"{where}.copy")
+            if chosen.canvas(wanted)[0] is not None and not (slide.illustration or "").strip():
+                problems.append(f"{where}.illustration: what the picture shows (a place or "
+                                "objects, no text)")
             if not (slide.alt_text or "").strip():
                 problems.append(f"{where}.altText: what the slide shows and says, for screen "
                                 "readers")
+    return problems
+
+
+_NOT_SHOWN = ("illustration", "source", "icon")
+
+
+def _copy_values(copy: Mapping[str, object]) -> list[str]:
+    """The texts of a format's copy a reader sees."""
+    found: list[str] = []
+    for name, value in copy.items():
+        if name not in _NOT_SHOWN:
+            found += [str(item) for item in (value if isinstance(value, list) else [value])
+                      if isinstance(item, str) and item.strip()]
+    return found
+
+
+def _concrete_problems(copy: Mapping[str, object], where: str) -> list[str]:
+    """No generic post or slide: one concrete example or sourced fact (a number, a tool or
+    channel, a timing or example wording) in its copy."""
+    texts = _copy_values(copy)
+    if not texts:
+        return []
+    reason = generic_reason(" ".join(texts))
+    return [f"{where}: {reason}; give one concrete example or sourced fact"] if reason else []
+
+
+def banned_problems(brief: ContentBrief) -> list[str]:
+    """Words that are never used: SME marketers, leverage, unlock, practical sequence."""
+    problems = []
+    for where, text in _texts(brief):
+        problems += [f'{where}: "{found.group(0)}" is banned; say it plainly'
+                     for found in BANNED.finditer(text)]
     return problems
 
 
@@ -362,8 +403,10 @@ def _texts(brief: ContentBrief) -> Iterable[tuple[str, str]]:
                 yield f"{name}.{field}", value
         for index, point in enumerate([*slot.points, *slot.steps], start=1):
             yield f"{name}.points[{index}]", point
+        for value in _copy_values(slot.copy_text):
+            yield f"{name}.copy", value
         for number, slide in enumerate(slot.slides, start=1):
-            for value in _slide_texts(slide) + [slide.cta or ""]:
+            for value in _slide_texts(slide) + [slide.cta or ""] + _copy_values(slide.copy_text):
                 if value:
                     yield f"{name}.slides[{number}]", value
     for key, caption in brief.captions.items():

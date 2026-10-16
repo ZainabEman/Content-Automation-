@@ -31,7 +31,7 @@
     ]
   },
   "triggerWord": "r0man_bg",
-  "loraStrength": 1.0,
+  "loraStrength": 0.9,
   "personPrefix": "{trigger}, a man, ",
   "groupLoraStrength": 0.8,
   "groupWords": [

@@ -7,7 +7,7 @@ from pydantic import Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # comfyui: ComfyUI on a RunPod Serverless endpoint (config/comfyui.json; IMAGE_MODEL = workflow).
-ImageProvider = Literal["mock", "openrouter", "comfyui"]
+ImageProvider = Literal["mock", "openrouter", "comfyui", "template"]
 # "none": no provider is set; a content package then keeps its video pending.
 # Agent providers are Codex plugins: Codex makes the clip, the app records it.
 VideoProvider = Literal["none", "mock", "higgsfield-plugin"]

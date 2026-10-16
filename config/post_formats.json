@@ -1,320 +1,372 @@
 {
-  "_note": "Post formats (2026-10-16). content/formats.py picks one per post (seeded by the Content ID): never the format of the last 2 posts on that platform, Roman at most 1 in 3, needsNumber only with a sourced number in the research, no Roman when the image provider cannot show him; 'as <format>' overrides. Zones (shares of the canvas, kinds big_number, headline, subline, list, two_column, question, quote) are rendered by workflows/text_overlay.py; the image prompt asks for empty space and no text. Fields not used by a zone (illustration, source) are not rendered. li_classic is the current design-system layout.",
-  "imageRules": "No text, letters, numbers, logos, watermarks or labels anywhere in the picture. Keep these areas calm, dark and empty, because the text is added there later: {areas}. Keep the top right corner empty for the logo.",
+  "_note": "Post formats (2026-10-16, template-first). Every layout is a solid theme panel with the text plus a separate image slot (the picture is cropped into it; text never sits on the picture); zones may not overlap each other or the image slot (checked at load). provider is fixed per format and never swapped: Roman formats comfyui (RunPod, Roman's LoRA), the rest openrouter; a slide or format without an image slot is rendered by the app alone (free). content/formats.py picks: never the format or theme of the previous post on that platform; Roman formats only on the calendar's weekly Roman row ('roman') or 'as <format>'. Titles shrink within their size range; a title that still does not fit fails the dry run.",
+  "themes": {
+    "dark": {"background": "#06122E", "text": "#FFFFFF", "highlight": "#0970EB", "muted": "#A9B8D6"},
+    "light": {"background": "#F2F2F2", "text": "#06122E", "highlight": "#0970EB", "muted": "#3B4A66"},
+    "blue": {"background": "#0970EB", "text": "#FFFFFF", "highlight": "#06122E", "muted": "#FFFFFF"}
+  },
+  "noText": "no text, no letters, no numbers, no words, no labels, no UI, no charts, no screens, no logos, no signage, no documents, no placeholder boxes",
+  "blockedVisualWords": ["text", "texts", "word", "words", "letter", "letters", "number", "numbers", "label", "labels", "logo", "logos", "brand", "sign", "signs", "signage", "screen", "screens", "monitor", "monitors", "display", "displays", "dashboard", "dashboards", "chart", "charts", "graph", "graphs", "document", "documents", "whiteboard", "poster", "posters", "banner", "banners", "ui", "interface", "website", "app", "spreadsheet", "infographic", "headline", "caption", "quote", "slide"],
+  "roman": {
+    "prefix": "r0man_bg, a man",
+    "outfits": [
+      "dark navy blazer over a white open-collar shirt",
+      "charcoal knit sweater over a light shirt collar",
+      "light-blue shirt with the sleeves rolled up",
+      "black crew-neck T-shirt under an unbuttoned grey overshirt",
+      "dark green quarter-zip pullover"
+    ],
+    "angles": [
+      "eye-level camera",
+      "camera slightly below eye level",
+      "three-quarter view from the left",
+      "three-quarter view from the right"
+    ],
+    "expressions": [
+      "calm confident expression",
+      "warm slight smile",
+      "focused thoughtful look",
+      "friendly open smile"
+    ]
+  },
   "formats": [
-    {
-      "id": "li_stat",
-      "platform": "linkedin",
-      "size": [1080, 1080],
-      "person": "none",
-      "weight": 3,
-      "needsNumber": true,
-      "fields": {
-        "big_number": "the one number, exactly as a cited research article writes it, e.g. 73%",
-        "source": "the ID of that article (research.md)",
-        "headline": "what the number means, at most 10 words",
-        "subline": "one line: what to do about it, naming the publisher, e.g. (Source: Zillow)",
-        "illustration": "what the calm background picture shows, no people, no text"
-      },
-      "zones": [
-        {"kind": "big_number", "field": "big_number", "box": [0.07, 0.20, 0.93, 0.47], "size": [120, 250], "weight": "extrabold", "color": "highlight"},
-        {"kind": "headline", "field": "headline", "box": [0.07, 0.49, 0.93, 0.72], "maxLines": 3, "size": [38, 64], "weight": "bold"},
-        {"kind": "subline", "field": "subline", "box": [0.07, 0.75, 0.93, 0.92], "maxLines": 3, "size": [22, 32], "weight": "medium"}
-      ],
-      "imagePrompt": "Square 1:1 premium dark business background for a LinkedIn statistic post about \"{topic}\": {illustration}. Deep navy with soft blue light, subtle data shapes and depth of field, most of the frame calm and dark. No people."
-    },
     {
       "id": "li_split",
       "platform": "linkedin",
       "size": [1080, 1080],
       "person": "none",
+      "provider": "openrouter",
+      "theme": "light",
       "weight": 3,
-      "needsNumber": false,
+      "image": {"box": [0.0, 0.0, 1.0, 0.30]},
       "fields": {
-        "headline": "the decision in at most 9 words",
+        "headline": "the decision, at most 8 words, with a concrete detail",
         "mistakes": "2-3 common mistakes, at most 7 words each",
-        "fixes": "the fix for each mistake, same order, at most 7 words each",
-        "illustration": "what the calm background picture shows, no people, no text"
+        "fixes": "the fix for each mistake, same order, at most 7 words each, naming a tool, timing or number",
+        "illustration": "a calm wide photo strip: a place or objects only (e.g. a tidy desk with a coffee cup and a notebook); no people, nothing written"
       },
       "zones": [
-        {"kind": "headline", "field": "headline", "box": [0.07, 0.20, 0.93, 0.38], "maxLines": 2, "size": [40, 64], "weight": "bold"},
-        {"kind": "two_column", "fields": ["mistakes", "fixes"], "labels": ["Mistake", "Fix"], "items": [2, 3], "box": [0.07, 0.42, 0.93, 0.93], "maxLines": 7, "size": [22, 32], "weight": "medium"}
+        {"kind": "headline", "field": "headline", "box": [0.07, 0.34, 0.93, 0.50], "maxLines": 2, "size": [34, 58], "weight": "bold"},
+        {"kind": "two_column", "fields": ["mistakes", "fixes"], "labels": ["Mistake", "Fix"], "items": [2, 3], "box": [0.07, 0.54, 0.93, 0.94], "maxLines": 7, "size": [20, 30], "weight": "medium"}
       ],
-      "imagePrompt": "Square 1:1 premium dark background for a LinkedIn 'mistake vs fix' post about \"{topic}\": {illustration}. Split into a slightly warmer left half and a cooler blue right half with a thin glowing divider, both calm and dark. No people."
+      "imagePrompt": "Wide realistic photo strip: {illustration}. Soft daylight, light neutral tones with a touch of blue, calm and uncluttered, shallow depth of field."
     },
     {
       "id": "li_framework",
       "platform": "linkedin",
       "size": [1080, 1080],
       "person": "none",
+      "provider": "openrouter",
+      "theme": "dark",
       "weight": 3,
-      "needsNumber": false,
+      "image": {"box": [0.60, 0.0, 1.0, 1.0]},
       "fields": {
-        "headline": "the framework's name or promise, at most 8 words",
-        "subline": "who it is for and when to use it, one line",
-        "steps": "3-5 steps, at most 8 words each",
-        "illustration": "what the calm background picture shows, no people, no text"
+        "headline": "the framework's promise, at most 8 words",
+        "subline": "who it is for and when, one line, at most 18 words",
+        "steps": "3-5 steps, at most 8 words each, each naming a tool, channel or timing",
+        "illustration": "a tall calm photo: a place or objects only (e.g. a workbench with neatly sorted tools); no people, nothing written"
       },
       "zones": [
-        {"kind": "headline", "field": "headline", "box": [0.07, 0.20, 0.93, 0.36], "maxLines": 2, "size": [40, 64], "weight": "bold"},
-        {"kind": "subline", "field": "subline", "box": [0.07, 0.37, 0.93, 0.47], "maxLines": 2, "size": [22, 30], "weight": "medium"},
-        {"kind": "list", "field": "steps", "items": [3, 5], "numbered": true, "box": [0.07, 0.51, 0.93, 0.93], "maxLines": 7, "size": [24, 34], "weight": "medium"}
+        {"kind": "headline", "field": "headline", "box": [0.07, 0.10, 0.55, 0.30], "maxLines": 3, "size": [32, 52], "weight": "bold"},
+        {"kind": "subline", "field": "subline", "box": [0.07, 0.32, 0.55, 0.42], "maxLines": 3, "size": [18, 24], "weight": "medium", "color": "muted"},
+        {"kind": "list", "field": "steps", "items": [3, 5], "numbered": true, "box": [0.07, 0.46, 0.55, 0.94], "maxLines": 10, "size": [18, 28], "weight": "medium"}
       ],
-      "imagePrompt": "Square 1:1 premium dark background for a LinkedIn framework post about \"{topic}\": {illustration}. A faint flow of connected glowing nodes along the right edge, the rest calm deep navy. No people."
+      "imagePrompt": "Tall realistic photo: {illustration}. Deep navy and cool blue tones, low-key light, calm and uncluttered, shallow depth of field."
     },
     {
-      "id": "li_roman_quote",
+      "id": "li_stat",
       "platform": "linkedin",
       "size": [1080, 1080],
-      "person": "roman",
+      "person": "none",
+      "provider": "openrouter",
+      "theme": "blue",
+      "weight": 3,
+      "needsNumber": true,
+      "fields": {
+        "big_number": "the one number, exactly as a cited research article writes it, e.g. 73%",
+        "source": "the ID of that article (research.md)",
+        "headline": "what the number means, at most 8 words",
+        "subline": "what to do about it plus the publisher, at most 18 words, e.g. (Source: Zillow)"
+      },
+      "zones": [
+        {"kind": "big_number", "field": "big_number", "box": [0.07, 0.18, 0.93, 0.50], "size": [140, 300], "weight": "extrabold", "color": "text"},
+        {"kind": "headline", "field": "headline", "box": [0.07, 0.53, 0.93, 0.74], "maxLines": 3, "size": [36, 60], "weight": "bold", "color": "highlight"},
+        {"kind": "subline", "field": "subline", "box": [0.07, 0.78, 0.93, 0.93], "maxLines": 3, "size": [20, 30], "weight": "medium"}
+      ]
+    },
+    {
+      "id": "li_quote_card",
+      "platform": "linkedin",
+      "size": [1080, 1080],
+      "person": "none",
+      "provider": "openrouter",
+      "theme": "light",
       "weight": 2,
-      "needsNumber": false,
       "fields": {
-        "quote": "one short sentence Roman would say about the topic, at most 16 words, no quotation marks",
-        "subline": "Roman, Branded Genius",
-        "illustration": "where Roman is and what he does (never describe his face)"
+        "quote": "one sharp sentence with a concrete example, at most 18 words, no quotation marks",
+        "subline": "who said it or where it comes from, e.g. Branded Genius"
       },
+      "bars": [{"box": [0.07, 0.18, 0.22, 0.195], "color": "highlight"}],
       "zones": [
-        {"kind": "quote", "field": "quote", "box": [0.06, 0.22, 0.52, 0.72], "maxLines": 7, "size": [34, 56], "weight": "bold"},
-        {"kind": "subline", "field": "subline", "box": [0.06, 0.75, 0.52, 0.84], "size": [20, 28], "weight": "medium", "color": "accent"}
-      ],
-      "imagePrompt": "Square 1:1 photorealistic portrait-style business photo for LinkedIn about \"{topic}\": the man stands in the right half, {illustration}; soft studio light, deep navy background, the left half empty and dark."
-    },
-    {
-      "id": "li_classic",
-      "platform": "linkedin",
-      "size": [1080, 1080],
-      "person": "roman",
-      "weight": 1,
-      "needsNumber": false,
-      "classic": true,
-      "fields": {},
-      "zones": [],
-      "imagePrompt": "The current design-system post layout (config/design_system.json); its own prompt and text zones."
+        {"kind": "quote", "field": "quote", "box": [0.07, 0.24, 0.93, 0.76], "maxLines": 6, "size": [40, 72], "weight": "bold", "valign": "middle"},
+        {"kind": "subline", "field": "subline", "box": [0.07, 0.80, 0.93, 0.88], "maxLines": 1, "size": [24, 30], "weight": "medium", "color": "highlight"}
+      ]
     },
     {
       "id": "fb_question",
       "platform": "facebook",
       "size": [1080, 1350],
       "person": "none",
+      "provider": "openrouter",
+      "theme": "blue",
       "weight": 3,
-      "needsNumber": false,
+      "image": {"box": [0.0, 0.65, 1.0, 1.0]},
       "fields": {
-        "question": "one big question the audience asks themselves, at most 12 words",
-        "subline": "one line that hints at the answer",
-        "illustration": "what the calm background picture shows, no people, no text"
+        "question": "one question the reader asks themselves, at most 8 words",
+        "subline": "one line that hints at the answer with a concrete detail, at most 18 words",
+        "illustration": "a calm wide photo: a place or objects only (e.g. a cafe counter with a card reader); no people, nothing written"
       },
       "zones": [
-        {"kind": "question", "field": "question", "box": [0.08, 0.22, 0.92, 0.70], "maxLines": 5, "size": [56, 100], "weight": "extrabold", "align": "center", "valign": "middle"},
-        {"kind": "subline", "field": "subline", "box": [0.08, 0.74, 0.92, 0.88], "maxLines": 3, "size": [24, 34], "weight": "medium", "align": "center"}
+        {"kind": "question", "field": "question", "box": [0.08, 0.17, 0.92, 0.50], "maxLines": 4, "size": [52, 92], "weight": "extrabold", "align": "center", "valign": "middle"},
+        {"kind": "subline", "field": "subline", "box": [0.08, 0.52, 0.92, 0.62], "maxLines": 3, "size": [22, 32], "weight": "medium", "align": "center"}
       ],
-      "imagePrompt": "Portrait 4:5 premium dark background for a Facebook question post about \"{topic}\": {illustration}. Soft blue glow at the edges, a calm dark centre. No people."
-    },
-    {
-      "id": "fb_scene",
-      "platform": "facebook",
-      "size": [1080, 1350],
-      "person": "none",
-      "weight": 3,
-      "needsNumber": false,
-      "fields": {
-        "headline": "one line on the scene's problem or gain, at most 10 words",
-        "illustration": "a realistic everyday business scene for the topic: place, objects, screens; no people"
-      },
-      "zones": [
-        {"kind": "headline", "field": "headline", "box": [0.05, 0.78, 0.95, 0.93], "maxLines": 2, "size": [36, 60], "weight": "bold", "scrim": "always"}
-      ],
-      "imagePrompt": "Portrait 4:5 realistic photo for a Facebook post about \"{topic}\": {illustration}. Natural light, real materials, shallow depth of field; the bottom quarter darker and simple for a headline strip. No people, no faces, no hands."
-    },
-    {
-      "id": "fb_did_you_know",
-      "platform": "facebook",
-      "size": [1080, 1350],
-      "person": "none",
-      "weight": 2,
-      "needsNumber": true,
-      "fields": {
-        "big_number": "the one number, exactly as a cited research article writes it",
-        "source": "the ID of that article (research.md)",
-        "headline": "Did you know ... : the fact behind the number, at most 14 words",
-        "subline": "what it means for the reader, naming the publisher",
-        "illustration": "what the calm background picture shows, no people, no text"
-      },
-      "zones": [
-        {"kind": "big_number", "field": "big_number", "box": [0.08, 0.20, 0.92, 0.46], "size": [130, 260], "weight": "extrabold", "color": "highlight"},
-        {"kind": "headline", "field": "headline", "box": [0.08, 0.48, 0.92, 0.70], "maxLines": 3, "size": [40, 64], "weight": "bold"},
-        {"kind": "subline", "field": "subline", "box": [0.08, 0.73, 0.92, 0.90], "maxLines": 3, "size": [24, 34], "weight": "medium"}
-      ],
-      "imagePrompt": "Portrait 4:5 premium dark background for a Facebook 'did you know' post about \"{topic}\": {illustration}. Deep navy with a soft spotlight and faint glowing particles, calm and dark. No people."
+      "imagePrompt": "Wide realistic photo: {illustration}. Natural light, real materials, calm and uncluttered, shallow depth of field."
     },
     {
       "id": "fb_tip",
       "platform": "facebook",
       "size": [1080, 1350],
       "person": "none",
+      "provider": "openrouter",
+      "theme": "light",
       "weight": 3,
-      "needsNumber": false,
+      "image": {"box": [0.0, 0.0, 1.0, 0.55]},
       "fields": {
-        "headline": "one tip the reader can use today, at most 12 words",
-        "subline": "how to do it: channel or tool and timing, one or two lines",
-        "illustration": "what the calm background picture shows, no people, no text"
+        "headline": "one tip the reader can use today, at most 8 words",
+        "subline": "how to do it: tool or channel and timing, at most 18 words",
+        "illustration": "a calm photo: a place or objects only (e.g. a smartphone face down next to a calendar book); no people, nothing written"
       },
       "zones": [
-        {"kind": "headline", "field": "headline", "box": [0.08, 0.20, 0.92, 0.52], "maxLines": 4, "size": [48, 84], "weight": "extrabold"},
-        {"kind": "subline", "field": "subline", "box": [0.08, 0.56, 0.92, 0.80], "maxLines": 4, "size": [26, 36], "weight": "medium"}
+        {"kind": "headline", "field": "headline", "box": [0.08, 0.59, 0.92, 0.77], "maxLines": 3, "size": [40, 68], "weight": "extrabold"},
+        {"kind": "subline", "field": "subline", "box": [0.08, 0.79, 0.92, 0.94], "maxLines": 3, "size": [22, 32], "weight": "medium", "color": "muted"}
       ],
-      "imagePrompt": "Portrait 4:5 premium dark background for a Facebook tip post about \"{topic}\": {illustration}. A single glowing tech object low in the frame, the upper two thirds calm and dark. No people."
+      "imagePrompt": "Realistic photo: {illustration}. Soft daylight, bright and clean, calm and uncluttered, shallow depth of field."
     },
     {
-      "id": "fb_roman",
+      "id": "fb_scene",
       "platform": "facebook",
       "size": [1080, 1350],
-      "person": "roman",
-      "weight": 1,
-      "needsNumber": false,
+      "person": "none",
+      "provider": "openrouter",
+      "theme": "dark",
+      "weight": 3,
+      "image": {"box": [0.0, 0.0, 1.0, 0.80]},
       "fields": {
-        "headline": "one bold claim or promise, at most 9 words",
-        "subline": "one specific supporting line",
-        "illustration": "where Roman is and what he does (never describe his face)"
+        "headline": "the scene's problem or gain, at most 8 words",
+        "illustration": "a realistic everyday business place for the topic: objects and light only (e.g. an empty bakery counter at 7 am); no people, nothing written"
       },
       "zones": [
-        {"kind": "headline", "field": "headline", "box": [0.06, 0.22, 0.52, 0.60], "maxLines": 5, "size": [40, 68], "weight": "bold"},
-        {"kind": "subline", "field": "subline", "box": [0.06, 0.63, 0.52, 0.82], "maxLines": 4, "size": [22, 32], "weight": "medium"}
+        {"kind": "headline", "field": "headline", "box": [0.06, 0.83, 0.94, 0.97], "maxLines": 2, "size": [34, 56], "weight": "bold", "valign": "middle"}
       ],
-      "imagePrompt": "Portrait 4:5 photorealistic business photo for Facebook about \"{topic}\": the man in the right half, {illustration}; deep navy background, soft studio light, the left half empty and dark."
+      "imagePrompt": "Portrait realistic photo: {illustration}. Natural light, real materials, shallow depth of field."
     },
     {
-      "id": "ig_checklist",
-      "platform": "instagram",
+      "id": "roman_quote",
+      "platform": ["linkedin", "facebook"],
       "size": [1080, 1350],
-      "person": "none",
+      "person": "roman",
+      "provider": "comfyui",
+      "theme": "light",
       "weight": 1,
-      "needsNumber": false,
-      "slides": [6, 8],
-      "slideTypes": {
-        "cover": {
-          "fields": {"headline": "the promise of the checklist, at most 8 words", "subline": "who it is for"},
-          "zones": [
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.30, 0.93, 0.62], "maxLines": 4, "size": [52, 92], "weight": "extrabold"},
-            {"kind": "subline", "field": "subline", "box": [0.07, 0.65, 0.93, 0.78], "maxLines": 2, "size": [26, 36], "weight": "medium"}
-          ]
-        },
-        "body": {
-          "fields": {"headline": "this slide's part of the checklist, at most 7 words", "items": "2-4 checks, at most 8 words each"},
-          "zones": [
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.20, 0.93, 0.36], "maxLines": 2, "size": [40, 62], "weight": "bold"},
-            {"kind": "list", "field": "items", "items": [2, 4], "box": [0.07, 0.40, 0.93, 0.90], "maxLines": 8, "size": [26, 38], "weight": "medium"}
-          ]
-        },
-        "final": {
-          "fields": {"question": "one question that invites comments", "subline": "the call to action with the offer"},
-          "zones": [
-            {"kind": "question", "field": "question", "box": [0.07, 0.30, 0.93, 0.62], "maxLines": 4, "size": [48, 84], "weight": "extrabold", "align": "center", "valign": "middle"},
-            {"kind": "subline", "field": "subline", "box": [0.07, 0.66, 0.93, 0.80], "maxLines": 3, "size": [24, 34], "weight": "medium", "align": "center"}
-          ]
-        }
+      "image": {"box": [0.0, 0.0, 0.45, 1.0]},
+      "fields": {
+        "quote": "one sentence Roman would say, with a concrete example, at most 18 words, no quotation marks",
+        "subline": "Roman, Branded Genius"
       },
-      "imagePrompt": "Portrait 4:5 slide background for an Instagram checklist carousel about \"{topic}\": {illustration}. Deep navy with soft blue glow and one clean tech illustration low in the frame, the same look on every slide. No people."
+      "zones": [
+        {"kind": "quote", "field": "quote", "box": [0.51, 0.18, 0.94, 0.72], "maxLines": 8, "size": [34, 58], "weight": "bold", "valign": "middle"},
+        {"kind": "subline", "field": "subline", "box": [0.51, 0.76, 0.94, 0.84], "maxLines": 2, "size": [24, 30], "weight": "medium", "color": "highlight"}
+      ],
+      "settings": ["plain light-grey seamless studio background", "warm beige seamless studio background", "soft white studio background with a gentle shadow"],
+      "imagePrompt": "standing alone, waist-up portrait, centered, {outfit}, {angle}, {expression}, {setting}, soft even studio light, realistic professional photo, sharp focus on the face"
     },
     {
-      "id": "ig_mistake_fix",
-      "platform": "instagram",
+      "id": "roman_headshot_take",
+      "platform": ["linkedin", "facebook"],
       "size": [1080, 1350],
-      "person": "none",
+      "person": "roman",
+      "provider": "comfyui",
+      "theme": "dark",
       "weight": 1,
-      "needsNumber": false,
-      "slides": [6, 8],
-      "slideTypes": {
-        "cover": {
-          "fields": {"headline": "the mistakes people make, at most 8 words", "subline": "who it is for"},
-          "zones": [
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.30, 0.93, 0.62], "maxLines": 4, "size": [52, 92], "weight": "extrabold"},
-            {"kind": "subline", "field": "subline", "box": [0.07, 0.65, 0.93, 0.78], "maxLines": 2, "size": [26, 36], "weight": "medium"}
-          ]
-        },
-        "body": {
-          "fields": {"headline": "the situation, at most 7 words", "mistake": "1-2 mistakes, at most 8 words each", "fix": "the fix for each, same order"},
-          "zones": [
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.20, 0.93, 0.36], "maxLines": 2, "size": [40, 62], "weight": "bold"},
-            {"kind": "two_column", "fields": ["mistake", "fix"], "labels": ["Mistake", "Fix"], "items": [1, 2], "box": [0.07, 0.42, 0.93, 0.90], "maxLines": 7, "size": [24, 34], "weight": "medium"}
-          ]
-        },
-        "final": {
-          "fields": {"question": "one question that invites comments", "subline": "the call to action with the offer"},
-          "zones": [
-            {"kind": "question", "field": "question", "box": [0.07, 0.30, 0.93, 0.62], "maxLines": 4, "size": [48, 84], "weight": "extrabold", "align": "center", "valign": "middle"},
-            {"kind": "subline", "field": "subline", "box": [0.07, 0.66, 0.93, 0.80], "maxLines": 3, "size": [24, 34], "weight": "medium", "align": "center"}
-          ]
-        }
+      "image": {"box": [0.30, 0.08, 0.70, 0.40], "shape": "circle"},
+      "fields": {
+        "headline": "Roman's bold opinion, at most 8 words",
+        "subline": "the reason with a concrete example, at most 18 words"
       },
-      "imagePrompt": "Portrait 4:5 slide background for an Instagram 'mistake vs fix' carousel about \"{topic}\": {illustration}. Deep navy, a slightly warmer left half and a cooler blue right half, calm and dark, the same look on every slide. No people."
+      "zones": [
+        {"kind": "headline", "field": "headline", "box": [0.08, 0.46, 0.92, 0.76], "maxLines": 4, "size": [44, 76], "weight": "extrabold", "align": "center", "valign": "middle"},
+        {"kind": "subline", "field": "subline", "box": [0.08, 0.79, 0.92, 0.93], "maxLines": 3, "size": [22, 30], "weight": "medium", "align": "center", "color": "muted"}
+      ],
+      "settings": ["dark navy studio background", "deep blue gradient studio background", "dark charcoal studio background"],
+      "imagePrompt": "alone, head-and-shoulders headshot, face centered and filling the frame, {outfit}, {angle}, {expression}, {setting}, soft key light, realistic professional photo, sharp focus on the face"
     },
     {
-      "id": "ig_myth_fact",
-      "platform": "instagram",
+      "id": "roman_at_work",
+      "platform": ["linkedin", "facebook"],
       "size": [1080, 1350],
-      "person": "none",
+      "person": "roman",
+      "provider": "comfyui",
+      "theme": "blue",
       "weight": 1,
-      "needsNumber": false,
-      "slides": [6, 8],
-      "slideTypes": {
-        "cover": {
-          "fields": {"headline": "the myths to bust, at most 8 words", "subline": "who it is for"},
-          "zones": [
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.30, 0.93, 0.62], "maxLines": 4, "size": [52, 92], "weight": "extrabold"},
-            {"kind": "subline", "field": "subline", "box": [0.07, 0.65, 0.93, 0.78], "maxLines": 2, "size": [26, 36], "weight": "medium"}
-          ]
-        },
-        "body": {
-          "fields": {"headline": "the topic of this myth, at most 6 words", "myth": "the myth, at most 12 words", "fact": "the fact, at most 14 words"},
-          "zones": [
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.20, 0.93, 0.34], "maxLines": 2, "size": [40, 60], "weight": "bold"},
-            {"kind": "two_column", "fields": ["myth", "fact"], "labels": ["Myth", "Fact"], "items": [1, 1], "box": [0.07, 0.40, 0.93, 0.90], "maxLines": 8, "size": [26, 36], "weight": "medium"}
-          ]
-        },
-        "final": {
-          "fields": {"question": "one question that invites comments", "subline": "the call to action with the offer"},
-          "zones": [
-            {"kind": "question", "field": "question", "box": [0.07, 0.30, 0.93, 0.62], "maxLines": 4, "size": [48, 84], "weight": "extrabold", "align": "center", "valign": "middle"},
-            {"kind": "subline", "field": "subline", "box": [0.07, 0.66, 0.93, 0.80], "maxLines": 3, "size": [24, 34], "weight": "medium", "align": "center"}
-          ]
-        }
+      "image": {"box": [0.0, 0.0, 1.0, 0.60]},
+      "fields": {
+        "headline": "one tip from Roman's work, at most 8 words",
+        "subline": "how to apply it: tool or channel and timing, at most 18 words"
       },
-      "imagePrompt": "Portrait 4:5 slide background for an Instagram 'myth vs fact' carousel about \"{topic}\": {illustration}. Deep navy with a soft blue glow and a thin glowing vertical divider in the middle, calm and dark, the same look on every slide. No people."
+      "zones": [
+        {"kind": "headline", "field": "headline", "box": [0.07, 0.64, 0.93, 0.80], "maxLines": 3, "size": [36, 60], "weight": "bold"},
+        {"kind": "subline", "field": "subline", "box": [0.07, 0.82, 0.93, 0.95], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+      ],
+      "settings": ["a bright German office with oak desks and large windows", "a small German carpentry workshop with wood shelves", "a German bakery back room with steel tables", "a German car repair workshop with a tidy tool wall"],
+      "imagePrompt": "alone, waist-up, working in {setting}, {outfit}, {angle}, {expression}, natural daylight, realistic documentary photo, sharp focus on the face, plain walls"
+    },
+    {
+      "id": "roman_portrait_stat",
+      "platform": ["linkedin", "facebook"],
+      "size": [1080, 1350],
+      "person": "roman",
+      "provider": "comfyui",
+      "theme": "dark",
+      "weight": 1,
+      "needsNumber": true,
+      "image": {"box": [0.55, 0.0, 1.0, 1.0]},
+      "fields": {
+        "big_number": "the one number, exactly as a cited research article writes it",
+        "source": "the ID of that article (research.md)",
+        "headline": "what the number means, at most 8 words",
+        "subline": "the publisher, e.g. Source: Bitkom"
+      },
+      "zones": [
+        {"kind": "big_number", "field": "big_number", "box": [0.07, 0.18, 0.50, 0.44], "size": [90, 200], "weight": "extrabold", "color": "highlight"},
+        {"kind": "headline", "field": "headline", "box": [0.07, 0.47, 0.50, 0.75], "maxLines": 5, "size": [30, 50], "weight": "bold"},
+        {"kind": "subline", "field": "subline", "box": [0.07, 0.78, 0.50, 0.92], "maxLines": 3, "size": [18, 24], "weight": "medium", "color": "muted"}
+      ],
+      "settings": ["dark navy studio background", "dark modern office at dusk, softly blurred", "deep blue studio background with soft rim light"],
+      "imagePrompt": "standing alone, waist-up portrait, centered, {outfit}, {angle}, {expression}, {setting}, cinematic soft light, realistic professional photo, sharp focus on the face"
     },
     {
       "id": "ig_steps",
       "platform": "instagram",
       "size": [1080, 1350],
       "person": "none",
+      "provider": "openrouter",
+      "theme": "dark",
       "weight": 1,
-      "needsNumber": false,
       "slides": [6, 8],
       "slideTypes": {
         "cover": {
-          "fields": {"headline": "the result of the steps, at most 8 words", "subline": "who it is for"},
+          "image": {"box": [0.0, 0.0, 1.0, 0.56]},
+          "fields": {"headline": "the result of the steps, at most 8 words", "subline": "who it is for, with a concrete detail, at most 18 words"},
           "zones": [
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.30, 0.93, 0.62], "maxLines": 4, "size": [52, 92], "weight": "extrabold"},
-            {"kind": "subline", "field": "subline", "box": [0.07, 0.65, 0.93, 0.78], "maxLines": 2, "size": [26, 36], "weight": "medium"}
+            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [44, 76], "weight": "extrabold"},
+            {"kind": "subline", "field": "subline", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
           ]
         },
         "body": {
-          "fields": {"big_number": "the step number, e.g. 1", "headline": "the step, at most 7 words", "subline": "how: channel or tool and timing, one or two lines"},
+          "fields": {"headline": "this step, at most 8 words", "line": "how: tool or channel, timing or a number, at most 18 words", "icon": "one icon: check, clock, chat, euro, user, target, shield, bolt, calendar, mail, search or arrow"},
           "zones": [
-            {"kind": "big_number", "field": "big_number", "box": [0.07, 0.20, 0.60, 0.42], "size": [140, 240], "weight": "extrabold", "color": "highlight"},
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.45, 0.93, 0.64], "maxLines": 3, "size": [44, 70], "weight": "bold"},
-            {"kind": "subline", "field": "subline", "box": [0.07, 0.67, 0.93, 0.88], "maxLines": 4, "size": [26, 36], "weight": "medium"}
+            {"kind": "big_number", "auto": "step", "box": [0.07, 0.16, 0.50, 0.52], "size": [140, 260], "weight": "extrabold", "color": "highlight"},
+            {"kind": "icon", "field": "icon", "box": [0.62, 0.22, 0.90, 0.52]},
+            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [40, 68], "weight": "bold"},
+            {"kind": "subline", "field": "line", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
           ]
         },
         "final": {
-          "fields": {"question": "one question that invites comments", "subline": "the call to action with the offer"},
+          "fields": {"headline": "the call to action, at most 8 words", "line": "the offer, at most 18 words"},
           "zones": [
-            {"kind": "question", "field": "question", "box": [0.07, 0.30, 0.93, 0.62], "maxLines": 4, "size": [48, 84], "weight": "extrabold", "align": "center", "valign": "middle"},
-            {"kind": "subline", "field": "subline", "box": [0.07, 0.66, 0.93, 0.80], "maxLines": 3, "size": [24, 34], "weight": "medium", "align": "center"}
+            {"kind": "icon", "auto": "arrow", "box": [0.30, 0.20, 0.70, 0.52]},
+            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [40, 68], "weight": "extrabold"},
+            {"kind": "subline", "field": "line", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
           ]
         }
       },
-      "imagePrompt": "Portrait 4:5 slide background for an Instagram step-by-step carousel about \"{topic}\": {illustration}. Deep navy with a soft blue glow and one clean tech illustration low on the right, calm and dark, the same look on every slide. No people."
+      "imagePrompt": "Realistic cover photo: {illustration}. Deep navy and cool blue tones, low-key light, calm and uncluttered, shallow depth of field."
+    },
+    {
+      "id": "ig_checklist",
+      "platform": "instagram",
+      "size": [1080, 1350],
+      "person": "none",
+      "provider": "openrouter",
+      "theme": "light",
+      "weight": 1,
+      "slides": [6, 8],
+      "slideTypes": {
+        "cover": {
+          "image": {"box": [0.0, 0.0, 1.0, 0.56]},
+          "fields": {"headline": "the promise of the checklist, at most 8 words", "subline": "who it is for, with a concrete detail, at most 18 words"},
+          "zones": [
+            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [44, 76], "weight": "extrabold"},
+            {"kind": "subline", "field": "subline", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+          ]
+        },
+        "body": {
+          "fields": {"headline": "this check, at most 8 words", "line": "how to check it: tool, timing or number, at most 18 words", "icon": "one icon: check, clock, chat, euro, user, target, shield, bolt, calendar, mail, search or arrow"},
+          "zones": [
+            {"kind": "big_number", "auto": "step", "box": [0.07, 0.16, 0.50, 0.52], "size": [140, 260], "weight": "extrabold", "color": "highlight"},
+            {"kind": "icon", "field": "icon", "box": [0.62, 0.22, 0.90, 0.52]},
+            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [40, 68], "weight": "bold"},
+            {"kind": "subline", "field": "line", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+          ]
+        },
+        "final": {
+          "fields": {"headline": "the call to action, at most 8 words", "line": "the offer, at most 18 words"},
+          "zones": [
+            {"kind": "icon", "auto": "arrow", "box": [0.30, 0.20, 0.70, 0.52]},
+            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [40, 68], "weight": "extrabold"},
+            {"kind": "subline", "field": "line", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+          ]
+        }
+      },
+      "imagePrompt": "Realistic cover photo: {illustration}. Soft daylight, bright and clean, calm and uncluttered, shallow depth of field."
+    },
+    {
+      "id": "ig_mistakes",
+      "platform": "instagram",
+      "size": [1080, 1350],
+      "person": "none",
+      "provider": "openrouter",
+      "theme": "blue",
+      "weight": 1,
+      "slides": [6, 8],
+      "slideTypes": {
+        "cover": {
+          "image": {"box": [0.0, 0.0, 1.0, 0.56]},
+          "fields": {"headline": "the mistakes people make, at most 8 words", "subline": "who it is for, with a concrete detail, at most 18 words"},
+          "zones": [
+            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [44, 76], "weight": "extrabold"},
+            {"kind": "subline", "field": "subline", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+          ]
+        },
+        "body": {
+          "fields": {"headline": "the mistake, at most 8 words", "line": "the fix: tool or channel, timing or a number, at most 18 words", "icon": "one icon: check, clock, chat, euro, user, target, shield, bolt, calendar, mail, search or arrow"},
+          "zones": [
+            {"kind": "big_number", "auto": "step", "box": [0.07, 0.16, 0.50, 0.52], "size": [140, 260], "weight": "extrabold", "color": "highlight"},
+            {"kind": "icon", "field": "icon", "box": [0.62, 0.22, 0.90, 0.52]},
+            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [40, 68], "weight": "bold"},
+            {"kind": "subline", "field": "line", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+          ]
+        },
+        "final": {
+          "fields": {"headline": "the call to action, at most 8 words", "line": "the offer, at most 18 words"},
+          "zones": [
+            {"kind": "icon", "auto": "arrow", "box": [0.30, 0.20, 0.70, 0.52]},
+            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [40, 68], "weight": "extrabold"},
+            {"kind": "subline", "field": "line", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+          ]
+        }
+      },
+      "imagePrompt": "Realistic cover photo: {illustration}. Bright blue and white tones, clean light, calm and uncluttered, shallow depth of field."
     }
   ]
 }

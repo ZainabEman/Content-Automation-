@@ -25,7 +25,7 @@ from typing import Any
 REPO = Path(__file__).resolve().parents[1]
 WEEK = "2026-W45"
 FAKE_KEY = "sk-or-v1-e2efakefakefake0123456789abcdef"
-TOPICS = ["AI chatbots for dentists", "Missed calls cost clinics patients",
+TOPICS = ["AI chatbots for dentists", "Missed calls cost clinics patients without automation",
           "Chatbots that book physiotherapy slots"]
 TAKEAWAYS = [
     "The chatbot answers WhatsApp questions about opening hours within seconds, day and night.",

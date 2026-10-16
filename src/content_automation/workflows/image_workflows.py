@@ -11,7 +11,12 @@ from content_automation.ai.image import (
     ReferenceImage,
     get_provider,
 )
-from content_automation.content.formats import FormatError, image_prompt, load_formats
+from content_automation.content.formats import (
+    FormatError,
+    PostFormat,
+    image_prompt,
+    load_formats,
+)
 from content_automation.core.config import Settings
 from content_automation.core.jobs import DETAILS_FILE, Job, JobReference
 from content_automation.references import (
@@ -182,6 +187,7 @@ class PreparedWorkflow:
     inputs: dict[str, str | bool] = field(default_factory=dict)
     picks: DesignPicks | None = None  # designs: what was used from the pools
     person_shown: bool = False  # the result needs the person check before it is used
+    settings: Settings | None = None  # a post format: its own provider (never swapped)
 
     @property
     def product_asset_ids(self) -> list[str]:
@@ -424,13 +430,13 @@ def prepare_workflow(
     """Validate inputs and build the ImageRequest; creates no job and calls no provider."""
     spec = get_workflow(workflow_id)
     _check_inputs(spec, inputs)
+    if inputs.post_format and spec.designed:
+        return _prepare_format(spec, inputs, settings)
     root = settings.references_dir
     # Capabilities only: no API key is needed and no provider call is made here.
     capabilities: ProviderCapabilities = get_provider(
         settings.image_provider, settings
     ).capabilities
-    if inputs.post_format and spec.designed:
-        return _prepare_format(spec, inputs, settings, capabilities)
     scene_prompt = inputs.prompt.strip()
     recorded: dict[str, str | bool] = {"scenePrompt": scene_prompt} if scene_prompt else {}
     service = (inputs.service or "").strip() or None
@@ -637,65 +643,102 @@ def prepare_workflow(
     )
 
 
+def format_settings(chosen: PostFormat, settings: Settings,
+                    slide_type: str | None = None) -> Settings:
+    """The provider of one post format (or slide): the format's own, never swapped for another
+    (an unreachable provider fails that part). No image slot: the app renders it alone
+    (template, free). IMAGE_PROVIDER=mock (local tests) stays mock for pictures."""
+    image, _ = chosen.canvas(slide_type)
+    if image is None:
+        return settings.model_copy(update={"image_provider": "template"})
+    provider = chosen.provider or settings.image_provider
+    if settings.image_provider in ("mock", provider):
+        return settings
+    update: dict[str, str] = {"image_provider": provider}
+    if provider == "openrouter":  # Nano Banana 2 via OpenRouter (CAROUSEL_IMAGE_MODEL)
+        update["image_model"] = settings.carousel_image_model
+    return settings.model_copy(update=update)
+
+
+def _copy_texts(copy: dict[str, object], topic: str | None) -> list[str]:
+    """What the reader sees (and the topic): none of it may go into the image prompt."""
+    skip = ("illustration", "source", "icon")
+    texts = [topic or ""]
+    for name, value in copy.items():
+        if name not in skip:
+            texts += [str(item) for item in (value if isinstance(value, list) else [value])]
+    return [text for text in texts if text.strip()]
+
+
 def _prepare_format(
     spec: WorkflowSpec, inputs: WorkflowInputs, settings: Settings,
-    capabilities: ProviderCapabilities,
 ) -> PreparedWorkflow:
-    """A post format: its picture prompt (no text, the text areas left empty), the man only in
-    Roman formats, its zones rendered by the app, then the logo (a carousel: last slide only)."""
+    """A post format as a template: the picture (no text, never the copy or topic) only for its
+    image slot, via the format's own provider; the man only in Roman formats; the panel, text
+    and icons rendered by the app, then the logo (a carousel: last slide only)."""
     try:
         catalog = load_formats(settings.post_formats_file)
         chosen = catalog.get(str(inputs.post_format))
         copy = json.loads(inputs.format_copy or "{}")
         system = load_design_system(settings.design_system_file)
+        image_slot, _ = chosen.canvas(inputs.slide_type)
     except (FormatError, ValueError) as error:
         raise WorkflowError(str(error)) from None
     if not isinstance(copy, dict):
         raise WorkflowError(f"{chosen.id}: the copy must be an object of the format's fields")
-    brand = _load_brand_if_present(settings)
-    text = format_overlay(chosen, copy, system, brand, slide_type=inputs.slide_type)
+    own = format_settings(chosen, settings, inputs.slide_type)
+    capabilities = get_provider(own.image_provider, own).capabilities
+    number = (inputs.slide or "").partition("/")[0].strip()
+    step = int(number) - 1 if inputs.slide_type == "body" and number.isdigit() else None
+    text = format_overlay(chosen, copy, system, theme=catalog.themes[chosen.theme],
+                          slide_type=inputs.slide_type, step=step)
     recorded: dict[str, str | bool] = {
-        "postFormat": chosen.id, "personShown": chosen.roman, "textOverlay": text.describe(),
-        "textBoxes": json.dumps(text.boxes()),
+        "postFormat": chosen.id, "theme": chosen.theme, "personShown": chosen.roman,
+        "textOverlay": text.describe(), "textBoxes": json.dumps(text.boxes()),
     }
     if inputs.slide_type:
         recorded["slideType"] = inputs.slide_type
     if inputs.slide:
         recorded["slide"] = inputs.slide
-    identity: list[ReferenceImage] = []
     if chosen.roman:
         set_id = (inputs.identity_set or inputs.fallback_identity_set
                   or settings.default_identity_set)
         try:
             recorded["identitySet"] = load_set(set_id, settings.references_dir).set_id
-            if capabilities.identity_prompt is not None:
-                recorded["identity"] = "trained LoRA (no identity photos sent)"
-            else:
-                limit = min(capabilities.max_identity_refs, settings.image_identity_refs_max)
-                identity = _identity_refs(set_id, limit, None, settings)
-                recorded["identityRefs"] = str(len(identity))
         except ReferenceLibraryError as error:
             raise WorkflowError(f"{chosen.id} shows Roman: {error}") from None
-    logo = _logo(settings, brand) if inputs.logo else None
+        if capabilities.identity_prompt is None and own.image_provider != "mock":
+            raise WorkflowError(f"{chosen.id} shows Roman: its provider {own.image_provider} has "
+                                "no trained LoRA; it is never swapped")
+        recorded["identity"] = "trained LoRA (no identity photos sent)"
+    logo = _logo(settings, _load_brand_if_present(settings)) if inputs.logo else None
     if logo is not None:
         recorded["logo"] = logo.describe()
-    illustration = copy.get("illustration") or inputs.prompt
-    prompt = image_prompt(
-        chosen, catalog, topic=inputs.topic or inputs.request or "", areas=text.areas(),
-        illustration=illustration if isinstance(illustration, str) else None,
-        identity_text=capabilities.identity_prompt, identity_photos=len(identity),
-    )
+    if image_slot is None:
+        prompt = f"{chosen.id}: no picture; the app renders the template"
+        recorded["picture"] = "none (template only, free)"
+    else:
+        illustration = copy.get("illustration") or inputs.prompt
+        try:
+            prompt = image_prompt(
+                chosen, catalog,
+                illustration=illustration if isinstance(illustration, str) else None,
+                seed=inputs.request or inputs.topic or "",
+                copy_texts=_copy_texts(copy, inputs.topic),
+            )
+        except FormatError as error:
+            raise WorkflowError(str(error)) from None
     request = ImageRequest(
         prompt=prompt,
-        aspect_ratio=chosen.aspect,  # type: ignore[arg-type]
-        image_size=settings.image_design_size,
+        aspect_ratio=chosen.slot_aspect(inputs.slide_type),  # type: ignore[arg-type]
+        image_size=settings.image_design_size if image_slot is not None else "1K",
         count=inputs.count,
-        identity_refs=identity,
         person=chosen.roman,
     )
     return PreparedWorkflow(
         spec=spec, request=request, logo=logo, text=text,
         references=job_references(request), inputs=recorded, person_shown=chosen.roman,
+        settings=own,
     )
 
 
@@ -708,7 +751,7 @@ def run_workflow(
     prepared = prepare_workflow(workflow_id, inputs, settings)
     return run_image_job(
         prepared.request,
-        settings,
+        prepared.settings or settings,
         workflow_id=prepared.spec.workflow_id,
         workflow_version=prepared.spec.version,
         user_request=(

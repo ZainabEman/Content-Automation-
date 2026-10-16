@@ -35,8 +35,10 @@ from typing import Literal
 
 from pydantic import ConfigDict, Field, ValidationError
 
+from content_automation.content.backlog import pillar_guess
 from content_automation.content.brief import PLATFORMS
 from content_automation.content.deliverables import DeliverableCatalog
+from content_automation.content.formats import ROMAN, FormatError, load_formats
 from content_automation.content.package import (
     BRIEF_FILE,
     DONE_STATUS,
@@ -64,14 +66,18 @@ from content_automation.registry.files import edited_diff, last_written, record_
 from content_automation.registry.gates import gate_open
 from content_automation.registry.items import get_item, set_planned_date, set_title
 from content_automation.registry.link import register_row
+from content_automation.registry.strategy import load_strategy
 from content_automation.research.run import digest
 from content_automation.research.store import find_article
 from content_automation.storage.manifest import MANIFEST_FILE, PENDING_STATUS
 
 COLUMNS = (
     "Row", "BG ID", "Planned date", "Topic", "Research source", "Platform", "Content type",
-    "Status", "Version", "Package", "Content ID",
+    "Status", "Version", "Package", "Content ID", "Format",
 )
+# Before the Format column (2026-10-16): still read; the next write adds the column.
+NO_FORMAT_COLUMNS = COLUMNS[:-1]
+ROMAN_PLATFORMS = ("linkedin", "facebook")  # Roman's weekly post alternates between them
 OLD_COLUMNS = (  # before the registry (Phase 1-3): still read (D-8)
     "Row", "Planned date", "Topic", "Research source", "Platform", "Content type", "Status",
     "Package", "Content ID",
@@ -194,7 +200,7 @@ def read_calendar(path: Path) -> list[Row]:
         raise CalendarError(
             f"No calendar at {path}: make it with `uv run ca calendar new`."
         ) from None
-    if header not in (COLUMNS, OLD_COLUMNS):
+    if header not in (COLUMNS, NO_FORMAT_COLUMNS, OLD_COLUMNS):
         raise CalendarError(f"{path.name}: the columns must be {', '.join(COLUMNS)}.")
     return [{column: row.get(column, "") for column in COLUMNS} for row in rows]
 
@@ -277,6 +283,46 @@ def write_calendar(path: Path, rows: list[Row], *, force: bool = False) -> None:
         record_written(scope.conn, path, text)
 
 
+def is_roman(value: str) -> bool:
+    """A row's Format that shows Roman: "roman" (picked at stage 1) or a roman_* format."""
+    return value.strip().lower().startswith(ROMAN)
+
+
+def assign_roman(rows: list[Row], label: str, catalog: DeliverableCatalog) -> str | None:
+    """Roman exactly once a week: one LinkedIn or Facebook post row gets Format "roman" (one of
+    the 4 Roman formats, rotated at stage 1), the platform alternating week by week; nothing
+    when the week already has one. Returns the row number it went to."""
+    if any(is_roman(row.get("Format", "")) for row in rows):
+        return None
+    weeks = week_days(label)[0].toordinal() // 7
+    first = ROMAN_PLATFORMS[weeks % 2]
+    for platform in (first, *(name for name in ROMAN_PLATFORMS if name != first)):
+        options = sorted(
+            (row for row in rows
+             if row["Platform"] == platform and not row.get("Format") and not row["Package"]
+             and row["Status"] in ("Proposed", "Approved")
+             and (item := catalog.deliverables.get(row["Content type"])) is not None
+             and item.part == "post"),
+            key=lambda row: row["Planned date"],
+        )
+        if options:
+            options[0]["Format"] = ROMAN
+            return options[0]["Row"]
+    return None
+
+
+def _pillar_fit(settings: Settings) -> Callable[[str], bool] | None:
+    """Whether a topic fits a content pillar (config/strategy.json keywords); None: no
+    pillar keywords, nothing is filtered."""
+    try:
+        strategy = load_strategy(settings.strategy_file)
+    except (RegistryError, OSError, ValueError):
+        return None
+    if not any(pillar.keywords for pillar in strategy.pillars):
+        return None  # no strategy file: the default pillars name no keywords
+    return lambda topic: pillar_guess(topic, strategy) is not None
+
+
 def new_calendar(
     settings: Settings,
     catalog: DeliverableCatalog,
@@ -315,6 +361,16 @@ def new_calendar(
     automatic = _newsletter_ideas(newest, []) if newest is not None else []
     automatic += [Idea(article.title.strip(), f"article:{article.article_id}")
                   for article in digest(settings, ARTICLE_DAYS)]
+    fits = _pillar_fit(settings)
+    if fits is not None:  # every topic fits a content pillar
+        off = [idea.topic for idea in picks if not fits(idea.topic)]
+        if off:
+            raise CalendarError(
+                f"Not on a content pillar (config/strategy.json): {'; '.join(off)}. Name the "
+                "pillar's subject in the topic (e.g. Mittelstand, DSGVO, deepfake, KI-Fehler, "
+                "automation) or pick another topic."
+            )
+        automatic = [idea for idea in automatic if fits(idea.topic)]
     candidates = iter(picks + [idea for idea in automatic if idea.source not in planned])
 
     days = week_days(label)
@@ -342,6 +398,7 @@ def new_calendar(
             "Version": "",
             "Package": "",
             "Content ID": f"{label}-{number:02d}",
+            "Format": "",
         })
     if not rows:
         raise CalendarError(
@@ -353,8 +410,12 @@ def new_calendar(
     ids = [_row_item(row, label, catalog, replace=replace) for row in rows]
     for row, item_id in zip(rows, ids, strict=True):
         row["BG ID"] = item_id or ""
+    roman = assign_roman(rows, label, catalog)
     write_calendar(path, rows, force=True)
     lines = [f"Calendar {label}: {path} ({len(rows)} rows, all Proposed; nothing generated)."]
+    if roman is not None:
+        lines.append(f"Roman's post this week: row {roman} (Format roman; one of the 4 Roman "
+                     "formats is picked at stage 1).")
     if any(ids):
         lines.append("Items: " + ", ".join(
             f"row {row['Row']} {row['BG ID']}" for row in rows if row["BG ID"]))
@@ -408,6 +469,7 @@ def check_calendar(path: Path, label: str, catalog: DeliverableCatalog,
             )
         if row["Status"] not in STATUSES:
             problems.append(f'{where}: status "{row["Status"]}" must be {", ".join(STATUSES)}')
+        problems += [f"{where}: {problem}" for problem in _format_problems(row)]
         key = _topic_key(row["Topic"])
         idea = row["Research source"] if row["Research source"].startswith("idea:") else ""
         if not key:
@@ -420,6 +482,26 @@ def check_calendar(path: Path, label: str, catalog: DeliverableCatalog,
         if source_problem:
             problems.append(f"{where}: {source_problem}")
     return problems
+
+
+def _format_problems(row: Row) -> list[str]:
+    """The Format column: empty (picked at stage 1), "roman" (a LinkedIn or Facebook post) or a
+    format of config/post_formats.json for the row's platform."""
+    value = row.get("Format", "").strip()
+    if not value:
+        return []
+    if value.lower() == ROMAN:
+        return [] if row["Platform"] in ROMAN_PLATFORMS else [
+            f"Format roman is for a LinkedIn or Facebook post, not {row['Platform']}"]
+    try:
+        found = load_formats().find(value)
+    except FormatError:
+        return []  # reported when the package is started
+    if found is None:
+        return [f'unknown Format "{value}" (config/post_formats.json, or roman)']
+    if row["Platform"] not in found.platforms:
+        return [f"Format {value} is for {'/'.join(found.platforms)}, not {row['Platform']}"]
+    return []
 
 
 def parse_rows(values: list[str], *, allow_all: bool) -> list[int] | None:
@@ -601,7 +683,8 @@ def generate_rows(
                 topic, idea = _row_research(row, settings.research_dir)
                 content_id = row["Content ID"] or f"{label}-{int(row['Row']):02d}"
                 started = start_package(topic, [row["Content type"]], catalog, settings,
-                                        idea=idea, content_id=content_id)
+                                        idea=idea, content_id=content_id,
+                                        format_override=row.get("Format") or None)
             except (OSError, ValueError) as error:
                 failed.append(f"{where}: stage 1 failed: {error}")
                 continue

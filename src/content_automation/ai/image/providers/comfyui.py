@@ -483,10 +483,13 @@ class ComfyUIImageProvider:
         width, height = model_sizes(self._config, workflow.spec)[request.aspect_ratio]
         size = target_size(request.aspect_ratio, self._config.target_long_side[request.image_size])
         prompt, strength = request.prompt, None
-        if request.person:  # only the mode's prompt; the app composes the post from the image
-            prompt, strength = person_image_prompt(self._config), self._config.lora_strength
-            if self._config.person_image.mode != "scene":
-                width, height = self._config.person_photo.size
+        own = request.prompt.startswith(f"{self._config.trigger_word},")  # a post format's
+        if request.person:  # else only the mode's prompt; the app composes the post from it
+            strength = self._config.lora_strength
+            if not own:
+                prompt = person_image_prompt(self._config)
+                if self._config.person_image.mode != "scene":
+                    width, height = self._config.person_photo.size
             size = (width, height)
         images: list[GeneratedImage] = []
         request_ids: list[str] = []

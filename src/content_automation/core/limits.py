@@ -23,7 +23,7 @@ def images_generated_on(output_dir: Path, day: date) -> int:
             job = Job.load(details)
         except (OSError, ValueError, ValidationError):
             continue
-        if job.status == "completed" and job.provider != "mock":
+        if job.status == "completed" and job.provider not in ("mock", "template"):
             total += len(job.outputs)
     return total
 

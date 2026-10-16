@@ -2038,7 +2038,29 @@ def overlay_preview(
     typer.echo(logo_line)
 
 
-LoraModel = Annotated[str, typer.Argument(help="qwen (Qwen-Image-2512) or zimage (Z-Image Turbo).")]
+@overlay_app.command("sheet")
+def overlay_sheet(
+    out: Annotated[
+        Path | None, typer.Option(help="Where to save the PNG (default: outputs/review/"
+                                  "format_sheet.png).")
+    ] = None,
+) -> None:
+    """Every post format (the Roman ones and each carousel's cover, body and final slides)
+    with sample copy and a gradient stand-in picture on one review sheet. Local and free."""
+    from content_automation.content.formats import FormatError
+    from content_automation.workflows.format_sheet import format_sheet
+
+    _utf8_output()
+    settings = _settings(dry_run=True)
+    try:
+        path, count = format_sheet(settings, out)
+    except (WorkflowError, FormatError, OSError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"Saved: {path.resolve()} ({count} formats and slides; no provider call)")
+
+
+LoraModel =Annotated[str, typer.Argument(help="qwen (Qwen-Image-2512) or zimage (Z-Image Turbo).")]
 
 
 def _lora_model(value: str) -> ModelKey:

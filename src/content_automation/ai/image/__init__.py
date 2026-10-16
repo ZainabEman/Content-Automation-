@@ -23,6 +23,8 @@ _ADAPTERS: dict[str, str] = {
     "mock": "content_automation.ai.image.providers.mock",
     "openrouter": "content_automation.ai.image.providers.openrouter",
     "comfyui": "content_automation.ai.image.providers.comfyui",
+    # No picture: a post format without an image slot is rendered by the app alone (free).
+    "template": "content_automation.ai.image.providers.template",
 }
 
 
@@ -209,6 +211,8 @@ def model_for(settings: Settings) -> str:
     """The model the selected provider runs: IMAGE_MODEL; ComfyUI runs its own workflow
     (IMAGE_MODEL only when it names a ComfyUI workflow, else config/comfyui.json
     defaultWorkflow), so an OpenRouter model never blocks it."""
+    if settings.image_provider == "template":
+        return "template"
     if settings.image_provider != "comfyui":
         return settings.image_model
     workflow: str = importlib.import_module(_ADAPTERS["comfyui"]).workflow_for(settings)

@@ -22,9 +22,10 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
-from content_automation.content.formats import PostFormat
+from content_automation.content.formats import ICONS, PostFormat
+from content_automation.content.formats import Box as FormatBox
 from content_automation.references import BrandProfile, CompanyProfile
 from content_automation.workflows.design_system import (
     Box,
@@ -325,6 +326,21 @@ def zone_texts(
 
 
 @dataclass(frozen=True)
+class FormatCanvas:
+    """A post format's template: the solid theme panel, the image slot (the picture is
+    cropped into it), the bars and the line icons drawn in code."""
+
+    size: tuple[int, int]
+    theme: str
+    background: RGB
+    image: tuple[FormatBox, str] | None  # box (shares), shape (rect, circle)
+    bars: tuple[tuple[FormatBox, RGB], ...] = ()
+    icons: tuple[tuple[str, FormatBox, RGB], ...] = ()
+    ring: RGB | None = None  # a round slot's outline
+    person: bool = False  # crop a person's picture a little higher (keep the head)
+
+
+@dataclass(frozen=True)
 class TextOverlay:
     """What the app writes onto one design; built and checked before any paid call."""
 
@@ -336,6 +352,7 @@ class TextOverlay:
     colors: dict[ColorRole, RGB]
     fonts: dict[str, Path]  # weight -> font file
     text_boxes: tuple[Box, ...] = ()  # post formats: the zones instead of one panel
+    canvas: FormatCanvas | None = None  # post formats: the template the app composes
 
     def describe(self) -> str:
         fields = ", ".join(
@@ -343,6 +360,11 @@ class TextOverlay:
             if zone.field in self.texts
         )
         fonts = ", ".join(sorted({path.stem for path in self.fonts.values()}))
+        if self.canvas is not None:
+            slot = "the picture cropped into its slot" if self.canvas.image else "no picture"
+            icons = f", {len(self.canvas.icons)} line icon(s)" if self.canvas.icons else ""
+            return (f"{fields} rendered by the app on a solid {self.canvas.theme} panel ({fonts})"
+                    f"{icons}; {slot}; text never on the picture; the image model draws no text")
         return (
             f"{fields} rendered by the app in {self.panel.label} ({fonts}); a scrim is added "
             "where the contrast is too low; the image model draws no text"
@@ -455,27 +477,56 @@ def _lines(value: object) -> list[str]:
     return [str(item).strip() for item in items if isinstance(item, str) and item.strip()]
 
 
+def _rgb_theme(theme: Mapping[str, str]) -> dict[ColorRole, RGB]:
+    """A format theme as the overlay's colour roles; muted is drawn as the accent role."""
+    return {"background": _rgb(theme["background"]), "text": _rgb(theme["text"]),
+            "highlight": _rgb(theme["highlight"]), "accent": _rgb(theme["muted"])}
+
+
+def _role(color: str) -> ColorRole:
+    return "accent" if color == "muted" else color  # type: ignore[return-value]
+
+
+def _large(size: int, weight: str) -> bool:
+    """WCAG large text: 24 px, or 19 px bold (the zone's smallest size counts)."""
+    return size >= 24 or (size >= 19 and weight in ("bold", "extrabold"))
+
+
 def format_overlay(
     chosen: PostFormat,
     copy: Mapping[str, object],
     system: DesignSystem,
-    brand: BrandProfile | None,
     *,
+    theme: Mapping[str, str],
     slide_type: str | None = None,
+    step: int | None = None,
 ) -> TextOverlay:
-    """The text of one post format (config/post_formats.json) on the whole canvas: its zones
-    by kind (big_number, headline, subline, list, two_column, question, quote), checked to fit
-    the format's size before any paid call. TextOverlayError says what to fix."""
+    """One post format as a template: a solid theme panel with its zones by kind (big_number,
+    headline, subline, list, two_column, question, quote), line icons drawn in code and the
+    picture's slot; checked to fit (titles shrink within their size range) and for contrast
+    before any paid call. step: a carousel body slide's number. TextOverlayError says what
+    to fix."""
     spec = system.text_overlay
     if spec is None:
-        raise TextOverlayError("design_system.json has no textOverlay section (fonts, scrim, "
-                               "colours), so the app cannot render the post format's text.")
+        raise TextOverlayError("design_system.json has no textOverlay section (fonts), so the "
+                               "app cannot render the post format's text.")
+    colors = _rgb_theme(theme)
     _, zones = chosen.layout(slide_type)
+    image, bars = chosen.canvas(slide_type)
     made: list[TextZone] = []
     texts: dict[ZoneField, ZoneText] = {}
+    icons: list[tuple[str, FormatBox, RGB]] = []
     for zone in zones:
+        if zone.kind == "icon":
+            name = zone.auto or str(copy.get(str(zone.field)) or "").strip().lower()
+            if name not in ICONS:
+                raise TextOverlayError(f'{chosen.id}: icon "{name}" must be one of '
+                                       f"{', '.join(ICONS)}")
+            icons.append((name, zone.box, colors["highlight"]))
+            continue
         style = {"size": zone.size, "weight": zone.weight, "align": zone.align,
-                 "scrim": zone.scrim, "line_height": 1.15}
+                 "scrim": "never", "line_height": 1.15, "marker": "highlight",
+                 "min_contrast": 3.0 if _large(zone.size[0], zone.weight) else None}
         if zone.kind == "two_column":
             left, top, right, bottom = zone.box
             middle = (left + right) / 2
@@ -486,14 +537,15 @@ def format_overlay(
                                                         strict=True):
                 head: ZoneField = "column_left_label" if side == "left" else "column_right_label"
                 body: ZoneField = "column_left" if side == "left" else "column_right"
+                head_size = (zone.size[0], round(zone.size[1] * 1.1))
                 made.append(TextZone.model_validate({
                     **style, "field": head, "box": (start, top, end, top + header),
-                    "size": (zone.size[0], round(zone.size[1] * 1.1)), "weight": "bold",
-                    "color": "highlight",
+                    "size": head_size, "weight": "bold", "color": "highlight",
+                    "min_contrast": 3.0 if _large(head_size[0], "bold") else None,
                 }))
                 made.append(TextZone.model_validate({
                     **style, "field": body, "box": (start, top + header + 0.01, end, bottom),
-                    "max_lines": zone.max_lines, "color": zone.color,
+                    "max_lines": zone.max_lines, "color": _role(zone.color),
                 }))
                 texts[head] = ZoneText((label.upper(),))
                 items = _lines(copy.get(name))
@@ -501,31 +553,50 @@ def format_overlay(
                     texts[body] = ZoneText(tuple(items))
             continue
         field_name = _KIND_FIELD[zone.kind]
-        items = _lines(copy.get(str(zone.field)))
+        items = [f"{step or 1:02d}"] if zone.auto == "step" else _lines(copy.get(str(zone.field)))
         if not items:
             continue
         if zone.kind == "list":
             texts[field_name] = ZoneText(tuple(items), numbered=zone.numbered)
         elif zone.kind == "quote":
-            texts[field_name] = ZoneText((f"\u201c{items[0].strip(_QUOTES)}\u201d",))
+            texts[field_name] = ZoneText((f"“{items[0].strip(_QUOTES)}”",))
         else:
             texts[field_name] = ZoneText((" ".join(items),))
         made.append(TextZone.model_validate({
             **style, "field": field_name, "box": zone.box, "max_lines": zone.max_lines,
-            "color": zone.color, "valign": zone.valign,
-            "min_contrast": 3.0 if zone.kind in ("big_number", "question") else None,
+            "color": _role(zone.color), "valign": zone.valign,
         }))
     used = [zone for zone in made if zone.field in texts]
+    canvas = FormatCanvas(
+        size=chosen.size, theme=chosen.theme, background=colors["background"],
+        image=(image.box, image.shape) if image is not None else None,
+        bars=tuple((bar.box, colors[_role(bar.color)]) for bar in bars),
+        icons=tuple(icons),
+        ring=colors["highlight"] if image is not None and image.shape == "circle" else None,
+        person=chosen.roman,
+    )
     overlay = TextOverlay(
         format=chosen.id,
-        panel=OverlayPanel(box=(0.0, 0.0, 1.0, 1.0), label="the text areas"),
+        panel=OverlayPanel(box=(0.0, 0.0, 1.0, 1.0), label="the text panel"),
         zones=tuple(made),
         texts=texts,
         spec=spec,
-        colors=overlay_colors(brand, system, spec),
+        colors=colors,
         fonts=resolve_fonts(spec.fonts, {zone.weight for zone in used}),
-        text_boxes=tuple(zone.box for zone in zones),
+        text_boxes=tuple(zone.box for zone in zones if zone.kind != "icon"),
+        canvas=canvas,
     )
+    for text_zone in used:  # the panel is solid: one contrast check per colour
+        for color in _zone_colors(text_zone, texts[text_zone.field], colors):
+            ratio = contrast(color, colors["background"])
+            marker = color == colors[text_zone.marker] != colors[text_zone.color]
+            needed = 3.0 if marker else overlay.min_contrast(text_zone)  # a number marker: 3:1
+            if ratio < needed:
+                raise TextOverlayError(
+                    f"{chosen.id}: {_LABELS[text_zone.field]} colour has too little contrast with "
+                    f"the {canvas.theme} panel ({ratio:.1f}:1, needs {needed:g}:1);"
+                    " fix the theme in config/post_formats.json."
+                )
     place_texts(overlay, chosen.size, slack=_PREPARE_SLACK)  # every text fits, before any cost
     return overlay
 
@@ -887,11 +958,146 @@ def text_layer(overlay: TextOverlay, backdrop: Image.Image) -> tuple[Image.Image
     return layer, notes
 
 
+_ICON_SCALE = 4  # icons and round slots are drawn 4x and scaled down (smooth edges)
+
+
+def _icon_shapes(draw: ImageDraw.ImageDraw, name: str, side: int, line: int) -> None:
+    """One line icon in a square of `side` px (white on a mask)."""
+
+    def at(*points: float) -> list[tuple[float, float]]:
+        return [(points[n] * side, points[n + 1] * side) for n in range(0, len(points), 2)]
+
+    def ring(cx: float, cy: float, radius: float, fill: bool = False) -> None:
+        box = (side * (cx - radius), side * (cy - radius), side * (cx + radius),
+               side * (cy + radius))
+        if fill:
+            draw.ellipse(box, fill=255)
+        else:
+            draw.ellipse(box, outline=255, width=line)
+
+    def path(*points: float, closed: bool = False) -> None:
+        found = at(*points)
+        draw.line(found + found[:1] if closed else found, fill=255, width=line, joint="curve")
+
+    if name == "check":
+        ring(0.5, 0.5, 0.42)
+        path(0.29, 0.52, 0.44, 0.67, 0.72, 0.37)
+    elif name == "clock":
+        ring(0.5, 0.5, 0.42)
+        path(0.5, 0.26, 0.5, 0.5, 0.67, 0.6)
+    elif name == "chat":
+        draw.rounded_rectangle((side * 0.1, side * 0.16, side * 0.9, side * 0.68),
+                               radius=round(side * 0.12), outline=255, width=line)
+        path(0.3, 0.68, 0.24, 0.88, 0.48, 0.68)
+        for x in (0.33, 0.5, 0.67):
+            ring(x, 0.42, 0.045, fill=True)
+    elif name == "euro":
+        draw.arc((side * 0.22, side * 0.16, side * 0.9, side * 0.84), start=40, end=320,
+                 fill=255, width=line)
+        path(0.14, 0.43, 0.62, 0.43)
+        path(0.14, 0.57, 0.62, 0.57)
+    elif name == "user":
+        ring(0.5, 0.32, 0.17)
+        draw.arc((side * 0.18, side * 0.56, side * 0.82, side * 1.2), start=180, end=360,
+                 fill=255, width=line)
+    elif name == "target":
+        ring(0.5, 0.5, 0.42)
+        ring(0.5, 0.5, 0.26)
+        ring(0.5, 0.5, 0.09, fill=True)
+    elif name == "shield":
+        path(0.5, 0.08, 0.84, 0.2, 0.8, 0.56, 0.5, 0.92, 0.2, 0.56, 0.16, 0.2, closed=True)
+        path(0.34, 0.5, 0.46, 0.62, 0.67, 0.38)
+    elif name == "bolt":
+        path(0.58, 0.06, 0.22, 0.56, 0.48, 0.56, 0.4, 0.94, 0.78, 0.42, 0.52, 0.42, closed=True)
+    elif name == "calendar":
+        draw.rounded_rectangle((side * 0.12, side * 0.2, side * 0.88, side * 0.88),
+                               radius=round(side * 0.08), outline=255, width=line)
+        path(0.12, 0.4, 0.88, 0.4)
+        path(0.34, 0.1, 0.34, 0.3)
+        path(0.66, 0.1, 0.66, 0.3)
+    elif name == "mail":
+        draw.rounded_rectangle((side * 0.1, side * 0.22, side * 0.9, side * 0.78),
+                               radius=round(side * 0.05), outline=255, width=line)
+        path(0.12, 0.25, 0.5, 0.55, 0.88, 0.25)
+    elif name == "search":
+        ring(0.42, 0.42, 0.27)
+        path(0.62, 0.62, 0.88, 0.88)
+    else:  # arrow: an arrow inside a circle
+        ring(0.5, 0.5, 0.42)
+        path(0.28, 0.5, 0.72, 0.5)
+        path(0.56, 0.34, 0.72, 0.5, 0.56, 0.66)
+
+
+def _square(box: PixelBox) -> PixelBox:
+    left, top, right, bottom = box
+    side = min(right - left, bottom - top)
+    x0, y0 = left + (right - left - side) // 2, top + (bottom - top - side) // 2
+    return x0, y0, x0 + side, y0 + side
+
+
+def draw_icon(image: Image.Image, name: str, box: PixelBox, color: RGB) -> None:
+    """A simple line icon (formats.ICONS) centred in `box`, drawn in code."""
+    left, top, right, _ = _square(box)
+    side = right - left
+    if side < 4:
+        return
+    big = side * _ICON_SCALE
+    mask = Image.new("L", (big, big), 0)
+    _icon_shapes(ImageDraw.Draw(mask), name, big, max(2, round(big * 0.065)))
+    mask = mask.resize((side, side), Image.Resampling.LANCZOS)
+    image.paste(Image.new("RGB", (side, side), color), (left, top), mask)
+
+
+def _place_picture(out: Image.Image, picture: Image.Image, canvas: FormatCanvas) -> None:
+    if canvas.image is None:
+        return
+    box, shape = canvas.image
+    left, top, right, bottom = _to_pixels(box, (0, 0, *canvas.size))
+    width, height = right - left, bottom - top
+    centering = (0.5, 0.35 if canvas.person else 0.5)
+    fitted = ImageOps.fit(picture.convert("RGB"), (width, height), Image.Resampling.LANCZOS,
+                          centering=centering)
+    if shape != "circle":
+        out.paste(fitted, (left, top))
+        return
+    big = Image.new("L", (width * _ICON_SCALE, height * _ICON_SCALE), 0)
+    ImageDraw.Draw(big).ellipse((0, 0, big.width - 1, big.height - 1), fill=255)
+    out.paste(fitted, (left, top), big.resize((width, height), Image.Resampling.LANCZOS))
+    if canvas.ring is not None:
+        line = max(3, round(canvas.size[0] * 0.006))
+        ImageDraw.Draw(out).ellipse((left, top, right - 1, bottom - 1), outline=canvas.ring,
+                                    width=line)
+
+
+def compose_format(picture: Image.Image | None, overlay: TextOverlay) -> Image.Image:
+    """A post format at its final size: the solid theme panel, the picture cropped into its
+    slot (nothing when the format has none), the bars, the line icons, then the text (never on
+    the picture). The logo follows (workflows/logo.py)."""
+    canvas = overlay.canvas
+    if canvas is None:
+        raise TextOverlayError("compose_format is for post formats only")
+    out = Image.new("RGB", canvas.size, canvas.background)
+    if picture is not None:
+        _place_picture(out, picture, canvas)
+    draw = ImageDraw.Draw(out)
+    for box, color in canvas.bars:
+        draw.rectangle(_to_pixels(box, (0, 0, *canvas.size)), fill=color)
+    for name, box, color in canvas.icons:
+        draw_icon(out, name, _to_pixels(box, (0, 0, *canvas.size)), color)
+    layer, _ = text_layer(overlay, out)
+    return Image.alpha_composite(out.convert("RGBA"), layer).convert("RGB")
+
+
 def apply_text(data: bytes, overlay: TextOverlay) -> tuple[bytes, list[str]]:
     """Render the texts onto one generated image (before the logo); returns PNG bytes and
-    notes on the scrims that were added."""
+    notes on the scrims that were added. A post format is composed as its template."""
     with Image.open(io.BytesIO(data)) as source:
         image = source.convert("RGB")
+    if overlay.canvas is not None:
+        composed = compose_format(image if overlay.canvas.image else None, overlay)
+        buffer = io.BytesIO()
+        composed.save(buffer, format="PNG", optimize=True)
+        return buffer.getvalue(), []
     layer, notes = text_layer(overlay, image)
     image = Image.alpha_composite(image.convert("RGBA"), layer).convert("RGB")
     buffer = io.BytesIO()

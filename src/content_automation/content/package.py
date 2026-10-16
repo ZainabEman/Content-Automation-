@@ -55,6 +55,8 @@ from content_automation.content.deliverables import (
     load_deliverables,
 )
 from content_automation.content.formats import (
+    LINE_WORDS,
+    TITLE_WORDS,
     FormatCatalog,
     FormatError,
     PostFormat,
@@ -69,6 +71,7 @@ from content_automation.content.quality import (
     CAPTION_MAX_WORDS,
     CAPTION_MAX_WORDS_BY_PLATFORM,
     CAPTION_MIN_WORDS,
+    banned_problems,
     caption_problems,
     carousel_problems,
     format_problems,
@@ -115,6 +118,7 @@ from content_automation.workflows.image_workflows import (
     AD_VARIANTS,
     PreparedWorkflow,
     WorkflowInputs,
+    format_settings,
     prepare_workflow,
     run_workflow,
 )
@@ -416,19 +420,24 @@ def _choose_format(
                  and item.platform in FORMAT_PLATFORMS), None)
     if part is None or part.platform is None:
         return None
-    provider = settings.image_provider if settings.image_provider == "mock" else (
-        part.provider or settings.image_provider)
     try:
         catalog = load_formats(settings.post_formats_file)
+        roman = next((item for item in catalog.formats if item.roman), None)
+        # Roman formats use their own provider (comfyui, Roman's LoRA); mock stays mock.
+        person_ok = roman is not None and provider_shows_person(
+            format_settings(roman, settings))
+        last_roman = next((name for name in recent_formats(
+            settings.packages_dir, None, exclude=folder, limit=50)
+            if (found := catalog.find(name)) is not None and found.roman), None)
         return pick_format(
             part.platform, catalog,
             seed=package.content_id or folder.name,
             recent=recent_formats(settings.packages_dir, part.platform, exclude=folder),
             has_number=research_has_number(f"{a.title} {a.summary} {a.content}"
                                            for a in articles),
-            person_ok=provider_shows_person(
-                settings.model_copy(update={"image_provider": provider})),
+            person_ok=person_ok,
             override=override,
+            last_roman=last_roman,
         )
     except FormatError as error:
         raise DeliverableError(str(error)) from None
@@ -441,13 +450,13 @@ def _formats(settings: Settings) -> FormatCatalog | None:
         return None  # reported by the brief checks
 
 
-def _part_settings(name: str, slot: ImageSlot, settings: Settings) -> Settings:
-    """The static Instagram carousel's slides: OpenRouter with CAROUSEL_IMAGE_MODEL (key from
-    .env), app-rendered text; IMAGE_PROVIDER=mock stays mock. Every other part: as given."""
-    if name != "carousel" or not slot.post_format or settings.image_provider == "mock":
+def _part_settings(chosen: PostFormat | None, slot: ImageSlot, settings: Settings) -> Settings:
+    """A post format's part: the format's own provider, never swapped (a carousel: its cover's,
+    OpenRouter with CAROUSEL_IMAGE_MODEL; no image slot: the app alone, free); IMAGE_PROVIDER=
+    mock stays mock. Every other part: as given."""
+    if chosen is None or not slot.post_format:
         return settings
-    return settings.model_copy(update={"image_provider": "openrouter",
-                                       "image_model": settings.carousel_image_model})
+    return format_settings(chosen, settings, "cover" if chosen.slide_types else None)
 
 
 def _new_folder(parent: Path, name: str) -> Path:
@@ -617,14 +626,14 @@ def _slot_template(name: str, format_id: FormatId) -> dict[str, Any]:
 
 
 def _format_slide(post_format: PostFormat, kind: str) -> dict[str, Any]:
-    """One static carousel slide of a post format: its fields, the picture and the alt text."""
-    return {
-        "type": kind,
-        "copy": copy_template(post_format, kind),
-        "illustration": "<what the picture shows: one clean visual for this slide, no text, "
-                        "no people>",
-        "altText": "<what the slide shows and says, for screen readers>",
-    }
+    """One static carousel slide of a post format: its fields, the picture (the cover only)
+    and the alt text."""
+    slide: dict[str, Any] = {"type": kind, "copy": copy_template(post_format, kind)}
+    if post_format.canvas(kind)[0] is not None:
+        slide["illustration"] = ("<what the picture shows: a place or objects only, never the "
+                                 "headline or topic; nothing written, no screens, no people>")
+    slide["altText"] = "<what the slide shows and says, for screen readers>"
+    return slide
 
 
 def _first_frame(formats: Sequence[str]) -> str | None:
@@ -762,8 +771,12 @@ def _brief_template(
             "format": post_format.label(),
             "rule": (
                 'Fill only the fields under "copy" (they are this format\'s fields); the app '
-                "renders them in the format's zones, and the picture has no text at all. "
-                "Never describe the man's face."
+                "renders them on a solid panel beside the picture, and the picture has no text "
+                f"at all. Titles at most {TITLE_WORDS} words, every other line at most "
+                f"{LINE_WORDS} words; no generic titles: one concrete example or sourced fact "
+                "per post and per slide. Never use: SME marketers, leverage, unlock, practical "
+                "sequence. The illustration describes the visual only (a place or objects), "
+                "never the headline, topic or copy. Never describe the man's face."
                 + (" A big number must be written in a research article listed in "
                    "sourceArticleIds." if post_format.needs_number else "")
             ),
@@ -772,13 +785,11 @@ def _brief_template(
         }
     if post is not None:
         design = suggested or post.format or "statement"
-        if post_format is not None and not post_format.classic:
+        if post_format is not None:
             template["post"] = {"format": design, "postFormat": post_format.id,
                                 "copy": copy_template(post_format)}
         else:
             template["post"] = _slot_template("post", design)
-            if post_format is not None:
-                template["post"]["postFormat"] = post_format.id
             if post.platform == "linkedin":
                 template["post"]["person"] = True
     if "carousel" in by_part:
@@ -834,6 +845,23 @@ def ad_provider_problem(specs: Mapping[str, Deliverable], provider: str | None,
             f"build it with {', '.join(sorted(own))}, or leave the ad out of this build")
 
 
+def _format_provider_problem(folder: Path, provider: str | None,
+                             settings: Settings) -> str | None:
+    """A post format's provider is fixed (config/post_formats.json "provider"): a --provider
+    other than it (mock aside, for local tests) is refused, never a silent switch."""
+    if provider is None or provider == "mock" or not (folder / PACKAGE_FILE).is_file():
+        return None
+    try:
+        saved = json.loads((folder / PACKAGE_FILE).read_text(encoding="utf-8"))
+        chosen = load_formats(settings.post_formats_file).find(str(saved.get("format") or ""))
+    except (OSError, ValueError, FormatError):
+        return None
+    if chosen is None or chosen.provider in (None, provider) or not chosen.has_image:
+        return None
+    return (f"{chosen.id}: its image provider is {chosen.provider} (config/post_formats.json); "
+            f"--provider {provider} is refused (never swapped)")
+
+
 def build_package(folder: Path, settings: Settings, *, dry_run: bool,
                   provider: str | None = None) -> PackageResult:
     """Raises BriefError when brief.json is missing or invalid (nothing is made). provider:
@@ -865,6 +893,8 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool,
     chosen = provider or (None if settings.image_provider == "mock" else
                           configured.pop() if len(configured) == 1 else None)
     refused = ad_provider_problem(specs, provider, settings.image_provider)
+    if refused is None:
+        refused = _format_provider_problem(folder, provider, settings)
     if refused is not None:
         raise BriefError([refused])
     if chosen and chosen != settings.image_provider:
@@ -1058,6 +1088,7 @@ def _quality_problems(brief: ContentBrief, settings: Settings, folder: Path) -> 
         except DeliverableError:
             pass  # reported by the deliverable checks
     problems += post_problems(brief) + caption_problems(brief, offer, caption_platforms)
+    problems += banned_problems(brief)
     try:
         system = load_design_system(settings.design_system_file)
         problems = carousel_problems(brief, system, platforms, offer) + problems
@@ -1228,16 +1259,13 @@ def _plan_images(
             continue
         earlier = [picks[part] for part in IMAGE_SLOTS[:position] if part in picks]
         jobs = _slot_inputs(name, slot, brief, folder, earlier + others, counts[name])
-        part_settings = _part_settings(name, slot, settings)
         chosen = None
         if slot.post_format and catalog is not None:
             try:
                 chosen = catalog.get(slot.post_format)
             except FormatError:
                 chosen = None  # reported by the brief checks
-        if chosen is not None and chosen.classic:
-            jobs = [replace(inputs, post_format=None, format_copy=None) for inputs in jobs]
-            chosen = None  # li_classic: the current design-system layout
+        part_settings = _part_settings(chosen, slot, settings)
         plan = _ImagePlan(slot, jobs, settings=part_settings,
                           size=chosen.size if chosen is not None else None)
         try:
@@ -1863,11 +1891,12 @@ def _dry_run_lines(
         todo = [plan.prepared[position] for position in _todo(plan, item, part)]
         cost = redo = 0.0
         for prepared in todo:
+            own = prepared.settings or part  # a template slide: no picture, free
             cold = batch.cold if part is settings else True
-            cost += estimate_cost_usd(prepared.request, part, cold_start=cold)
+            cost += estimate_cost_usd(prepared.request, own, cold_start=cold)
             batch.cold = batch.cold and part is not settings
             if prepared.person_shown:
-                redo += estimate_cost_usd(prepared.request, part, cold_start=False)
+                redo += estimate_cost_usd(prepared.request, own, cold_start=False)
         total += cost
         costs[kind] = round(cost, 6)
         redos[kind] = round(redo, 6)
@@ -1904,12 +1933,15 @@ def _dry_run_lines(
             lines.append(f"  text: {lead.inputs.get('textOverlay')}")
         if lead.inputs.get("postFormat") and len(plan.prepared) > 1:
             kinds = [str(prepared.inputs.get("slideType")) for prepared in plan.prepared]
+            pictures = sum(1 for prepared in plan.prepared
+                           if (prepared.settings or part).image_provider != "template")
             hashtags = len(brief.hashtags)
             width, height = plan.size or (1080, 1350)
             lines.append(
                 f"  static carousel: {len(kinds)} PNG slides at {width}x{height} "
-                f"({', '.join(kinds)}); one image per slide "
-                f"via {part.image_provider} ({part.image_model}); the logo on the last slide only; "
+                f"({', '.join(kinds)}); {pictures} picture(s) (the cover) via "
+                f"{part.image_provider} ({part.image_model}), the other slides rendered by the "
+                "app (template, free); the logo on the last slide only; "
                 f"caption.txt ({hashtags} hashtags) and alt_text.txt go to Drive with the PNGs"
             )
         elif slot.format == "carousel" and len(plan.prepared) > 1:

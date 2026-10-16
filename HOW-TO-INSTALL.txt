@@ -1,0 +1,31 @@
+HOW TO INSTALL CONTENT AUTOMATION
+=================================
+
+1. Unzip
+   Right-click the zip file > "Extract All..." > type this folder:
+       C:\BrandedGenius\content-automation
+   > click "Extract".
+
+2. Set up
+   Open that folder and double-click SETUP.bat.
+   If Windows shows a blue warning: click "More info" > "Run anyway".
+   Wait until it says ALL OK (5-15 minutes). Green OK = good, red PROBLEM = read the yellow line under it.
+
+3. Install Codex Desktop
+   If it is missing, SETUP.bat opens the download page for you. Install it and sign in.
+
+4. Open the folder in Codex
+   In Codex Desktop, open the folder C:\BrandedGenius\content-automation.
+
+5. Connect Gmail
+   In Codex, connect the Gmail plugin with brandedgenius.de@gmail.com.
+
+6. Connect Higgsfield and Google Drive
+   In Codex, connect the Higgsfield and Google Drive plugins with the company accounts.
+
+7. Test
+   Type in Codex:  show calendar
+   You should see this week's or next week's content plan.
+
+8. Something wrong?
+   Double-click SETUP.bat again. If a red PROBLEM line stays, send a photo of it.

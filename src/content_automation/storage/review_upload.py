@@ -2,9 +2,11 @@
 
 config/storage.json `upload.requireReview` (default true): a build no longer uploads by itself;
 `ca item approve BG-x` on the review gate uploads the approved version to
-`<Folder>/<Content ID or BG ID>/v<n>/`. With STORAGE_PROVIDER=plugin, `ca` writes one upload
-request per file (state/uploads/<job>.json, a queued `upload` job); the upload skill uploads it
-with the Google Drive plugin and records it with `ca drive record <job> --file-id --link`.
+`<Folder>/<Content ID or BG ID>/v<n>/`. With STORAGE_PROVIDER=plugin, a package's files go into
+its upload_manifest.json (storage/manifest.py: the Drive plugin uploads, `ca drive record
+<package> --results`); a file without a package (a YouTube final) is one upload request
+(state/uploads/<job>.json, a queued `upload` job) recorded with `ca drive record <job> --file-id
+--link`.
 """
 
 import json
@@ -92,7 +94,18 @@ def upload_approved(conn: sqlite3.Connection, settings: Settings, ref: str, *,
     version = item.approved_version or item.current_version
     subfolder = f"v{version}" + (f"/{subfolder}" if subfolder else "")
     where = f"{platform_folder(folder_key(item))}/{content_id}/{subfolder}/"
-    if settings.storage_provider == "plugin":
+    package = target[0] if target is not None and (target[0] / "package.json").is_file() else None
+    if settings.storage_provider == "plugin" and package is not None:
+        from content_automation.storage.manifest import Target, write_manifest
+
+        targets = [Target(f"{subfolder}/{_relative(file, package)}", file, where.rstrip("/"),
+                          item.id) for file in files]
+        try:
+            return write_manifest(package, settings, targets)
+        except (StorageError, OSError, ValueError) as error:
+            return [f"{item.id}: upload manifest not written ({error}); later: uv run ca drive "
+                    "sync"]
+    if settings.storage_provider == "plugin":  # no package (e.g. a YouTube final): requests
         lines = [queue_upload(conn, settings, item.id, file, where, command=command)
                  for file in files]
         lines.append("Next: the upload skill uploads each request with the Drive plugin, then "
@@ -107,6 +120,13 @@ def upload_approved(conn: sqlite3.Connection, settings: Settings, ref: str, *,
     set_upload(conn, item.id, "uploaded", storage.name, command=command)
     label = " (mock)" if storage.name == "mock" else ""
     return [f"{item.id} v{version}: {len(files)} file(s) uploaded{label} to {where}"]
+
+
+def _relative(file: Path, folder: Path) -> str:
+    try:
+        return file.resolve().relative_to(folder.resolve()).as_posix()
+    except ValueError:
+        return file.name
 
 
 def queue_upload(conn: sqlite3.Connection, settings: Settings, item_id: str, file: Path,

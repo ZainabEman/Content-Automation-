@@ -15,4 +15,6 @@ A static carousel is a normal package part: make-content stage 1 and 2, one dry 
 4. Only after "ok": `uv run ca content build "<folder>" --authorize <DR-id>`. Each slide: the image without text, then the app's text and (last slide) the logo, saved at 1080x1350 in `images/carousel-N.png`. The set check follows (make-content step 6); then `uv run ca content build "<folder>"` again.
 5. Done: `carousel/caption.txt` and `carousel/alt_text.txt` are written; the finished package uploads the PNGs and both files to Drive `Instagram/<Content ID>/`, adds its tracker row (Pending/Pending) and marks its Approved calendar row Generated. Report the folder, the Drive lines and the cost.
 
+With STORAGE_PROVIDER=plugin the upload in step 5 is a manifest: if `<folder>/upload_manifest.json` exists, upload each entry with the Google Drive plugin, then `uv run ca drive record "<folder>" --results <json>` (upload skill, "Upload manifest"); the tracker row and the calendar row follow from the record.
+
 Never say "ok" for the user and never pass `--authorize` without the user's "ok" to that dry run.

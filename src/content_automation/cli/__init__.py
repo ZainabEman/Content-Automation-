@@ -186,6 +186,7 @@ from content_automation.storage import (
     tracker_conflicts,
     tracker_lines,
 )
+from content_automation.storage.manifest import pending_manifests, record_results
 from content_automation.storage.review_upload import record_plugin_upload, upload_approved
 from content_automation.workflows.card import TEMPLATES as CARD_TEMPLATES
 from content_automation.workflows.compose import MODES as COMPOSE_MODES
@@ -1488,6 +1489,8 @@ def content_build(
         if package.status == DONE_STATUS:  # every part made: upload the images and MP4s
             for line in AutoSync(settings)(folder):
                 typer.echo(line)
+            if settings.storage_provider == "plugin":
+                return  # the calendar row turns Generated with `ca drive record`
             for path in mark_generated(settings, folder):  # its Approved calendar row
                 typer.echo(f"Calendar {path.stem}: row Generated.")
                 typer.echo(sync_calendar(path, settings))
@@ -1834,6 +1837,8 @@ def drive_sync(
     _utf8_output()
     settings = _settings(check_keys=False)
     targets = folders or calendar_packages(settings)
+    if not folders and settings.storage_provider == "plugin":  # and every pending manifest
+        targets = list(dict.fromkeys([*targets, *pending_manifests(settings.packages_dir)]))
     failed: list[str] = []
     synced: list[tuple[Path, SyncResult]] = []
     with _registry(settings, "ca drive sync"):
@@ -2274,15 +2279,56 @@ def regenerate(
 
 @drive_app.command("record")
 def drive_record(
-    job_id: Annotated[int, typer.Argument(help="The upload request's jobId.")],
-    file_id: Annotated[str, typer.Option("--file-id", help="The Drive file ID.")],
-    link: Annotated[str, typer.Option("--link", help="The Drive link of the file.")],
+    target: Annotated[str, typer.Argument(
+        help="The package folder (with --results), or an upload request's jobId (with "
+             "--file-id and --link).")],
+    results: Annotated[str | None, typer.Option(
+        "--results", help='The Drive plugin\'s results: a JSON file or JSON text, a list of '
+        '{"id" or "local_path", "file_id" (folders: "folder_id"), "link"} or {"id", "status": '
+        '"skipped" | "failed"}.')] = None,
+    file_id: Annotated[str | None, typer.Option("--file-id", help="The Drive file ID.")] = None,
+    link: Annotated[str | None, typer.Option("--link", help="The Drive link.")] = None,
 ) -> None:
-    """After the Drive plugin uploaded an upload request (STORAGE_PROVIDER=plugin)."""
+    """After the Drive plugin uploaded (STORAGE_PROVIDER=plugin): a package's manifest entries
+    (idempotent; when every file is up: the tracker row and the calendar row), or one upload
+    request by its jobId."""
     _utf8_output()
     settings = _settings(dry_run=True)
-    with _registry(settings, f"ca drive record {job_id}") as scope:
-        lines = record_plugin_upload(scope.conn, job_id, file_id, link, command=scope.command)
+    if target.isdigit():
+        if file_id is None or link is None:
+            typer.echo("An upload request needs --file-id and --link.", err=True)
+            raise typer.Exit(code=2)
+        with _registry(settings, f"ca drive record {target}") as scope:
+            lines = record_plugin_upload(scope.conn, int(target), file_id, link,
+                                         command=scope.command)
+        for line in lines:
+            typer.echo(line)
+        return
+    folder = Path(target)
+    if results is None:
+        typer.echo("A package needs --results <json>.", err=True)
+        raise typer.Exit(code=2)
+    try:
+        source = Path(results)
+        text = source.read_text(encoding="utf-8") if source.is_file() else results
+    except OSError:
+        text = results
+    try:
+        parsed = json.loads(text)
+    except ValueError as error:
+        typer.echo(f"--results is not valid JSON: {error}", err=True)
+        raise typer.Exit(code=2) from None
+    found = parsed if isinstance(parsed, list) else [parsed]
+    if not all(isinstance(entry, dict) for entry in found):
+        typer.echo("--results must be a JSON object or a list of objects.", err=True)
+        raise typer.Exit(code=2)
+    with _registry(settings, f'ca drive record "{folder}"'):
+        try:
+            lines = record_results(folder, settings, found,
+                                   load_deliverables(settings.deliverables_file))
+        except (StorageError, DeliverableError, OSError, ValueError) as error:
+            typer.echo(str(error), err=True)
+            raise typer.Exit(code=1) from None
     for line in lines:
         typer.echo(line)
 

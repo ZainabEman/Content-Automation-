@@ -100,6 +100,10 @@ class Settings(BaseSettings):
     drive_share_with: str = ""  # comma-separated emails: editors of the main Drive folder
     secrets_dir: Path = Path(".secrets")  # OAuth client, token, Drive folder IDs: git-ignored
     drive_mock_dir: Path = Path("outputs/drive")  # STORAGE_PROVIDER=mock writes here
+    # STORAGE_PROVIDER=plugin: the Drive folder IDs (root, platforms, Calendar) and the local
+    # Content Tracker CSV whose rows the Drive plugin writes (storage/manifest.py).
+    drive_folders_file: Path = Path("config/drive_folders.json")
+    tracker_csv_file: Path = Path("outputs/tracker.csv")
     state_dir: Path = Path("state")  # registry.db, backups, dry runs: git-ignored
     registry_file: Path = Path("config/registry.json")  # the first BG number (next_id)
     jobs_file: Path = Path("config/jobs.json")  # free providers, units, timeouts, estimates

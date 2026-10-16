@@ -66,6 +66,7 @@ from content_automation.registry.items import get_item, set_planned_date, set_ti
 from content_automation.registry.link import register_row
 from content_automation.research.run import digest
 from content_automation.research.store import find_article
+from content_automation.storage.manifest import MANIFEST_FILE, PENDING_STATUS
 
 COLUMNS = (
     "Row", "BG ID", "Planned date", "Topic", "Research source", "Platform", "Content type",
@@ -630,6 +631,10 @@ def generate_rows(
                 f"{where}: waits for the person or set check; continue with the make-content "
                 f'checks and uv run ca content build "{folder}"'
             )
+        elif state == "upload":
+            lines.append(f"{where}: waits for the Drive upload: upload each entry of "
+                         f"{folder / MANIFEST_FILE} with the Drive plugin, then uv run ca drive "
+                         f'record "{folder}" --results <results.json>')
         elif state == "brief":
             lines.append(f"{where}: write content.md and brief.json in {folder}")
         elif state == "missing":
@@ -650,7 +655,12 @@ def generate_rows(
                       if not line.startswith(("DRY RUN:", "Estimated image cost:"))]
             if build and result.package is not None:
                 lines.append(f"  Status: {result.package.status}")
-                if result.package.status == DONE_STATUS:
+                if result.package.status == DONE_STATUS and settings.storage_provider == "plugin":
+                    if after_build is not None:  # writes upload_manifest.json
+                        lines += [f"  {line}" for line in after_build(folder)]
+                    lines.append("  Row turns Generated once the Drive plugin uploaded it "
+                                 "(ca drive record).")
+                elif result.package.status == DONE_STATUS:
                     row["Status"] = "Generated"
                     write_calendar(path, rows)
                     lines.append("  Row is Generated.")
@@ -768,7 +778,8 @@ def _row_research(row: Row, research_dir: Path) -> tuple[str, ResearchIdea | Non
 
 
 def _package_state(folder: Path) -> tuple[str, str]:
-    """missing, done, failed (with the error), review, brief (no brief.json yet) or ready."""
+    """missing, done, upload (STORAGE_PROVIDER=plugin: the manifest waits), failed (with the
+    error), review, brief (no brief.json yet) or ready."""
     try:
         package = ContentPackage.model_validate_json(
             (folder / PACKAGE_FILE).read_text(encoding="utf-8")
@@ -777,6 +788,8 @@ def _package_state(folder: Path) -> tuple[str, str]:
         return "missing", ""
     if package.items and package.status == DONE_STATUS:
         return "done", ""
+    if package.status == PENDING_STATUS:  # built; the Drive plugin uploads it
+        return "upload", ""
     failure = _failed_part(package)
     if failure:
         return "failed", failure

@@ -1,6 +1,6 @@
 ---
 name: upload
-description: Upload approved Branded Genius files to Google Drive. With STORAGE_PROVIDER=plugin, `ca` writes upload requests when a review is approved and this skill uploads each one with the Google Drive plugin, then records it with `ca drive record`. Use for "sync drive" and "upload approved files". Free; never uploads an unapproved version.
+description: Upload Branded Genius files to Google Drive with the Codex Google Drive plugin (STORAGE_PROVIDER=plugin): work through a package's upload_manifest.json (create folders, upload files, the tracker row, the calendar copy) and record the results with `ca drive record <package> --results`; also single upload requests (`ca drive record <jobId>`). Use after a build or a review approval that wrote a manifest, and for "sync drive" and "upload approved files". Free; never uploads what is not in a manifest or request.
 ---
 
 # Upload
@@ -18,3 +18,17 @@ description: Upload approved Branded Genius files to Google Drive. With STORAGE_
 3. Per request: `uv run ca jobs check <jobId>`. "skip": it is recorded already; "stop": report and stop; "go": find or make the folder path with the Google Drive plugin, upload the file into it.
 4. Right after each upload: `uv run ca drive record <jobId> --file-id <the plugin's file ID> --link <its link>`. A failed upload: say so with the plugin's error; do not record it.
 5. Report per item the uploaded files and the "every file uploaded" lines.
+
+## Upload manifest (STORAGE_PROVIDER=plugin)
+
+A finished package (after `ca content build`, `ca calendar generate --build`, or `ca item approve` when config/storage.json `upload.requireReview` is true) has `<package>/upload_manifest.json`; the package status is `upload_pending`. "sync drive" (`uv run ca drive sync`) refreshes every pending manifest and lists them.
+
+1. Do every entry that is not `done`, in order, with the Google Drive plugin (find its tools at run time):
+   - `create_folder`: look for a folder `name` inside `parent_folder_id` (from the earlier result when it is null); reuse it if it exists, else create it. Result: `{"id": "<entry id>", "folder_id": "<its ID>"}`.
+   - `upload`: upload `local_path` as `target_name` into `target_folder_id` (from the created folder when it is null). A file of that name already in the folder is reused (`replace_existing`: replaced), never added twice. Result: `{"id": "<entry id>", "file_id": "<ID>", "link": "<link>"}`.
+   - `sheet_append`: if the plugin can append rows to a Google Sheet, append `rows` to the Sheet `sheet_name` in the folder `parent_folder_id` (create it with `header` first if missing): `{"id": "tracker", "status": "done"}`. If it cannot: `{"id": "tracker", "status": "skipped"}`, then do the `tracker.csv` upload entry (Content Automation/Calendar/). Do `tracker.csv` only after a skip.
+   - A failed call: `{"id": "<entry id>", "status": "failed", "error": "<what happened>"}`; no retry without the user's yes.
+2. Save the results as a JSON list in `<package>/upload_results.json` and run `uv run ca drive record "<package>" --results "<package>/upload_results.json"`. Recorded entries are skipped on a rerun (no duplicates).
+3. When every file is up, it adds the post-upload entries (the tracker row and the calendar copy) and marks the calendar row Generated: do 1-2 again for them. Finished when it prints "(all done)". Report the Drive folder and the files.
+
+Never upload a file that is not in the manifest, never make anything public, never change sharing.

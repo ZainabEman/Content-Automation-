@@ -71,6 +71,7 @@ NOT_SET_UP = "Drive not set up — run ca drive setup"
 _ADAPTERS: dict[str, str] = {
     "mock": "content_automation.storage.providers.mock",
     "drive": "content_automation.storage.providers.drive_api",
+    "plugin": "content_automation.storage.providers.plugin",  # the Codex Drive plugin
 }
 
 
@@ -124,10 +125,8 @@ def get_storage(
     """The adapter for STORAGE_PROVIDER (or `provider`). Only sign_in (`ca drive setup`) may
     open the browser; otherwise StorageNotSetUpError when Drive has no sign-in or folders."""
     name = provider or settings.storage_provider
-    if name not in _ADAPTERS:  # "plugin": the Drive plugin uploads requests after the review
-        raise StorageNotSetUpError(
-            "STORAGE_PROVIDER=plugin: uploads are requests for the Google Drive plugin, written "
-            "when a review is approved (upload skill; ca drive record)")
+    if name not in _ADAPTERS:
+        raise StorageNotSetUpError(f"STORAGE_PROVIDER={name} is not a storage provider")
     module = importlib.import_module(_ADAPTERS[name])
     storage: Storage = module.create_storage(settings, sign_in=sign_in)
     return storage
@@ -162,6 +161,21 @@ def sync_package(folder: Path, storage: Storage, catalog: DeliverableCatalog) ->
     stops the sync (every file done so far is already saved in package.json).
     """
     package = load_package(folder)
+    if storage.name == "plugin":  # the Codex Drive plugin uploads: write the manifest
+        from content_automation.storage.manifest import (
+            ManifestError,
+            package_targets,
+            write_manifest,
+        )
+
+        result = SyncResult()
+        try:
+            result.lines = write_manifest(folder, settings_of(storage),
+                                          package_targets(folder, package))
+        except ManifestError as error:
+            result.failed.append(str(error))
+        result.waiting = "upload pending (Drive plugin: upload_manifest.json, ca drive record)"
+        return result
     names = dict.fromkeys(
         name for item in package.items.values() if item.status == "done"
         for name in item.files if Path(name).suffix.lower() in UPLOAD_SUFFIXES
@@ -236,6 +250,14 @@ def sync_package(folder: Path, storage: Storage, catalog: DeliverableCatalog) ->
         except (StorageError, TrackerError) as error:
             result.waiting = str(error)
     return result
+
+
+def settings_of(storage: Storage) -> Settings:
+    """The plugin adapter's settings (it keeps them for the manifest)."""
+    found = getattr(storage, "settings", None)
+    if not isinstance(found, Settings):
+        raise StorageError("this storage provider has no settings")
+    return found
 
 
 def drive_folder_name(folder: Path, package: ContentPackage) -> str:

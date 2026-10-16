@@ -51,4 +51,6 @@ Two stages. Stage 1 is free and text only. Stage 2 makes only what the user name
 6. **Set check** (`SET CHECK`, once all images of an ad set exist). Compare each listed image with the first one of the set: the same two fonts and text sizes, the same colours, the same layout family (panel, decor, scene treatment). Record each: `uv run ca job review "<job folder>" --check set --image image-1.png --pass` or `--fail "<what differs>"`. If any differs, **STOP**: show the user those images and ask whether to make them again: as in step 5, a new dry run, its cost, the user's "ok", then the build with `--authorize <new DR-id>` (it makes only the failed ones again).
 7. A carousel is built like the posts (one OpenRouter image per slide, text and logo by the app, then the set check); when done, caption.txt and alt_text.txt go to Drive with the PNGs. A video deliverable creates a video job: continue with the make-video skill. Until it is done the package says "draft — video pending".
 
+8. Drive (STORAGE_PROVIDER=plugin): when the build (or the review approval) wrote `<folder>/upload_manifest.json`, upload its entries with the Google Drive plugin and record them with `uv run ca drive record "<folder>" --results <json>` (upload skill, "Upload manifest").
+
 A package with no deliverables builds nothing; the build says so.

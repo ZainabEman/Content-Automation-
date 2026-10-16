@@ -186,24 +186,22 @@ higgsfield|comfyui for later. Details in `docs/PROGRESS.md` (Phase 3 decisions).
 
 ## 10. Higgsfield plugin tools (filled in by Codex on the first run)
 
-Status: **not listed yet.** On the first carousel run, before the dry run, Codex lists the
-Higgsfield plugin's tools in Codex and fills in this table (make-carousel skill, "First run").
-It then sets `stills.model`, `stills.referenceImages` and `stills.estimatedCredits` in
-`config/carousel_design.json`. Until then the skill finds the tools at run time and assumes
-no names.
+Status: **listed 2026-10-16.** Codex listed the Higgsfield plugin tools and checked model
+constraints and dry-run estimates before the first carousel dry run. `config/carousel_design.json`
+now records the selected image and video models and estimates.
 
 | Item | Value |
 | --- | --- |
-| Date listed | – |
-| Image tool (name) | – |
-| Image models | – |
-| Sizes / aspect ratios (1:1? 1080x1080 or the closest) | – |
-| Reference images (yes/no, how many, upload or URL) | – |
-| Negative prompt field (yes/no) | – |
-| Credits per image (as the plugin reports) | – |
-| Image-to-video tool (name, for Step 4) | – |
-| Video models, clip lengths, 1:1 support | – |
-| Credits per 5 s clip | – |
+| Date listed | 2026-10-16 |
+| Image tool (name) | `mcp__codex_apps__higgsfield_generate_image` |
+| Image models | `gpt_image_2_5` (selected; default 1k resolution, flare variant) |
+| Sizes / aspect ratios (1:1? 1080x1080 or the closest) | 1:1 supported; 1k output is the closest listed size to the 1080x1080 canvas, then `ca` crops/resizes |
+| Reference images (yes/no, how many, upload or URL) | Yes (`image_references`); catalog gives no maximum; uploaded media UUIDs or authorized HTTPS image URLs |
+| Negative prompt field (yes/no) | No dedicated field in the generation tool schema; append `Avoid:` to the prompt |
+| Credits per image (as the plugin reports) | 0.25 credits per image (default 1k/low, 1:1 estimate; `estimate_image_cost`) |
+| Image-to-video tool (name, for Step 4) | `mcp__codex_apps__higgsfield_generate_video` |
+| Video models, clip lengths, 1:1 support | `seedance_2_5` (selected); image reference via `start_image`, 4-30 seconds (5 supported), 1:1 supported |
+| Credits per 5 s clip | 35 credits (720p, silent image-reference estimate; `estimate_video_cost`) |
 
 ## Sources
 

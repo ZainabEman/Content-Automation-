@@ -1549,8 +1549,15 @@ def _make_images(
         item.image_folders += [""] * (len(item.image_refs) - len(item.image_folders))
     todo = _todo(plan, item if keep else None, settings)
     scope = runtime.current()
-    if scope is not None and scope.authorizations:  # a new "ok": its own automatic redo
-        item.person_redos, item.person_reasons = {}, {}
+    if scope is not None and scope.authorizations:  # a new "ok": an authorized retry
+        item.person_redos = {}
+        # Keep Codex's rejection of the old image so the authorized retry can replace it;
+        # automatic face-check failures get their one fresh-seed retry per authorization.
+        item.person_reasons = {
+            position: [reason for reason in reasons if reason.startswith("Codex check:")]
+            for position, reasons in item.person_reasons.items()
+            if any(reason.startswith("Codex check:") for reason in reasons)
+        }
     for position in todo:  # Codex says it is not Roman: reported, never redone by itself
         if keep and position < len(item.image_refs) and _check(
                 item, position, "person", settings) == "fail" and not any(

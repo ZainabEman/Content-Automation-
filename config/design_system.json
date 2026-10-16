@@ -672,7 +672,7 @@
       },
       "statement": {
         "zones": [
-          {"field": "audience_line", "box": [0, 0, 1, 0.06], "size": [18, 26], "weight": "bold", "color": "accent"},
+          {"field": "audience_line", "box": [0, 0, 1, 0.08], "size": [18, 26], "weight": "bold", "color": "accent"},
           {"field": "headline", "box": [0, 0.08, 1, 0.42], "maxLines": 4, "size": [40, 76], "weight": "bold", "lineHeight": 1.08, "minContrast": 3},
           {"field": "subheadline", "box": [0, 0.45, 1, 0.60], "maxLines": 3, "size": [22, 32], "weight": "medium", "lineHeight": 1.25},
           {"field": "points", "box": [0, 0.63, 1, 1], "maxLines": 6, "size": [20, 30], "weight": "medium", "lineHeight": 1.25}
@@ -697,7 +697,7 @@
       },
       "checklist": {
         "zones": [
-          {"field": "audience_line", "box": [0, 0, 1, 0.06], "size": [18, 26], "weight": "bold", "color": "accent"},
+          {"field": "audience_line", "box": [0, 0, 1, 0.08], "size": [18, 26], "weight": "bold", "color": "accent"},
           {"field": "headline", "box": [0, 0.08, 1, 0.42], "maxLines": 4, "size": [40, 76], "weight": "bold", "lineHeight": 1.08, "minContrast": 3},
           {"field": "subheadline", "box": [0, 0.45, 1, 0.60], "maxLines": 3, "size": [22, 32], "weight": "medium", "lineHeight": 1.25},
           {"field": "points", "box": [0, 0.63, 1, 1], "maxLines": 6, "size": [20, 30], "weight": "medium", "lineHeight": 1.25}

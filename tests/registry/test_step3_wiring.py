@@ -17,13 +17,12 @@ from content_automation.content.package import ContentPackage, PackageItem, save
 from content_automation.core.config import Settings
 from content_automation.registry import db_path, open_registry
 from content_automation.registry.audit import list_events
-from content_automation.registry.auth import create_from_dry_run, list_authorizations
+from content_automation.registry.auth import create_from_dry_run
 from content_automation.registry.dryruns import CostLine, save_dry_run
 from content_automation.registry.items import Item, create_item, get_item, set_status
 from content_automation.registry.jobs import (
     JobConfig,
     NotAuthorized,
-    check_job,
     get_job,
     list_jobs,
     open_job,
@@ -31,25 +30,9 @@ from content_automation.registry.jobs import (
 from content_automation.registry.runtime import Scope, activate
 from content_automation.storage import sync_package
 from content_automation.storage.providers.mock import MockStorage
-from content_automation.workflows.carousel_design import (
-    CarouselDesign,
-    SlideText,
-    load_carousel_design,
-)
-from content_automation.workflows.carousel_plugin import (
-    load_plan,
-    load_request,
-    output_file,
-    planned_split,
-    record_attempt,
-    stills_check,
-    write_still_requests,
-)
-from content_automation.workflows.carousel_render import background
 from content_automation.workflows.image_job import run_image_job
 
 REPO = Path(__file__).resolve().parents[2]
-TYPES = ("cover", "point", "stat", "point", "list", "point", "point", "final")
 PART_OF = {"instagram_carousel": "carousel", "linkedin_post": "post"}
 
 
@@ -144,117 +127,6 @@ def test_require_budget(conn: sqlite3.Connection) -> None:
         require_budget(scope, paid, "uv run ca content build")
     _authorize(conn, paid, free=("mock",))
     require_budget(scope, paid, "uv run ca content build")
-
-
-# --- carousel ------------------------------------------------------------------------------
-
-
-def _design() -> CarouselDesign:
-    design = load_carousel_design(REPO / "config" / "carousel_design.json")
-    stills = design.stills.model_copy(update={"reference_images": "no", "provider": "higgsfield"})
-    return design.model_copy(update={"stills": stills})
-
-
-def _slides() -> list[SlideText]:
-    return [SlideText(type=kind, headline=f"Slide {n}", body="Text")  # type: ignore[arg-type]
-            for n, kind in enumerate(TYPES, start=1)]
-
-
-def _record_still(package: Path, slide: int, design: CarouselDesign, conn: sqlite3.Connection,
-                  config: JobConfig) -> None:
-    request = load_request(package, "still", slide)
-    assert request.job_id is not None
-    assert check_job(conn, request.job_id, config=config).decision == "go"
-    target = output_file(package, "still", slide)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    background(design).save(target)
-    record_attempt(package, "still", slide, design, credits=5)
-
-
-def test_mock_carousel_makes_every_slide_local(isolated: Path, conn: sqlite3.Connection) -> None:
-    design = _design()
-    design = design.model_copy(
-        update={"stills": design.stills.model_copy(update={"provider": "mock"})})
-    package = Path("outputs/content/2026-10-16_carousel")
-    package.mkdir(parents=True)
-    item = _item(conn, package)
-    assert planned_split(package, _slides(), design) == (0, 0, 0, 0)
-    with activate(Scope(conn, JobConfig(), command="test", part_of=PART_OF)):
-        lines = write_still_requests(package, "Chatbots", _slides(), design)
-    assert "no Higgsfield requests, 8 local still(s)" in lines[0]
-    plan = load_plan(package)
-    assert plan is not None and plan.estimated_credits == 0
-    assert all(slide.source == "local" and slide.motion == "local" and not slide.request
-               for slide in plan.slides)
-    assert all((package / slide.still).is_file() for slide in plan.slides)
-    assert list_jobs(conn, item_id=item.id) == []
-    assert "No clips to make (all local)" in stills_check(package, design)[-1]
-
-
-def test_carousel_interrupted_then_resumed(
-    isolated: Path, conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("CAROUSEL_DESIGN_FILE", str(REPO / "config" / "carousel_design.json"))
-    design = _design()
-    package = Path("outputs/content/2026-10-13_carousel")
-    package.mkdir(parents=True)
-    item = _item(conn, package)
-    split = planned_split(package, _slides(), design)
-    assert split is not None
-    still_est, still_max, clip_est, clip_max = split
-    [auth] = _authorize(conn, [
-        CostLine(item.id, "still", "higgsfield-plugin", "credits", still_est, still_max),
-        CostLine(item.id, "clip", "higgsfield-plugin", "credits", clip_est, clip_max),
-    ])
-    config = JobConfig()
-    scope = Scope(conn, config, command="test", part_of=PART_OF)
-    with activate(scope):
-        write_still_requests(package, "Chatbots", _slides(), design)
-        plan = load_plan(package)
-        assert plan is not None and plan.approved_max_credits == still_max + clip_max
-        for slide in (1, 2, 3):  # then the session stops
-            _record_still(package, slide, design, conn, config)
-    unfinished = list_jobs(conn, statuses=("queued", "running"))
-    assert [job.inputs["slide"] for job in unfinished] == [4, 5, 6, 7]
-    runner = CliRunner()
-    listed = runner.invoke(app, ["jobs", "list", "--unfinished"])
-    assert listed.exit_code == 0 and "4 job(s)" in listed.stdout
-    resumed = runner.invoke(app, ["jobs", "resume", item.id])
-    assert resumed.exit_code == 0, resumed.output
-    assert "still_04" in resumed.stdout and "still_07" in resumed.stdout
-    with activate(scope):
-        for slide in (4, 5, 6, 7):
-            _record_still(package, slide, design, conn, config)
-    assert list_jobs(conn, statuses=("queued", "running")) == []
-    assert runner.invoke(app, ["jobs", "resume"]).stdout.strip() == "No unfinished jobs."
-    [authorization] = list_authorizations(conn)
-    assert authorization.id == auth and authorization.spent == pytest.approx(35)
-    assert get_item(conn, item.id).generation_status == "running"
-    check = runner.invoke(app, ["jobs", "check", str(unfinished[0].id)])
-    assert check.stdout.splitlines()[0] == "skip"
-
-
-def test_legacy_carousel_resumes_under_its_old_max(
-    isolated: Path, conn: sqlite3.Connection
-) -> None:
-    design = _design()
-    package = Path("outputs/content/2026-10-01_legacy")
-    package.mkdir(parents=True)
-    write_still_requests(package, "Old", _slides(), design)  # before the registry: no jobs
-    assert load_request(package, "still", 1).job_id is None
-    item = _item(conn, package)
-    scope = Scope(conn, JobConfig(), command="test", part_of=PART_OF)
-    with activate(scope):
-        lines = record_attempt(package, "still", 1, design,
-                               error="plugin timeout")
-    assert any("Retry still_01" in line for line in lines)
-    retry = load_request(package, "still", 1)
-    assert retry.job_id is not None
-    [legacy] = list_authorizations(conn)
-    plan = load_plan(package)
-    assert plan is not None and legacy.max_amount == plan.approved_max_credits
-    assert legacy.note is not None and "before the registry" in legacy.note
-    assert get_job(conn, retry.job_id).item_id == item.id
 
 
 # --- video agent steps and Drive uploads ---------------------------------------------------

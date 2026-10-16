@@ -239,6 +239,8 @@ class DesignRules(_DesignModel):
 ZoneField = Literal[
     "audience_line", "headline", "subheadline", "stat", "source_line", "points", "cta", "icons",
     "footer",
+    # post formats (config/post_formats.json): question, quote and the two columns
+    "question", "quote", "column_left_label", "column_left", "column_right_label", "column_right",
 ]
 Box = tuple[float, float, float, float]  # left, top, right, bottom as shares (0-1)
 ScrimMode = Literal["auto", "always", "never"]

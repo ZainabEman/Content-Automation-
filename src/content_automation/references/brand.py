@@ -35,7 +35,7 @@ class BrandFont(_BrandModel):
 
 
 class BrandCarousel(_BrandModel):
-    language: str = "en"  # the animated carousel's slide text (config/carousel_design.json)
+    language: str = "en"  # kept for older brand.json files; carousel text is English
 
 
 class BrandProfile(_BrandModel):

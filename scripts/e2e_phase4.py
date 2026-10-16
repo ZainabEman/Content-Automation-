@@ -1,4 +1,5 @@
-"""Phase 4 end-to-end check: PRD §10 acceptance criteria 1-9, offline.
+"""Phase 4 end-to-end check: PRD §10 acceptance criteria 1-5 and 7-9, offline
+(6, the animated carousel, was removed 2026-10-16).
 
 Run:  uv run python scripts/e2e_phase4.py [--keep]
 
@@ -102,11 +103,6 @@ def _setup(work: Path) -> None:
     # Phase 4 uploads after generation; Phase 7 waits for the review (requireReview: true).
     (work / "config" / "storage.json").write_text(
         json.dumps({"upload": {"requireReview": False}}), encoding="utf-8")
-    design_path = work / "config" / "carousel_design.json"
-    design = json.loads(design_path.read_text(encoding="utf-8"))
-    design["stills"]["referenceImages"] = "no"  # no style frames in the temp folder
-    design["stills"]["provider"] = "higgsfield"  # c6 tests the plugin requests (live may be mock)
-    design_path.write_text(json.dumps(design), encoding="utf-8")
     for name in list(os.environ):
         if name.isupper() and name.endswith(("_PROVIDER", "_MODEL", "_FILE", "_DIR")):
             del os.environ[name]
@@ -300,70 +296,6 @@ def c5(c: Criterion) -> None:
     _check(c, code == 0 and "cancelled" in out, "the user cancels it")
 
 
-def c6(c: Criterion, work: Path) -> None:
-    from content_automation.registry import db_path, open_registry
-    from content_automation.registry.approvals import approve
-    from content_automation.registry.auth import create_from_dry_run
-    from content_automation.registry.dryruns import CostLine, save_dry_run
-    from content_automation.registry.items import create_item
-    from content_automation.registry.jobs import JobConfig
-    from content_automation.registry.runtime import Scope, activate
-    from content_automation.workflows.carousel_design import SlideText, load_carousel_design
-    from content_automation.workflows.carousel_plugin import (
-        load_request,
-        output_file,
-        planned_split,
-        write_still_requests,
-    )
-    from content_automation.workflows.carousel_render import background
-
-    design = load_carousel_design(Path("config/carousel_design.json"))
-    types = ("cover", "point", "stat", "point", "list", "point", "point", "final")
-    slides = [SlideText(type=kind, headline=f"Slide {n}", body="Text")  # type: ignore[arg-type]
-              for n, kind in enumerate(types, start=1)]
-    package = Path("outputs/content/2026-10-13_e2e-carousel")
-    package.mkdir(parents=True)
-    conn = open_registry(db_path(Path("state")), Path("config/registry.json"))
-    item = create_item(conn, kind="carousel", title="WhatsApp flows", topic="WhatsApp flows",
-                       platforms=["instagram"], deliverable="instagram_carousel",
-                       package_path=package.as_posix())
-    approve(conn, item.id, gate="idea")
-    split = planned_split(package, slides, design)
-    assert split is not None
-    lines = [CostLine(item.id, "still", "higgsfield-plugin", "credits", split[0], split[1]),
-             CostLine(item.id, "clip", "higgsfield-plugin", "credits", split[2], split[3])]
-    dry = save_dry_run(Path("state"), "e2e carousel", [item.id], lines, expiry_hours=24)
-    create_from_dry_run(conn, dry, free=())
-    with activate(Scope(conn, JobConfig(), command="e2e",
-                        part_of={"instagram_carousel": "carousel"})):
-        write_still_requests(package, "WhatsApp flows", slides, design)
-    conn.close()
-
-    def make(slide: int) -> None:
-        job = load_request(package, "still", slide).job_id
-        code, out, _ = _ca("jobs", "check", str(job))
-        _check(c, out.splitlines()[:1] == ["go"], f"check still {slide}")
-        target = output_file(package, "still", slide)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        background(design).save(target)
-        code, _, err = _ca("carousel", "record", str(package), "--still", str(slide),
-                           "--credits", "5")
-        _check(c, code == 0, f"record still {slide}: {err.strip()[:120]}")
-
-    for slide in (1, 2, 3):
-        make(slide)
-    code, out, _ = _ca("jobs", "list", "--unfinished")
-    _check(c, "4 job(s)" in out, "4 unfinished still jobs listed")
-    code, out, _ = _ca("jobs", "resume", item.id)
-    _check(c, code == 0 and "still_04" in out and "still_07" in out, "resume names the next")
-    for slide in (4, 5, 6, 7):
-        make(slide)
-    code, out, _ = _ca("jobs", "list", "--unfinished")
-    _check(c, out.strip() == "No jobs match.", "nothing unfinished after the resume")
-    code, out, _ = _ca("jobs", "resume")
-    _check(c, out.strip() == "No unfinished jobs.", "resume: nothing left")
-
-
 def c7(c: Criterion) -> None:
     os.environ["OPENROUTER_API_KEY"] = FAKE_KEY
     _ca("item", "history", f"BG-001 {FAKE_KEY}")  # the key in a command line
@@ -427,7 +359,6 @@ STEPS: list[tuple[int, str, Callable[..., None], bool]] = [
     (3, "revise creates v2; approval again; v1 remains", c3, False),
     (4, "generate approved: one authorization + jobs; running again reuses jobs", c4, True),
     (5, "a job over its authorization is not started", c5, False),
-    (6, "an interrupted carousel is listed as unfinished and finished by resume", c6, True),
     (7, "the audit log lists commands, decisions, authorizations, jobs, uploads; no secret",
      c7, False),
     (8, "hand-edited calendar CSV and tracker cell are not overwritten", c8, True),

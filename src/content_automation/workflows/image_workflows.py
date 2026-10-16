@@ -11,6 +11,7 @@ from content_automation.ai.image import (
     ReferenceImage,
     get_provider,
 )
+from content_automation.content.formats import FormatError, image_prompt, load_formats
 from content_automation.core.config import Settings
 from content_automation.core.jobs import DETAILS_FILE, Job, JobReference
 from content_automation.references import (
@@ -50,6 +51,7 @@ from content_automation.workflows.registry import (
 from content_automation.workflows.start_images import StartImageError, resolve_start_image
 from content_automation.workflows.text_overlay import (
     TextOverlay,
+    format_overlay,
     prepare_text_overlay,
     use_text_overlay,
 )
@@ -122,6 +124,12 @@ class WorkflowInputs:
     context: str | None = None
     # Picks to avoid, newest first (from a brief's package); default: the newest packages.
     history: list[DesignPicks] | None = None
+    # A post format (config/post_formats.json): its ID, the copy as JSON, the carousel slide
+    # type (cover, body, final) and the topic; the format's prompt and zones replace the design.
+    post_format: str | None = None
+    format_copy: str | None = None
+    slide_type: str | None = None
+    topic: str | None = None
 
     def provided(self) -> set[InputName]:
         values: dict[InputName, str | bool | None] = {
@@ -421,6 +429,8 @@ def prepare_workflow(
     capabilities: ProviderCapabilities = get_provider(
         settings.image_provider, settings
     ).capabilities
+    if inputs.post_format and spec.designed:
+        return _prepare_format(spec, inputs, settings, capabilities)
     scene_prompt = inputs.prompt.strip()
     recorded: dict[str, str | bool] = {"scenePrompt": scene_prompt} if scene_prompt else {}
     service = (inputs.service or "").strip() or None
@@ -624,6 +634,68 @@ def prepare_workflow(
         inputs=recorded,
         picks=picks,
         person_shown=person_shown,
+    )
+
+
+def _prepare_format(
+    spec: WorkflowSpec, inputs: WorkflowInputs, settings: Settings,
+    capabilities: ProviderCapabilities,
+) -> PreparedWorkflow:
+    """A post format: its picture prompt (no text, the text areas left empty), the man only in
+    Roman formats, its zones rendered by the app, then the logo (a carousel: last slide only)."""
+    try:
+        catalog = load_formats(settings.post_formats_file)
+        chosen = catalog.get(str(inputs.post_format))
+        copy = json.loads(inputs.format_copy or "{}")
+        system = load_design_system(settings.design_system_file)
+    except (FormatError, ValueError) as error:
+        raise WorkflowError(str(error)) from None
+    if not isinstance(copy, dict):
+        raise WorkflowError(f"{chosen.id}: the copy must be an object of the format's fields")
+    brand = _load_brand_if_present(settings)
+    text = format_overlay(chosen, copy, system, brand, slide_type=inputs.slide_type)
+    recorded: dict[str, str | bool] = {
+        "postFormat": chosen.id, "personShown": chosen.roman, "textOverlay": text.describe(),
+        "textBoxes": json.dumps(text.boxes()),
+    }
+    if inputs.slide_type:
+        recorded["slideType"] = inputs.slide_type
+    if inputs.slide:
+        recorded["slide"] = inputs.slide
+    identity: list[ReferenceImage] = []
+    if chosen.roman:
+        set_id = (inputs.identity_set or inputs.fallback_identity_set
+                  or settings.default_identity_set)
+        try:
+            recorded["identitySet"] = load_set(set_id, settings.references_dir).set_id
+            if capabilities.identity_prompt is not None:
+                recorded["identity"] = "trained LoRA (no identity photos sent)"
+            else:
+                limit = min(capabilities.max_identity_refs, settings.image_identity_refs_max)
+                identity = _identity_refs(set_id, limit, None, settings)
+                recorded["identityRefs"] = str(len(identity))
+        except ReferenceLibraryError as error:
+            raise WorkflowError(f"{chosen.id} shows Roman: {error}") from None
+    logo = _logo(settings, brand) if inputs.logo else None
+    if logo is not None:
+        recorded["logo"] = logo.describe()
+    illustration = copy.get("illustration") or inputs.prompt
+    prompt = image_prompt(
+        chosen, catalog, topic=inputs.topic or inputs.request or "", areas=text.areas(),
+        illustration=illustration if isinstance(illustration, str) else None,
+        identity_text=capabilities.identity_prompt, identity_photos=len(identity),
+    )
+    request = ImageRequest(
+        prompt=prompt,
+        aspect_ratio=chosen.aspect,  # type: ignore[arg-type]
+        image_size=settings.image_design_size,
+        count=inputs.count,
+        identity_refs=identity,
+        person=chosen.roman,
+    )
+    return PreparedWorkflow(
+        spec=spec, request=request, logo=logo, text=text,
+        references=job_references(request), inputs=recorded, person_shown=chosen.roman,
     )
 
 

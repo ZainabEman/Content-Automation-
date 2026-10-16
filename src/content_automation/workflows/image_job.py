@@ -104,7 +104,8 @@ def run_image_job(
     if reused is not None:
         return reused
     # Live fix: ComfyUI makes only a clean photo of the person; the app composes the post.
-    composed = request.person and settings.image_provider == "comfyui" and text is not None
+    composed = (request.person and settings.image_provider == "comfyui" and text is not None
+                and not (inputs or {}).get("postFormat"))  # a post format draws its own zones
     object_ids = [ref.asset_id for ref in request.object_refs]
     job = create_job(
         settings.output_dir,

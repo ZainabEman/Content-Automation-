@@ -9,10 +9,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import ConfigDict, Field, ValidationError
+from pydantic import ConfigDict, Field, ValidationError, model_validator
 
 from content_automation.core.files import CamelModel
-from content_automation.workflows.carousel_design import SlideText, SlideType
 from content_automation.workflows.design_system import (
     DEFAULT_FORMAT,
     CtaIconId,
@@ -43,7 +42,10 @@ SLOT_KINDS: dict[str, tuple[Kind, ...]] = {
     "carousel": ("carousel_slide",),
     "ad": ("ad",),
 }
-MIN_SLIDES, MAX_SLIDES = 6, 8  # a v1 carousel story; the animated carousel has 8
+MIN_SLIDES, MAX_SLIDES = 6, 8  # a carousel story (v1 or a post format's static slides)
+CopyValue = str | list[str]
+SlideKind = Literal["cover", "body", "final"]
+_HEADLINE_FIELDS = ("headline", "question", "quote")  # a format slide's main line
 MAX_REEL_SEC = 90
 MIN_HASHTAGS, MAX_HASHTAGS = 3, 5
 MIN_TAKEAWAYS, MAX_TAKEAWAYS = 3, 5
@@ -92,22 +94,25 @@ class SlideSlot(_BriefModel):
     before_after: BeforeAfter | None = None  # middle slides: before / after
     cta: str | None = None  # last slide only: the button label
     cta_icon: CtaIconId | None = None
-    # The animated carousel (Phase 3, config/carousel_design.json): a slide with a type has no
-    # people; highlight words are marked **word** in headline, body and items.
-    type: SlideType | None = None
-    body: str | None = None
-    stat: str | None = None  # stat slides: the one big number
-    items: list[str] = Field(default_factory=list, max_length=4)  # list slides
-    illustration: str | None = None  # what the text-free still shows on the right half
+    # A post format's static slide (carousel.postFormat, config/post_formats.json): cover,
+    # body or final; its text in "copy" (only that format's fields), the picture without text
+    # in "illustration", and the alt text for Instagram.
+    type: SlideKind | None = None
+    copy_text: dict[str, CopyValue] = Field(default_factory=dict, alias="copy")
+    illustration: str | None = None
+    alt_text: str | None = None
 
-    def text(self) -> SlideText:
-        """The animated slide (type set) for the carousel design's checks and overlay."""
-        if self.type is None:
-            raise ValueError("a slide without a type is not an animated carousel slide")
-        return SlideText(
-            type=self.type, headline=self.headline, body=self.body, stat=self.stat,
-            items=self.items, illustration=self.illustration,
-        )
+    @model_validator(mode="before")
+    @classmethod
+    def _headline_from_copy(cls, data: Any) -> Any:
+        """A format slide's main line (headline, question or quote) is also its headline."""
+        if isinstance(data, dict) and not data.get("headline") and isinstance(
+                data.get("copy"), dict):
+            for name in _HEADLINE_FIELDS:
+                value = data["copy"].get(name)
+                if isinstance(value, str) and value.strip():
+                    return {**data, "headline": value}
+        return data
 
 
 class CardCopy(_BriefModel):
@@ -160,11 +165,10 @@ class ImageSlot(_BriefModel):
     wardrobe: str | None = None
     props: str | None = None
     card: CardCopy | None = None  # live fix: the branded person-post card (from saved copy)
-
-
-def is_animated(slot: ImageSlot) -> bool:
-    """A Phase 3 carousel: its slides carry a type (older briefs keep the v1 carousel)."""
-    return slot.format == "carousel" and any(slide.type for slide in slot.slides)
+    # The post format (config/post_formats.json, chosen at stage 1 and saved in package.json):
+    # its fields go into "copy" (a carousel: per slide), its zones are rendered by the app.
+    post_format: str | None = None
+    copy_text: dict[str, CopyValue] = Field(default_factory=dict, alias="copy")
 
 
 class Caption(_BriefModel):

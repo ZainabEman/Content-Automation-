@@ -17,12 +17,14 @@ model-drawn text.
 
 import io
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from content_automation.content.formats import PostFormat
 from content_automation.references import BrandProfile, CompanyProfile
 from content_automation.workflows.design_system import (
     Box,
@@ -63,7 +65,22 @@ _LABELS: dict[ZoneField, str] = {
     "cta": "The CTA label",
     "icons": "The icon labels",
     "footer": "The footer",
+    "question": "The question",
+    "quote": "The quote",
+    "column_left_label": "The left column header",
+    "column_left": "The left column",
+    "column_right_label": "The right column header",
+    "column_right": "The right column",
 }
+_LIST_FIELDS = ("points", "column_left", "column_right")  # bullets or numbers per item
+# Post format zone kind -> the overlay field it is drawn as (two_column: four fields).
+_KIND_FIELD: dict[str, ZoneField] = {
+    "big_number": "stat", "headline": "headline", "subline": "subheadline", "list": "points",
+    "question": "question", "quote": "quote",
+}
+_COLUMN_GAP = 0.04  # share of the width between the two columns
+_COLUMN_HEADER = 0.07  # share of the height for a column header
+_QUOTES = "\"\u201c\u201d"
 
 # Sample texts for `ca overlay preview`: the fields of each format's brief template
 # (content/package.py _slot_template), written at the template's word limits.
@@ -318,6 +335,7 @@ class TextOverlay:
     spec: TextOverlaySpec
     colors: dict[ColorRole, RGB]
     fonts: dict[str, Path]  # weight -> font file
+    text_boxes: tuple[Box, ...] = ()  # post formats: the zones instead of one panel
 
     def describe(self) -> str:
         fields = ", ".join(
@@ -333,6 +351,8 @@ class TextOverlay:
     def boxes(self) -> list[tuple[float, float, float, float]]:
         """The text areas (panel, footer) as (left, top, right, bottom) shares: a face must not
         sit there (workflows/person_check.py)."""
+        if self.text_boxes:
+            return list(self.text_boxes)
         found = [self.panel.box]
         if "footer" in self.texts:
             found.append(self.spec.footer.box)
@@ -341,6 +361,8 @@ class TextOverlay:
     def areas(self) -> str:
         """The areas the prompt keeps clear for the text."""
         found = [(self.panel.label, self.panel.box)]
+        if self.text_boxes:
+            found = [("a text area", box) for box in self.text_boxes]
         if "footer" in self.texts:
             found.append((_FOOTER_AREA, self.spec.footer.box))
         return "; ".join(
@@ -425,6 +447,86 @@ def prepare_text_overlay(
         size = _NOMINAL.get(aspect_ratio)
         if size is not None:
             place_texts(overlay, size, slack=_PREPARE_SLACK)
+    return overlay
+
+
+def _lines(value: object) -> list[str]:
+    items = value if isinstance(value, list) else [value]
+    return [str(item).strip() for item in items if isinstance(item, str) and item.strip()]
+
+
+def format_overlay(
+    chosen: PostFormat,
+    copy: Mapping[str, object],
+    system: DesignSystem,
+    brand: BrandProfile | None,
+    *,
+    slide_type: str | None = None,
+) -> TextOverlay:
+    """The text of one post format (config/post_formats.json) on the whole canvas: its zones
+    by kind (big_number, headline, subline, list, two_column, question, quote), checked to fit
+    the format's size before any paid call. TextOverlayError says what to fix."""
+    spec = system.text_overlay
+    if spec is None:
+        raise TextOverlayError("design_system.json has no textOverlay section (fonts, scrim, "
+                               "colours), so the app cannot render the post format's text.")
+    _, zones = chosen.layout(slide_type)
+    made: list[TextZone] = []
+    texts: dict[ZoneField, ZoneText] = {}
+    for zone in zones:
+        style = {"size": zone.size, "weight": zone.weight, "align": zone.align,
+                 "scrim": zone.scrim, "line_height": 1.15}
+        if zone.kind == "two_column":
+            left, top, right, bottom = zone.box
+            middle = (left + right) / 2
+            header = min(_COLUMN_HEADER, (bottom - top) / 4)
+            sides = (("left", left, middle - _COLUMN_GAP / 2),
+                     ("right", middle + _COLUMN_GAP / 2, right))
+            for (side, start, end), name, label in zip(sides, zone.fields, zone.labels,
+                                                        strict=True):
+                head: ZoneField = "column_left_label" if side == "left" else "column_right_label"
+                body: ZoneField = "column_left" if side == "left" else "column_right"
+                made.append(TextZone.model_validate({
+                    **style, "field": head, "box": (start, top, end, top + header),
+                    "size": (zone.size[0], round(zone.size[1] * 1.1)), "weight": "bold",
+                    "color": "highlight",
+                }))
+                made.append(TextZone.model_validate({
+                    **style, "field": body, "box": (start, top + header + 0.01, end, bottom),
+                    "max_lines": zone.max_lines, "color": zone.color,
+                }))
+                texts[head] = ZoneText((label.upper(),))
+                items = _lines(copy.get(name))
+                if items:
+                    texts[body] = ZoneText(tuple(items))
+            continue
+        field_name = _KIND_FIELD[zone.kind]
+        items = _lines(copy.get(str(zone.field)))
+        if not items:
+            continue
+        if zone.kind == "list":
+            texts[field_name] = ZoneText(tuple(items), numbered=zone.numbered)
+        elif zone.kind == "quote":
+            texts[field_name] = ZoneText((f"\u201c{items[0].strip(_QUOTES)}\u201d",))
+        else:
+            texts[field_name] = ZoneText((" ".join(items),))
+        made.append(TextZone.model_validate({
+            **style, "field": field_name, "box": zone.box, "max_lines": zone.max_lines,
+            "color": zone.color, "valign": zone.valign,
+            "min_contrast": 3.0 if zone.kind in ("big_number", "question") else None,
+        }))
+    used = [zone for zone in made if zone.field in texts]
+    overlay = TextOverlay(
+        format=chosen.id,
+        panel=OverlayPanel(box=(0.0, 0.0, 1.0, 1.0), label="the text areas"),
+        zones=tuple(made),
+        texts=texts,
+        spec=spec,
+        colors=overlay_colors(brand, system, spec),
+        fonts=resolve_fonts(spec.fonts, {zone.weight for zone in used}),
+        text_boxes=tuple(zone.box for zone in zones),
+    )
+    place_texts(overlay, chosen.size, slack=_PREPARE_SLACK)  # every text fits, before any cost
     return overlay
 
 
@@ -522,7 +624,7 @@ def _fit_text(
 ) -> _Placed | None:
     """Plain text or a list: the largest size at which every line fits the box."""
     left, top, right, bottom = box
-    is_list = zone.field == "points"
+    is_list = zone.field in _LIST_FIELDS
     for size in _sizes(zone, scale):
         font = _font(font_path, size)
         ascent, descent = font.getmetrics()
@@ -653,8 +755,10 @@ def place_texts(
             raise TextOverlayError(
                 f'{_LABELS[zone.field]} does not fit its zone even at the smallest size '
                 f"({zone.size[0]} px at {overlay.spec.base_width} px width, at most "
-                f'{zone.max_lines} lines): "{shown}". Shorten it, or widen textOverlay.formats.'
-                f"{overlay.format}.zones ({zone.field}) in design_system.json."
+                f'{zone.max_lines} lines): "{shown}". Shorten it, or widen '
+                + (f"the {overlay.format} zones in config/post_formats.json." if overlay.text_boxes
+                   else f"textOverlay.formats.{overlay.format}.zones ({zone.field}) in "
+                   "design_system.json.")
             )
         placed.append(fitted)
     return placed

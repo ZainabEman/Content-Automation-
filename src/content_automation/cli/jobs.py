@@ -1,6 +1,6 @@
 """`ca jobs` and `ca auth` (PRD §6, §14 D-4, D-5): the registry's jobs and authorizations.
 
-check is what the make-carousel and make-video skills run before every plugin call: line 1 is
+check is what the make-video skill run before every plugin call: line 1 is
 go, skip or stop, line 2 the reason. resume resumes the registered job types: only the carousel
 in Phase 4 (its existing continue logic); every other type says "not resumable yet". Phase 10:
 `resume --all` (content/resume_all.py) and `ca report month` (content/monthly_report.py).
@@ -9,7 +9,6 @@ in Phase 4 (its existing continue logic); every other type says "not resumable y
 import json
 import sys
 from dataclasses import asdict
-from pathlib import Path
 from typing import Annotated, NoReturn
 
 import typer
@@ -28,7 +27,6 @@ from content_automation.registry.auth import list_authorizations
 from content_automation.registry.db import RegistryError
 from content_automation.registry.dryruns import CostLine
 from content_automation.registry.ids import resolve
-from content_automation.registry.items import get_item
 from content_automation.registry.jobs import (
     JobRecord,
     JobStatus,
@@ -38,14 +36,11 @@ from content_automation.registry.jobs import (
     list_jobs,
     retry_candidates,
 )
-from content_automation.workflows.carousel_design import load_carousel_design
-from content_automation.workflows.carousel_plugin import continue_lines
 from content_automation.workflows.registry import WorkflowError
 
 jobs_app = typer.Typer(no_args_is_help=True, help="Registry jobs: list, check, resume, cancel.")
 auth_app = typer.Typer(no_args_is_help=True, help="Authorizations: what an \"ok\" approved.")
 JsonOption = Annotated[bool, typer.Option("--json", help="Print JSON (for skills).")]
-RESUMABLE = {"still": "carousel", "clip": "carousel"}  # job type -> registered resume
 
 
 def _fail(message: str, code: int = 1) -> NoReturn:
@@ -173,19 +168,9 @@ def jobs_resume(
                 for job in stale:
                     lines.append(f"{job.line()}: cancel it first (ca jobs cancel {job.id} "
                                  '"<reason>"); never re-run by itself.')
-                kinds = {RESUMABLE.get(job.job_type) for job in jobs}
-                if kinds == {"carousel"} and owner is not None:
-                    package = get_item(scope.conn, owner).package_path
-                    if package is None:
-                        lines.append(f"{owner}: carousel jobs but no package folder.")
-                        continue
-                    design = load_carousel_design(settings.carousel_design_file)
-                    lines.append(f"{owner} (carousel):")
-                    lines += [f"  {line}" for line in continue_lines(Path(package), design)]
-                else:
-                    types = ", ".join(sorted({job.job_type for job in jobs}))
-                    lines.append(f"{owner or 'direct run'}: {types}: not resumable yet "
-                                 f"(jobs {', '.join(f'#{job.id}' for job in jobs)}).")
+                types = ", ".join(sorted({job.job_type for job in jobs}))
+                lines.append(f"{owner or 'direct run'}: {types}: not resumable yet "
+                             f"(jobs {', '.join(f'#{job.id}' for job in jobs)}).")
     except (RegistryError, WorkflowError, OSError, ValueError) as error:
         _fail(str(error))
     if not lines:

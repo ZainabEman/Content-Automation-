@@ -6,9 +6,9 @@
 - Regeneration after a review revise (v(n+1) pending): the reviewed files are kept in
   `<package>/versions/v<n>/` (never changed again); the parts named with --only (default all)
   are made again in the package, the others stay as they are (copied into v(n+1) unchanged).
-  Image parts cost money (a dry run, then --authorize); text-only changes of an animated
-  carousel re-render the overlay locally for free. The new version starts at once, so review
-  goes back to not_reviewed.
+  Image parts cost money (a dry run, then --authorize); the text is rendered into each image,
+  so a text change regenerates that image. The new version starts at once, so review goes
+  back to not_reviewed.
 """
 
 import json
@@ -95,14 +95,12 @@ class Regeneration:
     folder: Path
     part: str
     positions: list[int]  # 0-based images or slides to make again
-    text: bool  # re-render the overlay (animated carousel, free)
     lines: list[CostLine]
 
     @property
     def names(self) -> str:
         noun = "slide" if self.part == "carousel" else "image"
-        named = [f"{noun}{position + 1}" for position in self.positions]
-        return ",".join(named + (["text"] if self.text else []))
+        return ",".join(f"{noun}{position + 1}" for position in self.positions)
 
 
 def plan_regeneration(conn: sqlite3.Connection, settings: Settings, ref: str,
@@ -115,30 +113,23 @@ def plan_regeneration(conn: sqlite3.Connection, settings: Settings, ref: str,
     if found is None or not found[2].files:
         raise RegistryError(f"{item.id} has no package files to regenerate.")
     folder, part, entry = found
-    count = len(entry.files)
+    count = len([name for name in entry.files if not name.endswith(".txt")])  # images only
     positions: set[int] = set()
-    text = False
     for token in only or [str(n) for n in range(1, count + 1)]:
         word = token.strip().lower()
         if word in TEXT_PARTS:
-            text = True
-            continue
+            raise RegistryError(f"{item.id}: the text is rendered into each {part} image; "
+                                "regenerate that image (its number) instead of text.")
         digits = re.findall(r"\d+", word)
         number = int(digits[-1]) if digits else 0
         if not 1 <= number <= count:
-            raise RegistryError(f'"{token}": {item.id} has {count} {part} file(s); use 1-{count} '
-                                "or text")
+            raise RegistryError(f'"{token}": {item.id} has {count} {part} file(s); use '
+                                f"1-{count}")
         positions.add(number - 1)
-    if text and part != "carousel":
-        raise RegistryError(f"{item.id}: the text is drawn into the {part} image; regenerate "
-                            "the image instead of text.")
     per_image = round((entry.est_cost_usd or 0.0) / count, 6)
     lines = [CostLine(item.id, "image", settings.image_provider, "usd", per_image, per_image,
                       f"{part} {position + 1} again") for position in sorted(positions)]
-    if text:
-        lines.append(CostLine(item.id, "overlay", "local", "usd", 0.0, 0.0,
-                              "text overlay re-render (free)"))
-    return Regeneration(item, folder, part, sorted(positions), text, lines)
+    return Regeneration(item, folder, part, sorted(positions), lines)
 
 
 def apply_regeneration(conn: sqlite3.Connection, plan: Regeneration, *,

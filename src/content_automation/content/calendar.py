@@ -582,7 +582,6 @@ def generate_rows(
     lines: list[str] = []
     failed: list[str] = []
     total = 0.0
-    credits = most = credits_usd = 0.0  # plugin credits (animated carousels) and their $ value
     ready = 0
     for row in approved:
         where = f"Row {row['Row']} ({row['Planned date']}, {row['Content type']})"
@@ -599,13 +598,14 @@ def generate_rows(
                 continue
             try:
                 topic, idea = _row_research(row, settings.research_dir)
+                content_id = row["Content ID"] or f"{label}-{int(row['Row']):02d}"
                 started = start_package(topic, [row["Content type"]], catalog, settings,
-                                        idea=idea)
+                                        idea=idea, content_id=content_id)
             except (OSError, ValueError) as error:
                 failed.append(f"{where}: stage 1 failed: {error}")
                 continue
             row["Package"] = started.folder.as_posix()
-            row["Content ID"] = row["Content ID"] or f"{label}-{int(row['Row']):02d}"
+            row["Content ID"] = content_id
             write_calendar(path, rows)
             _save_row_link(started.folder, row)
             _row_item(row, label, catalog)  # links the item to its new package
@@ -645,16 +645,6 @@ def generate_rows(
             if costs is not None and not build:
                 costs += result.cost_lines
             cost = f"about ${result.estimated_usd:.3f}" if not build else "built"
-            if not build and result.estimated_credits:
-                rate = result.usd_per_credit or 0.0
-                credits += result.estimated_credits
-                most += result.max_credits or 0.0
-                credits_usd += result.estimated_credits * rate
-                cost += (
-                    f" + about {result.estimated_credits:g} credits (max "
-                    f"{result.max_credits or 0:g} with retries"
-                    + (f", ≈ ${result.estimated_credits * rate:.2f}" if rate else "") + ")"
-                )
             lines.append(f"{where}: {cost}")
             lines += [f"  {line}" for line in result.lines
                       if not line.startswith(("DRY RUN:", "Estimated image cost:"))]
@@ -669,17 +659,11 @@ def generate_rows(
                 elif failure := _failed_part(result.package):
                     failed.append(f"{where}: {failure}; not retried")
     if not build and ready:
-        plugin = (
-            f" plus about {credits:g} Higgsfield credits (max {most:g} with retries"
-            + (f", ≈ ${credits_usd:.2f}" if credits_usd else "") + ")"
-            if credits else ""
-        )
         lines.append(
-            f"Combined dry run: {ready} row(s), about ${total:.3f} in total "
-            f"({settings.image_provider}){plugin}. Nothing has been made or spent. Only after "
-            f"the user says ok: uv run ca calendar generate --week {label} --build --authorize "
-            "<the dry run ID below> (a carousel then runs end to end with the make-carousel "
-            "skill)"
+            f"Combined dry run: {ready} row(s), about ${total:.3f} in total (per row: its "
+            "providers; the Instagram carousel via OpenRouter). Nothing has been made or spent. "
+            f"Only after the user says ok: uv run ca calendar generate --week {label} --build "
+            "--authorize <the dry run ID below>"
         )
     if build and ready:
         lines.append(

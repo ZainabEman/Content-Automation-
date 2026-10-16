@@ -273,10 +273,9 @@ INTEGRATIONS: tuple[Integration, ...] = (
                 "article text and its claims", "an unreachable or disallowed site is an error "
                 "line; the idea keeps its other sources", ("newsletters_file", "sources_file"),
                 "content_automation.research.fetch", _web),
-    Integration("higgsfield", "Higgsfield plugin", "an animated carousel's stills and clips are "
-                "made and recorded under one \"ok\"", "no authorization: stop; a failed request "
-                "falls back locally or is retried after a dry run", ("carousel_design_file",
-                                                                     "jobs_file"),
+    Integration("higgsfield", "Higgsfield plugin", "a reel's video scenes are made and recorded "
+                "under one \"ok\"", "no authorization: stop; a failed request is retried after "
+                "a dry run", ("jobs_file",),
                 "content_automation.ai.video.providers.higgsfield_plugin",
                 _plugin("higgsfield-plugin", "clip")),
     Integration("heygen", "HeyGen plugin", "a podcast recording is made and imported with "

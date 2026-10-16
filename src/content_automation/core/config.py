@@ -62,7 +62,10 @@ class Settings(BaseSettings):
     text_overlay: TextOverlayMode = "auto"
     design_system_file: Path = Path("config/design_system.json")
     compose_file: Path = Path("config/compose.json")  # person posts composed in the app
-    carousel_design_file: Path = Path("config/carousel_design.json")  # animated carousel
+    post_formats_file: Path = Path("config/post_formats.json")  # post and carousel formats
+    # The static Instagram carousel's slide images: always OpenRouter (OPENROUTER_API_KEY);
+    # IMAGE_PROVIDER=mock keeps them mock.
+    carousel_image_model: str = Field(default="google/gemini-3.1-flash-image", min_length=1)
     default_identity_set: str = Field(default="identity/person_01", min_length=1)
     openrouter_api_key: SecretStr | None = None
     comfyui_config_file: Path = Path("config/comfyui.json")  # GPU price, workflows, LoRA
@@ -106,7 +109,6 @@ class Settings(BaseSettings):
     newsletters_file: Path = Path("config/newsletters.json")  # senders, fetch limits (Phase 5)
     formulas_file: Path = Path("config/formulas.json")  # editorial formulas (Phase 6)
     storage_file: Path = Path("config/storage.json")  # upload after review (Phase 7)
-    carousel_file: Path = Path("config/carousel.json")  # carousel output format (Phase 7)
     production_file: Path = Path("config/production.json")  # targets, final rules (Phase 8)
     clips_file: Path = Path("config/clips.json")  # Opus Pro clips (Phase 9)
     platforms_file: Path = Path("config/platforms.json")  # variant sizes (Phase 9)

@@ -1,4 +1,0 @@
-{
-  "_note": "confirmed 2026-10-14: the default carousel format is animated (static = 8 PNGs from the stills; animated = 8 MP4 slides; single_video = the 8 clips joined).",
-  "format": "animated"
-}

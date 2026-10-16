@@ -60,7 +60,7 @@ Never say "ok" for the user, never edit `state/` or request files by hand, and s
 
 ## YouTube ("make youtube video about TOPIC")
 
-A 16:9 1920x1080 video: the HeyGen avatar speaks the script; optional Higgsfield b-roll (`video`) and picture (`image`) scenes. Same pattern as make-carousel: dry run with the estimate → the user's "ok" → plugin calls → `ca` records each file. No YouTube publishing.
+A 16:9 1920x1080 video: the HeyGen avatar speaks the script; optional Higgsfield b-roll (`video`) and picture (`image`) scenes. Same pattern as the other plugin videos: dry run with the estimate → the user's "ok" → plugin calls → `ca` records each file. No YouTube publishing.
 
 1. IDs first: `uv run ca doctor` or the dry run's `STOP:` lines show whether `HEYGEN_AVATAR_ID` and `HEYGEN_VOICE_ID` are set. If either is missing: stop, list the account's avatars or voices with the HeyGen plugin and ask the user to choose; set it with `uv run ca env set <NAME> <id>` only after their answer. Never guess or pick an ID yourself.
 2. Write `outputs/plans/<short-name>.json` (AGENTS.md → Make videos) with `"workflowId": "youtube"`, `"platform": "youtube"`: ≤600 s, scenes ≤15 s, at least one `avatar` scene (`prompt` = the exact words, ≈2.5 words/s).

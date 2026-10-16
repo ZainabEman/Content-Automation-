@@ -9,7 +9,7 @@ description: The review gate for generated Branded Genius content. Shows what wa
 
 - **Decisions are the user's.** Approve, reject or revise only after the user's own words: `uv run ca item approve BG-x`, `uv run ca item reject BG-x "<reason>"`, `uv run ca item revise BG-x "<feedback>"` (review gate). Never decide for them.
 - An approved review uploads the approved version (config/storage.json `upload.requireReview`); report the upload line it prints (mock uploads say "(mock)").
-- Regeneration costs money for image parts: show the dry run, stop for **"ok"**, then `--authorize <DR-id>`. Text-only changes of an animated carousel are free.
+- Regeneration costs money for image parts: show the dry run, stop for **"ok"**, then `--authorize <DR-id>`. A text change regenerates that image or slide (the text is rendered into it).
 - Unchanged parts are kept; the reviewed version stays in `<package>/versions/v<n>/`.
 
 - **Person-post checklist** (the branded card, before "approve"): the hook is clear; no jargon; his face is uncovered (no text over the face or shoulders); the logo is crisp; the CTA is there (English and German). Name every point that fails; the user decides.

@@ -56,7 +56,6 @@ from content_automation.content.calendar import (
     sync_calendar_view,
     week_label,
 )
-from content_automation.content.carousel_format import check_format, package_format
 from content_automation.content.clips import clips_handoff, clips_import, clips_select
 from content_automation.content.compose_preview import preview as compose_preview
 from content_automation.content.deliverables import (
@@ -77,10 +76,6 @@ from content_automation.content.migration import collect_sources, rewrite_old_ca
 from content_automation.content.package import (
     DONE_STATUS,
     build_package,
-    carousel_slide_texts,
-    finish_carousel,
-    load_package,
-    save_package,
     set_deliverables,
     start_package,
 )
@@ -120,10 +115,9 @@ from content_automation.content.tracking import TrackerError, status_lines
 from content_automation.core.agent_steps import record_agent_output, request_path
 from content_automation.core.config import ConfigurationError, Settings, load_settings
 from content_automation.core.files import atomic_write_text
-from content_automation.core.jobs import DETAILS_FILE, Job, JobStateError, ReviewCheck, slugify
+from content_automation.core.jobs import DETAILS_FILE, Job, JobStateError, ReviewCheck
 from content_automation.core.limits import DailyLimitError
 from content_automation.core.log import configure_logging
-from content_automation.core.media import MediaError
 from content_automation.doctor import run_checks
 from content_automation.lora import (
     LoraError,
@@ -162,7 +156,6 @@ from content_automation.registry.db import RegistryError
 from content_automation.registry.dryruns import CostLine
 from content_automation.registry.ids import resolve
 from content_automation.registry.migrate import migrate_candidates
-from content_automation.registry.progress import part_done
 from content_automation.registry.runtime import Scope
 from content_automation.registry.sources import add_source, find_by_url, link_source, set_text_path
 from content_automation.registry.strategy import load_strategy
@@ -195,17 +188,6 @@ from content_automation.storage import (
 )
 from content_automation.storage.review_upload import record_plugin_upload, upload_approved
 from content_automation.workflows.card import TEMPLATES as CARD_TEMPLATES
-from content_automation.workflows.carousel_design import load_carousel_design
-from content_automation.workflows.carousel_motion import render as render_carousel
-from content_automation.workflows.carousel_plugin import (
-    clips_check,
-    continue_lines,
-    record_attempt,
-    stills_check,
-    summary_lines,
-)
-from content_automation.workflows.carousel_render import PREVIEW_DIR, extract_style
-from content_automation.workflows.carousel_render import preview as carousel_preview_slides
 from content_automation.workflows.compose import MODES as COMPOSE_MODES
 from content_automation.workflows.design_system import load_design_system, resolve_design
 from content_automation.workflows.dry_run import dry_run_lines
@@ -258,11 +240,6 @@ overlay_app = typer.Typer(
     no_args_is_help=True,
     help="Text the app renders for image providers that draw no text (local and free).",
 )
-carousel_app = typer.Typer(
-    no_args_is_help=True,
-    help="Animated Instagram carousel: style frames, previews, plugin records, checks and the "
-    "final MP4s (local, free).",
-)
 lora_app = typer.Typer(
     no_args_is_help=True,
     help="The person's LoRA for ComfyUI: dataset, AI Toolkit config, trained file (local, free).",
@@ -277,7 +254,6 @@ app.add_typer(calendar_app, name="calendar")
 app.add_typer(drive_app, name="drive")
 app.add_typer(tracking_app, name="tracking")
 app.add_typer(overlay_app, name="overlay")
-app.add_typer(carousel_app, name="carousel")
 app.add_typer(lora_app, name="lora")
 app.add_typer(env_app, name="env")
 app.add_typer(items_app, name="item")
@@ -315,6 +291,11 @@ ENV_SETTABLE = ("HEYGEN_AVATAR_ID", "HEYGEN_VOICE_ID")
 _ENV_VALUE = re.compile(r"[A-Za-z0-9_-]{1,128}")
 
 JobDir = Annotated[Path, typer.Argument(help="Job folder (the one with details.json).")]
+AsFormatOption = Annotated[
+    str | None,
+    typer.Option("--as", help='"as <format>": this post format (config/post_formats.json, e.g. '
+                 "li_stat) instead of the automatic pick."),
+]
 StepOption = Annotated[str, typer.Option("--step", help="Step ID, e.g. scene-1.")]
 
 
@@ -1343,6 +1324,7 @@ def content_start(
         str | None,
         typer.Option(help="The user's own words (stored with the item's approval)."),
     ] = None,
+    as_format: AsFormatOption = None,
 ) -> None:
     """Stage 1 (free): research and the package folder with research.md.
 
@@ -1367,7 +1349,12 @@ def content_start(
         typer.echo("Give --topic, or --research-file with --idea.", err=True)
         raise typer.Exit(code=2)
     configure_logging(settings)
-    result = start_package(title, chosen, catalog, settings, idea=chosen_idea)
+    try:
+        result = start_package(title, chosen, catalog, settings, idea=chosen_idea,
+                               format_override=as_format)
+    except DeliverableError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from None
     for line in result.lines:
         typer.echo(line)
     if chosen:
@@ -1387,6 +1374,7 @@ def content_set(
         str | None,
         typer.Option(help="The user's own words (stored with the item's approval)."),
     ] = None,
+    as_format: AsFormatOption = None,
 ) -> None:
     """Stage 2: name the deliverables of a package and write its brief template.
 
@@ -1397,7 +1385,7 @@ def content_set(
     try:
         catalog = load_deliverables(settings.deliverables_file)
         chosen = catalog.resolve(deliverables)
-        result = set_deliverables(folder, chosen, catalog, settings)
+        result = set_deliverables(folder, chosen, catalog, settings, format_override=as_format)
     except DeliverableError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from None
@@ -1439,10 +1427,6 @@ def content_build(
         bool, typer.Option("--dry-run", help="Check brief.json and show the cost; make nothing.")
     ] = False,
     authorize_id: AuthorizeOption = None,
-    carousel_format: Annotated[
-        str | None, typer.Option("--format", help="Carousel: static, animated or single_video "
-                                 "(default config/carousel.json).")
-    ] = None,
     provider: Annotated[
         str | None, typer.Option("--provider", help="Image provider for this build (default: "
                                  "the deliverable's, else IMAGE_PROVIDER).")
@@ -1463,15 +1447,6 @@ def content_build(
     if provider is not None and provider not in ("mock", "openrouter", "comfyui"):
         typer.echo(f'--provider must be mock, openrouter or comfyui, not "{provider}"', err=True)
         raise typer.Exit(code=2)
-    if carousel_format is not None:
-        try:
-            chosen = check_format(carousel_format)
-            saved = load_package(folder)
-        except (ValueError, OSError) as error:
-            typer.echo(str(error), err=True)
-            raise typer.Exit(code=2) from None
-        saved.carousel_format = chosen
-        save_package(folder, saved)
     key = f"content build {folder.resolve().as_posix()}"
     command = f'ca content build "{folder}"' + (" --dry-run" if dry_run else "")
     with _registry(settings, command) as scope:
@@ -1513,6 +1488,9 @@ def content_build(
         if package.status == DONE_STATUS:  # every part made: upload the images and MP4s
             for line in AutoSync(settings)(folder):
                 typer.echo(line)
+            for path in mark_generated(settings, folder):  # its Approved calendar row
+                typer.echo(f"Calendar {path.stem}: row Generated.")
+                typer.echo(sync_calendar(path, settings))
 
 
 WeekOption = Annotated[
@@ -2055,244 +2033,6 @@ def overlay_preview(
     typer.echo(logo_line)
 
 
-@carousel_app.command("style")
-def carousel_style() -> None:
-    """Extract the reference frames of each slide type from the sample carousels (FFmpeg) and
-    write palette.json into the style folder. Local and free."""
-    _utf8_output()
-    settings = _settings(dry_run=True)
-    try:
-        lines = extract_style(load_carousel_design(settings.carousel_design_file))
-    except (WorkflowError, MediaError, OSError) as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(code=1) from None
-    for line in lines:
-        typer.echo(line)
-
-
-def _carousel_brand(settings: Settings) -> tuple[str, LogoOverlay | None]:
-    """The carousel language (brand.json carousel.language) and the logo, if one is usable."""
-    has_brand = brand_path(settings.references_dir).is_file()
-    brand = load_brand(settings.references_dir) if has_brand else None
-    try:
-        ref = select_logo_ref(settings.references_dir, preferred=brand.logo_file if brand else None)
-    except ReferenceLibraryError as error:
-        typer.echo(f"Logo: not pasted ({error})")
-        ref = None
-    logo = LogoOverlay(path=ref.path, source=ref.source, asset_id=ref.asset_id) if ref else None
-    return (brand.carousel.language if brand else "en"), logo
-
-
-@carousel_app.command("preview")
-def carousel_preview(
-    topic: Annotated[str, typer.Option(help="The topic the sample text and still prompts use.")],
-    out: Annotated[
-        Path | None,
-        typer.Option(help="Folder for the stills (default: outputs/carousel-preview/<topic>/)."),
-    ] = None,
-) -> None:
-    """Render all slides as stills: sample text over the sample frames, the Like/Share/Save
-    row and the logo on the last slide, to check the layout before any paid run. Also writes
-    the still prompts. Local and free: no provider or plugin call."""
-    _utf8_output()
-    settings = _settings(dry_run=True)
-    try:
-        design = load_carousel_design(settings.carousel_design_file)
-        system = load_design_system(settings.design_system_file)
-        language, logo = _carousel_brand(settings)
-        target = out or PREVIEW_DIR / slugify(topic)
-        lines = carousel_preview_slides(design, system, topic, language, logo, target)
-    except (WorkflowError, BrandProfileError, MediaError, OSError) as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(code=1) from None
-    typer.echo(
-        f"Carousel preview ({design.slides} slides, {design.canvas.width}x"
-        f"{design.canvas.height}, text in {design.language_name(language)}; sample text is "
-        f"English): {target.resolve()}"
-    )
-    for line in lines:
-        typer.echo(line)
-
-
-@carousel_app.command("record")
-def carousel_record(
-    folder: Annotated[Path, typer.Argument(help="The package folder.")],
-    still: Annotated[
-        int | None, typer.Option(help="The slide number of a still request (still_NN).")
-    ] = None,
-    clip: Annotated[
-        int | None, typer.Option(help="The slide number of a clip request (clip_NN).")
-    ] = None,
-    credits: Annotated[
-        float | None, typer.Option(help="Credits the plugin reported for this attempt.")
-    ] = None,
-    provider_job_id: Annotated[str | None, typer.Option(help="The plugin's job ID.")] = None,
-    file: Annotated[
-        Path | None,
-        typer.Option(help="The saved file, if it is not at the request's outputPath already."),
-    ] = None,
-    error: Annotated[
-        str | None, typer.Option(help="The plugin failed: the reason (no file recorded).")
-    ] = None,
-) -> None:
-    """Record one plugin attempt for a still or clip request: the file or the error, and the
-    credits used. Says whether a retry is left inside the approved max. Local and free."""
-    _utf8_output()
-    if (still is None) == (clip is None):
-        typer.echo("Give exactly one of --still N or --clip N.", err=True)
-        raise typer.Exit(code=2)
-    settings = _settings(dry_run=True)
-    try:
-        design = load_carousel_design(settings.carousel_design_file)
-        with _registry(settings, f'ca carousel record "{folder}"'):
-            lines = record_attempt(
-                folder, "still" if still is not None else "clip", still or clip or 0, design,
-                credits=credits, provider_job_id=provider_job_id, file=file, error=error,
-            )
-    except (WorkflowError, ValidationError, OSError) as failure:
-        typer.echo(str(failure), err=True)
-        raise typer.Exit(code=1) from None
-    for line in lines:
-        typer.echo(line)
-
-
-@carousel_app.command("stills-check")
-def carousel_stills_check(
-    folder: Annotated[Path, typer.Argument(help="The package folder.")],
-) -> None:
-    """Check every slide still: it exists, is 1:1 at 1080x1080 (cropped and resized if
-    needed), is not blank and leaves the text area calm. A failed still is asked for once more
-    inside the approved max, then it gets the local background. When all are settled, it
-    writes the clip requests. Local and free."""
-    _utf8_output()
-    settings = _settings(dry_run=True)
-    try:
-        with _registry(settings, f'ca carousel stills-check "{folder}"'):
-            lines = stills_check(folder, load_carousel_design(settings.carousel_design_file),
-                                 package_format(folder, settings))
-    except (WorkflowError, ValidationError, MediaError, OSError) as failure:
-        typer.echo(str(failure), err=True)
-        raise typer.Exit(code=1) from None
-    for line in lines:
-        typer.echo(line)
-
-
-@carousel_app.command("clips-check")
-def carousel_clips_check(
-    folder: Annotated[Path, typer.Argument(help="The package folder.")],
-) -> None:
-    """Check every clip: it decodes, lasts at least 4.5 s, moves, and keeps the text area calm.
-    A failed clip is asked for once more inside the approved max, then that slide gets the
-    local animation. Local and free."""
-    _utf8_output()
-    settings = _settings(dry_run=True)
-    try:
-        with _registry(settings, f'ca carousel clips-check "{folder}"'):
-            lines = clips_check(folder, load_carousel_design(settings.carousel_design_file))
-    except (WorkflowError, ValidationError, MediaError, OSError) as failure:
-        typer.echo(str(failure), err=True)
-        raise typer.Exit(code=1) from None
-    for line in lines:
-        typer.echo(line)
-
-
-@carousel_app.command("render")
-def carousel_render(
-    folder: Annotated[Path, typer.Argument(help="The package folder.")],
-) -> None:
-    """Make carousel/final/slide_01.mp4 ... (1080x1080, 24 fps, 5.0 s, H.264, silent) and
-    slide_NN.png: the plugin clip or the local animation, the static text on top, and the
-    Like/Share/Save row and logo on the last slide; then the set check (report only). Local
-    and free."""
-    _utf8_output()
-    settings = _settings(dry_run=True)
-    try:
-        design = load_carousel_design(settings.carousel_design_file)
-        system = load_design_system(settings.design_system_file)
-        language, logo = _carousel_brand(settings)
-        lines = render_carousel(
-            folder, design, system, carousel_slide_texts(folder), language, logo,
-            package_format(folder, settings),
-        )
-    except (WorkflowError, BriefError, BrandProfileError, ValidationError, MediaError,
-            OSError) as failure:
-        typer.echo(str(failure), err=True)
-        raise typer.Exit(code=1) from None
-    for line in lines:
-        typer.echo(line)
-    with _registry(settings, f'ca carousel render "{folder}"'):
-        _finish_carousel(folder, settings)
-
-
-@carousel_app.command("finish")
-def carousel_finish(
-    folder: Annotated[Path, typer.Argument(help="The package folder.")],
-) -> None:
-    """After the render (`ca carousel render` runs this itself): the package is finished, its
-    files go to Drive Instagram/<Content ID>/ (MP4s, PNGs, caption.txt, originals/), the
-    tracker gets its row, the calendar row becomes Generated; then the summary. Files already
-    uploaded are skipped."""
-    _utf8_output()
-    settings = _settings(dry_run=True)
-    with _registry(settings, f'ca carousel finish "{folder}"'):
-        _finish_carousel(folder, settings)
-
-
-@carousel_app.command("continue")
-def carousel_continue(
-    folder: Annotated[Path, typer.Argument(help="The package folder.")],
-) -> None:
-    """Where a carousel stopped (carousel/carousel.json) and the next step. Nothing that passed
-    is made again; it says STOP if the pending requests could go over the approved max."""
-    _utf8_output()
-    settings = _settings(dry_run=True)
-    try:
-        with _registry(settings, f'ca carousel continue "{folder}"'):
-            lines = continue_lines(folder, load_carousel_design(settings.carousel_design_file))
-    except (WorkflowError, ValidationError, OSError) as failure:
-        typer.echo(str(failure), err=True)
-        raise typer.Exit(code=1) from None
-    for line in lines:
-        typer.echo(line)
-
-
-def _finish_carousel(folder: Path, settings: Settings) -> None:
-    """Package done, Drive sync and tracker, calendar row Generated, the summary (8 lines)."""
-    try:
-        design = load_carousel_design(settings.carousel_design_file)
-        package = finish_carousel(folder, settings)
-        summary = summary_lines(folder, design)
-    except (WorkflowError, BriefError, ValidationError, OSError) as failure:
-        typer.echo(str(failure), err=True)
-        raise typer.Exit(code=1) from None
-    if package.status != DONE_STATUS:
-        typer.echo(f"Status: {package.status} (not uploaded until every part is done)")
-        return
-    sync = AutoSync(settings)(folder)
-    for line in sync:
-        typer.echo(line)
-    calendar_rows = []
-    for path in mark_generated(settings, folder):
-        calendar_rows.append(path.stem)
-        typer.echo(sync_calendar(path, settings))
-    content_id = package.content_id or package.package_id
-    try:
-        drive = get_storage(settings).folder_link(package.platform, content_id)
-    except (StorageError, StorageNotSetUpError) as error:
-        drive = f"not uploaded ({error}); later: uv run ca drive sync \"{folder}\""
-    tracker = next((line for line in sync if line.startswith(("Tracker", "Drive not"))), "")
-    typer.echo("Summary:")
-    for line in [
-        f"Carousel finished: {package.topic} ({content_id})",
-        f"Drive folder: {drive}",
-        *summary,
-        tracker or "Tracker: no row yet (see the lines above)",
-        "Calendar: " + (f"row Generated ({', '.join(calendar_rows)})" if calendar_rows
-                        else "no Approved row for this package"),
-    ][:8]:
-        typer.echo(f"  {line}")
-
-
 LoraModel = Annotated[str, typer.Argument(help="qwen (Qwen-Image-2512) or zimage (Z-Image Turbo).")]
 
 
@@ -2502,8 +2242,7 @@ def regenerate(
     authorize_id: AuthorizeOption = None,
 ) -> None:
     """Make the named parts again for the new version: a dry run first; after the user's
-    "ok" --authorize <dryrun_id>. Unchanged parts are kept; text-only changes of an animated
-    carousel re-render the overlay for free."""
+    "ok" --authorize <dryrun_id>. Unchanged parts are kept."""
     _utf8_output()
     settings = _settings(check_keys=False)
     parts = [part for part in (only or "").split(",") if part.strip()]
@@ -2527,15 +2266,6 @@ def regenerate(
                 typer.echo(line)
         for line in apply_regeneration(scope.conn, plan, command=scope.command):
             typer.echo(line)
-        if plan.text:
-            design = load_carousel_design(settings.carousel_design_file)
-            system = load_design_system(settings.design_system_file)
-            language, logo = _carousel_brand(settings)
-            for line in render_carousel(plan.folder, design, system,
-                                        carousel_slide_texts(plan.folder), language, logo):
-                typer.echo(line)
-            if not plan.positions:
-                part_done(scope.conn, plan.item.id, command=scope.command)
         if plan.positions:
             result = build_package(plan.folder, settings, dry_run=False)
             for line in result.lines:

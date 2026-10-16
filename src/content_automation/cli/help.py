@@ -168,8 +168,9 @@ GROUPS: tuple[Group, ...] = (
                "plugin upload requests, each recorded"),
     )),
     Group("make-carousel", ".agents/skills/make-carousel/SKILL.md", (
-        Phrase("continue carousel <folder>", 'ca carousel continue "<folder>"',
-               "where the carousel stopped and the next step"),
+        Phrase("make an insta post about TOPIC [as ig_steps]",
+               'ca content start --topic "TOPIC" --deliverables "instagram carousel" [--as X]',
+               "a static carousel (6-8 PNGs): dry run with the cost, then ok"),
     )),
     Group("Playbooks (AGENTS.md)", "AGENTS.md", (
         Phrase("sync drive", "ca drive sync", "uploads finished files and the tracker rows"),

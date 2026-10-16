@@ -27,6 +27,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Literal
 
+from PIL import Image, ImageOps
 from pydantic import Field
 
 from content_automation.ai.avatar import AvatarError
@@ -44,24 +45,33 @@ from content_automation.content.brief import (
     ContentBrief,
     ImageSlot,
     brand_hashtag,
-    is_animated,
     load_brief,
     slot_kind,
 )
-from content_automation.content.carousel_format import package_format
 from content_automation.content.deliverables import (
     Deliverable,
     DeliverableCatalog,
     DeliverableError,
     load_deliverables,
 )
+from content_automation.content.formats import (
+    FormatCatalog,
+    FormatError,
+    PostFormat,
+    copy_template,
+    load_formats,
+    pick_format,
+    provider_shows_person,
+    recent_formats,
+    research_has_number,
+)
 from content_automation.content.quality import (
     CAPTION_MAX_WORDS,
     CAPTION_MAX_WORDS_BY_PLATFORM,
     CAPTION_MIN_WORDS,
-    animated_carousel_problems,
     caption_problems,
     carousel_problems,
+    format_problems,
     insight_problems,
     offer_label,
     post_problems,
@@ -72,7 +82,6 @@ from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
 from content_automation.core.jobs import DETAILS_FILE, Job, ReviewCheck, slugify
 from content_automation.core.limits import DailyLimitError
-from content_automation.core.media import MediaError
 from content_automation.references import (
     BrandProfile,
     BrandProfileError,
@@ -92,22 +101,6 @@ from content_automation.research.models import SourceArticle, SourcesError
 from content_automation.research.run import collect, topic_digest, topic_note
 from content_automation.research.store import find_article, known_article_ids, load_articles
 from content_automation.workflows.card import Copy
-from content_automation.workflows.carousel_design import (
-    CarouselDesign,
-    SlideText,
-    load_carousel_design,
-    slides_template,
-    writer_help,
-)
-from content_automation.workflows.carousel_plugin import (
-    carousel_dir,
-    credits_dry_run,
-    load_plan,
-    planned_credits,
-    planned_split,
-    write_still_requests,
-)
-from content_automation.workflows.carousel_render import fit_problems
 from content_automation.workflows.compose import compose_config, copy_problems, person_card
 from content_automation.workflows.design_system import (
     STEP_SEPARATOR,
@@ -171,7 +164,8 @@ _IMAGE_ERRORS = (
     ImageError,
     RegistryError,  # not authorized, or over the authorization: nothing was made
 )
-CAROUSEL_PROVIDER = "higgsfield-plugin"  # the registry provider of carousel still/clip jobs
+CAROUSEL_DIR = "carousel"  # the static carousel's caption.txt and alt_text.txt
+FORMAT_PLATFORMS = ("linkedin", "facebook", "instagram")  # posts and carousels with a format
 
 # waiting = video steps are with Codex; review = an image waits for the person check
 ItemStatus = Literal["pending", "done", "waiting", "failed", "review"]
@@ -230,7 +224,7 @@ class ContentPackage(CamelModel):
     total_cost_usd: float | None = None
     reviewer: str | None = None
     note: str | None = None
-    carousel_format: str | None = None  # static, animated or single_video (Phase 7)
+    format: str | None = None  # the post format (config/post_formats.json), picked at stage 1
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -241,9 +235,6 @@ class PackageResult:
     lines: list[str] = field(default_factory=list)
     package: ContentPackage | None = None
     estimated_usd: float | None = None  # dry run: the image cost still to spend
-    estimated_credits: float | None = None  # dry run: plugin credits (animated carousel)
-    max_credits: float | None = None  # with one retry per request: what the "ok" approves
-    usd_per_credit: float | None = None
     cost_lines: list[CostLine] = field(default_factory=list)  # dry run: per item and provider
 
 
@@ -257,11 +248,15 @@ def start_package(
     settings: Settings,
     *,
     idea: ResearchIdea | None = None,
+    content_id: str | None = None,
+    format_override: str | None = None,
 ) -> PackageResult:
     """Make the package folder with research.md (stage 1, free).
 
     idea: research from a file (a newsletter idea) instead of the scraper. With no
     deliverables yet, nothing can be built until `ca content set` names them.
+    content_id: the calendar row's Content ID (it seeds the post format); format_override:
+    "as <format>".
     """
     lines: list[str] = []
     if idea is not None:
@@ -295,6 +290,7 @@ def start_package(
     package = ContentPackage(
         package_id=folder.name,
         topic=topic,
+        content_id=content_id,
         platform=catalog.platform_for([]),
         formats=[],
         source_article_ids=[article.article_id for article in articles[:3]],
@@ -302,7 +298,8 @@ def start_package(
     _save(folder, package)
     lines.append(f"Package folder: {folder}")
     if deliverables:
-        lines += _apply_deliverables(folder, package, deliverables, catalog, settings, articles)
+        lines += _apply_deliverables(folder, package, deliverables, catalog, settings, articles,
+                                     format_override)
     else:
         lines.append(
             f"Next (Codex): write {CONTENT_FILE} (angle, key message, 3-5 key points, draft "
@@ -314,7 +311,8 @@ def start_package(
 
 
 def set_deliverables(
-    folder: Path, deliverables: list[str], catalog: DeliverableCatalog, settings: Settings
+    folder: Path, deliverables: list[str], catalog: DeliverableCatalog, settings: Settings,
+    *, format_override: str | None = None,
 ) -> PackageResult:
     """Name the deliverables of an existing package and write its brief template."""
     path = folder / PACKAGE_FILE
@@ -326,7 +324,8 @@ def set_deliverables(
         for article_id in package.source_article_ids
         if (found := find_article(settings.research_dir, article_id)) is not None
     ]
-    lines = _apply_deliverables(folder, package, deliverables, catalog, settings, articles)
+    lines = _apply_deliverables(folder, package, deliverables, catalog, settings, articles,
+                                format_override)
     if (folder / BRIEF_FILE).is_file():
         lines.append(f"{BRIEF_FILE} already exists: make it match the new {TEMPLATE_FILE}.")
     return PackageResult(folder, lines, package)
@@ -339,6 +338,7 @@ def _apply_deliverables(
     catalog: DeliverableCatalog,
     settings: Settings,
     articles: list[SourceArticle],
+    format_override: str | None = None,
 ) -> list[str]:
     items = [catalog.deliverables[key] for key in deliverables]
     lines = [
@@ -352,14 +352,14 @@ def _apply_deliverables(
     except WorkflowError as error:
         system = None
         lines.append(f"Design help left out of the template: {error}")
-    carousel_design: CarouselDesign | None = None
-    if any(item.part == "carousel" for item in items):
-        try:
-            carousel_design = load_carousel_design(settings.carousel_design_file)
-            carousel_design.language_name(brand.carousel.language if brand else "en")
-        except WorkflowError as error:
-            lines.append(f"Carousel slides left out of the template: {error}")
-            carousel_design = None
+    post_format = _choose_format(folder, package, items, settings, articles, format_override)
+    if post_format is not None:
+        lines.append(f"Post format: {post_format.label()}"
+                     + (" (as asked)" if format_override else
+                        " (not one of the last 2 on that platform)"))
+    elif format_override:
+        raise DeliverableError(f'"as {format_override}": none of these deliverables takes a '
+                               "post format (LinkedIn or Facebook post, Instagram carousel)")
     post = next((item for item in items if item.part == "post"), None)
     suggested: FormatId | None = post.format if post is not None else None
     if system is not None and post is not None and suggested is None:
@@ -376,7 +376,7 @@ def _apply_deliverables(
         brand,
         company,
         system,
-        carousel_design,
+        post_format,
         settings.default_identity_set,
         suggested,
     )
@@ -386,6 +386,7 @@ def _apply_deliverables(
     package.deliverables = deliverables
     package.platform = catalog.platform_for(deliverables)
     package.formats = [item.brief_format for item in items]
+    package.format = post_format.id if post_format is not None else None
     if post is not None and suggested is not None and "post" not in package.items:
         # Saved now, so the next package already rotates to another format.
         package.items["post"] = PackageItem(picks=DesignPicks(format=suggested))
@@ -398,6 +399,55 @@ def _apply_deliverables(
         f'Then run: uv run ca content build "{folder}" --dry-run',
     ]
     return lines
+
+
+def _choose_format(
+    folder: Path,
+    package: ContentPackage,
+    items: list[Deliverable],
+    settings: Settings,
+    articles: list[SourceArticle],
+    override: str | None,
+) -> PostFormat | None:
+    """The post format of the package's LinkedIn/Facebook post or Instagram carousel (one per
+    package), picked by content/formats.py; "as <format>" wins. DeliverableError for a bad
+    override (exit 2: Codex asks the user)."""
+    part = next((item for item in items if item.part in ("post", "carousel")
+                 and item.platform in FORMAT_PLATFORMS), None)
+    if part is None or part.platform is None:
+        return None
+    provider = settings.image_provider if settings.image_provider == "mock" else (
+        part.provider or settings.image_provider)
+    try:
+        catalog = load_formats(settings.post_formats_file)
+        return pick_format(
+            part.platform, catalog,
+            seed=package.content_id or folder.name,
+            recent=recent_formats(settings.packages_dir, part.platform, exclude=folder),
+            has_number=research_has_number(f"{a.title} {a.summary} {a.content}"
+                                           for a in articles),
+            person_ok=provider_shows_person(
+                settings.model_copy(update={"image_provider": provider})),
+            override=override,
+        )
+    except FormatError as error:
+        raise DeliverableError(str(error)) from None
+
+
+def _formats(settings: Settings) -> FormatCatalog | None:
+    try:
+        return load_formats(settings.post_formats_file)
+    except FormatError:
+        return None  # reported by the brief checks
+
+
+def _part_settings(name: str, slot: ImageSlot, settings: Settings) -> Settings:
+    """The static Instagram carousel's slides: OpenRouter with CAROUSEL_IMAGE_MODEL (key from
+    .env), app-rendered text; IMAGE_PROVIDER=mock stays mock. Every other part: as given."""
+    if name != "carousel" or not slot.post_format or settings.image_provider == "mock":
+        return settings
+    return settings.model_copy(update={"image_provider": "openrouter",
+                                       "image_model": settings.carousel_image_model})
 
 
 def _new_folder(parent: Path, name: str) -> Path:
@@ -485,7 +535,7 @@ def _design_help(system: DesignSystem, suggested: FormatId | None) -> dict[str, 
                 "headlineMaxWords": spec.headline_max_words,
             }
             for key, spec in system.formats.items()
-            if key != "carousel"  # the animated carousel has its own block (_help.carousel)
+            if key != "carousel"  # the carousel follows its post format (_help.postFormat)
         },
         "layouts": {
             key: f"{layout.use}: {layout.description}" for key, layout in system.layouts.items()
@@ -566,6 +616,17 @@ def _slot_template(name: str, format_id: FormatId) -> dict[str, Any]:
     return {"format": format_id, **fields[format_id]}
 
 
+def _format_slide(post_format: PostFormat, kind: str) -> dict[str, Any]:
+    """One static carousel slide of a post format: its fields, the picture and the alt text."""
+    return {
+        "type": kind,
+        "copy": copy_template(post_format, kind),
+        "illustration": "<what the picture shows: one clean visual for this slide, no text, "
+                        "no people>",
+        "altText": "<what the slide shows and says, for screen readers>",
+    }
+
+
 def _first_frame(formats: Sequence[str]) -> str | None:
     """The package image a video starts from: the post, else the carousel hook, else the ad."""
     for kind in ("post", "carousel", "ad"):
@@ -613,12 +674,11 @@ def _brief_template(
     brand: BrandProfile | None,
     company: CompanyProfile | None,
     system: DesignSystem | None,
-    carousel_design: CarouselDesign | None,
+    post_format: PostFormat | None,
     identity_set: str,
     suggested: FormatId | None,
 ) -> dict[str, Any]:
     brand_tag = brand_hashtag(brand.brand_name) if brand else "<#BrandName>"
-    language = brand.carousel.language if brand else "en"
     chosen = {key: catalog.deliverables[key] for key in deliverables}
     by_part = {item.part: item for item in chosen.values()}
     formats = [item.brief_format for item in chosen.values()]
@@ -626,7 +686,7 @@ def _brief_template(
         "_help": {
             "howTo": (
                 f"Save a copy as {BRIEF_FILE} in this folder and replace every <...>. English "
-                "only (carousel slides: _help.carousel.language). Use docs/company/services.md "
+                "only. Use docs/company/services.md "
                 "and the brand and design rules below. "
                 "Never invent results, statistics, prices or client names. Keep deliverables "
                 "and formats unchanged: build only what the user named. This _help block is "
@@ -644,10 +704,8 @@ def _brief_template(
             "formats": {
                 "post": "one premium post image with the man, in the post's content type",
                 "carousel": (
-                    f"{carousel_design.slides} animated slides, no people: "
-                    f"{' -> '.join(carousel_design.structure)} (see _help.carousel)"
-                    if carousel_design
-                    else "config/carousel_design.json could not be read"
+                    "static PNG slides (1080x1350): cover, body slides, final; the text and the "
+                    "logo (last slide only) are rendered by the app (see _help.postFormat)"
                 ),
                 "ad": f"{AD_VARIANTS} variants of one ad: one message, one offer, one CTA",
                 "reel": (
@@ -699,13 +757,40 @@ def _brief_template(
             f"{MIN_HASHTAGS}-{MAX_HASHTAGS} hashtags including {brand_tag}."
         )
     post = by_part.get("post")
+    if post_format is not None:
+        template["_help"]["postFormat"] = {
+            "format": post_format.label(),
+            "rule": (
+                'Fill only the fields under "copy" (they are this format\'s fields); the app '
+                "renders them in the format's zones, and the picture has no text at all. "
+                "Never describe the man's face."
+                + (" A big number must be written in a research article listed in "
+                   "sourceArticleIds." if post_format.needs_number else "")
+            ),
+            "fields": {name: hint for fields, _ in post_format.layouts()
+                       for name, hint in fields.items()},
+        }
     if post is not None:
-        template["post"] = _slot_template("post", suggested or post.format or "statement")
-        if post.platform == "linkedin":
-            template["post"]["person"] = True
-    if "carousel" in by_part and carousel_design is not None:
-        template["_help"]["carousel"] = writer_help(carousel_design, language)
-        template["carousel"] = {"format": "carousel", "slides": slides_template(carousel_design)}
+        design = suggested or post.format or "statement"
+        if post_format is not None and not post_format.classic:
+            template["post"] = {"format": design, "postFormat": post_format.id,
+                                "copy": copy_template(post_format)}
+        else:
+            template["post"] = _slot_template("post", design)
+            if post_format is not None:
+                template["post"]["postFormat"] = post_format.id
+            if post.platform == "linkedin":
+                template["post"]["person"] = True
+    if "carousel" in by_part:
+        carousel = by_part["carousel"]
+        if post_format is not None and post_format.slides is not None:
+            low, high = post_format.slides
+            count = min(max(carousel.slides or high, low), high)
+            kinds = ["cover", *(["body"] * (count - 2)), "final"]
+            template["carousel"] = {"format": "carousel", "postFormat": post_format.id,
+                                    "slides": [_format_slide(post_format, kind) for kind in kinds]}
+        else:
+            template["carousel"] = {"format": "carousel", "slides": []}
     if "ad" in by_part:
         template["ad"] = _slot_template("ad", "ad")
     video = by_part.get("video")
@@ -805,21 +890,10 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool,
                   f'dry run: uv run ca content build "{folder}" --provider {name} --dry-run'
                   for name in fallbacks]
         result = PackageResult(folder, lines, package, estimated_usd=total)
+        providers: dict[str, str] = {kind: (plan.settings or settings).image_provider
+                     for kind, plan in plans.items()}
         result.cost_lines = _cost_lines(folder, brief, package, image_costs, settings,
-                                        redo_costs)
-        if brief.carousel is not None and is_animated(brief.carousel):
-            try:
-                design = load_carousel_design(settings.carousel_design_file)
-            except WorkflowError:
-                return result  # named in the dry run lines
-            slides = [slide.text() for slide in brief.carousel.slides]
-            result.estimated_credits, result.max_credits = planned_credits(
-                folder, slides, design
-            )
-            split = planned_split(folder, slides, design)
-            if package_format(folder, settings) == "static" and split is not None:
-                result.estimated_credits, result.max_credits = split[0], split[1]
-            result.usd_per_credit = design.stills.usd_per_credit
+                                        redo_costs, providers)
         return result
 
     lines = []
@@ -837,8 +911,11 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool,
     for kind, plan in plans.items():
         with runtime.for_item(registered.get(kind)):
             package.items[kind], check = _make_images(
-                kind, plan, folder, settings, package.items.get(kind), batch
+                kind, plan, folder, plan.settings or settings, package.items.get(kind), batch
             )
+            done = package.items[kind].status == "done"
+            if kind == "carousel" and plan.slot.post_format and done:
+                _carousel_texts(brief, folder, package.items[kind])
         _report(registered.get(kind), package.items[kind])
         lines.append(_item_line(kind, package.items[kind]))
         _save(folder, package)
@@ -849,13 +926,6 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool,
     if waiting:
         lines += waiting
         check = waiting
-    if brief.carousel is not None and is_animated(brief.carousel) and not check:
-        with runtime.for_item(registered.get("carousel")):
-            package.items["carousel"], extra = _carousel_stills(brief, folder, settings)
-        _report(registered.get("carousel"), package.items["carousel"])
-        lines.append(_item_line("carousel", package.items["carousel"]))
-        lines += extra
-        _save(folder, package)
     if brief.reel is not None and not check:
         item = package.items.get("reel")
         if item is None or item.status != "done":
@@ -888,36 +958,21 @@ def _job_config(settings: Settings) -> JobConfig:
 def _cost_lines(
     folder: Path, brief: ContentBrief, package: ContentPackage, image_costs: dict[str, float],
     settings: Settings, redo_costs: dict[str, float] | None = None,
+    providers: dict[str, str] | None = None,
 ) -> list[CostLine]:
     """The dry run per item, job type and provider: what an "ok" would authorize (D-4). The
-    max of a part with the person includes one automatic redo of each such image."""
+    max of a part with the person includes one automatic redo of each such image. providers:
+    the image provider per part (the static carousel: OpenRouter)."""
     config = _job_config(settings)
     items = runtime.package_items(folder)
     names = _part_names(brief, settings)
-    provider = settings.image_provider
-    lines = [
-        CostLine(items.get(kind), "image", provider, config.unit(provider), cost,
-                 round(cost + (redo_costs or {}).get(kind, 0.0), 6), names[kind])
-        for kind, cost in image_costs.items() if cost > 0 or config.paid(provider)
-    ]
-    if brief.carousel is not None and is_animated(brief.carousel):
-        try:
-            design: CarouselDesign | None = load_carousel_design(settings.carousel_design_file)
-        except WorkflowError:
-            design = None
-        slides = [slide.text() for slide in brief.carousel.slides]
-        split = planned_split(folder, slides, design) if design is not None else None
-        if split is not None:
-            still_estimate, still_max, clip_estimate, clip_max = split
-            if package_format(folder, settings) == "static":
-                clip_estimate = clip_max = 0.0  # stills only
-            unit = config.unit(CAROUSEL_PROVIDER)
-            lines += [
-                CostLine(items.get("carousel"), job, CAROUSEL_PROVIDER, unit, estimate, most,
-                         names["carousel"])
-                for job, estimate, most in (("still", still_estimate, still_max),
-                                            ("clip", clip_estimate, clip_max)) if most > 0
-            ]
+    lines = []
+    for kind, cost in image_costs.items():
+        provider = (providers or {}).get(kind, settings.image_provider)
+        if cost > 0 or config.paid(provider):
+            lines.append(CostLine(items.get(kind), "image", provider, config.unit(provider), cost,
+                                  round(cost + (redo_costs or {}).get(kind, 0.0), 6),
+                                  names[kind]))
     reel = package.items.get("reel")
     if brief.reel is not None and (reel is None or reel.status not in ("done", "waiting")):
         for job_type, scene_provider, estimate in _video_costs(brief, settings, config):
@@ -1006,23 +1061,15 @@ def _quality_problems(brief: ContentBrief, settings: Settings, folder: Path) -> 
     try:
         system = load_design_system(settings.design_system_file)
         problems = carousel_problems(brief, system, platforms, offer) + problems
-        problems = _animated_problems(brief, system, settings, research) + problems
     except WorkflowError as error:
         problems.append(str(error))
+    if any(slot is not None and slot.post_format for slot in (brief.post, brief.carousel)):
+        try:
+            problems = format_problems(brief, load_formats(settings.post_formats_file),
+                                       research) + problems
+        except FormatError as error:
+            problems.append(str(error))
     return problems
-
-
-def _animated_problems(
-    brief: ContentBrief, system: DesignSystem, settings: Settings, research: list[str]
-) -> list[str]:
-    """The animated carousel: structure and writer limits, then that every text fits."""
-    if brief.carousel is None or not is_animated(brief.carousel):
-        return []
-    design = load_carousel_design(settings.carousel_design_file)
-    problems = animated_carousel_problems(brief, design, research)
-    if problems:
-        return problems
-    return fit_problems([slide.text() for slide in brief.carousel.slides], design, system)
 
 
 def _in_brief_words(message: str) -> str:
@@ -1085,12 +1132,31 @@ def _slot_inputs(
         aspect_ratio=aspect,
         count=count,
         request=request,
-        card=json.dumps({"platform": brief.platform, "headline": _marked(slot),
-                         **(slot.card.model_dump(by_alias=True, exclude_none=True)
-                            if slot.card else {})}, ensure_ascii=False),
+        card=None if slot.post_format else json.dumps(
+            {"platform": brief.platform, "headline": _marked(slot),
+             **(slot.card.model_dump(by_alias=True, exclude_none=True) if slot.card else {})},
+            ensure_ascii=False),
         history=history,
         context=" ".join([brief.topic, brief.audience, brief.objective, *brief.key_points]),
+        post_format=slot.post_format,
+        format_copy=json.dumps(slot.copy_text, ensure_ascii=False) if slot.post_format else None,
+        topic=brief.topic,
     )
+    if slot.post_format and slot.slides:  # a static carousel: one image per slide
+        total = len(slot.slides)
+        return [
+            replace(
+                base,
+                format_copy=json.dumps(slide.copy_text, ensure_ascii=False),
+                slide_type=slide.type,
+                prompt=slide.illustration or "",
+                logo=number == total,  # the logo on the last slide only
+                slide=f"{number}/{total}",
+                count=1,
+                request=f"{request}, slide {number}/{total}",
+            )
+            for number, slide in enumerate(slot.slides, start=1)
+        ]
     if not slot.slides:
         return [base]
     total = len(slot.slides)
@@ -1133,6 +1199,8 @@ class _ImagePlan:
     jobs: list[WorkflowInputs]
     prepared: list[PreparedWorkflow] = field(default_factory=list)
     error: Exception | None = None
+    settings: Settings | None = None  # this part's provider (the static carousel: OpenRouter)
+    size: tuple[int, int] | None = None  # a post format: the final PNG size
 
 
 def _plan_images(
@@ -1152,16 +1220,26 @@ def _plan_images(
                                      before=str(created) if created else None))
     picks = {name: item.picks for name, item in package.items.items() if item.picks is not None}
     plans: dict[str, _ImagePlan] = {}
+    catalog = _formats(settings) if brief.post or brief.carousel else None
     for position, name in enumerate(IMAGE_SLOTS):
         slot: ImageSlot | None = getattr(brief, name)
         item = package.items.get(name)
         if slot is None or (item is not None and item.status == "done"):
             continue
-        if is_animated(slot):
-            continue  # made by the Phase 3 carousel flow, not by image jobs
         earlier = [picks[part] for part in IMAGE_SLOTS[:position] if part in picks]
         jobs = _slot_inputs(name, slot, brief, folder, earlier + others, counts[name])
-        plan = _ImagePlan(slot, jobs)
+        part_settings = _part_settings(name, slot, settings)
+        chosen = None
+        if slot.post_format and catalog is not None:
+            try:
+                chosen = catalog.get(slot.post_format)
+            except FormatError:
+                chosen = None  # reported by the brief checks
+        if chosen is not None and chosen.classic:
+            jobs = [replace(inputs, post_format=None, format_copy=None) for inputs in jobs]
+            chosen = None  # li_classic: the current design-system layout
+        plan = _ImagePlan(slot, jobs, settings=part_settings,
+                          size=chosen.size if chosen is not None else None)
         try:
             if len(jobs) == 1 and jobs[0].count > 1:
                 # One job per image: each image is checked on its own and can be made again
@@ -1169,7 +1247,8 @@ def _plan_images(
                 plan.jobs = [replace(jobs[0], count=1) for _ in range(jobs[0].count)]
             for position, inputs in enumerate(plan.jobs, start=1):
                 try:
-                    plan.prepared.append(prepare_workflow("social_creative", inputs, settings))
+                    plan.prepared.append(prepare_workflow("social_creative", inputs,
+                                                          part_settings))
                 except WorkflowError as error:  # name the slide or image it is about
                     where = "slide" if slot.format == "carousel" else "image"
                     raise WorkflowError(f"{where} {position}: {error}") from None
@@ -1221,7 +1300,8 @@ def _person_copy_problems(plans: dict[str, "_ImagePlan"], settings: Settings) ->
     allowed = tuple(person_card(settings)["icons"].get("allowed", ()))
     problems = []
     for kind, plan in plans.items():
-        if kind != "post" or not any(prepared.person_shown for prepared in plan.prepared):
+        if kind != "post" or plan.slot.post_format or not any(
+                prepared.person_shown for prepared in plan.prepared):
             continue
         slot = plan.slot
         card = slot.card
@@ -1482,7 +1562,8 @@ def _make_images(
     while queue:
         position = queue.pop(0)
         inputs = plan.jobs[position]
-        if position > 0 and plan.slot.format == "carousel" and item.image_refs:
+        if (position > 0 and plan.slot.format == "carousel" and item.image_refs
+                and not plan.slot.post_format):
             # Later slides attach slide 1 (it passed the person check): one scene and design.
             inputs = replace(inputs, first_slide=item.image_refs[0])
         try:
@@ -1502,6 +1583,8 @@ def _make_images(
         name = job.outputs[0]  # one image per job
         target = folder / IMAGES_DIR / f"{kind}-{position + 1}{Path(name).suffix}"
         shutil.copyfile(job.folder / name, target)
+        if plan.size is not None:
+            _fit_size(target, plan.size)
         entry = (f"{IMAGES_DIR}/{target.name}", f"{job.job_id}/{name}", str(job.folder))
         if position < len(item.image_refs):  # made again in its own place
             item.files[position], item.image_refs[position], item.image_folders[position] = entry
@@ -1555,6 +1638,15 @@ def _make_images(
             return item, _set_lines(item, pending, folder, settings)
     item.status, item.error = "done", None
     return item, []
+
+
+def _fit_size(path: Path, size: tuple[int, int]) -> None:
+    """A post format's PNG at its exact size (e.g. 1080x1350): centre crop, then Lanczos."""
+    with Image.open(path) as source:
+        image = source.convert("RGB")
+    if image.size != size:
+        image = ImageOps.fit(image, size, Image.Resampling.LANCZOS)
+        image.save(path, format="PNG", optimize=True)
 
 
 def _add_cost(total: float | None, cost: float | None) -> float | None:
@@ -1738,7 +1830,15 @@ def _dry_run_lines(
         f"Topic: {brief.topic} | platform: {brief.platform} | "
         f"formats: {', '.join(brief.formats)}",
     ]
+    catalog = _formats(settings) if package.format else None
+    if package.format:
+        try:
+            label = catalog.get(package.format).label() if catalog else package.format
+        except FormatError:
+            label = f"{package.format} (not in config/post_formats.json)"
+        lines.append(f"Post format: {label}")
     total = 0.0
+    used: set[str] = set()
     names = _part_names(brief, settings)
     batch = _batch(settings)  # a warm batch counts one cold start for the whole package
     for kind in IMAGE_SLOTS:
@@ -1747,19 +1847,20 @@ def _dry_run_lines(
         if plan is None:
             if item is not None and item.status == "done":
                 lines.append(f"{names[kind]}: already done ({', '.join(item.files)}); skipped")
-            elif kind == "carousel" and brief.carousel and is_animated(brief.carousel):
-                lines += _animated_dry_run(folder, brief, settings, names[kind])
             continue
         if plan.error is not None or not plan.prepared:
             lines.append(f"{names[kind]}: cannot be made yet: {plan.error}")
             continue
-        todo = [plan.prepared[position] for position in _todo(plan, item, settings)]
+        part = plan.settings or settings
+        used.add(part.image_provider)
+        todo = [plan.prepared[position] for position in _todo(plan, item, part)]
         cost = redo = 0.0
         for prepared in todo:
-            cost += estimate_cost_usd(prepared.request, settings, cold_start=batch.cold)
-            batch.cold = False
+            cold = batch.cold if part is settings else True
+            cost += estimate_cost_usd(prepared.request, part, cold_start=cold)
+            batch.cold = batch.cold and part is not settings
             if prepared.person_shown:
-                redo += estimate_cost_usd(prepared.request, settings, cold_start=False)
+                redo += estimate_cost_usd(prepared.request, part, cold_start=False)
         total += cost
         costs[kind] = round(cost, 6)
         redos[kind] = round(redo, 6)
@@ -1772,7 +1873,12 @@ def _dry_run_lines(
         else:
             images = f"{request.count} image{'s' if request.count > 1 else ''}"
         layout = f", layout {slot.layout}" if slot.layout else ""
+        if lead.inputs.get("postFormat"):
+            layout = f", post format {lead.inputs['postFormat']}"
         title = slot.headline or slot.stat or (slot.slides[0].headline if slot.slides else "")
+        if not title and slot.copy_text:
+            first = next(iter(slot.copy_text.values()))
+            title = first if isinstance(first, str) else (first[0] if first else "")
         picks: dict[str, str] = {}
         if lead.picks is not None:
             picks = lead.picks.model_dump(exclude={"format", "style_refs"}, exclude_none=True)
@@ -1785,9 +1891,21 @@ def _dry_run_lines(
             f'(format {slot.format}{layout}), "{title}"; picked: {look}; '
             f"{person}, {len(request.identity_refs)} identity + {len(request.style_refs)} style "
             f"images (people-free and logo-free when he is shown), logo pasted by the app, via "
-            f"{settings.image_provider}: about ${cost:.3f}"
+            f"{part.image_provider}: about ${cost:.3f}"
         )
-        if slot.format == "carousel" and len(plan.prepared) > 1:
+        if lead.inputs.get("postFormat"):
+            lines.append(f"  text: {lead.inputs.get('textOverlay')}")
+        if lead.inputs.get("postFormat") and len(plan.prepared) > 1:
+            kinds = [str(prepared.inputs.get("slideType")) for prepared in plan.prepared]
+            hashtags = len(brief.hashtags)
+            width, height = plan.size or (1080, 1350)
+            lines.append(
+                f"  static carousel: {len(kinds)} PNG slides at {width}x{height} "
+                f"({', '.join(kinds)}); one image per slide "
+                f"via {part.image_provider} ({part.image_model}); the logo on the last slide only; "
+                f"caption.txt ({hashtags} hashtags) and alt_text.txt go to Drive with the PNGs"
+            )
+        elif slot.format == "carousel" and len(plan.prepared) > 1:
             last = len(plan.prepared)
             lines.append(
                 "  slides 2+ also attach slide 1's image (same scene, design and colours); "
@@ -1828,8 +1946,8 @@ def _dry_run_lines(
         else:
             lines += _video_dry_run(brief, seconds, settings)
     lines.append(
-        f"Estimated image cost: ${total:.3f} ({settings.image_provider}). "
-        "Run again without --dry-run to build."
+        f"Estimated image cost: ${total:.3f} ({', '.join(sorted(used)) or settings.image_provider}"
+        "). Run again without --dry-run to build."
     )
     try:
         basis = get_provider(settings.image_provider, settings).capabilities.cost_basis
@@ -1838,53 +1956,6 @@ def _dry_run_lines(
     if basis:  # GPU time (ComfyUI): an estimate; the build shows estimate vs actual
         lines.insert(-1, f"Image cost basis: {basis}")
     return lines, round(total, 6), costs, redos
-
-
-def _animated_dry_run(
-    folder: Path, brief: ContentBrief, settings: Settings, name: str
-) -> list[str]:
-    """The animated carousel: per slide the still and clip credits, the total and the max."""
-    assert brief.carousel is not None
-    slides = [slide.text() for slide in brief.carousel.slides]
-    lines = [
-        f"{name}: animated carousel, {len(slides)} slides x 5 s MP4, text checked (limits and "
-        f'fit). Layout check (free): uv run ca carousel preview --topic "{brief.topic}"'
-    ]
-    try:
-        design = load_carousel_design(settings.carousel_design_file)
-    except WorkflowError as error:
-        return [*lines, f"  stills: {error}"]
-    chosen = package_format(folder, settings)
-    lines += credits_dry_run(folder, slides, design)
-    split = planned_split(folder, slides, design)
-    if chosen == "static" and split is not None:
-        lines.append(f"  format static: 8 PNGs from the stills, no clips: about {split[0]:g} "
-                     f"credits (max {split[1]:g})")
-    else:
-        lines.append(f"  format {chosen}" + (": the 8 clips joined into one MP4 (local, free)"
-                                             if chosen == "single_video" else ": 8 MP4 slides"))
-    return lines
-
-
-def _carousel_stills(
-    brief: ContentBrief, folder: Path, settings: Settings
-) -> tuple[PackageItem, list[str]]:
-    """After the "ok": the still requests for Codex (written once) and the local stills; once
-    `ca carousel render` is done, the finished part (see _carousel_done)."""
-    assert brief.carousel is not None
-    plan = load_plan(folder)
-    if plan is not None and plan.stage == "done":
-        return _carousel_done(brief, folder, plan.fallbacks + plan.set_check_notes), []
-    item = PackageItem(status="waiting", updated_at=datetime.now(UTC))
-    slides = [slide.text() for slide in brief.carousel.slides]
-    try:
-        design = load_carousel_design(settings.carousel_design_file)
-        lines = write_still_requests(folder, brief.topic, slides, design)
-    except (WorkflowError, MediaError, OSError) as error:
-        item.status, item.error = "failed", str(error)
-        return item, []
-    item.error = "stills and clips with Codex (make-carousel skill), then ca carousel render"
-    return item, lines
 
 
 def _caption_file_text(brief: ContentBrief) -> str:
@@ -1903,56 +1974,24 @@ def _caption_file_text(brief: ContentBrief) -> str:
     return "\n\n".join(parts) + "\n"
 
 
-def _carousel_done(brief: ContentBrief, folder: Path, notes: list[str]) -> PackageItem:
-    """The rendered carousel as a finished part: the slide MP4s and PNGs and caption.txt for
-    the Drive folder, the raw stills for its originals/ subfolder, the notes for the tracker."""
-    final = carousel_dir(folder) / "final"
-    caption = final / "caption.txt"
-    atomic_write_text(caption, _caption_file_text(brief))
-    shown = sorted(final.glob("slide_*.mp4")) + sorted(final.glob("slide_*.png")) + [caption]
-    stills = sorted((carousel_dir(folder) / "stills").glob("still_*.png"))
-    relative = [path.relative_to(folder).as_posix() for path in [*shown, *stills]]
-    return PackageItem(
-        status="done",
-        files=relative,
-        subfolders={path.relative_to(folder).as_posix(): "originals" for path in stills},
-        notes=notes,
-        updated_at=datetime.now(UTC),
-    )
+def _alt_text_file_text(brief: ContentBrief) -> str:
+    """alt_text.txt: one line per slide, ready to paste into Instagram's alt text."""
+    slides = brief.carousel.slides if brief.carousel is not None else []
+    return "".join(f"Slide {number}: {(slide.alt_text or '').strip()}\n"
+                   for number, slide in enumerate(slides, start=1))
 
 
-def finish_carousel(folder: Path, settings: Settings) -> ContentPackage:
-    """After `ca carousel render`: the carousel part is done, the package status and post.md
-    are updated. The brief was checked by the dry run before the "ok", so it is only read."""
-    raw = json.loads((folder / BRIEF_FILE).read_text(encoding="utf-8"))
-    brief = ContentBrief.model_validate(
-        {key: value for key, value in raw.items() if not str(key).startswith("_")}
-    )
-    plan = load_plan(folder)
-    if brief.carousel is None or plan is None or plan.stage != "done":
-        raise BriefError(
-            [f'the carousel is not rendered yet: uv run ca carousel render "{folder}"']
-        )
-    package = _load(folder, brief)
-    package.items["carousel"] = _carousel_done(brief, folder, plan.fallbacks + plan.set_check_notes)
-    runtime.report_part(runtime.item_for(folder, "carousel"), "done")
-    package.status = _status(brief, package)
-    saved = load_articles(settings.research_dir, datetime.min.replace(tzinfo=UTC))
-    articles = {article.article_id: article for article in saved}
-    atomic_write_text(folder / POST_FILE, _post_markdown(brief, package, articles))
-    _save(folder, package)
-    return package
-
-
-def carousel_slide_texts(folder: Path) -> list[SlideText]:
-    """The animated carousel's slides from brief.json (checked by the dry run before the
-    "ok"); BriefError if the brief has none."""
-    raw = json.loads((folder / BRIEF_FILE).read_text(encoding="utf-8"))
-    data = {key: value for key, value in raw.items() if not str(key).startswith("_")}
-    brief = ContentBrief.model_validate(data)
-    if brief.carousel is None or not is_animated(brief.carousel):
-        raise BriefError(["brief.json has no animated carousel (slides with a type)"])
-    return [slide.text() for slide in brief.carousel.slides]
+def _carousel_texts(brief: ContentBrief, folder: Path, item: PackageItem) -> None:
+    """The finished static carousel: caption.txt (caption + hashtags) and alt_text.txt beside
+    the slide PNGs, so the Drive sync uploads them to Instagram/<Content ID>/."""
+    for name, text in (("caption.txt", _caption_file_text(brief)),
+                       ("alt_text.txt", _alt_text_file_text(brief))):
+        path = folder / CAROUSEL_DIR / name
+        path.parent.mkdir(exist_ok=True)
+        atomic_write_text(path, text)
+        relative = path.relative_to(folder).as_posix()
+        if relative not in item.files:
+            item.files.append(relative)
 
 
 def _part_names(brief: ContentBrief, settings: Settings) -> dict[str, str]:

@@ -2,7 +2,7 @@
   "deliverables": {
     "facebook_post": {
       "kind": "post",
-      "label": "Facebook post: 1 premium image with the person; content type statement, stat, checklist or news (rotates between packages)",
+      "label": "Facebook post: 1 image (1080x1350) in a post format (question, scene, did you know, tip or Roman); text rendered by the app; rotates between packages",
       "part": "post",
       "platform": "facebook",
       "formats": ["statement", "stat", "checklist", "news"],
@@ -23,7 +23,7 @@
     },
     "linkedin_post": {
       "kind": "post",
-      "label": "LinkedIn post: 1 square image (1:1) with the person by default; content type statement, stat, checklist or news",
+      "label": "LinkedIn post: 1 square image (1080x1080) in a post format (stat, split, framework, Roman quote or the classic layout); text rendered by the app",
       "part": "post",
       "platform": "linkedin",
       "formats": ["statement", "stat", "checklist", "news"],
@@ -34,7 +34,7 @@
     },
     "instagram_carousel": {
       "kind": "carousel",
-      "label": "Instagram carousel: 8 animated slides (1:1, 5 s each, no people): cover, points, a stat, a list, a closing question",
+      "label": "Instagram carousel: 6-8 static PNG slides (1080x1350, no people) in a post format (checklist, mistake/fix, myth/fact or steps): cover, body slides, a closing question; caption, hashtags and alt text",
       "part": "carousel",
       "platform": "instagram",
       "format": "carousel",

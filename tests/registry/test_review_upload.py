@@ -24,7 +24,7 @@ def env(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[sqlit
                                                                              str]]:
     monkeypatch.setenv("DELIVERABLES_FILE", str(REPO / "config" / "deliverables.json"))
     (isolated / "config").mkdir()
-    for name in ("jobs.json", "storage.json", "carousel_design.json"):
+    for name in ("jobs.json", "storage.json"):
         shutil.copy(REPO / "config" / name, isolated / "config" / name)
     package = isolated / "packages" / "pkg"
     (package / "images").mkdir(parents=True)

@@ -21,7 +21,6 @@ from content_automation.core.config import Settings
 from content_automation.core.jobs import DETAILS_FILE, Job
 from content_automation.core.media import MediaError
 from content_automation.registry.auth import get_authorization
-from content_automation.registry.db import RegistryError
 from content_automation.registry.items import get_item
 from content_automation.registry.jobs import (
     JobConfig,
@@ -31,11 +30,8 @@ from content_automation.registry.jobs import (
     retry_candidates,
 )
 from content_automation.storage.review_upload import REQUESTS_DIR, queue_upload
-from content_automation.workflows.carousel_design import load_carousel_design
-from content_automation.workflows.carousel_plugin import continue_lines
 from content_automation.workflows.video_job import PLAN_FILE, resume_video_job
 
-CAROUSEL_JOBS = ("still", "clip")
 VIDEO_OPEN = ("queued", "processing", "awaiting_agent")
 
 
@@ -64,15 +60,6 @@ def _image(conn: sqlite3.Connection, job: JobRecord) -> str:
         return _manual(job, "a direct image run: run the ca image command again")
     return (f"{job.line()}: resume (authorization #{auth.id} open, {auth.remaining:g} "
             f'{auth.unit} left): uv run ca content build "{package}"')
-
-
-def _carousel(conn: sqlite3.Connection, settings: Settings, item_id: str) -> list[str]:
-    package = get_item(conn, item_id).package_path
-    if package is None:
-        return [f"{item_id}: needs manual action: carousel jobs but no package folder"]
-    design = load_carousel_design(settings.carousel_design_file)
-    return [f"{item_id} (carousel):",
-            *[f"  {line}" for line in continue_lines(Path(package), design)]]
 
 
 def _videos(settings: Settings) -> list[str]:
@@ -106,7 +93,6 @@ def _videos(settings: Settings) -> list[str]:
 def resume_all(conn: sqlite3.Connection, settings: Settings, config: JobConfig, *,
                command: str | None = None) -> list[str]:
     lines: list[str] = []
-    carousels: list[str] = []
     for job in list_jobs(conn, statuses=("queued", "running")):
         if job.job_type == "upload":
             if job.stale():
@@ -118,9 +104,6 @@ def resume_all(conn: sqlite3.Connection, settings: Settings, config: JobConfig, 
         elif job.stale():
             lines.append(_manual(job, f'stale: ca jobs cancel {job.id} "<reason>" first; '
                                       "never re-run by itself"))
-        elif job.job_type in CAROUSEL_JOBS and job.item_id is not None:
-            if job.item_id not in carousels:
-                carousels.append(job.item_id)
         elif job.job_type == "image" and job.status == "queued":
             lines.append(_image(conn, job))
         elif "video_job" in job.inputs:
@@ -133,11 +116,6 @@ def resume_all(conn: sqlite3.Connection, settings: Settings, config: JobConfig, 
             lines.append(f"{job.line()}: still running")
         else:
             lines.append(_manual(job, f"{job.job_type} via {job.provider} has no resume step"))
-    for item_id in carousels:
-        try:
-            lines += _carousel(conn, settings, item_id)
-        except (RegistryError, OSError, ValueError) as error:
-            lines.append(f"{item_id}: needs manual action: carousel ({error})")
     retry, capped = retry_candidates(conn, item_id=None, max_attempts=config.max_attempts)
     for job in retry:
         if job.job_type == "upload":

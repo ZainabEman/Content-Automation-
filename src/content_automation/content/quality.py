@@ -1,8 +1,9 @@
 """Content checks on brief.json, run by the dry run (nothing is made while one fails).
 
 - Carousel story: hook -> problem -> steps or insights -> example or result -> cta, 6-8 slides.
-- Animated carousel (slides with a type): cover -> point/stat/list -> final question, the
-  writer limits of config/carousel_design.json, and big numbers only from the cited research.
+- Post formats (config/post_formats.json): only the chosen format's fields, all filled; a
+  carousel runs cover -> body -> final with alt text per slide; big numbers only from the
+  cited research.
 - Middle slides teach something usable today: specific, never generic, and the step, insight
   and example slides show the automation concretely (a channel or tool and a timing).
 - Posts: the supporting line and the key points are specific too.
@@ -21,9 +22,8 @@ from content_automation.content.brief import (
     ContentBrief,
     ImageSlot,
     SlideSlot,
-    is_animated,
 )
-from content_automation.workflows.carousel_design import CarouselDesign, slide_problems
+from content_automation.content.formats import FormatCatalog, FormatError, copy_problems
 from content_automation.workflows.design_system import DesignSystem
 
 SAME_POINT = 0.6  # tips whose key words overlap this much make the same point
@@ -119,8 +119,9 @@ def _carousels(brief: ContentBrief) -> Iterable[tuple[str, ImageSlot]]:
 
 
 def _slide_texts(slide: SlideSlot) -> list[str]:
-    texts = [slide.headline, slide.subheadline or "", slide.body or "", slide.stat or ""]
-    texts += list(slide.items)
+    texts = [slide.headline, slide.subheadline or ""]
+    for value in slide.copy_text.values():
+        texts += value if isinstance(value, list) else [value]
     texts += [bubble.text for bubble in slide.chat] + list(slide.diagram) + list(slide.checklist)
     if slide.before_after is not None:
         texts += [slide.before_after.before, slide.before_after.after]
@@ -159,8 +160,8 @@ def carousel_problems(
     platforms = platforms or {}
     problems = []
     for name, slot in _carousels(brief):
-        if is_animated(slot):
-            continue  # animated_carousel_problems
+        if slot.post_format:
+            continue  # format_problems
         hook, middle, last = slot.slides[0], slot.slides[1:-1], slot.slides[-1]
         problems += _story_problems(name, slot.slides)
         if not slot.audience_line:
@@ -212,30 +213,45 @@ def carousel_problems(
     return problems
 
 
-def animated_carousel_problems(
-    brief: ContentBrief, design: CarouselDesign, research: Iterable[str]
+def format_problems(
+    brief: ContentBrief, catalog: FormatCatalog, research: Iterable[str]
 ) -> list[str]:
-    """The animated carousel: every slide has a type, the structure and writer limits of
-    carousel_design.json hold, and each big number is written in the cited research."""
-    slot = brief.carousel
-    if slot is None or not is_animated(slot):
-        return []
-    untyped = [number for number, slide in enumerate(slot.slides, start=1) if slide.type is None]
-    if untyped:
-        return [
-            f"carousel.slides[{number}].type: set it ({' -> '.join(design.structure)})"
-            for number in untyped
-        ]
-    slides = [slide.text() for slide in slot.slides]
-    problems = slide_problems(slides, design)
-    allowed = {number for text in research for number in _NUMBER.findall(text)}
-    for number, slide in enumerate(slides, start=1):
-        figures = _NUMBER.findall(slide.stat or "")
-        if any(figure not in allowed for figure in figures):
-            problems.append(
-                f'carousel.slides[{number}].stat "{slide.stat}": the number must be written in '
-                "a research article listed in sourceArticleIds; never invent one"
-            )
+    """Post formats: only the chosen format's fields, all filled; a carousel runs cover ->
+    body -> final with an illustration and alt text per slide; a big number only from the
+    cited research."""
+    texts = list(research)
+    problems: list[str] = []
+    for name in ("post", "carousel"):
+        slot: ImageSlot | None = getattr(brief, name)
+        if slot is None or not slot.post_format:
+            continue
+        try:
+            chosen = catalog.get(slot.post_format)
+        except FormatError as error:
+            problems.append(f"{name}.postFormat: {error}")
+            continue
+        if chosen.slides is None:
+            if slot.slides:
+                problems.append(f"{name}.slides: {chosen.id} is one image; remove the slides")
+            problems += copy_problems(chosen, slot.copy_text, name, research=texts)
+            continue
+        low, high = chosen.slides
+        if not low <= len(slot.slides) <= high:
+            problems.append(f"{name}.slides: {chosen.id} has {low}-{high} slides, found "
+                            f"{len(slot.slides)}")
+        for number, slide in enumerate(slot.slides, start=1):
+            where = f"{name}.slides[{number}]"
+            wanted = "cover" if number == 1 else "final" if number == len(slot.slides) else "body"
+            if slide.type != wanted:
+                problems.append(f'{where}.type must be "{wanted}" (cover, body slides, final)')
+                continue
+            problems += copy_problems(chosen, slide.copy_text, where, slide_type=wanted,
+                                      research=texts)
+            if not (slide.illustration or "").strip():
+                problems.append(f"{where}.illustration: what the picture shows (no text)")
+            if not (slide.alt_text or "").strip():
+                problems.append(f"{where}.altText: what the slide shows and says, for screen "
+                                "readers")
     return problems
 
 

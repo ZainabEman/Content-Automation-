@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from pydantic import ConfigDict, Field, ValidationError, model_validator
 
+from content_automation.content.relevance import INSIGHT_ONLY
 from content_automation.core.files import CamelModel
 from content_automation.workflows.design_system import (
     DEFAULT_FORMAT,
@@ -323,8 +324,9 @@ def brief_problems(
                 f"{name}.source: a stat needs the ID of the research article its number comes "
                 "from, and that ID must also be listed in sourceArticleIds"
             )
-    if services and brief.service not in services:
-        problems.append(f"service must be one of: {'; '.join(services)}")
+    if services and brief.service not in services and brief.service != INSIGHT_ONLY:
+        problems.append(f"service must be one of: {'; '.join(services)} (or {INSIGHT_ONLY}: "
+                        "no service named, a question as the cta)")
     for tag in brief.hashtags:
         if not re.fullmatch(r"#\w+", tag):
             problems.append(f'hashtag "{tag}" must look like #OneWord')

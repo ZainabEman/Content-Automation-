@@ -29,6 +29,8 @@ from content_automation.content.formats import (
     FormatError,
     copy_problems,
 )
+from content_automation.content.relevance import cta_problems, unverified_claims
+from content_automation.references.services import ServiceCatalog
 from content_automation.workflows.design_system import DesignSystem
 
 SAME_POINT = 0.6  # tips whose key words overlap this much make the same point
@@ -424,6 +426,11 @@ def _texts(brief: ContentBrief) -> Iterable[tuple[str, str]]:
                 yield "reel.onScreenText", scene.on_screen_text
             if scene.type == "avatar":
                 yield "reel.avatar", scene.prompt
+
+
+def service_problems(brief: ContentBrief, services: ServiceCatalog) -> list[str]:
+    """Phase D: only verified services are claimed; an insight-only post makes no sales ask."""
+    return unverified_claims(_texts(brief), services) + cta_problems(brief.service, brief.cta)
 
 
 def proof_problems(brief: ContentBrief, proof: str, research: Iterable[str]) -> list[str]:

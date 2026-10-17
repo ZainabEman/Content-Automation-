@@ -55,9 +55,11 @@ from content_automation.content.plan_config import (
     Weekday,
     plan_only_types,
 )
+from content_automation.content.relevance import service_fit
 from content_automation.content.research_input import ResearchFile, ResearchIdea, load_idea
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
+from content_automation.references.services import ServicesError, load_services
 from content_automation.registry import runtime
 from content_automation.registry.approvals import approve, reject
 from content_automation.registry.db import RegistryError
@@ -419,6 +421,7 @@ def new_calendar(
     if any(ids):
         lines.append("Items: " + ", ".join(
             f"row {row['Row']} {row['BG ID']}" for row in rows if row["BG ID"]))
+    lines += service_lines(rows, settings.services_file)
     if newest is None:
         lines.append("No newsletter content list found; used topics and scraper articles.")
     if empty:
@@ -428,6 +431,20 @@ def new_calendar(
         )
     lines.append(f"Next: uv run ca calendar check --week {label}")
     return path, lines
+
+
+def service_lines(rows: list[Row], services_file: Path) -> list[str]:
+    """Phase D: the verified service each row's topic is about, or insight-only (free)."""
+    try:
+        services = load_services(services_file)
+    except ServicesError as error:
+        return [f"Service fit left out: {error}"]
+    fits = [(row["Row"], service_fit([row["Topic"]], services)) for row in rows]
+    lines = ["Service fit: " + "; ".join(f"row {number} {fit.label}" for number, fit in fits)]
+    if any(fit.service_id is None for _, fit in fits):
+        lines.append("Insight-only rows name no service and ask a question, no sales ask; "
+                     "reject a row that fits neither a service nor a content pillar.")
+    return lines
 
 
 def check_calendar(path: Path, label: str, catalog: DeliverableCatalog,

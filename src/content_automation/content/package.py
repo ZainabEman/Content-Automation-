@@ -87,7 +87,9 @@ from content_automation.content.quality import (
     offer_label,
     post_problems,
     proof_problems,
+    service_problems,
 )
+from content_automation.content.relevance import INSIGHT_ONLY, Fit, service_fit
 from content_automation.content.research_input import ResearchIdea, save_sources
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
@@ -103,6 +105,7 @@ from content_automation.references import (
     load_services,
     load_set,
 )
+from content_automation.references.services import ServicesError
 from content_automation.registry import runtime
 from content_automation.registry.artifacts import latest_artifact
 from content_automation.registry.db import RegistryError
@@ -497,6 +500,18 @@ def _choose_direction(
     return None
 
 
+def _service_fit(topic: str, articles: list[SourceArticle],
+                 services_file: Path | None) -> Fit | None:
+    """Phase D: the verified service the topic is about, or insight-only (None: no file)."""
+    if services_file is None:
+        return None
+    try:
+        catalog = load_services(services_file)
+    except ServicesError:
+        return None
+    return service_fit([topic, *(article.title for article in articles[:3])], catalog)
+
+
 def _formats(settings: Settings) -> FormatCatalog | None:
     try:
         return load_formats(settings.post_formats_file)
@@ -748,6 +763,7 @@ def _brief_template(
 ) -> dict[str, Any]:
     brand_tag = brand_hashtag(brand.brand_name) if brand else "<#BrandName>"
     chosen = {key: catalog.deliverables[key] for key in deliverables}
+    fit = _service_fit(topic, articles, services_file)
     by_part = {item.part: item for item in chosen.values()}
     formats = [item.brief_format for item in chosen.values()]
     template: dict[str, Any] = {
@@ -762,6 +778,11 @@ def _brief_template(
             ),
             "deliverables": {key: item.label for key, item in chosen.items()},
             "services": service_names(brand, company, services_file),
+            "serviceFit": (
+                f"{fit.label}: keep this service, pick another verified one the copy is "
+                f'really about, or write "{INSIGHT_ONLY}" (no service named; the cta is a '
+                "question, no sales ask). Never invent services, results or prices."
+            ) if fit is not None else "",
             "brandRules": {
                 "tone": brand.tone if brand else "",
                 "language": "English",
@@ -802,7 +823,8 @@ def _brief_template(
         "deliverables": deliverables,
         "platform": catalog.platform_for(deliverables),
         "formats": formats,
-        "service": "<one of the services in _help>",
+        "service": fit.name if fit is not None and fit.service_id else (
+            INSIGHT_ONLY if fit is not None else "<one of the services in _help>"),
         "audience": brand.audience if brand and brand.audience else "<who this is for>",
         "objective": "<what this content should achieve>",
         "keyPoints": ["<key point 1>", "<key point 2>", "<key point 3>"],
@@ -877,6 +899,8 @@ def _brief_template(
     }
     offer = company.offer if company else ""
     template["cta"] = (
+        "<one question that invites comments: insight-only, no sales ask>"
+        if fit is not None and fit.service_id is None else
         f'<one clear call to action that names the offer "{offer_label(offer)}">'
         if offer else "<one clear call to action with the offer (ask: services.md has none)>"
     )
@@ -1129,8 +1153,12 @@ def _quality_problems(brief: ContentBrief, settings: Settings, folder: Path) -> 
     research = [articles[key] for key in brief.source_article_ids if key in articles]
     research_md = folder / RESEARCH_FILE
     company = load_company(settings.company_file)
-    offer = company.offer if company else ""
+    offer = company.offer if company and brief.service != INSIGHT_ONLY else ""
     problems = proof_problems(brief, proof, research)
+    try:
+        problems += service_problems(brief, load_services(settings.services_file))
+    except ServicesError as error:
+        problems.append(str(error))
     problems += insight_problems(
         brief, research_md.read_text(encoding="utf-8") if research_md.is_file() else "", articles
     )

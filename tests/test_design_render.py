@@ -1,0 +1,133 @@
+"""Phase D step 3: the design-direction renderer, the green-screen cut-out and `ca design preview`
+(offline; a drawn stand-in replaces the official logo, which is not in git)."""
+
+from pathlib import Path
+
+import numpy as np
+import pytest
+from PIL import Image, ImageDraw
+from typer.testing import CliRunner
+
+from content_automation.cli import app
+from content_automation.content import design_preview
+from content_automation.content.design_preview import preview, sample_copy
+from content_automation.content.directions import load_directions
+from content_automation.references import load_brand
+from content_automation.workflows.cutout import CutoutError, cut_out
+from content_automation.workflows.design_render import (
+    Assets,
+    DesignRenderError,
+    design_fonts,
+    parse,
+    render_layout,
+    token_colors,
+)
+
+
+@pytest.fixture
+def logo(tmp_path: Path) -> Path:
+    image = Image.new("RGBA", (480, 200), (0, 0, 0, 0))
+    ImageDraw.Draw(image).rectangle((10, 40, 470, 160), fill=(0, 75, 160, 255))
+    path = tmp_path / "logo.png"
+    image.save(path)
+    return path
+
+
+@pytest.fixture
+def assets(logo: Path) -> Assets:
+    brand = load_brand()
+    return Assets(brand=brand, logo_path=logo, fonts=design_fonts(brand))
+
+
+def test_marks_and_touching_punctuation() -> None:
+    words = parse("Still chasing *follow-ups*? Start with the *process*, not **two words**.")
+    assert [(w.text, w.style) for w in words if w.style != "plain"] == [
+        ("follow-ups?", "accent"), ("process,", "accent"), ("two", "bold"), ("words.", "bold")]
+    pill = parse("How we build [[an AI agent]] in 3 steps?")
+    assert {w.group for w in pill if w.style == "pill"} == {0}
+    assert pill[-1].text == "steps?" and pill[-1].style == "plain"
+
+
+def test_every_layout_renders_brand_only(assets: Assets) -> None:
+    catalog = load_directions()
+    samples = sample_copy()
+    tokens = set(token_colors(assets.brand))
+    count = 0
+    for direction in catalog.directions:
+        for name in direction.layouts:
+            rendered = render_layout(catalog, direction, name, samples[f"{direction.id}/{name}"],
+                                     assets)
+            count += 1
+            assert rendered.image.size == catalog.size(direction)
+            assert {token for _, token in rendered.fills} <= tokens
+            for text in rendered.texts:
+                assert set(text.tokens) <= tokens
+                assert text.font_px >= text.min_font_px and text.lines <= text.max_lines
+            assert rendered.logo is not None and rendered.logo.aspect_error < 0.02
+            assert rendered.logo.width_px >= rendered.logo.min_width_px
+    assert count == 22
+
+
+def test_light_steps_keep_contrast(assets: Assets) -> None:
+    catalog = load_directions()
+    direction = catalog.get("FB-3")
+    rendered = render_layout(catalog, direction, "zigzag", sample_copy()["FB-3/zigzag"], assets)
+    steps = [t for t in rendered.texts if t.text.startswith("STEP")]
+    assert len(steps) == 3 and all(t.contrast >= t.needed for t in steps)
+
+
+def test_text_that_does_not_fit_is_an_error(assets: Assets) -> None:
+    catalog = load_directions()
+    copy = dict(sample_copy()["FB-2/post"])
+    copy["headline"] = "A headline far too long to fit into two short lines of this post"
+    with pytest.raises(DesignRenderError, match="Shorten it"):
+        render_layout(catalog, catalog.get("FB-2"), "post", copy, assets)
+
+
+def test_unknown_icon_is_refused(assets: Assets) -> None:
+    catalog = load_directions()
+    copy = dict(sample_copy()["FB-1/post"])
+    copy["icons"] = ["robot", "robot", "not-an-icon"]
+    with pytest.raises(DesignRenderError, match="not allowed"):
+        render_layout(catalog, catalog.get("FB-1"), "post", copy, assets)
+
+
+def _green_screen() -> Image.Image:
+    image = Image.new("RGB", (200, 300), (20, 200, 40))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((70, 40, 130, 100), fill=(200, 160, 140))
+    draw.rectangle((50, 100, 150, 299), fill=(30, 40, 80))
+    return image
+
+
+def test_cut_out_keys_the_green_screen() -> None:
+    def no_model(_: Image.Image) -> Image.Image:
+        raise AssertionError("a clean key needs no model")
+
+    cut, method = cut_out(_green_screen(), segmenter=no_model)
+    alpha = np.asarray(cut.getchannel("A"))
+    assert method == "key" and cut.mode == "RGBA"
+    assert cut.size[0] <= 106 and alpha[-1, cut.size[0] // 2] > 200 and alpha[0, 0] < 30
+
+
+def test_cut_out_refuses_a_photo_without_green() -> None:
+    with pytest.raises(CutoutError, match="no green screen"):
+        cut_out(Image.new("RGB", (100, 100), (200, 200, 200)))
+
+
+def test_preview_writes_png_and_manifest(tmp_path: Path, logo: Path,
+                                         monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(design_preview, "logo_file", lambda *_: logo)
+    lines = preview(["fb-1", "FD-1"], out_dir=tmp_path / "out")
+    assert lines[-1].startswith("Preview: 2 rendered, 0 failed")
+    assert (tmp_path / "out" / "FD-1_post.png").is_file()
+    assert (tmp_path / "out" / "FB-1_post.json").read_text(encoding="utf-8").count('"texts"') == 1
+
+
+def test_cli_design_preview(tmp_path: Path, logo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(design_preview, "logo_file", lambda *_: logo)
+    result = CliRunner().invoke(app, ["design", "preview", "LI-2", "--out", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert "1 rendered, 0 failed" in result.output and "no provider called" in result.output
+    unknown = CliRunner().invoke(app, ["design", "preview", "XX-1", "--out", str(tmp_path)])
+    assert unknown.exit_code == 1

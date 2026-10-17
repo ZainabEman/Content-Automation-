@@ -144,7 +144,8 @@
           },
           "zones": {
             "visual": {"kind": "visual", "box": [0.0, 0.0, 1.0, 1.0], "bleed": true, "visualShape": "full"},
-            "top_scrim": {"kind": "shape", "shape": "scrim", "box": [0.0, 0.0, 1.0, 0.5], "bleed": true, "gradient": {"color": "bg_dark", "start": 0.94, "end": 0.0, "toward": "down"}},
+            "top_scrim": {"kind": "shape", "shape": "scrim", "box": [0.0, 0.0, 1.0, 0.38], "bleed": true, "gradient": {"color": "bg_dark", "start": 0.96, "end": 0.9, "toward": "down"}},
+            "top_fade": {"kind": "shape", "shape": "scrim", "box": [0.0, 0.38, 1.0, 0.52], "bleed": true, "gradient": {"color": "bg_dark", "start": 0.9, "end": 0.0, "toward": "down"}},
             "logo": {"kind": "logo", "box": [0.7, 0.048, 0.94, 0.115]},
             "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.06, 0.135, 0.94, 0.36], "size": 92, "weight": "extrabold", "upper": true},
             "panel": {"kind": "shape", "shape": "panel", "box": [0.06, 0.555, 0.94, 0.815], "fill": "bg_dark", "alpha": 0.92, "radius": 0.03},
@@ -298,7 +299,7 @@
             "visual": {"kind": "visual", "box": [0.0, 0.0, 1.0, 1.0], "bleed": true, "visualShape": "full"},
             "bottom_scrim": {"kind": "shape", "shape": "scrim", "box": [0.0, 0.8, 1.0, 1.0], "bleed": true, "gradient": {"color": "bg_dark", "start": 0.0, "end": 0.92, "toward": "down"}},
             "logo": {"kind": "logo", "box": [0.06, 0.048, 0.3, 0.115]},
-            "card": {"kind": "shape", "shape": "glass", "box": [0.1, 0.19, 0.9, 0.79], "fill": "bg_dark", "alpha": 0.8, "outline": "text_on_dark", "radius": 0.035},
+            "card": {"kind": "shape", "shape": "glass", "box": [0.1, 0.19, 0.9, 0.79], "fill": "bg_dark", "alpha": 0.88, "outline": "text_on_dark", "radius": 0.035},
             "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.15, 0.24, 0.85, 0.53], "size": 66, "weight": "bold"},
             "rule": {"kind": "shape", "shape": "rule", "box": [0.15, 0.552, 0.27, 0.558], "fill": "accent"},
             "context": {"kind": "text", "field": "context", "role": "body", "box": [0.15, 0.585, 0.85, 0.75], "size": 32},

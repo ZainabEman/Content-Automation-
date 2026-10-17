@@ -84,7 +84,8 @@ Plan: 12 config-driven design directions replace the post formats; brand-strict 
 - [x] Step 0 – Inspection + green baseline (5 tests left stale by the live fixes repaired).
 - [x] Step 1 – Brand tokens (config/brand.json) + services (config/services.json, brand/services.md).
 - [x] Step 2 – config/design_directions.json (12 directions) + typed loader (content/directions.py); refs renamed R01-R36, C1-C7 (config/social_refs.json); 89 Tabler icon names.
-- [ ] Step 3 – Rendering (new elements, logo placement, FD-1 cutout, `ca design preview`).
+- [x] Step 3 – Rendering: workflows/design_render.py (Pillow, token colours only, fit-or-fail text, contrast per text in the render manifest, official logo by code with clear space/min width), workflows/cutout.py (FD-1: green-screen key, rembg only if the key is not clean, cached by photo hash), `ca design preview [IDS] [--photo] [--out]` (cli/design.py, content/design_preview.py, sample copy config/design_preview_copy.json; PNG + manifest per layout in outputs/design/preview/, free). Fixed on resume: no space before punctuation after a mark, card text centred, zigzag dots under the cards and STEP numbers Royal Blue on light designs (Sky Blue is 2.0:1 on white), highlight pills no taller than a line, scrims fade where they end inside the canvas; FB-2 top scrim held at 0.9 behind the headline, LI-2 glass 0.88. Known: FD-3 editorial text over the photo can fall under 3:1 (placeholder); `ca design check` (step 7) must flag it on the real photo.
+  Resume note 2026-10-17: a new account took over after a timeout; step 3 code was on disk uncommitted and finished here. Next = Step 4.
 - [ ] Step 4 – Selection and rotation (registry history, override, dry-run line).
 - [ ] Step 5 – Service relevance (calendar pass, copy checks, skills).
 - [ ] Step 6 – Roman identity rules (real photos, LoRA rules, identity sheet + verdict).

@@ -54,6 +54,14 @@ from content_automation.content.deliverables import (
     DeliverableError,
     load_deliverables,
 )
+from content_automation.content.direction_pick import (
+    ROMAN,
+    direction_format,
+    is_direction_id,
+    pick_direction,
+    recent_directions,
+)
+from content_automation.content.directions import Direction, DirectionError, load_directions
 from content_automation.content.formats import (
     LINE_WORDS,
     TITLE_WORDS,
@@ -230,6 +238,7 @@ class ContentPackage(CamelModel):
     reviewer: str | None = None
     note: str | None = None
     format: str | None = None  # the post format (config/post_formats.json), picked at stage 1
+    direction: str | None = None  # Phase D: config/design_directions.json, picked at stage 1
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -357,12 +366,20 @@ def _apply_deliverables(
     except WorkflowError as error:
         system = None
         lines.append(f"Design help left out of the template: {error}")
-    post_format = _choose_format(folder, package, items, settings, articles, format_override)
+    as_direction = is_direction_id(format_override)
+    post_format = _choose_format(folder, package, items, settings, articles,
+                                 None if as_direction else format_override)
     if post_format is not None:
         lines.append(f"Post format: {post_format.label()}"
-                     + (" (as asked)" if format_override else
+                     + (" (as asked)" if format_override and not as_direction else
                         " (not one of the last 2 on that platform)"))
-    elif format_override:
+    direction = _choose_direction(folder, package, items, settings, format_override)
+    if direction is not None:
+        lines.append(f"Design direction: {direction[0].label} ({direction[1]})")
+    elif as_direction:
+        raise DeliverableError(f'"as {format_override}": none of these deliverables takes a '
+                               "design direction (LinkedIn or Facebook post, Instagram carousel)")
+    if post_format is None and format_override and not as_direction:
         raise DeliverableError(f'"as {format_override}": none of these deliverables takes a '
                                "post format (LinkedIn or Facebook post, Instagram carousel)")
     post = next((item for item in items if item.part == "post"), None)
@@ -393,6 +410,7 @@ def _apply_deliverables(
     package.platform = catalog.platform_for(deliverables)
     package.formats = [item.brief_format for item in items]
     package.format = post_format.id if post_format is not None else None
+    package.direction = direction[0].id if direction is not None else None
     if post is not None and suggested is not None and "post" not in package.items:
         # Saved now, so the next package already rotates to another format.
         package.items["post"] = PackageItem(picks=DesignPicks(format=suggested))
@@ -443,6 +461,40 @@ def _choose_format(
         )
     except FormatError as error:
         raise DeliverableError(str(error)) from None
+
+
+def _choose_direction(
+    folder: Path,
+    package: ContentPackage,
+    items: list[Deliverable],
+    settings: Settings,
+    override: str | None,
+) -> tuple[Direction, str] | None:
+    """Phase D: the design direction of the package's post or carousel (content/
+    direction_pick.py); "as <ID>" wins, "roman" = a founder direction. DeliverableError for a
+    bad override or no usable direction (exit 2: Codex asks the user)."""
+    roman = (override or "").strip().lower() == ROMAN
+    for item in items:
+        if item.platform is None:
+            continue
+        format_name = direction_format(item.part, item.platform, roman)
+        if format_name is None:
+            continue
+        try:
+            catalog = load_directions()
+            lora = settings if settings.image_provider == "mock" else settings.model_copy(
+                update={"image_provider": "comfyui"})
+            return pick_direction(
+                catalog, format_name, item.platform,
+                seed=package.content_id or folder.name,
+                recent=recent_directions(settings.packages_dir, catalog, format_name,
+                                         item.platform, exclude=folder),
+                lora_ok=provider_shows_person(lora),
+                override=override if is_direction_id(override) else None,
+            )
+        except DirectionError as error:
+            raise DeliverableError(str(error)) from None
+    return None
 
 
 def _formats(settings: Settings) -> FormatCatalog | None:
@@ -1879,6 +1931,13 @@ def _dry_run_lines(
         except FormatError:
             label = f"{package.format} (not in config/post_formats.json)"
         lines.append(f"Post format: {label}")
+    if package.direction:
+        try:
+            found = load_directions().find(package.direction)
+        except DirectionError:
+            found = None
+        lines.append("Design direction: " + (found.label if found is not None else
+                     f"{package.direction} (not in config/design_directions.json)"))
     total = 0.0
     used: set[str] = set()
     names = _part_names(brief, settings)

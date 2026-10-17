@@ -20,7 +20,11 @@ from content_automation.content.direction_brief import (
 from content_automation.content.directions import load_directions
 from content_automation.core.config import Settings
 from content_automation.workflows import design_check, direction_job
-from content_automation.workflows.direction_job import MANIFEST_SUFFIX
+from content_automation.workflows.direction_job import (
+    MANIFEST_SUFFIX,
+    DirectionDesign,
+    DirectionJobError,
+)
 from content_automation.workflows.image_workflows import (
     WorkflowInputs,
     prepare_workflow,
@@ -84,16 +88,34 @@ def test_illustration_prompt_has_no_copy_and_no_text(mock_settings: Settings) ->
         prepare_workflow("social_creative", _inputs("FB-1", copied), mock_settings)
 
 
-def test_roman_lora_and_real_photo(mock_settings: Settings) -> None:
-    lora = prepare_workflow("social_creative", _inputs("FD-2", sample_copy()["FD-2/post"]),
-                            mock_settings)
-    assert lora.person_shown and lora.request.person
-    assert lora.request.prompt.startswith(load_directions().roman.prefix)
-    real = prepare_workflow("social_creative", _inputs("FD-1", sample_copy()["FD-1/post"]),
-                            mock_settings)
-    assert not real.person_shown and real.design is not None
-    assert real.inputs["realPhoto"] in ("2.jpg", "4.jpg")
-    assert real.settings is not None and real.settings.image_provider == "template"
+def test_every_roman_image_is_a_lora_job(mock_settings: Settings,
+                                         make_settings: Callable[..., Settings]) -> None:
+    for direction_id in ("FD-1", "FD-2", "FD-3"):
+        layout = "cover" if direction_id == "FD-3" else "post"
+        prepared = prepare_workflow(
+            "social_creative", _inputs(direction_id, sample_copy()[f"{direction_id}/{layout}"]),
+            mock_settings)
+        assert prepared.person_shown and prepared.request.person
+        assert prepared.request.prompt.startswith(load_directions().roman.prefix)
+        assert "realPhoto" not in prepared.inputs and prepared.settings is not None
+        assert prepared.settings.image_provider == "mock"  # mock stays mock in tests
+    live = mock_settings.model_copy(update={"image_provider": "openrouter"})
+    routed = prepare_workflow("social_creative", _inputs("FD-1", sample_copy()["FD-1/post"]),
+                              live)  # IMAGE_PROVIDER=openrouter: Roman still goes to comfyui
+    assert routed.settings is not None and routed.settings.image_provider == "comfyui"
+    assert routed.request.person and routed.inputs["identity"].startswith("trained LoRA")
+
+
+def test_fd1_cuts_out_the_lora_image_and_never_a_photo() -> None:
+    design = DirectionDesign(direction="FD-1", layout="post", copy={})
+    green = Image.new("RGB", (300, 400), (20, 200, 40))
+    draw = ImageDraw.Draw(green)
+    draw.ellipse((110, 50, 190, 130), fill=(200, 160, 140))
+    draw.rectangle((70, 130, 230, 399), fill=(30, 40, 80))
+    cut = design.picture(green)
+    assert cut is not None and cut.mode == "RGBA"
+    with pytest.raises(DirectionJobError, match="never a real photo"):
+        design.picture(Image.new("RGB", (300, 400), (200, 200, 200)))
 
 
 def test_mock_build_renders_and_checks_the_design(mock_settings: Settings) -> None:

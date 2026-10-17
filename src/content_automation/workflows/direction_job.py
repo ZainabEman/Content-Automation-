@@ -2,8 +2,9 @@
 
 The direction fixes the provider (never swapped; IMAGE_PROVIDER=mock stays mock for local tests):
 no picture = the free template, an illustration = OpenRouter (Nano Banana 2, CAROUSEL_IMAGE_MODEL),
-Roman from the LoRA = comfyui, Roman's real photo = the free template plus an approved photo
-(FD-1 cut out, nothing generated). The picture prompt never carries the copy and ends with
+Roman = his LoRA on comfyui in every founder direction (FD-1 is cut out by the app from the
+LoRA image; a real photo is never the final image, and a failed LoRA job is never replaced by
+one or by another provider). The picture prompt never carries the copy and ends with
 "no text". After generation the app draws the whole design (workflows/design_render.py: text,
 logo, footer, icons, cards), writes the render manifest beside the PNG and runs the free design
 check (workflows/design_check.py); an error fails that image, never a silent pass.
@@ -14,7 +15,6 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 from PIL import Image
@@ -27,11 +27,11 @@ from content_automation.content.directions import (
     Layout,
     load_directions,
 )
-from content_automation.content.roman import RomanError, pick_real_photo, roman_prompt
+from content_automation.content.roman import RomanError, roman_prompt
 from content_automation.core.config import Settings
 from content_automation.references import load_brand
 from content_automation.references.services import load_services
-from content_automation.workflows.cutout import CutoutError, cached_cutout
+from content_automation.workflows.cutout import CutoutError, cut_out
 from content_automation.workflows.design_check import Report, check_manifest
 from content_automation.workflows.design_render import (
     Assets,
@@ -127,36 +127,34 @@ class DirectionDesign:
     copy: dict[str, Any]
     platform: str | None = None
     step: int = 0
-    real_photo: str | None = None  # an approved photo (FD-1 cut out, FD-2 portrait)
     person_check: str | None = None
     notes: list[str] = field(default_factory=list)
 
     def describe(self) -> str:
-        source = f"approved real photo {Path(self.real_photo).name}" if self.real_photo else (
-            "the generated picture")
         return (f"{self.direction} {self.layout}: drawn by the app (text, logo, footer, icons) "
-                f"on {source}; the image model draws no text; design check after rendering")
+                "on the generated picture; the image model draws no text; design check after "
+                "rendering")
 
     def to_json(self) -> str:
         return json.dumps({"direction": self.direction, "layout": self.layout,
-                           "platform": self.platform, "step": self.step,
-                           "realPhoto": self.real_photo}, ensure_ascii=False)
+                           "platform": self.platform, "step": self.step},
+                          ensure_ascii=False)
 
-    def picture(self, generated: Image.Image | None) -> Image.Image | None:
-        if self.real_photo is None:
-            return generated
-        photo = Path(self.real_photo)
-        catalog = load_directions()
-        direction = catalog.get(self.direction)
+    def picture(self, generated: Image.Image | None, mock: bool = False) -> Image.Image | None:
+        """The generated picture; a cut-out zone (FD-1) keys out the LoRA image's green
+        backdrop. A failed cut-out fails the image (mock test images have no backdrop)."""
+        if generated is None:
+            return None
+        direction = load_directions().get(self.direction)
         zone = next((z for z in direction.layouts[self.layout].zones.values()
                      if z.kind == "visual"), None)
-        if zone is not None and zone.visual_shape == "cutout":
-            try:
-                return cached_cutout(photo)[0]
-            except CutoutError as error:
-                raise DirectionJobError(f"{photo.name}: {error}") from None
-        with Image.open(photo) as source:
-            return source.convert("RGB")
+        if zone is None or zone.visual_shape != "cutout" or mock:
+            return generated
+        try:
+            return cut_out(generated)[0]
+        except CutoutError as error:
+            raise DirectionJobError(f"{self.direction}: the LoRA image cannot be cut out "
+                                    f"({error}); make it again, never a real photo") from None
 
     def render(self, generated: Image.Image | None, settings: Settings) -> tuple[Rendered, Report]:
         """Draw the design on the picture, then check it (free)."""
@@ -167,33 +165,18 @@ class DirectionDesign:
                         fonts=design_fonts(brand))
         try:
             rendered = render_layout(catalog, direction, self.layout, self.copy, assets,
-                                     picture=self.picture(generated), step=self.step)
+                                     picture=self.picture(
+                                         generated, settings.image_provider == "mock"),
+                                     step=self.step)
         except DesignRenderError as error:
             raise DirectionJobError(str(error)) from None
         manifest = json.loads(json.dumps(rendered.manifest(), default=str))
         manifest["copy"] = self.copy
-        if self.real_photo:
-            manifest["photo"] = self.real_photo
         report = check_manifest(manifest, catalog=catalog, brand=brand,
                                 services=load_services(settings.services_file),
                                 name=f"{self.direction} {self.layout}", image=rendered.image,
                                 person_check=self.person_check)
         return rendered, report
-
-
-def real_photo_for(direction: Direction, settings: Settings, identity_set: str,
-                   seed: str) -> Path | None:
-    """FD-1: an approved green-screen photo; FD-2 (preferReal): an approved portrait if any."""
-    rules = load_directions().roman
-    folder = settings.references_dir / identity_set
-    try:
-        if direction.visual.subject == "roman_real":
-            return pick_real_photo(rules, folder, seed=seed)
-        if direction.visual.prefer_real:
-            return pick_real_photo(rules, folder, seed=seed, portrait=True)
-    except RomanError as error:
-        raise DirectionJobError(f"{direction.id}: {error}") from None
-    return None
 
 
 def lora_prompt(direction: Direction, layout: Layout, seed: str) -> str:
@@ -205,4 +188,4 @@ def lora_prompt(direction: Direction, layout: Layout, seed: str) -> str:
 
 __all__ = ["MANIFEST_SUFFIX", "DirectionDesign", "DirectionJobError", "direction_layout",
            "direction_settings", "has_picture", "illustration_prompt", "lora_prompt",
-           "picture_aspect", "real_photo_for"]
+           "picture_aspect"]

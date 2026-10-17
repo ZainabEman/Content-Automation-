@@ -1,10 +1,10 @@
 """`ca design preview [IDS…] [--photo FILE]` (Phase D step 3): every layout of the chosen design
 directions drawn with the sample copy in config/design_preview_copy.json, free and local.
 
-Pictures are silver placeholders (a person outline for Roman's directions) unless --photo is
-given: a cut-out direction (FD-1) keys the green-screen photo out (workflows/cutout.py), the
-others crop it. Writes `<ID>_<layout>.png` and `<ID>_<layout>.json` (the render manifest that
-`ca design check` reads) to outputs/design/preview/. No provider is called.
+Pictures are silver placeholders (a person outline for Roman's directions); --photo replaces
+them in the directions without Roman only (Roman is always his LoRA, never a photo).
+Writes `<ID>_<layout>.png` and `<ID>_<layout>.json` (the render manifest that `ca design check`
+reads) to outputs/design/preview/. No provider is called.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ from PIL import Image, ImageDraw
 from content_automation.content.directions import Direction, DirectionCatalog, load_directions
 from content_automation.core.files import atomic_write_text
 from content_automation.references import load_brand
-from content_automation.workflows.cutout import cached_cutout
 from content_automation.workflows.design_render import (
     Assets,
     DesignRenderError,
@@ -60,9 +59,7 @@ def stand_in_picture(direction: Direction, layout_name: str, catalog: DirectionC
         return None
     zone = zones[0]
     cutout = zone.visual_shape == "cutout"
-    if photo is not None and (direction.roman or not cutout):
-        if cutout:
-            return cached_cutout(photo)[0]
+    if photo is not None and not direction.roman:  # Roman: only his LoRA, never a photo
         with Image.open(photo) as source:
             return source.convert("RGB")
     width, height = catalog.size(direction)

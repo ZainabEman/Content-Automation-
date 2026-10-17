@@ -2083,9 +2083,7 @@ def _dry_run_lines(
         if lead.design is not None:  # Phase D: a design direction
             generated = [prepared for prepared in todo
                          if (prepared.settings or part).image_provider != "template"]
-            real = lead.inputs.get("realPhoto")
-            source = (f"approved real photo {real}" if real else
-                      f"{len(generated)} picture(s) via {part.image_provider}" if generated
+            source = (f"{len(generated)} picture(s) via {part.image_provider}" if generated
                       else "no picture (template, free)")
             layouts = ", ".join(dict.fromkeys(str(p.inputs.get("layout")) for p in plan.prepared))
             who = ("Roman via his LoRA (person check after)" if lead.person_shown

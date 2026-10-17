@@ -57,11 +57,14 @@ def test_seeded_and_spread_without_history() -> None:
     assert spread == {"LI-1", "LI-2", "LI-3"}
 
 
-def test_founder_without_the_lora_uses_real_photos_only() -> None:
+def test_founder_without_the_lora_is_refused_never_a_real_photo() -> None:
     catalog = load_directions()
-    chosen, reason = pick_direction(catalog, "founder", "linkedin", seed="x", recent=["FD-1"],
-                                    lora_ok=False)
-    assert chosen.id == "FD-1" and "LoRA directions left out" in reason
+    with pytest.raises(DirectionError, match="every founder direction needs Roman's LoRA"):
+        pick_direction(catalog, "founder", "linkedin", seed="x", recent=["FD-1"],
+                       lora_ok=False)
+    chosen, _ = pick_direction(catalog, "founder", "linkedin", seed="x", recent=["FD-1"],
+                               lora_ok=True)
+    assert chosen.id in ("FD-2", "FD-3")
     with pytest.raises(DirectionError, match="never swapped"):
         pick_direction(catalog, "founder", "facebook", seed="x", recent=[], lora_ok=False,
                        override="FD-2")

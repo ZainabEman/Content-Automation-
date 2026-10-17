@@ -81,8 +81,8 @@ def test_copy_claims_numbers_and_identity(logo: Path) -> None:
     assert any("person check must pass" in w for w in _check(lora, logo).warnings)
     assert not _check(lora, logo, person_check="pass").warnings
     real = _manifest(logo, "FD-1", "post")
-    real["photo"] = "C:/photos/10.jpeg"
-    assert any("not an approved real photo" in e for e in _check(real, logo).errors)
+    real["photo"] = "C:/photos/2.jpg"
+    assert any("never the final image" in e for e in _check(real, logo).errors)
 
 
 def test_files_and_cli(tmp_path: Path, logo: Path, monkeypatch: pytest.MonkeyPatch) -> None:

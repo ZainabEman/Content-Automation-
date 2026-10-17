@@ -2,7 +2,6 @@
 
 import json
 from dataclasses import dataclass, field, replace
-from pathlib import Path
 
 from content_automation.ai.image import (
     ASPECT_RATIOS,
@@ -53,7 +52,6 @@ from content_automation.workflows.direction_job import (
     illustration_prompt,
     lora_prompt,
     picture_aspect,
-    real_photo_for,
 )
 from content_automation.workflows.image_job import job_references, raw_image, run_image_job
 from content_automation.workflows.logo import LogoError, LogoOverlay, check_logo
@@ -786,18 +784,15 @@ def _prepare_direction(
     picture = has_picture(direction, layout, role)
     set_id = (inputs.identity_set or inputs.fallback_identity_set
               or settings.default_identity_set)
-    real: Path | None = None
     recorded: dict[str, str | bool] = {"direction": direction.id, "layout": name,
                                        "personShown": False}
     try:
-        if direction.roman and picture:
-            real = real_photo_for(direction, settings, set_id, seed)
-        own = direction_settings(direction, picture and real is None, settings)
+        # Roman is always his LoRA on comfyui (never a real photo, never another provider).
+        own = direction_settings(direction, picture, settings)
         capabilities = get_provider(own.image_provider, own).capabilities
-        person = direction.visual.subject == "roman_lora" and real is None and picture
-        if not picture or real is not None:
-            prompt = (f"{direction.id}: no picture generated; the app renders the design"
-                      + (f" on the approved photo {real.name}" if real else ""))
+        person = direction.roman and picture
+        if not picture:
+            prompt = f"{direction.id}: no picture generated; the app renders the design"
         elif person:
             if capabilities.identity_prompt is None and own.image_provider != "mock":
                 raise WorkflowError(f"{direction.id} shows Roman: its provider "
@@ -813,18 +808,15 @@ def _prepare_direction(
     number = (inputs.slide or "").partition("/")[0].strip()
     design = DirectionDesign(direction=direction.id, layout=name, copy=copy,
                              platform=inputs.direction_platform,
-                             step=int(number) - 1 if number.isdigit() else 0,
-                             real_photo=str(real) if real else None)
+                             step=int(number) - 1 if number.isdigit() else 0)
     recorded["personShown"] = person
     recorded["design"] = design.to_json()
-    if real is not None:
-        recorded["realPhoto"] = real.name
     if inputs.slide:
         recorded["slide"] = inputs.slide
     request = ImageRequest(
         prompt=prompt,
         aspect_ratio=picture_aspect(direction, layout, catalog) if picture else "4:5",
-        image_size=settings.image_design_size if picture and real is None else "1K",
+        image_size=settings.image_design_size if picture else "1K",
         count=inputs.count,
         person=person,
     )

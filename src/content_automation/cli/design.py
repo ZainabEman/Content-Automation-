@@ -24,7 +24,7 @@ def design_preview(
     ids: Annotated[list[str] | None, typer.Argument(
         help="Direction IDs (e.g. FB-1 FD-2); default: all 12.")] = None,
     photo: Annotated[Path | None, typer.Option(
-        "--photo", help="A real photo for the picture (green screen for FD-1's cut-out).")] = None,
+        "--photo", help="A photo for the picture (not for Roman's FD directions).")] = None,
     out: Annotated[Path, typer.Option("--out", help="Folder for the PNGs.")] = PREVIEW_DIR,
 ) -> None:
     """Draw every layout of the directions with config/design_preview_copy.json: PNG + render

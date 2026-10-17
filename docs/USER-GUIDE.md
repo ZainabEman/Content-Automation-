@@ -67,6 +67,9 @@ Type every phrase below in Codex Desktop. Codex runs the matching `uv run ca …
 - "check script BG-x": runs the check again
 - "show brief BG-x": the saved production brief
 - "continue carousel <folder>": where the carousel stopped, and its next step
+- "make a post about X as FB-2": that design direction instead of the automatic pick
+- "preview designs": all 12 design directions drawn with sample copy (free, outputs/design/preview)
+- "check designs": the free brand, logo, text-fit, contrast and claims check of rendered designs
 - "show authorizations": what each "ok" allows (spent of max)
 - "show costs": estimate against actual, per job type
 - "train lora": parked (LoRA track)

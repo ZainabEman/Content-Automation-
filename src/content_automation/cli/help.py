@@ -171,16 +171,19 @@ GROUPS: tuple[Group, ...] = (
     Group("make-carousel", ".agents/skills/make-carousel/SKILL.md", (
         Phrase("make an insta post about TOPIC",
                'ca content start --topic "TOPIC" --deliverables "instagram carousel"',
-               "a static carousel (6-8 PNGs): dry run with the cost, then ok"),
-        Phrase("make an insta carousel about TOPIC [as <format>]",
-               'ca content start --topic "TOPIC" --deliverables "instagram carousel" [--as X]',
-               "the same, in that format"),
+               "a static carousel in a design direction: dry run with the cost, then ok"),
+        Phrase("make an insta carousel about TOPIC [as <direction>]",
+               'ca content start --topic "TOPIC" --deliverables "instagram carousel" [--as CS-2]',
+               "the same, in that direction"),
     )),
     Group("Playbooks (AGENTS.md)", "AGENTS.md", (
         Phrase("sync drive", "ca drive sync", "uploads finished files and the tracker rows"),
         Phrase("show tracker", "ca tracking show", "tracker rows and status counts"),
         Phrase("export tracker", "ca tracking export", "the tracker as CSV"),
         Phrase("train lora", "ca lora train-remote --model both", "parked (LoRA track)"),
+        Phrase("preview designs", "ca design preview",
+               "every design direction drawn with sample copy (free)"),
+        Phrase("check designs", "ca design check", "brand, logo, fit, contrast and claims (free)"),
     )),
 )
 

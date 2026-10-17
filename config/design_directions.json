@@ -759,8 +759,9 @@
           "fields": {"headline": "the headline with one word marked *like this*, at most 8 words", "sub": "optional sub-line, at most 12 words"},
           "zones": {
             "visual": {"kind": "visual", "box": [0.0, 0.0, 1.0, 1.0], "bleed": true, "visualShape": "full"},
-            "top_scrim": {"kind": "shape", "shape": "scrim", "box": [0.0, 0.0, 0.86, 0.46], "bleed": true, "gradient": {"color": "bg_dark", "start": 0.9, "end": 0.0, "toward": "right"}},
-            "bottom_scrim": {"kind": "shape", "shape": "scrim", "box": [0.4, 0.86, 1.0, 1.0], "bleed": true, "gradient": {"color": "bg_dark", "start": 0.0, "end": 0.85, "toward": "down"}},
+            "top_scrim": {"kind": "shape", "shape": "scrim", "box": [0.0, 0.0, 0.72, 0.48], "bleed": true, "gradient": {"color": "bg_dark", "start": 0.96, "end": 0.86, "toward": "right"}},
+            "top_fade": {"kind": "shape", "shape": "scrim", "box": [0.72, 0.0, 1.0, 0.48], "bleed": true, "gradient": {"color": "bg_dark", "start": 0.86, "end": 0.0, "toward": "right"}},
+            "bottom_scrim": {"kind": "shape", "shape": "scrim", "box": [0.4, 0.84, 1.0, 1.0], "bleed": true, "gradient": {"color": "bg_dark", "start": 0.0, "end": 0.95, "toward": "down"}},
             "logo": {"kind": "logo", "box": [0.7, 0.048, 0.94, 0.115]},
             "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.06, 0.1, 0.62, 0.32], "size": 60, "weight": "bold"},
             "sub": {"kind": "text", "field": "sub", "role": "sub", "box": [0.06, 0.33, 0.56, 0.42], "size": 28, "optional": true},

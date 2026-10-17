@@ -20,6 +20,7 @@ from content_automation.ai.image import (
     model_for,
 )
 from content_automation.core.config import Settings
+from content_automation.core.files import atomic_write_text
 from content_automation.core.jobs import DETAILS_FILE, Job, JobParams, JobReference, create_job
 from content_automation.core.limits import check_daily_limit
 from content_automation.core.log import get_logger, mask_secrets, secret_values
@@ -28,6 +29,11 @@ from content_automation.references import asset_id_for
 from content_automation.registry import runtime
 from content_automation.registry.jobs import JobRecord, NotAuthorized, load_job_config
 from content_automation.workflows.compose import compose_post, copy_from_overlay
+from content_automation.workflows.direction_job import (
+    MANIFEST_SUFFIX,
+    DirectionDesign,
+    DirectionJobError,
+)
 from content_automation.workflows.logo import LogoOverlay, apply_logo
 from content_automation.workflows.text_overlay import TextOverlay, apply_text
 
@@ -81,6 +87,7 @@ def run_image_job(
     references: list[JobReference] | None = None,
     text: TextOverlay | None = None,
     cold_start: bool = True,
+    design: DirectionDesign | None = None,
 ) -> Job:
     """Run one image job and return its record (status completed or failed).
 
@@ -88,6 +95,8 @@ def run_image_job(
     estimate leaves out the per-request cost.
     text: rendered onto every image first (providers that draw no text), then the logo.
     logo: pasted onto every image; the image without it (and without the text) is kept in raw/.
+    design (Phase D): the app draws the whole direction on the picture (text, logo, footer),
+    writes image-N.design.json and runs the design check; a check error fails the job.
     Raises DailyLimitError before any job or provider call when the limit is hit.
     Mock images are free and do not count toward the limit.
 
@@ -172,6 +181,29 @@ def run_image_job(
                 made.image.save(path, format="PNG", optimize=True)
                 job.notes += made.notes
                 written.append(path)
+                continue
+            if design is not None:  # the raw picture kept; the design is drawn and checked
+                raw = job.folder / RAW_DIR / f"image-{index}.{extension}"
+                raw.parent.mkdir(exist_ok=True)
+                raw.write_bytes(image.data)
+                written.append(raw)
+                with Image.open(io.BytesIO(image.data)) as source:
+                    picture = None if settings.image_provider == "template" else source.convert(
+                        "RGB")
+                    drawn, report = design.render(picture, settings)
+                path = job.folder / f"image-{index}.png"
+                drawn.image.save(path, format="PNG", optimize=True)
+                manifest = drawn.manifest() | {"copy": design.copy, "check": {
+                    "errors": report.errors, "warnings": report.warnings}}
+                atomic_write_text(path.with_suffix(MANIFEST_SUFFIX),
+                                  json.dumps(manifest, indent=2, ensure_ascii=False, default=str))
+                written.append(path)
+                if report.errors:
+                    raise DirectionJobError(f"{path.name} failed the design check: "
+                                            + "; ".join(report.errors))
+                job.notes.append(f"Design: {design.describe()}; check passed"
+                                 + (f" ({'; '.join(report.warnings)})" if report.warnings
+                                    else "") + ".")
                 continue
             if logo is None and text is None:
                 path = job.folder / f"image-{index}.{extension}"

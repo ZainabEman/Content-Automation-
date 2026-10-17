@@ -34,6 +34,8 @@ PREVIEW_DIR = Path("outputs/design/preview")
 
 
 def sample_copy(path: Path = SAMPLE_COPY) -> dict[str, dict[str, object]]:
+    if not path.is_file() and not path.is_absolute():  # run from another folder
+        path = Path(__file__).resolve().parents[3] / path
     data = json.loads(path.read_text(encoding="utf-8"))
     return {key: value for key, value in data.items() if not key.startswith("_")}
 
@@ -51,7 +53,7 @@ def _silhouette(picture: Image.Image) -> Image.Image:
     return cut
 
 
-def _picture(direction: Direction, layout_name: str, catalog: DirectionCatalog,
+def stand_in_picture(direction: Direction, layout_name: str, catalog: DirectionCatalog,
              colors: Mapping[str, tuple[int, int, int]], photo: Path | None) -> Image.Image | None:
     zones = [z for z in direction.layouts[layout_name].zones.values() if z.kind == "visual"]
     if not zones:
@@ -95,7 +97,7 @@ def preview(ids: Sequence[str] = (), photo: Path | None = None,
                 failed += 1
                 continue
             try:
-                picture = _picture(direction, layout_name, catalog, colors, photo)
+                picture = stand_in_picture(direction, layout_name, catalog, colors, photo)
                 rendered = render_layout(catalog, direction, layout_name, copy, assets,
                                          picture=picture)
             except (DesignRenderError, OSError, ValueError) as error:
@@ -116,4 +118,4 @@ def preview(ids: Sequence[str] = (), photo: Path | None = None,
     return lines
 
 
-__all__ = ["PREVIEW_DIR", "SAMPLE_COPY", "preview", "sample_copy"]
+__all__ = ["PREVIEW_DIR", "SAMPLE_COPY", "preview", "sample_copy", "stand_in_picture"]

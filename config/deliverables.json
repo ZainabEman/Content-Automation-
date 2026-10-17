@@ -2,7 +2,7 @@
   "deliverables": {
     "facebook_post": {
       "kind": "post",
-      "label": "Facebook post: 1 image (1080x1350) in a post format (question, scene, did you know, tip or Roman); text rendered by the app; rotates between packages",
+      "label": "Facebook post: 1 image (1080x1350) in a design direction (FB-1 service spotlight, FB-2 problem hook, FB-3 how it works; Roman's week: FD-1..FD-3); text, logo and footer drawn by the app; rotates between packages",
       "part": "post",
       "platform": "facebook",
       "formats": ["statement", "stat", "checklist", "news"],
@@ -23,7 +23,7 @@
     },
     "linkedin_post": {
       "kind": "post",
-      "label": "LinkedIn post: 1 square image (1080x1080) in a post format (stat, split, framework, Roman quote or the classic layout); text rendered by the app",
+      "label": "LinkedIn post: 1 image (1080x1350) in a design direction (LI-1 editorial ecosystem, LI-2 insight card, LI-3 value map; Roman's week: FD-1..FD-3); text, logo and footer drawn by the app; rotates between packages",
       "part": "post",
       "platform": "linkedin",
       "formats": ["statement", "stat", "checklist", "news"],
@@ -34,7 +34,7 @@
     },
     "instagram_carousel": {
       "kind": "carousel",
-      "label": "Instagram carousel: 6-8 static PNG slides (1080x1350, no people) in a post format (checklist, mistake/fix, myth/fact or steps): cover, body slides, a closing question; caption, hashtags and alt text",
+      "label": "Instagram carousel: static PNG slides (1080x1350, no people) in a design direction (CS-1 tool breakdown, CS-2 bold statements, CS-3 numbered steps): cover, body slides, a closing call; caption, hashtags and alt text",
       "part": "carousel",
       "platform": "instagram",
       "format": "carousel",

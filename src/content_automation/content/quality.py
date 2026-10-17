@@ -167,8 +167,8 @@ def carousel_problems(
     platforms = platforms or {}
     problems = []
     for name, slot in _carousels(brief):
-        if slot.post_format:
-            continue  # format_problems
+        if slot.templated:
+            continue  # format_problems or direction_problems
         hook, middle, last = slot.slides[0], slot.slides[1:-1], slot.slides[-1]
         problems += _story_problems(name, slot.slides)
         if not slot.audience_line:

@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 
 from content_automation.ai.image import (
     ASPECT_RATIOS,
@@ -11,6 +12,7 @@ from content_automation.ai.image import (
     ReferenceImage,
     get_provider,
 )
+from content_automation.content.directions import DirectionError, load_directions
 from content_automation.content.formats import (
     FormatError,
     PostFormat,
@@ -41,6 +43,17 @@ from content_automation.workflows.design_system import (
     DesignSystem,
     load_design_system,
     resolve_design,
+)
+from content_automation.workflows.direction_job import (
+    DirectionDesign,
+    DirectionJobError,
+    direction_layout,
+    direction_settings,
+    has_picture,
+    illustration_prompt,
+    lora_prompt,
+    picture_aspect,
+    real_photo_for,
 )
 from content_automation.workflows.image_job import job_references, raw_image, run_image_job
 from content_automation.workflows.logo import LogoError, LogoOverlay, check_logo
@@ -135,6 +148,10 @@ class WorkflowInputs:
     format_copy: str | None = None
     slide_type: str | None = None
     topic: str | None = None
+    # Phase D: a design direction (config/design_directions.json) instead of a post format;
+    # format_copy holds its copy, slide_type the carousel slide role, topic seeds the layout.
+    direction: str | None = None
+    direction_platform: str | None = None
 
     def provided(self) -> set[InputName]:
         values: dict[InputName, str | bool | None] = {
@@ -188,6 +205,7 @@ class PreparedWorkflow:
     picks: DesignPicks | None = None  # designs: what was used from the pools
     person_shown: bool = False  # the result needs the person check before it is used
     settings: Settings | None = None  # a post format: its own provider (never swapped)
+    design: DirectionDesign | None = None  # Phase D: the app draws the direction after it
 
     @property
     def product_asset_ids(self) -> list[str]:
@@ -430,6 +448,8 @@ def prepare_workflow(
     """Validate inputs and build the ImageRequest; creates no job and calls no provider."""
     spec = get_workflow(workflow_id)
     _check_inputs(spec, inputs)
+    if inputs.direction and spec.designed:
+        return _prepare_direction(spec, inputs, settings)
     if inputs.post_format and spec.designed:
         return _prepare_format(spec, inputs, settings)
     root = settings.references_dir
@@ -742,6 +762,76 @@ def _prepare_format(
     )
 
 
+def _prepare_direction(
+    spec: WorkflowSpec, inputs: WorkflowInputs, settings: Settings,
+) -> PreparedWorkflow:
+    """Phase D: a design direction. The picture via the direction's own provider (none: the
+    free template; Roman's real photo: no generation), then the whole design drawn by the app
+    and checked; creates no job and calls no provider."""
+    try:
+        catalog = load_directions()
+        direction = catalog.get(str(inputs.direction))
+        copy = json.loads(inputs.format_copy or "{}")
+    except (DirectionError, ValueError) as error:
+        raise WorkflowError(str(error)) from None
+    if not isinstance(copy, dict):
+        raise WorkflowError(f"{direction.id}: the copy must be an object of the layout's fields")
+    seed = inputs.topic or inputs.request or ""
+    role = inputs.slide_type if direction.format == "carousel" else None
+    try:
+        name, layout = direction_layout(direction, platform=inputs.direction_platform,
+                                        seed=seed, role=role)
+    except DirectionError as error:
+        raise WorkflowError(str(error)) from None
+    picture = has_picture(direction, layout, role)
+    set_id = (inputs.identity_set or inputs.fallback_identity_set
+              or settings.default_identity_set)
+    real: Path | None = None
+    recorded: dict[str, str | bool] = {"direction": direction.id, "layout": name,
+                                       "personShown": False}
+    try:
+        if direction.roman and picture:
+            real = real_photo_for(direction, settings, set_id, seed)
+        own = direction_settings(direction, picture and real is None, settings)
+        capabilities = get_provider(own.image_provider, own).capabilities
+        person = direction.visual.subject == "roman_lora" and real is None and picture
+        if not picture or real is not None:
+            prompt = (f"{direction.id}: no picture generated; the app renders the design"
+                      + (f" on the approved photo {real.name}" if real else ""))
+        elif person:
+            if capabilities.identity_prompt is None and own.image_provider != "mock":
+                raise WorkflowError(f"{direction.id} shows Roman: its provider "
+                                    f"{own.image_provider} has no trained LoRA; it is never "
+                                    "swapped")
+            prompt = lora_prompt(direction, layout, seed)
+            recorded["identitySet"] = load_set(set_id, settings.references_dir).set_id
+            recorded["identity"] = "trained LoRA (no identity photos sent)"
+        else:
+            prompt = illustration_prompt(direction, catalog, copy, inputs.prompt or None)
+    except (DirectionJobError, ReferenceLibraryError) as error:
+        raise WorkflowError(str(error)) from None
+    number = (inputs.slide or "").partition("/")[0].strip()
+    design = DirectionDesign(direction=direction.id, layout=name, copy=copy,
+                             platform=inputs.direction_platform,
+                             step=int(number) - 1 if number.isdigit() else 0,
+                             real_photo=str(real) if real else None)
+    recorded["personShown"] = person
+    recorded["design"] = design.to_json()
+    if real is not None:
+        recorded["realPhoto"] = real.name
+    if inputs.slide:
+        recorded["slide"] = inputs.slide
+    request = ImageRequest(
+        prompt=prompt,
+        aspect_ratio=picture_aspect(direction, layout, catalog) if picture else "4:5",
+        image_size=settings.image_design_size if picture and real is None else "1K",
+        count=inputs.count,
+        person=person,
+    )
+    return PreparedWorkflow(spec=spec, request=request, references=job_references(request),
+                            inputs=recorded, person_shown=person, settings=own, design=design)
+
+
 def run_workflow(
     workflow_id: str, inputs: WorkflowInputs, settings: Settings, *, cold_start: bool = True
 ) -> Job:
@@ -764,4 +854,5 @@ def run_workflow(
         text=prepared.text,
         references=prepared.references,
         cold_start=cold_start,
+        design=prepared.design,
     )

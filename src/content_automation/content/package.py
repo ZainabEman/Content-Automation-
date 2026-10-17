@@ -54,6 +54,12 @@ from content_automation.content.deliverables import (
     DeliverableError,
     load_deliverables,
 )
+from content_automation.content.direction_brief import (
+    carousel_template,
+    direction_problems,
+    help_text,
+    post_template,
+)
 from content_automation.content.direction_pick import (
     ROMAN,
     direction_format,
@@ -125,6 +131,7 @@ from content_automation.workflows.design_system import (
     FormatSpec,
     load_design_system,
 )
+from content_automation.workflows.direction_job import direction_settings
 from content_automation.workflows.image_checks import image_problems
 from content_automation.workflows.image_job import raw_image
 from content_automation.workflows.image_workflows import (
@@ -370,20 +377,25 @@ def _apply_deliverables(
     except WorkflowError as error:
         system = None
         lines.append(f"Design help left out of the template: {error}")
+    # Phase D: a design direction by default; the older post formats only when one is named
+    # ("as li_stat"), or for a part no direction takes.
     as_direction = is_direction_id(format_override)
-    post_format = _choose_format(folder, package, items, settings, articles,
-                                 None if as_direction else format_override)
-    if post_format is not None:
-        lines.append(f"Post format: {post_format.label()}"
-                     + (" (as asked)" if format_override and not as_direction else
-                        " (not one of the last 2 on that platform)"))
-    direction = _choose_direction(folder, package, items, settings, format_override)
+    as_format = bool(format_override) and not as_direction and (
+        str(format_override).strip().lower() != ROMAN)
+    direction = None if as_format else _choose_direction(folder, package, items, settings,
+                                                         format_override)
     if direction is not None:
         lines.append(f"Design direction: {direction[0].label} ({direction[1]})")
     elif as_direction:
         raise DeliverableError(f'"as {format_override}": none of these deliverables takes a '
                                "design direction (LinkedIn or Facebook post, Instagram carousel)")
-    if post_format is None and format_override and not as_direction:
+    post_format = None if direction is not None else _choose_format(
+        folder, package, items, settings, articles, format_override)
+    if post_format is not None:
+        lines.append(f"Post format: {post_format.label()}"
+                     + (" (as asked)" if as_format else
+                        " (not one of the last 2 on that platform)"))
+    if post_format is None and direction is None and format_override and not as_direction:
         raise DeliverableError(f'"as {format_override}": none of these deliverables takes a '
                                "post format (LinkedIn or Facebook post, Instagram carousel)")
     post = next((item for item in items if item.part == "post"), None)
@@ -393,7 +405,9 @@ def _apply_deliverables(
         suggested = suggest_format(
             system, recent_packages(settings.packages_dir, exclude=folder), allowed=post.formats
         )
-        lines.append(f"Suggested post format: {suggested} (different from the last packages).")
+        if direction is None:
+            lines.append(f"Suggested post format: {suggested} (different from the last "
+                         "packages).")
     template = _brief_template(
         package.topic,
         deliverables,
@@ -406,6 +420,7 @@ def _apply_deliverables(
         settings.default_identity_set,
         suggested,
         settings.services_file,
+        direction[0] if direction is not None else None,
     )
     atomic_write_text(
         folder / TEMPLATE_FILE, json.dumps(template, indent=2, ensure_ascii=False) + "\n"
@@ -523,7 +538,16 @@ def _formats(settings: Settings) -> FormatCatalog | None:
 def _part_settings(chosen: PostFormat | None, slot: ImageSlot, settings: Settings) -> Settings:
     """A post format's part: the format's own provider, never swapped (a carousel: its cover's,
     OpenRouter with CAROUSEL_IMAGE_MODEL; no image slot: the app alone, free); IMAGE_PROVIDER=
-    mock stays mock. Every other part: as given."""
+    mock stays mock. A design direction: its provider (each slide's own in the prepared job).
+    Every other part: as given."""
+    if slot.direction:
+        try:
+            found = load_directions().find(slot.direction)
+        except DirectionError:
+            found = None  # reported by the brief checks
+        if found is not None:
+            return direction_settings(found, found.visual.subject != "none", settings)
+        return settings
     if chosen is None or not slot.post_format:
         return settings
     return format_settings(chosen, settings, "cover" if chosen.slide_types else None)
@@ -761,6 +785,7 @@ def _brief_template(
     identity_set: str,
     suggested: FormatId | None,
     services_file: Path | None = None,
+    direction: Direction | None = None,
 ) -> dict[str, Any]:
     brand_tag = brand_hashtag(brand.brand_name) if brand else "<#BrandName>"
     chosen = {key: catalog.deliverables[key] for key in deliverables}
@@ -779,6 +804,7 @@ def _brief_template(
             ),
             "deliverables": {key: item.label for key, item in chosen.items()},
             "services": service_names(brand, company, services_file),
+            "designDirection": help_text(direction) if direction is not None else {},
             "serviceFit": (
                 f"{fit.label}: keep this service, pick another verified one the copy is "
                 f'really about, or write "{INSIGHT_ONLY}" (no service named; the cta is a '
@@ -867,7 +893,10 @@ def _brief_template(
         }
     if post is not None:
         design = suggested or post.format or "statement"
-        if post_format is not None:
+        if direction is not None and direction.format != "carousel":
+            template["post"] = post_template(direction, platform=post.platform, seed=topic,
+                                             design=design)
+        elif post_format is not None:
             template["post"] = {"format": design, "postFormat": post_format.id,
                                 "copy": copy_template(post_format)}
         else:
@@ -876,7 +905,9 @@ def _brief_template(
                 template["post"]["person"] = True
     if "carousel" in by_part:
         carousel = by_part["carousel"]
-        if post_format is not None and post_format.slides is not None:
+        if direction is not None and direction.format == "carousel":
+            template["carousel"] = carousel_template(direction)
+        elif post_format is not None and post_format.slides is not None:
             low, high = post_format.slides
             count = min(max(carousel.slides or high, low), high)
             kinds = ["cover", *(["body"] * (count - 2)), "final"]
@@ -940,6 +971,16 @@ def _format_provider_problem(folder: Path, provider: str | None,
         chosen = load_formats(settings.post_formats_file).find(str(saved.get("format") or ""))
     except (OSError, ValueError, FormatError):
         return None
+    named = str(saved.get("direction") or "")
+    try:
+        direction = load_directions().find(named) if named else None
+    except DirectionError:
+        direction = None
+    if direction is not None:
+        if direction.provider in ("template", provider):
+            return None
+        return (f"{direction.id}: its image provider is {direction.provider} (config/"
+                f"design_directions.json); --provider {provider} is refused (never swapped)")
     if chosen is None or chosen.provider in (None, provider) or not chosen.has_image:
         return None
     return (f"{chosen.id}: its image provider is {chosen.provider} (config/post_formats.json); "
@@ -1028,7 +1069,7 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool,
                 kind, plan, folder, plan.settings or settings, package.items.get(kind), batch
             )
             done = package.items[kind].status == "done"
-            if kind == "carousel" and plan.slot.post_format and done:
+            if kind == "carousel" and plan.slot.templated and done:
                 _carousel_texts(brief, folder, package.items[kind])
         _report(registered.get(kind), package.items[kind])
         lines.append(_item_line(kind, package.items[kind]))
@@ -1182,6 +1223,11 @@ def _quality_problems(brief: ContentBrief, settings: Settings, folder: Path) -> 
         problems = carousel_problems(brief, system, platforms, offer) + problems
     except WorkflowError as error:
         problems.append(str(error))
+    if any(slot is not None and slot.direction for slot in (brief.post, brief.carousel)):
+        try:
+            problems = direction_problems(brief, load_directions(), settings) + problems
+        except DirectionError as error:
+            problems.append(str(error))
     if any(slot is not None and slot.post_format for slot in (brief.post, brief.carousel)):
         try:
             problems = format_problems(brief, load_formats(settings.post_formats_file),
@@ -1251,23 +1297,25 @@ def _slot_inputs(
         aspect_ratio=aspect,
         count=count,
         request=request,
-        card=None if slot.post_format else json.dumps(
+        card=None if slot.templated else json.dumps(
             {"platform": brief.platform, "headline": _marked(slot),
              **(slot.card.model_dump(by_alias=True, exclude_none=True) if slot.card else {})},
             ensure_ascii=False),
         history=history,
         context=" ".join([brief.topic, brief.audience, brief.objective, *brief.key_points]),
         post_format=slot.post_format,
-        format_copy=json.dumps(slot.copy_text, ensure_ascii=False) if slot.post_format else None,
+        format_copy=json.dumps(slot.copy_text, ensure_ascii=False) if slot.templated else None,
         topic=brief.topic,
+        direction=slot.direction,
+        direction_platform=brief.platform,
     )
-    if slot.post_format and slot.slides:  # a static carousel: one image per slide
+    if slot.templated and slot.slides:  # a static carousel: one image per slide
         total = len(slot.slides)
         return [
             replace(
                 base,
                 format_copy=json.dumps(slide.copy_text, ensure_ascii=False),
-                slide_type=slide.type,
+                slide_type=slide.direction_role if slot.direction else slide.type,
                 prompt=slide.illustration or "",
                 logo=number == total,  # the logo on the last slide only
                 slide=f"{number}/{total}",
@@ -1416,7 +1464,7 @@ def _person_copy_problems(plans: dict[str, "_ImagePlan"], settings: Settings) ->
     allowed = tuple(person_card(settings)["icons"].get("allowed", ()))
     problems = []
     for kind, plan in plans.items():
-        if kind != "post" or plan.slot.post_format or not any(
+        if kind != "post" or plan.slot.templated or not any(
                 prepared.person_shown for prepared in plan.prepared):
             continue
         slot = plan.slot
@@ -1701,7 +1749,7 @@ def _make_images(
         position = queue.pop(0)
         inputs = plan.jobs[position]
         if (position > 0 and plan.slot.format == "carousel" and item.image_refs
-                and not plan.slot.post_format):
+                and not plan.slot.templated):
             # Later slides attach slide 1 (it passed the person check): one scene and design.
             inputs = replace(inputs, first_slide=item.image_refs[0])
         try:
@@ -2032,13 +2080,30 @@ def _dry_run_lines(
         person = "the man shown" if lead.inputs.get("personShown") else "no person"
         if slot.person is False:
             person = "no person (left out by the writer: the topic fits without him)"
-        lines.append(
-            f"{names[kind]}: {images} x {request.aspect_ratio} {request.image_size} "
-            f'(format {slot.format}{layout}), "{title}"; picked: {look}; '
-            f"{person}, {len(request.identity_refs)} identity + {len(request.style_refs)} style "
-            f"images (people-free and logo-free when he is shown), logo pasted by the app, via "
-            f"{part.image_provider}: about ${cost:.3f}"
-        )
+        if lead.design is not None:  # Phase D: a design direction
+            generated = [prepared for prepared in todo
+                         if (prepared.settings or part).image_provider != "template"]
+            real = lead.inputs.get("realPhoto")
+            source = (f"approved real photo {real}" if real else
+                      f"{len(generated)} picture(s) via {part.image_provider}" if generated
+                      else "no picture (template, free)")
+            layouts = ", ".join(dict.fromkeys(str(p.inputs.get("layout")) for p in plan.prepared))
+            who = ("Roman via his LoRA (person check after)" if lead.person_shown
+                   else "no generated person")
+            lines.append(
+                f"{names[kind]}: {images}, direction {slot.direction} ({layouts}), \"{title}\"; "
+                f"{source}; {who}; "
+                f"text, logo, footer and icons drawn by the app, then the design check: "
+                f"about ${cost:.3f}"
+            )
+        else:
+            lines.append(
+                f"{names[kind]}: {images} x {request.aspect_ratio} {request.image_size} "
+                f'(format {slot.format}{layout}), "{title}"; picked: {look}; '
+                f"{person}, {len(request.identity_refs)} identity + {len(request.style_refs)} "
+                f"style images (people-free and logo-free when he is shown), logo pasted by the "
+                f"app, via {part.image_provider}: about ${cost:.3f}"
+            )
         if lead.inputs.get("postFormat"):
             lines.append(f"  text: {lead.inputs.get('textOverlay')}")
         if lead.inputs.get("postFormat") and len(plan.prepared) > 1:
@@ -2054,7 +2119,7 @@ def _dry_run_lines(
                 "app (template, free); the logo on the last slide only; "
                 f"caption.txt ({hashtags} hashtags) and alt_text.txt go to Drive with the PNGs"
             )
-        elif slot.format == "carousel" and len(plan.prepared) > 1:
+        elif slot.format == "carousel" and len(plan.prepared) > 1 and lead.design is None:
             last = len(plan.prepared)
             lines.append(
                 "  slides 2+ also attach slide 1's image (same scene, design and colours); "

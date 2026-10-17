@@ -97,6 +97,17 @@ def _setup(work: Path) -> None:
     names = {str(brand.get("logoFile") or "logo.png"), "logo.png", "logo (1).png"}
     for name in names:
         logo.save(refs / "brand" / "logo" / name)
+    # Phase D: the design directions draw only the official logo (checked by hash); the sandbox
+    # registers its stand-in as that file.
+    import hashlib
+
+    for variant in brand.get("logoVariants", []):
+        if variant.get("file"):
+            path = refs / variant["file"]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            logo.save(path)
+            variant["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    (work / "config" / "brand.json").write_text(json.dumps(brand, indent=2), encoding="utf-8")
     jobs = json.loads((work / "config" / "jobs.json").read_text(encoding="utf-8"))
     jobs["free_providers"] = [p for p in jobs["free_providers"] if p != "mock"]
     (work / "config" / "jobs.json").write_text(json.dumps(jobs), encoding="utf-8")
@@ -142,6 +153,23 @@ def _copy_value(name: str, value: Any) -> Any:
     return "Your chatbot books patients while you sleep"
 
 
+ILLUSTRATION = "a tidy reception desk with a plant and a closed notebook in soft daylight"
+
+
+def _direction_copy(direction: str, template: dict[str, Any]) -> dict[str, Any]:
+    """Phase D: the sample copy of config/design_preview_copy.json for this layout's fields."""
+    samples = json.loads((REPO / "config" / "design_preview_copy.json").read_text(
+        encoding="utf-8"))
+    wanted = set(template) - {"illustration"}
+    for key, sample in samples.items():
+        if key.startswith(f"{direction}/") and wanted <= set(sample):
+            filled = {name: sample[name] for name in wanted}
+            if "illustration" in template:
+                filled["illustration"] = ILLUSTRATION
+            return filled
+    raise KeyError(f"no sample copy for {direction} with {sorted(wanted)}")
+
+
 def _fill_brief(template: Path) -> None:
     data: dict[str, Any] = json.loads(template.read_text(encoding="utf-8"))
     brief = {key: value for key, value in data.items() if key != "_help"}
@@ -167,7 +195,9 @@ def _fill_brief(template: Path) -> None:
     })
     for key in ("stat", "source", "sourceName"):
         brief["post"].pop(key, None)
-    if isinstance(brief["post"].get("copy"), dict):  # a post format: fill only its fields
+    if brief["post"].get("direction"):  # Phase D: the direction's layout fields
+        brief["post"]["copy"] = _direction_copy(brief["post"]["direction"], brief["post"]["copy"])
+    elif isinstance(brief["post"].get("copy"), dict):  # a post format: fill only its fields
         brief["post"]["copy"] = {name: _copy_value(name, value)
                                  for name, value in brief["post"]["copy"].items()}
     caption = brief["captions"][next(iter(brief["captions"]))]

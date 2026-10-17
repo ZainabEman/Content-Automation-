@@ -59,8 +59,8 @@ class JobStateError(RegistryError):
 @dataclass(frozen=True)
 class JobConfig:
     dryrun_expiry_hours: float = 24.0
-    free_providers: tuple[str, ...] = ("mock", "local", "ffmpeg", "library", "none", "drive",
-                                       "sheets")
+    free_providers: tuple[str, ...] = ("mock", "template", "local", "ffmpeg", "library", "none",
+                                       "drive", "sheets")
     units: dict[str, str] = field(default_factory=lambda: {
         "openrouter": "usd", "comfyui": "usd", "elevenlabs": "usd",
         "higgsfield-plugin": "credits", "heygen-plugin": "credits"})

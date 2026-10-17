@@ -46,7 +46,7 @@ SLOT_KINDS: dict[str, tuple[Kind, ...]] = {
 MIN_SLIDES, MAX_SLIDES = 6, 8  # a carousel story (v1 or a post format's static slides)
 CopyValue = str | list[str]
 SlideKind = Literal["cover", "body", "final"]
-_HEADLINE_FIELDS = ("headline", "question", "quote")  # a format slide's main line
+_HEADLINE_FIELDS = ("headline", "question", "quote", "main", "keyword", "lead_in")  # main line
 MAX_REEL_SEC = 90
 MIN_HASHTAGS, MAX_HASHTAGS = 3, 5
 MIN_TAKEAWAYS, MAX_TAKEAWAYS = 3, 5
@@ -99,6 +99,9 @@ class SlideSlot(_BriefModel):
     # body or final; its text in "copy" (only that format's fields), the picture without text
     # in "illustration", and the alt text for Instagram.
     type: SlideKind | None = None
+    # Phase D: a design direction's slide (carousel.direction): its slide role (cover, what,
+    # how, ..., cta; config/design_directions.json slideRoles) and that layout's fields in copy.
+    direction_role: str | None = None
     copy_text: dict[str, CopyValue] = Field(default_factory=dict, alias="copy")
     illustration: str | None = None
     alt_text: str | None = None
@@ -113,6 +116,8 @@ class SlideSlot(_BriefModel):
                 value = data["copy"].get(name)
                 if isinstance(value, str) and value.strip():
                     return {**data, "headline": value}
+            if data.get("directionRole"):  # a direction slide without a main line (cards)
+                return {**data, "headline": str(data["directionRole"])}
         return data
 
 
@@ -169,7 +174,15 @@ class ImageSlot(_BriefModel):
     # The post format (config/post_formats.json, chosen at stage 1 and saved in package.json):
     # its fields go into "copy" (a carousel: per slide), its zones are rendered by the app.
     post_format: str | None = None
+    # Phase D: the design direction (config/design_directions.json, chosen at stage 1); its
+    # layout's fields go into "copy" (a carousel: per slide); the app draws the design.
+    direction: str | None = None
     copy_text: dict[str, CopyValue] = Field(default_factory=dict, alias="copy")
+
+    @property
+    def templated(self) -> bool:
+        """A post format or a design direction: the app renders the text, not the old design."""
+        return bool(self.post_format or self.direction)
 
 
 class Caption(_BriefModel):

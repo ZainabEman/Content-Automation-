@@ -91,6 +91,7 @@ from content_automation.content.quality import (
 )
 from content_automation.content.relevance import INSIGHT_ONLY, Fit, service_fit
 from content_automation.content.research_input import ResearchIdea, save_sources
+from content_automation.content.roman import RomanError, approved_photos, identity_sheet
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
 from content_automation.core.jobs import DETAILS_FILE, Job, ReviewCheck, slugify
@@ -1533,6 +1534,19 @@ def _identity_photos(job: Job, settings: Settings) -> list[Path]:
     return [(ref_set.folder / a.file).resolve() for a in photos[:IDENTITY_PHOTOS_TO_COMPARE]]
 
 
+def _identity_sheet(job: Job, name: str, image: Path, settings: Settings) -> Path | None:
+    """Phase D: the image beside 2 approved real photos (config/design_directions.json
+    roman.approvedPhotos), saved in the job folder; None when they are not on this machine."""
+    set_id = str(job.inputs.get("identitySet") or settings.default_identity_set)
+    try:
+        rules = load_directions().roman
+        photos = approved_photos(rules, settings.references_dir / set_id)
+        return identity_sheet(image, photos[:IDENTITY_PHOTOS_TO_COMPARE],
+                              job.folder / f"identity_sheet_{Path(name).stem}.png")
+    except (DirectionError, RomanError, OSError, ValueError):
+        return None
+
+
 def _cost_text(job: Job, settings: Settings) -> str:
     cost = f"${job.est_cost_usd:.3f}" if job.est_cost_usd else "the price of 1 image"
     return f"about {cost} per image via {settings.image_provider}"
@@ -1562,12 +1576,14 @@ def _person_lines(
                                              if job.provider == "mock" else "passed."))
     view = (f"  View the RAW photo: {raw.resolve()} (the composed post: "
             f"{(folder / file).resolve()})" if raw else f"  View it: {(folder / file).resolve()}")
+    sheet = _identity_sheet(job, name, raw or folder / file, settings)
     return [
         head,
         f"  {checked}",
         view,
-        "  beside his photos: "
-        + ", ".join(str(path) for path in _identity_photos(job, settings)),
+        (f"  Identity sheet (the image beside approved real photos): {sheet.resolve()}"
+         if sheet is not None else "  beside his photos: "
+         + ", ".join(str(path) for path in _identity_photos(job, settings))),
         "  Look at the one raw photo beside the 2 reference photos (never pass one you did "
         "not look at) and report whether it looks like Roman (hair, build, facial hair, age); "
         "no stray text or trigger word, hands and face free of obvious defects. Record it:",

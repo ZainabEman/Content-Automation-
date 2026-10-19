@@ -1,0 +1,27 @@
+{
+  "_note": "MOCK FIXTURE: English translations of the fixture teleprompter paragraphs, in order (filled by the agent in real use).",
+  "A": [
+    "It is an ordinary Tuesday morning in an accounts department. The phone rings, and the managing director is on the line. He sounds rushed. A transfer has to go out today, right now.",
+    "The head of accounts recognises the voice. The tone, the pace, even the usual greeting are right. And yet the managing director is not on the phone this morning at all. The voice was rebuilt with artificial intelligence.",
+    "How can this work? Today a few minutes of audio are often enough for a convincing voice copy. Interviews, talks or videos online provide exactly this material. The criminals combine the voice with knowledge of internal processes that they gathered beforehand.",
+    "In this case the transfer was for 48,000 euros. It was stopped not by software but by a simple rule. The accounts team called the managing director back on a known number. The call-back exposed the fraud at once.",
+    "That is exactly the lesson for companies in Germany. A familiar voice is no longer proof. Whoever approves payments needs a second, independent way to confirm an instruction.",
+    "So check your processes this week. Is there a fixed call-back rule? Do payments follow the four-eyes principle? And does everyone on the team know that they may look especially closely under pressure and haste? These three questions cost you little time and can protect a great deal of money."
+  ],
+  "B": [
+    "Would you approve a transfer if your boss called you personally and asked for it? Most people would say yes immediately. Criminals now exploit exactly this reaction on purpose.",
+    "With artificial intelligence, voices can be reproduced so that they sound real. A short recording from an interview or a video is often enough. On the phone the result sounds like the real person, with emphasis, pauses and typical phrases.",
+    "The risk is concrete. In the case we look at today, an accounts department was supposed to transfer 48,000 euros after such a call. The call created time pressure, and that is exactly the aim of such attacks.",
+    "What prevented the payment? A fixed rule: for payment instructions by phone, the team always calls back on a known number. Only the call-back showed that the managing director had never called.",
+    "What does this mean for your company? Make three things binding. First, the call-back on a known number. Second, the four-eyes principle for every unusual payment. Third, an internal code word for real emergencies.",
+    "And talk about it openly with your team. Nobody should be afraid to check back with the boss. A quick question is not distrust; it protects everyone."
+  ],
+  "C": [
+    "Imagine you are still at your desk shortly before the end of the working day. Your phone rings, and you hear the voice of your managing director. She is on a business trip, the line crackles a little, and she asks you for a favour.",
+    "An invoice has to be paid today, or an important deal falls through. You have known this voice for years. Why should you hesitate? This is exactly where criminals strike today, because voices can be rebuilt with artificial intelligence.",
+    "This picture is an example, but it is close to reality. In a documented case, an accounts department was supposed to transfer 48,000 euros after a call with a rebuilt voice.",
+    "What helped back then? Not distrust of people, but a clear rule. The accounts team called back on a known number. That is how it came out that the call was fake.",
+    "For you and your team this means: a familiar voice alone is no longer enough. Agree on fixed ways to check back, and make it easy for everyone to use them even under time pressure.",
+    "In the end it is about trust. Clear rules protect not only your money but also the people who carry responsibility for payments every day."
+  ]
+}

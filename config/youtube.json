@@ -1,0 +1,22 @@
+{
+  "_note": "PRD v5 R9: YouTube research and production planning (`ca youtube`, skill make-youtube). Separate from the social workflow; shares only the registry (BG IDs, approval), storage, tracker and authorization layers. Roman records, the editing agency (Takwa) edits; the system never renders a video. Formula: config/formulas.json youtube_longform (the 8-step storytelling formula, R9.6). Length: Q4 default 10-12 minutes, about 1,300-1,600 spoken German words (130 words per minute); a script outside it is a warning, not an error, until Roman confirms Q4.",
+  "topicsPerMonth": 8,
+  "outputDir": "outputs/youtube",
+  "wordsPerMinute": 130,
+  "targetWords": [1300, 1600],
+  "address": "Sie",
+  "styles": {
+    "A": {"folder": "style-A_investigativ", "name": "Investigativ", "approach": "Start with a real, documented incident; uncover its causes and consequences step by step, like an investigation; end with what companies and people should do now."},
+    "B": {"folder": "style-B_direkte-warnung", "name": "Direkte Warnung", "approach": "Start with the immediate risk or a direct question to the viewer; give the evidence quickly; spend the most time on the practical response."},
+    "C": {"folder": "style-C_menschlich", "name": "Menschlich", "approach": "Start with a realistic everyday or workplace scenario, clearly framed as illustrative (\"Stellen Sie sich vor ...\"); tie it to the verified facts and end with solutions. Never present the scenario as a real event and never as something Roman experienced."}
+  },
+  "similarity": {
+    "openingWords": 60,
+    "maxOpeningOverlap": 0.35,
+    "maxTextOverlap": 0.45,
+    "_note": "the free difference check between two styles: share of shared word trigrams in the openings and in the whole scripts; above the limit the pair is flagged as too similar"
+  },
+  "firstPersonExperience": ["ich habe erlebt", "mir ist passiert", "ich wurde selbst", "als ich selbst", "ich war dabei", "bei mir im unternehmen ist", "ich habe selbst gesehen", "mein eigener fall"],
+  "illustrativeMarkers": ["stellen sie sich vor", "angenommen", "nehmen wir an", "ein beispiel:", "beispielhaft"],
+  "storyboardSecondsPerScene": [20, 60]
+}

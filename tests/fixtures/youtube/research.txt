@@ -1,0 +1,51 @@
+RESEARCH: Deepfake-Anrufe im Namen der Geschäftsführung
+BG ID: {BG_ID} | Month: 2026-11 | Slug: deepfake-anrufe-im-namen-der-geschaeftsfuehrung
+MOCK FIXTURE: the sources are invented test pages on example.org (served offline by the tests); this file shows the format only. It is not research and is never published.
+
+== 1. TOPIC AND WORKING TITLE ==
+Topic: Deepfake-Anrufe im Namen der Geschäftsführung
+Working title (DE): Der Anruf vom Chef, der nie stattfand
+English gloss: The call from the boss that never happened
+
+== 2. WHY IT MATTERS TO GERMAN VIEWERS ==
+Mittelständische Unternehmen in Deutschland zahlen Rechnungen oft auf kurzen Zuruf. Eine geklonte Stimme kann diesen Zuruf fälschen.
+
+== 3. SUMMARY OF THE INCIDENT, PROBLEM OR FINDING ==
+Die Beispielquelle beschreibt einen Fall, in dem eine Buchhaltung nach einem Anruf mit geklonter Stimme eine Überweisung freigeben sollte [S1].
+
+== 4. PUBLICATION AND EVENT DATES ==
+Beispielartikel 1 erschienen am 2026-10-02 [S1]; Beispielartikel 2 erschienen am 2026-10-05 [S2].
+
+== 5. ARTICLE TITLES AND PUBLISHERS ==
+[S1] Geklonte Stimme fordert Eilüberweisung | Beispiel-Nachrichten (MOCK) | 2026-10-02
+[S2] Rückruf-Regel schützt Buchhaltungen | Beispiel-Fachportal (MOCK) | 2026-10-05
+
+== 6. SOURCE URLS ==
+[S1] https://example.org/artikel-1
+[S2] https://example.org/artikel-2
+
+== 7. KEY STATISTICS AND FACTS (each with its source) ==
+- Die Buchhaltung sollte nach dem Anruf eine Überweisung über 48.000 Euro freigeben [S1]
+- Eine feste Rückruf-Regel über eine bekannte Nummer verhinderte die Zahlung [S2]
+
+== 8. QUOTATIONS (accurately attributed) ==
+- "Die Stimme klang genau wie die unseres Geschäftsführers" — Leiterin der Buchhaltung (Beispielfall) [S1]
+
+== 9. CLAIMS THAT NEED CAREFUL QUALIFICATION ==
+Ein Einzelfall aus einer Beispielquelle; keine Aussage über Häufigkeit.
+
+== 10. CONFLICTING INFORMATION AND SOURCE LIMITATIONS ==
+Beide Quellen sind Testseiten (MOCK); in echter Recherche hier Widersprüche und Lücken nennen.
+
+== 11a. VERIFIED FACTS ==
+- Die Buchhaltung sollte nach dem Anruf eine Überweisung über 48.000 Euro freigeben [S1]
+- Eine feste Rückruf-Regel über eine bekannte Nummer verhinderte die Zahlung [S2]
+
+== 11b. INTERPRETATION ==
+Stimme allein ist kein Beweis mehr für die Identität einer Person.
+
+== 11c. PROPOSED SOLUTIONS ==
+Rückruf über eine bekannte Nummer, Vier-Augen-Prinzip bei Zahlungen, ein vereinbartes Codewort, Schulung der Teams.
+
+== VERIFICATION (written by ca youtube check-sources) ==
+(not checked yet)

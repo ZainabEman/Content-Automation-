@@ -38,6 +38,7 @@ from content_automation.cli.scope import (
 )
 from content_automation.cli.scripts import brief_app, script_app
 from content_automation.cli.verify import verify_app
+from content_automation.cli.youtube import youtube_app
 from content_automation.content.backlog import RunCounts, newest_list, run_newsletters, run_sources
 from content_automation.content.brief import BriefError
 from content_automation.content.calendar import (
@@ -274,6 +275,7 @@ app.add_typer(jobs_app, name="jobs")
 app.add_typer(help_app, name="help")
 app.add_typer(design_app, name="design")
 app.add_typer(plan_app, name="plan")
+app.add_typer(youtube_app, name="youtube")
 app.add_typer(ideas_app, name="ideas")
 app.add_typer(claims_app, name="claims")
 app.add_typer(script_app, name="script")

@@ -1,0 +1,24 @@
+{
+  "_note": "PRD v5 R9.3: an editable starting list of German sources for YouTube (and social) research, not a hard filter: use what fits the topic; international primary sources may supplement. Names and domains come from the PRD's example list; NONE was opened or checked in this run (no web call), so every entry is \"verified\": false until someone opens it. Fix a wrong domain here; `ca youtube check-sources` checks the actual article URLs of each topic.",
+  "sources": [
+    {"name": "tagesschau.de (ARD)", "domain": "tagesschau.de", "type": "public broadcaster", "verified": false},
+    {"name": "ZDFheute", "domain": "zdf.de", "type": "public broadcaster", "verified": false},
+    {"name": "Deutschlandfunk", "domain": "deutschlandfunk.de", "type": "public broadcaster", "verified": false},
+    {"name": "heise online", "domain": "heise.de", "type": "IT publication", "verified": false},
+    {"name": "Golem.de", "domain": "golem.de", "type": "IT publication", "verified": false},
+    {"name": "t3n", "domain": "t3n.de", "type": "digital business publication", "verified": false},
+    {"name": "Handelsblatt", "domain": "handelsblatt.com", "type": "business newspaper", "verified": false},
+    {"name": "Frankfurter Allgemeine Zeitung", "domain": "faz.net", "type": "newspaper", "verified": false},
+    {"name": "Süddeutsche Zeitung", "domain": "sueddeutsche.de", "type": "newspaper", "verified": false},
+    {"name": "DER SPIEGEL", "domain": "spiegel.de", "type": "news magazine", "verified": false},
+    {"name": "ZEIT ONLINE", "domain": "zeit.de", "type": "newspaper", "verified": false},
+    {"name": "BSI (Bundesamt für Sicherheit in der Informationstechnik)", "domain": "bsi.bund.de", "type": "federal authority (cybersecurity)", "verified": false},
+    {"name": "BfDI (Bundesbeauftragte für den Datenschutz und die Informationsfreiheit)", "domain": "bfdi.bund.de", "type": "federal authority (data protection)", "verified": false},
+    {"name": "Datenschutzbehörden der Länder", "domain": null, "type": "state data protection authorities (one per Land: add the ones you use)", "verified": false},
+    {"name": "BKA (Bundeslagebild Cybercrime)", "domain": "bka.de", "type": "federal authority (police)", "verified": false},
+    {"name": "Bundesnetzagentur", "domain": "bundesnetzagentur.de", "type": "federal authority", "verified": false},
+    {"name": "Verbraucherzentrale", "domain": "verbraucherzentrale.de", "type": "consumer protection", "verified": false},
+    {"name": "Bitkom", "domain": "bitkom.org", "type": "industry association (surveys)", "verified": false},
+    {"name": "Fraunhofer-Institute", "domain": "fraunhofer.de", "type": "research institutes", "verified": false}
+  ]
+}

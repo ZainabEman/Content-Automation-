@@ -1,0 +1,777 @@
+{
+  "_note": "Design directions (Phase D; replaces config/post_formats.json). Boxes are [left, top, right, bottom] shares of the canvas; colours are brand.json token names only; fonts are brand.json typography; the logo is the official file placed by code. Copy marks: *word* = accent colour, **phrase** = bold, [[phrase]] = highlight pill. Checked at load by content/directions.py; how to add one: docs/DESIGN-DIRECTIONS.md. References (layout only; their brands, colours, copy and statistics are never used): config/social_refs.json.",
+  "canvasPresets": {"4:5": [1080, 1350], "1:1": [1080, 1080]},
+  "marginPx": 64,
+  "maxHeadlineWords": 10,
+  "maxListItems": 5,
+  "contentTypes": {
+    "service_intro": "introduce a service or what Branded Genius builds",
+    "capabilities": "what a service can do, as 3-6 concrete capabilities",
+    "risk": "a risk or the cost of doing nothing",
+    "myth": "a common belief that is wrong",
+    "process": "how something works, step by step",
+    "onboarding": "how working with Branded Genius starts",
+    "overview": "a complete system or service at a glance",
+    "news": "a news item and why it matters",
+    "trend": "commentary on a trend",
+    "benefits": "the benefits of an approach",
+    "value": "how an approach adds value",
+    "tool_breakdown": "one tool or system explained over several slides",
+    "how_to": "a practical how-to",
+    "statement": "a bold positioning statement",
+    "steps": "numbered steps or tips",
+    "checklist": "a checklist to act on",
+    "pov": "Roman's point of view",
+    "positioning": "what Branded Genius stands for",
+    "founder_story": "Roman at work, behind the scenes"
+  },
+  "consistent": [
+    "brand.json colour tokens only (Royal Blue, Sky Blue, Medium Gray, White)",
+    "brand fonts (Futura, Jost fallback): at most 2 type families",
+    "the official logo file, placed by code with its clear space and minimum width",
+    "the same website footer (brand.json website)",
+    "64 px minimum margin at 1080 px width",
+    "one accent colour per post (Sky Blue)"
+  ],
+  "icons": ["shield-check", "search", "user-check", "alert-triangle", "scale", "lock", "eye", "checklist", "bulb", "chart-line", "clock", "message-circle", "target", "users", "rocket", "file-check", "world", "mail", "phone", "robot", "message-chatbot", "brand-whatsapp", "brand-telegram", "phone-call", "phone-incoming", "phone-outgoing", "headset", "calendar", "calendar-check", "calendar-event", "school", "presentation", "chart-bar", "chart-dots", "bolt", "route", "settings-automation", "database", "plug-connected", "arrows-shuffle", "check", "circle-check", "checks", "arrow-right", "arrow-narrow-right", "arrow-up-right", "chevrons-right", "chevron-right", "hand-click", "send", "filter", "adjustments", "file-text", "report-analytics", "refresh", "repeat", "topology-star-3", "sitemap", "brain", "sparkles", "help", "coin-euro", "trending-up", "building", "briefcase", "microphone", "api", "webhook", "list-check", "components", "user-plus", "users-group", "cpu", "bell", "messages", "message-2", "user-search", "mail-opened", "inbox", "gauge", "hourglass", "alarm", "layout-dashboard", "device-desktop-analytics", "lifebuoy", "award", "book", "certificate", "focus-2"],
+  "noText": "no text, no letters, no numbers, no words, no labels, no UI, no charts, no screens, no logos, no signage, no documents, no placeholder boxes",
+  "blockedVisualWords": ["text", "texts", "word", "words", "letter", "letters", "number", "numbers", "label", "labels", "logo", "logos", "brand", "sign", "signs", "signage", "screen", "screens", "monitor", "monitors", "display", "displays", "dashboard", "dashboards", "chart", "charts", "graph", "graphs", "document", "documents", "whiteboard", "poster", "posters", "banner", "banners", "ui", "interface", "website", "app", "spreadsheet", "infographic", "headline", "caption", "quote", "slide"],
+  "roman": {
+    "prefix": "r0man_bg, a man",
+    "outfits": [
+      "dark navy blazer over a white open-collar shirt",
+      "charcoal knit sweater over a light shirt collar",
+      "light-blue shirt with the sleeves rolled up",
+      "black crew-neck T-shirt under an unbuttoned grey overshirt",
+      "dark green quarter-zip pullover"
+    ],
+    "angles": ["eye-level camera", "camera slightly below eye level", "three-quarter view from the left", "three-quarter view from the right"],
+    "expressions": ["calm confident expression", "warm slight smile", "focused thoughtful look", "friendly open smile"],
+    "settings": {
+      "business": [
+        "standing at a large blank glass wall in a bright modern meeting room, colleagues softly out of focus in the background",
+        "seated at a clean desk in a calm modern office with large windows, a laptop seen from behind",
+        "in a modern co-working space, standing by a window, people far in the background out of focus and turned away",
+        "walking through a bright modern office corridor with glass walls"
+      ],
+      "quiet_luxury": [
+        "on a quiet rooftop terrace at dusk with the city lights softly out of focus",
+        "in an elegant hotel lounge with warm light and soft leather armchairs, nobody else near",
+        "in a calm airport business lounge with large windows and aircraft far away out of focus",
+        "in a corner office with floor-to-ceiling windows and a city view at golden hour",
+        "in the back seat of a premium car, daylight through the window, city softly blurred outside"
+      ]
+    },
+    "alone": "he is the only person in focus; anyone else is far away, out of focus, seen from behind or without a visible face",
+    "noTextSurfaces": "no readable screens, monitors, signs, papers, books or whiteboard writing anywhere (blank surfaces only)",
+    "blockedProps": ["private jet", "jet", "sports car", "supercar", "lamborghini", "ferrari", "jet ski", "yacht", "helicopter", "champagne", "cash", "money"],
+    "loraStrength": [0.8, 1.0],
+    "approvedPhotos": ["2.jpg", "4.jpg", "5.jpg", "6.jpg", "9.jpg"],
+    "portraitPhotos": [],
+    "photoNotes": "approvedPhotos: the real green-screen selfies used for LoRA v2 (docs/lora-training-results.md). 1, 3, 7 and 8 look like the same session but are not named there; 10-14 look AI-generated and are never used. Real photos are identity references only (LoRA training, the identity sheet at the person check): every image of Roman is generated by his LoRA on ComfyUI, never a real photo as the final image. portraitPhotos is unused (kept empty)."
+  },
+  "directions": [
+    {
+      "id": "FB-1",
+      "name": "Service Spotlight",
+      "format": "fb_single",
+      "platforms": ["facebook"],
+      "purpose": "Introduce a service or show what Branded Genius builds: the service name, one line, three capabilities and a hero visual.",
+      "contentTypes": ["service_intro", "capabilities"],
+      "topicTags": ["ai_solutions", "service"],
+      "canvas": "4:5",
+      "provider": "openrouter",
+      "visual": {
+        "subject": "illustration",
+        "placement": "right half, below the headline, fading into the background",
+        "prompt": "{illustration}. One clean 3D object on a plain deep royal blue background, placed on the right, soft blue and silver light, generous empty space on the left and at the top, premium tech look, no text"
+      },
+      "layouts": {
+        "post": {
+          "theme": "dark",
+          "background": {"fill": "bg_dark", "glows": [["accent", 0.78, 0.6, 0.42, 0.32]]},
+          "fields": {
+            "headline": "the service in 2 lines, its name marked *like this*, at most 10 words",
+            "sub": "one line: what it does for the reader, at most 14 words",
+            "capabilities": "3 capabilities from config/services.json useCases, at most 6 words each",
+            "icons": "3 icon names, one per capability (config/design_directions.json icons)",
+            "illustration": "the hero picture: one object, nothing written, no people (e.g. a glowing chat bubble made of glass)"
+          },
+          "zones": {
+            "visual": {"kind": "visual", "box": [0.5, 0.38, 1.0, 0.86], "bleed": true, "visualShape": "rect", "fade": true},
+            "logo": {"kind": "logo", "box": [0.06, 0.048, 0.3, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.06, 0.14, 0.94, 0.295], "size": 70, "weight": "bold"},
+            "sub": {"kind": "text", "field": "sub", "role": "sub", "box": [0.06, 0.305, 0.94, 0.37], "size": 32},
+            "capabilities": {"kind": "items", "field": "capabilities", "iconsField": "icons", "layout": "icon_list", "count": [3, 3], "box": [0.06, 0.4, 0.5, 0.84], "size": 30, "weight": "semibold"},
+            "footer": {"kind": "footer", "box": [0.0, 0.885, 1.0, 1.0], "bleed": true, "fill": "bg_light", "color": "text_on_light", "elements": ["website", "email"], "divider": true, "size": 28}
+          },
+          "textLimits": {
+            "headline": {"maxChars": 52, "maxLines": 2, "minFontPx": 46},
+            "sub": {"maxChars": 90, "maxLines": 2, "minFontPx": 24},
+            "capabilities": {"maxChars": 44, "maxLines": 2, "minFontPx": 22},
+            "footer": {"maxChars": 60, "maxLines": 1, "minFontPx": 20}
+          }
+        }
+      },
+      "consistent": ["logo top left", "footer bar with website and email"],
+      "mayVary": ["the hero object", "the icons"],
+      "referenceIds": ["R16", "R02"]
+    },
+    {
+      "id": "FB-2",
+      "name": "Problem Hook",
+      "format": "fb_single",
+      "platforms": ["facebook"],
+      "purpose": "A risk, the cost of doing nothing, or a myth: a big hook over a full-bleed scene and the problem in a dark panel.",
+      "contentTypes": ["risk", "myth", "news"],
+      "topicTags": ["ai_risks", "ai_mistakes", "ai_misuse", "german_problems"],
+      "canvas": "4:5",
+      "provider": "openrouter",
+      "visual": {
+        "subject": "illustration",
+        "placement": "full bleed; calm dark upper third for the headline",
+        "prompt": "{illustration}. Realistic cinematic photo, full frame, moody blue light, the upper third calm and dark for text, the lower middle calm for a panel, no people, no text"
+      },
+      "layouts": {
+        "post": {
+          "theme": "photo",
+          "background": {"fill": "bg_dark"},
+          "fields": {
+            "headline": "the hook in 2 short lines, one word marked *like this*, at most 8 words",
+            "problem": "2-3 lines on the problem with the key phrase in **bold**, at most 28 words",
+            "cta_line": "one short line inviting a reply or DM, at most 8 words",
+            "illustration": "the scene: a place or objects that show the problem, nothing written, no people"
+          },
+          "zones": {
+            "visual": {"kind": "visual", "box": [0.0, 0.0, 1.0, 1.0], "bleed": true, "visualShape": "full"},
+            "top_scrim": {"kind": "shape", "shape": "scrim", "box": [0.0, 0.0, 1.0, 0.38], "bleed": true, "gradient": {"color": "bg_dark", "start": 0.96, "end": 0.9, "toward": "down"}},
+            "top_fade": {"kind": "shape", "shape": "scrim", "box": [0.0, 0.38, 1.0, 0.52], "bleed": true, "gradient": {"color": "bg_dark", "start": 0.9, "end": 0.0, "toward": "down"}},
+            "logo": {"kind": "logo", "box": [0.7, 0.048, 0.94, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.06, 0.135, 0.94, 0.36], "size": 92, "weight": "extrabold", "upper": true},
+            "panel": {"kind": "shape", "shape": "panel", "box": [0.06, 0.555, 0.94, 0.815], "fill": "bg_dark", "alpha": 0.92, "radius": 0.03},
+            "problem": {"kind": "text", "field": "problem", "role": "body", "box": [0.1, 0.58, 0.9, 0.79], "size": 36, "valign": "middle"},
+            "footer": {"kind": "footer", "field": "cta_line", "box": [0.0, 0.87, 1.0, 1.0], "bleed": true, "fill": "bg_dark", "elements": ["cta", "website"], "divider": true, "size": 30}
+          },
+          "textLimits": {
+            "headline": {"maxChars": 34, "maxLines": 2, "minFontPx": 60},
+            "problem": {"maxChars": 170, "maxLines": 4, "minFontPx": 26},
+            "footer": {"maxChars": 70, "maxLines": 1, "minFontPx": 22}
+          }
+        }
+      },
+      "consistent": ["footer bar: CTA line, divider, website"],
+      "mayVary": ["the scene"],
+      "referenceIds": ["R01", "C1", "C2", "C3", "C4"]
+    },
+    {
+      "id": "FB-3",
+      "name": "How It Works",
+      "format": "fb_single",
+      "platforms": ["facebook"],
+      "purpose": "A process, workflow or onboarding explained in 3-5 steps, drawn by code as a zigzag or a cycle.",
+      "contentTypes": ["process", "how_to", "onboarding"],
+      "topicTags": ["ai_solutions", "process"],
+      "canvas": "4:5",
+      "provider": "template",
+      "visual": {"subject": "none", "placement": "none: the diagram is drawn by code from the copy"},
+      "pick": "rotate",
+      "layouts": {
+        "zigzag": {
+          "theme": "light",
+          "background": {"fill": "bg_light", "glows": [["accent", 0.5, 1.0, 0.6, 0.16]]},
+          "fields": {
+            "headline": "a question, e.g. How we … in 3 steps? with the key phrase in [[pill]], at most 10 words",
+            "steps": "3-5 steps, each 'Title: one short line', at most 9 words per step",
+            "icons": "one icon name per step"
+          },
+          "zones": {
+            "logo": {"kind": "logo", "box": [0.06, 0.048, 0.3, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.08, 0.13, 0.92, 0.27], "size": 64, "weight": "bold", "align": "center", "accent": "primary"},
+            "steps": {"kind": "items", "field": "steps", "iconsField": "icons", "layout": "zigzag", "count": [3, 5], "numbered": true, "box": [0.06, 0.3, 0.94, 0.86], "size": 28, "weight": "bold", "card": "bg_light"},
+            "footer": {"kind": "footer", "box": [0.06, 0.895, 0.94, 0.952], "elements": ["website"], "size": 26, "align": "center"}
+          },
+          "textLimits": {
+            "headline": {"maxChars": 60, "maxLines": 2, "minFontPx": 42},
+            "steps": {"maxChars": 64, "maxLines": 3, "minFontPx": 18},
+            "footer": {"maxChars": 30, "maxLines": 1, "minFontPx": 18}
+          }
+        },
+        "cycle": {
+          "theme": "light",
+          "background": {"fill": "bg_light", "glows": [["accent", 0.5, 0.58, 0.42, 0.14]]},
+          "fields": {
+            "headline": "a question, e.g. How we … in 4 steps? with the key phrase in [[pill]], at most 10 words",
+            "steps": "3-5 steps of a repeating cycle, each 'Title: one short line', at most 9 words per step",
+            "icons": "one icon name per step"
+          },
+          "zones": {
+            "logo": {"kind": "logo", "box": [0.06, 0.048, 0.3, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.08, 0.13, 0.92, 0.27], "size": 64, "weight": "bold", "align": "center", "accent": "primary"},
+            "steps": {"kind": "items", "field": "steps", "iconsField": "icons", "layout": "cycle", "count": [3, 5], "numbered": true, "box": [0.06, 0.29, 0.94, 0.87], "size": 26, "weight": "bold", "card": "bg_light"},
+            "footer": {"kind": "footer", "box": [0.06, 0.895, 0.94, 0.952], "elements": ["website"], "size": 26, "align": "center"}
+          },
+          "textLimits": {
+            "headline": {"maxChars": 60, "maxLines": 2, "minFontPx": 42},
+            "steps": {"maxChars": 64, "maxLines": 3, "minFontPx": 18},
+            "footer": {"maxChars": 30, "maxLines": 1, "minFontPx": 18}
+          }
+        }
+      },
+      "consistent": ["centred question headline", "numbered steps drawn by code", "website footer"],
+      "mayVary": ["zigzag or cycle (rotates by seed)"],
+      "referenceIds": ["R21", "R20"]
+    },
+    {
+      "id": "LI-1",
+      "name": "Editorial Ecosystem",
+      "format": "li_single",
+      "platforms": ["linkedin"],
+      "purpose": "A complete service or system at a glance: a very large editorial headline and 3-6 numbered capability cards on an orbit around the visual.",
+      "contentTypes": ["overview", "capabilities", "service_intro"],
+      "topicTags": ["ai_solutions", "service"],
+      "canvas": "4:5",
+      "provider": "openrouter",
+      "visual": {
+        "subject": "illustration",
+        "placement": "right, in a soft circle; the cards orbit it",
+        "prompt": "{illustration}. One clean abstract 3D object on a plain white background, soft blue and silver tones, centred, lots of empty white space around it, minimal editorial look, no text"
+      },
+      "layouts": {
+        "post": {
+          "theme": "light",
+          "background": {"fill": "bg_light", "glows": [["accent", 0.74, 0.62, 0.4, 0.16]]},
+          "fields": {
+            "tagline": "a 2-3 word vertical micro-tagline, e.g. AI AUTOMATION",
+            "headline": "the system in at most 4 short lines, at most 10 words",
+            "sub": "2-3 lines of context with one phrase in [[pill]], at most 22 words",
+            "cards": "3-6 capability cards, each 'Title: one short line', at most 7 words per card",
+            "icons": "one icon name per card",
+            "footer_line": "a short tagline for the footer, at most 6 words",
+            "illustration": "the centre object: abstract, nothing written, no people"
+          },
+          "zones": {
+            "visual": {"kind": "visual", "box": [0.52, 0.4, 0.94, 0.736], "visualShape": "circle", "fade": true},
+            "tagline": {"kind": "text", "field": "tagline", "role": "tagline", "box": [0.06, 0.4, 0.1, 0.86], "size": 22, "weight": "semibold", "upper": true, "tracking": 0.18, "vertical": true},
+            "logo": {"kind": "logo", "box": [0.7, 0.048, 0.94, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.13, 0.12, 0.94, 0.38], "size": 84, "weight": "bold", "accent": "primary", "lineHeight": 1.02},
+            "sub": {"kind": "text", "field": "sub", "role": "sub", "box": [0.13, 0.41, 0.5, 0.6], "size": 32, "accent": "primary"},
+            "cards": {"kind": "items", "field": "cards", "iconsField": "icons", "layout": "orbit", "count": [3, 6], "numbered": true, "box": [0.13, 0.62, 0.94, 0.87], "size": 22, "weight": "bold", "card": "bg_light"},
+            "footer": {"kind": "footer", "field": "footer_line", "box": [0.13, 0.9, 0.94, 0.952], "elements": ["tagline", "website"], "divider": true, "size": 24}
+          },
+          "textLimits": {
+            "tagline": {"maxChars": 24, "maxLines": 1, "minFontPx": 18},
+            "headline": {"maxChars": 70, "maxLines": 4, "minFontPx": 52},
+            "sub": {"maxChars": 140, "maxLines": 4, "minFontPx": 24},
+            "cards": {"maxChars": 46, "maxLines": 3, "minFontPx": 16},
+            "footer": {"maxChars": 70, "maxLines": 1, "minFontPx": 18}
+          }
+        }
+      },
+      "consistent": ["light editorial page", "numbered cards 01-06", "footer: tagline and website"],
+      "mayVary": ["the centre object", "3-6 cards"],
+      "referenceIds": ["R04"]
+    },
+    {
+      "id": "LI-2",
+      "name": "Insight Card",
+      "format": "li_single",
+      "platforms": ["linkedin"],
+      "purpose": "A news item or trend tied to a service: one translucent glass card with the headline, an accent rule and 2-3 lines of context.",
+      "contentTypes": ["news", "trend"],
+      "topicTags": ["german_problems", "ai_risks", "ai_mistakes", "news"],
+      "canvas": "4:5",
+      "provider": "openrouter",
+      "visual": {
+        "subject": "illustration",
+        "placement": "full bleed; frames or holds an empty centre where the glass card sits",
+        "prompt": "{illustration}. Full-frame abstract scene in deep royal blue with soft silver light, the object at the edges frames a large calm empty centre, depth of field, premium look, no robot hands, no text"
+      },
+      "layouts": {
+        "post": {
+          "theme": "photo",
+          "background": {"fill": "bg_dark"},
+          "fields": {
+            "headline": "the insight in at most 4 lines of at most 6 words, one word marked *like this*",
+            "context": "2-3 lines: the news and why it matters, at most 26 words",
+            "illustration": "the frame: abstract light, glass or architecture around an empty centre; nothing written, no people"
+          },
+          "zones": {
+            "visual": {"kind": "visual", "box": [0.0, 0.0, 1.0, 1.0], "bleed": true, "visualShape": "full"},
+            "bottom_scrim": {"kind": "shape", "shape": "scrim", "box": [0.0, 0.8, 1.0, 1.0], "bleed": true, "gradient": {"color": "bg_dark", "start": 0.0, "end": 0.92, "toward": "down"}},
+            "logo": {"kind": "logo", "box": [0.06, 0.048, 0.3, 0.115]},
+            "card": {"kind": "shape", "shape": "glass", "box": [0.1, 0.19, 0.9, 0.79], "fill": "bg_dark", "alpha": 0.88, "outline": "text_on_dark", "radius": 0.035},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.15, 0.24, 0.85, 0.53], "size": 66, "weight": "bold"},
+            "rule": {"kind": "shape", "shape": "rule", "box": [0.15, 0.552, 0.27, 0.558], "fill": "accent"},
+            "context": {"kind": "text", "field": "context", "role": "body", "box": [0.15, 0.585, 0.85, 0.75], "size": 32},
+            "footer_left": {"kind": "footer", "box": [0.06, 0.905, 0.5, 0.952], "elements": ["website"], "size": 24},
+            "footer_right": {"kind": "footer", "box": [0.5, 0.905, 0.94, 0.952], "elements": ["email"], "size": 24, "align": "right"}
+          },
+          "textLimits": {
+            "headline": {"maxChars": 64, "maxLines": 4, "minFontPx": 44},
+            "context": {"maxChars": 170, "maxLines": 4, "minFontPx": 24},
+            "footer_left": {"maxChars": 30, "maxLines": 1, "minFontPx": 18},
+            "footer_right": {"maxChars": 40, "maxLines": 1, "minFontPx": 18}
+          }
+        }
+      },
+      "consistent": ["glass card in the centre", "website bottom left, email bottom right"],
+      "mayVary": ["the framing scene (vary it; no robot-hand clichés)"],
+      "referenceIds": ["R32", "R31"]
+    },
+    {
+      "id": "LI-3",
+      "name": "Value Map",
+      "format": "li_single",
+      "platforms": ["linkedin"],
+      "purpose": "The benefits of an approach: a central symbolic visual with 4-5 value labels around it and a one-line CTA pill.",
+      "contentTypes": ["benefits", "value"],
+      "topicTags": ["ai_solutions", "benefits"],
+      "canvas": "4:5",
+      "provider": "openrouter",
+      "visual": {
+        "subject": "illustration",
+        "placement": "centre, in a circle; labels around it",
+        "prompt": "{illustration}. One symbolic 3D object, centred, glowing soft sky blue on a plain deep royal blue background, nothing else around it, no text"
+      },
+      "layouts": {
+        "post": {
+          "theme": "light",
+          "background": {"fill": "bg_light", "glows": [["accent", 0.5, 0.52, 0.3, 0.2]]},
+          "fields": {
+            "headline": "the benefit in at most 2 lines, at most 10 words",
+            "sub": "one line in a framed pill, at most 8 words",
+            "values": "4-5 values, each at most 4 words",
+            "icons": "one icon name per value",
+            "cta": "one-line call to action from the service's allowed CTAs, at most 7 words",
+            "illustration": "the centre symbol: one object, nothing written, no people"
+          },
+          "zones": {
+            "logo": {"kind": "logo", "box": [0.7, 0.048, 0.94, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.08, 0.12, 0.92, 0.235], "size": 60, "weight": "bold", "align": "center", "accent": "primary"},
+            "sub": {"kind": "text", "field": "sub", "role": "sub", "box": [0.16, 0.245, 0.84, 0.3], "size": 28, "align": "center", "valign": "middle", "pill": {"outline": "primary"}},
+            "visual": {"kind": "visual", "box": [0.31, 0.37, 0.69, 0.674], "visualShape": "circle"},
+            "values": {"kind": "items", "field": "values", "iconsField": "icons", "layout": "value_map", "count": [4, 5], "box": [0.06, 0.33, 0.94, 0.79], "size": 24, "weight": "semibold", "card": "bg_light"},
+            "cta": {"kind": "text", "field": "cta", "role": "cta", "box": [0.18, 0.815, 0.82, 0.87], "size": 28, "weight": "semibold", "align": "center", "valign": "middle", "color": "text_on_dark", "pill": {"fill": "primary"}},
+            "footer": {"kind": "footer", "box": [0.06, 0.9, 0.94, 0.952], "elements": ["website"], "size": 24, "align": "center"}
+          },
+          "textLimits": {
+            "headline": {"maxChars": 60, "maxLines": 2, "minFontPx": 42},
+            "sub": {"maxChars": 52, "maxLines": 1, "minFontPx": 20},
+            "values": {"maxChars": 30, "maxLines": 2, "minFontPx": 18},
+            "cta": {"maxChars": 44, "maxLines": 1, "minFontPx": 22},
+            "footer": {"maxChars": 30, "maxLines": 1, "minFontPx": 18}
+          }
+        }
+      },
+      "consistent": ["central circle", "labels joined by thin lines", "CTA pill"],
+      "mayVary": ["the symbol", "4 or 5 values"],
+      "referenceIds": ["R22", "R23"]
+    },
+    {
+      "id": "CS-1",
+      "name": "Tool Breakdown",
+      "format": "carousel",
+      "platforms": ["instagram"],
+      "purpose": "One tool or system over 5-7 slides: cover, what it is, how it helps, benefits, who it is for, closing question.",
+      "contentTypes": ["tool_breakdown", "overview", "how_to"],
+      "topicTags": ["ai_solutions", "service"],
+      "canvas": "4:5",
+      "provider": "openrouter",
+      "visual": {
+        "subject": "illustration",
+        "placement": "lower right of every slide; a different object per slide",
+        "prompt": "{illustration}. One clean 3D illustrated object on a plain deep royal blue background, soft sky blue rim light, placed lower right, empty space at the top and left, no people, no text"
+      },
+      "slideRoles": [
+        {"role": "cover", "layout": "cover"},
+        {"role": "what", "layout": "what"},
+        {"role": "how", "layout": "how", "repeat": [1, 2]},
+        {"role": "benefits", "layout": "benefits"},
+        {"role": "who", "layout": "who", "repeat": [0, 1]},
+        {"role": "cta", "layout": "cta"}
+      ],
+      "slideCount": [5, 7],
+      "layouts": {
+        "cover": {
+          "theme": "dark",
+          "background": {"fill": "bg_dark", "glows": [["accent", 0.78, 0.74, 0.45, 0.3]]},
+          "fields": {"headline": "the problem and the solution reveal, at most 10 words, white words marked *like this*", "sub": "one line, at most 12 words", "illustration": "the cover object, nothing written, no people"},
+          "zones": {
+            "visual": {"kind": "visual", "box": [0.3, 0.5, 1.0, 0.885], "bleed": true, "visualShape": "rect", "fade": true},
+            "logo": {"kind": "logo", "box": [0.7, 0.048, 0.94, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.06, 0.14, 0.94, 0.4], "size": 78, "weight": "bold", "color": "accent", "accent": "text_on_dark"},
+            "sub": {"kind": "text", "field": "sub", "role": "sub", "box": [0.06, 0.41, 0.94, 0.49], "size": 32},
+            "footer": {"kind": "footer", "box": [0.06, 0.905, 0.6, 0.952], "elements": ["website"], "size": 24},
+            "swipe": {"kind": "swipe", "style": "pill", "label": "Swipe", "box": [0.74, 0.902, 0.94, 0.952]}
+          },
+          "textLimits": {"headline": {"maxChars": 64, "maxLines": 3, "minFontPx": 50}, "sub": {"maxChars": 80, "maxLines": 2, "minFontPx": 24}, "footer": {"maxChars": 30, "maxLines": 1, "minFontPx": 18}}
+        },
+        "what": {
+          "theme": "dark",
+          "background": {"fill": "bg_dark", "glows": [["accent", 0.78, 0.74, 0.45, 0.3]]},
+          "fields": {"headline": "What it is, at most 6 words", "body": "3-5 lines: what it is in plain words, at most 40 words", "illustration": "a different object, nothing written, no people"},
+          "zones": {
+            "visual": {"kind": "visual", "box": [0.36, 0.52, 1.0, 0.885], "bleed": true, "visualShape": "rect", "fade": true},
+            "logo": {"kind": "logo", "box": [0.7, 0.048, 0.94, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.06, 0.14, 0.94, 0.25], "size": 64, "weight": "bold", "color": "accent", "accent": "text_on_dark"},
+            "body": {"kind": "text", "field": "body", "role": "body", "box": [0.06, 0.27, 0.94, 0.5], "size": 34},
+            "footer": {"kind": "footer", "box": [0.06, 0.905, 0.6, 0.952], "elements": ["website"], "size": 24},
+            "swipe": {"kind": "swipe", "style": "pill", "label": "Swipe", "box": [0.74, 0.902, 0.94, 0.952]}
+          },
+          "textLimits": {"headline": {"maxChars": 40, "maxLines": 2, "minFontPx": 44}, "body": {"maxChars": 260, "maxLines": 7, "minFontPx": 24}, "footer": {"maxChars": 30, "maxLines": 1, "minFontPx": 18}}
+        },
+        "how": {
+          "theme": "dark",
+          "background": {"fill": "bg_dark", "glows": [["accent", 0.8, 0.76, 0.42, 0.3]]},
+          "fields": {"headline": "How it helps, at most 6 words", "bullets": "3-4 bullets, at most 10 words each", "illustration": "a different object, nothing written, no people"},
+          "zones": {
+            "visual": {"kind": "visual", "box": [0.52, 0.58, 1.0, 0.885], "bleed": true, "visualShape": "rect", "fade": true},
+            "logo": {"kind": "logo", "box": [0.7, 0.048, 0.94, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.06, 0.14, 0.94, 0.25], "size": 64, "weight": "bold", "color": "accent", "accent": "text_on_dark"},
+            "bullets": {"kind": "items", "field": "bullets", "layout": "bullets", "count": [3, 4], "box": [0.06, 0.27, 0.94, 0.56], "size": 32},
+            "footer": {"kind": "footer", "box": [0.06, 0.905, 0.6, 0.952], "elements": ["website"], "size": 24},
+            "swipe": {"kind": "swipe", "style": "pill", "label": "Swipe", "box": [0.74, 0.902, 0.94, 0.952]}
+          },
+          "textLimits": {"headline": {"maxChars": 40, "maxLines": 2, "minFontPx": 44}, "bullets": {"maxChars": 70, "maxLines": 2, "minFontPx": 22}, "footer": {"maxChars": 30, "maxLines": 1, "minFontPx": 18}}
+        },
+        "benefits": {
+          "theme": "dark",
+          "background": {"fill": "bg_dark", "glows": [["accent", 0.84, 0.6, 0.38, 0.3]]},
+          "fields": {"headline": "The benefits, at most 6 words", "benefits": "3 pairs, each 'Label: one-line description', at most 12 words each", "illustration": "a different object, nothing written, no people"},
+          "zones": {
+            "visual": {"kind": "visual", "box": [0.64, 0.4, 1.0, 0.8], "bleed": true, "visualShape": "rect", "fade": true},
+            "logo": {"kind": "logo", "box": [0.7, 0.048, 0.94, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.06, 0.14, 0.94, 0.25], "size": 64, "weight": "bold", "color": "accent", "accent": "text_on_dark"},
+            "benefits": {"kind": "items", "field": "benefits", "layout": "pairs", "count": [3, 3], "box": [0.06, 0.28, 0.62, 0.86], "size": 32, "weight": "bold"},
+            "footer": {"kind": "footer", "box": [0.06, 0.905, 0.6, 0.952], "elements": ["website"], "size": 24},
+            "swipe": {"kind": "swipe", "style": "pill", "label": "Swipe", "box": [0.74, 0.902, 0.94, 0.952]}
+          },
+          "textLimits": {"headline": {"maxChars": 40, "maxLines": 2, "minFontPx": 44}, "benefits": {"maxChars": 90, "maxLines": 4, "minFontPx": 20}, "footer": {"maxChars": 30, "maxLines": 1, "minFontPx": 18}}
+        },
+        "who": {
+          "theme": "dark",
+          "background": {"fill": "bg_dark", "glows": [["accent", 0.78, 0.76, 0.45, 0.3]]},
+          "fields": {"headline": "Who it is for, at most 6 words", "audience": "3-4 audiences, at most 6 words each", "illustration": "a different object, nothing written, no people"},
+          "zones": {
+            "visual": {"kind": "visual", "box": [0.36, 0.56, 1.0, 0.885], "bleed": true, "visualShape": "rect", "fade": true},
+            "logo": {"kind": "logo", "box": [0.7, 0.048, 0.94, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.06, 0.14, 0.94, 0.25], "size": 64, "weight": "bold", "color": "accent", "accent": "text_on_dark"},
+            "audience": {"kind": "items", "field": "audience", "layout": "bullets", "count": [3, 4], "box": [0.06, 0.27, 0.94, 0.54], "size": 32},
+            "footer": {"kind": "footer", "box": [0.06, 0.905, 0.6, 0.952], "elements": ["website"], "size": 24},
+            "swipe": {"kind": "swipe", "style": "pill", "label": "Swipe", "box": [0.74, 0.902, 0.94, 0.952]}
+          },
+          "textLimits": {"headline": {"maxChars": 40, "maxLines": 2, "minFontPx": 44}, "audience": {"maxChars": 48, "maxLines": 2, "minFontPx": 22}, "footer": {"maxChars": 30, "maxLines": 1, "minFontPx": 18}}
+        },
+        "cta": {
+          "theme": "dark",
+          "background": {"fill": "bg_dark", "glows": [["accent", 0.78, 0.76, 0.45, 0.3]]},
+          "fields": {"headline": "a closing question that invites comments, at most 10 words", "sub": "one line, at most 12 words", "cta": "the call to action from the service's allowed CTAs, at most 6 words", "illustration": "a different object, nothing written, no people"},
+          "zones": {
+            "visual": {"kind": "visual", "box": [0.42, 0.62, 1.0, 0.885], "bleed": true, "visualShape": "rect", "fade": true},
+            "logo": {"kind": "logo", "box": [0.7, 0.048, 0.94, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.06, 0.16, 0.94, 0.4], "size": 72, "weight": "bold", "color": "accent", "accent": "text_on_dark"},
+            "sub": {"kind": "text", "field": "sub", "role": "sub", "box": [0.06, 0.42, 0.94, 0.5], "size": 32},
+            "cta": {"kind": "text", "field": "cta", "role": "cta", "box": [0.06, 0.53, 0.66, 0.6], "size": 32, "weight": "bold", "valign": "middle", "color": "primary", "pill": {"fill": "accent"}},
+            "footer": {"kind": "footer", "box": [0.06, 0.905, 0.94, 0.952], "elements": ["website"], "size": 26}
+          },
+          "textLimits": {"headline": {"maxChars": 64, "maxLines": 3, "minFontPx": 46}, "sub": {"maxChars": 80, "maxLines": 2, "minFontPx": 24}, "cta": {"maxChars": 40, "maxLines": 1, "minFontPx": 24}, "footer": {"maxChars": 30, "maxLines": 1, "minFontPx": 18}}
+        }
+      },
+      "consistent": ["deep blue background", "headlines in Sky Blue, body in white", "logo top right", "swipe pill bottom right", "website bottom left"],
+      "mayVary": ["the 3D object on each slide"],
+      "referenceIds": ["R10", "R09", "R07", "R08", "R06"]
+    },
+    {
+      "id": "CS-2",
+      "name": "Bold Statement Series",
+      "format": "carousel",
+      "platforms": ["instagram"],
+      "purpose": "Bold statements: a 'Struggling with X?' cover, 3-4 'We [verb] [object] that [result]' service slides and a CTA slide.",
+      "contentTypes": ["statement", "service_intro"],
+      "topicTags": ["ai_solutions", "service"],
+      "canvas": "4:5",
+      "provider": "openrouter",
+      "visual": {
+        "subject": "illustration",
+        "placement": "lower half; turned greyscale by code with one Sky Blue glow",
+        "prompt": "{illustration}. Dramatic black and white studio photo of one object, lower half of the frame, dark background, strong rim light, empty upper half, no people, no text"
+      },
+      "slideRoles": [
+        {"role": "cover", "layout": "statement"},
+        {"role": "service", "layout": "statement", "repeat": [3, 4]},
+        {"role": "cta", "layout": "closing"}
+      ],
+      "slideCount": [5, 6],
+      "layouts": {
+        "statement": {
+          "theme": "dark",
+          "background": {"fill": "bg_dark"},
+          "fields": {
+            "eyebrow": "a thin uppercase lead-in, at most 3 words (cover: STRUGGLING WITH)",
+            "main": "the heavy main line, at most 3 words (cover: the problem, e.g. FOLLOW-UPS?; service: WE AUTOMATE)",
+            "third": "a thin line with the result in [[pill]], at most 5 words",
+            "body": "one line in plain words, at most 14 words",
+            "illustration": "one object for the lower half, nothing written, no people"
+          },
+          "zones": {
+            "visual": {"kind": "visual", "box": [0.0, 0.48, 1.0, 0.885], "bleed": true, "visualShape": "rect", "fade": true, "mono": true},
+            "logo": {"kind": "logo", "box": [0.38, 0.048, 0.62, 0.115]},
+            "eyebrow": {"kind": "text", "field": "eyebrow", "role": "eyebrow", "box": [0.08, 0.15, 0.92, 0.19], "size": 30, "upper": true, "tracking": 0.08},
+            "main": {"kind": "text", "field": "main", "role": "headline", "box": [0.08, 0.195, 0.92, 0.3], "size": 96, "weight": "extrabold", "upper": true},
+            "third": {"kind": "text", "field": "third", "role": "headline", "box": [0.08, 0.305, 0.92, 0.365], "size": 44, "upper": true},
+            "body": {"kind": "text", "field": "body", "role": "body", "box": [0.08, 0.375, 0.92, 0.45], "size": 28},
+            "footer": {"kind": "footer", "box": [0.2, 0.905, 0.8, 0.952], "elements": ["website"], "size": 24, "align": "center", "icon": "world"},
+            "swipe": {"kind": "swipe", "style": "arrow_circle", "box": [0.86, 0.9, 0.94, 0.952]}
+          },
+          "textLimits": {
+            "eyebrow": {"maxChars": 24, "maxLines": 1, "minFontPx": 22},
+            "main": {"maxChars": 22, "maxLines": 2, "minFontPx": 56},
+            "third": {"maxChars": 36, "maxLines": 1, "minFontPx": 28},
+            "body": {"maxChars": 90, "maxLines": 2, "minFontPx": 22},
+            "footer": {"maxChars": 30, "maxLines": 1, "minFontPx": 18}
+          }
+        },
+        "closing": {
+          "theme": "dark",
+          "background": {"fill": "bg_dark"},
+          "fields": {
+            "eyebrow": "a thin uppercase lead-in, at most 3 words",
+            "main": "the heavy main line, at most 3 words",
+            "third": "a thin line with [[pill]], at most 5 words",
+            "body": "the call to action from the service's allowed CTAs, at most 14 words",
+            "illustration": "one object for the lower half, nothing written, no people"
+          },
+          "zones": {
+            "visual": {"kind": "visual", "box": [0.0, 0.48, 1.0, 0.885], "bleed": true, "visualShape": "rect", "fade": true, "mono": true},
+            "logo": {"kind": "logo", "box": [0.38, 0.048, 0.62, 0.115]},
+            "eyebrow": {"kind": "text", "field": "eyebrow", "role": "eyebrow", "box": [0.08, 0.15, 0.92, 0.19], "size": 30, "upper": true, "tracking": 0.08},
+            "main": {"kind": "text", "field": "main", "role": "headline", "box": [0.08, 0.195, 0.92, 0.3], "size": 96, "weight": "extrabold", "upper": true},
+            "third": {"kind": "text", "field": "third", "role": "headline", "box": [0.08, 0.305, 0.92, 0.365], "size": 44, "upper": true},
+            "body": {"kind": "text", "field": "body", "role": "body", "box": [0.08, 0.375, 0.92, 0.45], "size": 28},
+            "footer": {"kind": "footer", "box": [0.2, 0.905, 0.8, 0.952], "elements": ["website"], "size": 26, "align": "center", "icon": "world"}
+          },
+          "textLimits": {
+            "eyebrow": {"maxChars": 24, "maxLines": 1, "minFontPx": 22},
+            "main": {"maxChars": 22, "maxLines": 2, "minFontPx": 56},
+            "third": {"maxChars": 36, "maxLines": 1, "minFontPx": 28},
+            "body": {"maxChars": 90, "maxLines": 2, "minFontPx": 22},
+            "footer": {"maxChars": 30, "maxLines": 1, "minFontPx": 18}
+          }
+        }
+      },
+      "consistent": ["logo centred at the top", "text stack: eyebrow, heavy line, pill line, body", "greyscale picture with one Sky Blue glow", "website centred with an arrow circle"],
+      "mayVary": ["the object per slide"],
+      "referenceIds": ["R15", "R13", "R14", "R11", "R12"]
+    },
+    {
+      "id": "CS-3",
+      "name": "Numbered Steps",
+      "format": "carousel",
+      "platforms": ["instagram"],
+      "purpose": "Numbered steps or tips: a question cover with a hand-drawn arrow and a SWIPE pill, two numbered cards per slide, a CTA slide.",
+      "contentTypes": ["steps", "how_to", "checklist"],
+      "topicTags": ["ai_solutions", "how_to"],
+      "canvas": "4:5",
+      "provider": "openrouter",
+      "visual": {
+        "subject": "illustration",
+        "placement": "cover only, bottom right",
+        "prompt": "{illustration}. One clean 3D illustrated object on a plain deep royal blue background, lower right of the frame, soft sky blue light, empty space at the top and left, no people, no text"
+      },
+      "slideRoles": [
+        {"role": "cover", "layout": "cover"},
+        {"role": "steps", "layout": "steps", "repeat": [2, 4], "visual": false},
+        {"role": "cta", "layout": "cta", "visual": false}
+      ],
+      "slideCount": [4, 6],
+      "layouts": {
+        "cover": {
+          "theme": "dark",
+          "background": {"fill": "bg_dark", "glows": [["accent", 0.74, 0.74, 0.45, 0.3]]},
+          "fields": {"headline": "a question with the key phrase marked *like this*, at most 10 words", "illustration": "the cover object, nothing written, no people"},
+          "zones": {
+            "visual": {"kind": "visual", "box": [0.42, 0.48, 1.0, 0.885], "bleed": true, "visualShape": "rect", "fade": true},
+            "logo": {"kind": "logo", "box": [0.38, 0.048, 0.62, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.08, 0.15, 0.92, 0.4], "size": 76, "weight": "bold"},
+            "arrow": {"kind": "arrow", "style": "hand_drawn", "box": [0.12, 0.42, 0.34, 0.6]},
+            "swipe": {"kind": "swipe", "style": "pill", "label": "SWIPE", "box": [0.1, 0.62, 0.38, 0.68]},
+            "footer": {"kind": "footer", "box": [0.26, 0.905, 0.74, 0.952], "elements": ["website"], "size": 24, "align": "center", "underline": true}
+          },
+          "textLimits": {"headline": {"maxChars": 64, "maxLines": 3, "minFontPx": 48}, "footer": {"maxChars": 30, "maxLines": 1, "minFontPx": 18}}
+        },
+        "steps": {
+          "theme": "dark",
+          "background": {"fill": "bg_dark", "glows": [["accent", 0.5, 0.5, 0.6, 0.18]]},
+          "fields": {"cards": "2 cards, each 'Title: 2-4 lines of how-to', at most 32 words per card"},
+          "zones": {
+            "logo": {"kind": "logo", "box": [0.38, 0.048, 0.62, 0.115]},
+            "cards": {"kind": "items", "field": "cards", "layout": "numbered_cards", "count": [2, 2], "numbered": true, "box": [0.08, 0.15, 0.92, 0.86], "size": 34, "weight": "bold", "card": "bg_light"},
+            "footer": {"kind": "footer", "box": [0.26, 0.905, 0.74, 0.952], "elements": ["website"], "size": 24, "align": "center", "underline": true},
+            "swipe": {"kind": "swipe", "style": "pill", "label": "Swipe", "box": [0.78, 0.902, 0.94, 0.952]}
+          },
+          "textLimits": {"cards": {"maxChars": 200, "maxLines": 6, "minFontPx": 20}, "footer": {"maxChars": 30, "maxLines": 1, "minFontPx": 18}}
+        },
+        "cta": {
+          "theme": "dark",
+          "background": {"fill": "bg_dark", "glows": [["accent", 0.5, 0.56, 0.5, 0.24]]},
+          "fields": {"headline": "the closing line, at most 10 words", "cta": "the button: a call to action from the service's allowed CTAs, at most 5 words"},
+          "zones": {
+            "logo": {"kind": "logo", "box": [0.38, 0.048, 0.62, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.08, 0.2, 0.92, 0.42], "size": 72, "weight": "bold", "align": "center"},
+            "cta": {"kind": "text", "field": "cta", "role": "cta", "box": [0.2, 0.47, 0.8, 0.54], "size": 34, "weight": "bold", "align": "center", "valign": "middle", "color": "primary", "pill": {"fill": "accent"}},
+            "contact": {"kind": "icons", "box": [0.38, 0.6, 0.62, 0.66], "names": ["world", "mail"]},
+            "footer": {"kind": "footer", "box": [0.2, 0.69, 0.8, 0.74], "elements": ["website", "email"], "size": 26, "align": "center"},
+            "bottom": {"kind": "footer", "box": [0.26, 0.905, 0.74, 0.952], "elements": ["website"], "size": 24, "align": "center", "underline": true}
+          },
+          "textLimits": {"headline": {"maxChars": 64, "maxLines": 3, "minFontPx": 44}, "cta": {"maxChars": 34, "maxLines": 1, "minFontPx": 24}, "footer": {"maxChars": 60, "maxLines": 1, "minFontPx": 18}, "bottom": {"maxChars": 30, "maxLines": 1, "minFontPx": 18}}
+        }
+      },
+      "consistent": ["logo centred at the top", "underlined website footer", "white numbered cards"],
+      "mayVary": ["2-4 step slides", "the cover object"],
+      "referenceIds": ["R30", "R29", "R28", "R27"]
+    },
+    {
+      "id": "FD-1",
+      "name": "Founder Cutout Spotlight",
+      "format": "founder",
+      "platforms": ["linkedin", "facebook"],
+      "purpose": "Service promotion with a human face: Roman from his LoRA, cut out by the app onto the brand background, 2-4 floating example cards, a statement badge and a service icon row.",
+      "contentTypes": ["service_intro", "capabilities"],
+      "topicTags": ["ai_solutions", "service"],
+      "canvas": "4:5",
+      "provider": "comfyui",
+      "visual": {"subject": "roman_lora", "placement": "right of centre, generated by his LoRA on a plain chroma-key green backdrop and cut out by the app", "prompt": "{prefix}, {outfit}, waist-up, body turned slightly toward the left, {angle}, {expression}, plain flat chroma-key green studio backdrop with nothing else in the frame, soft even studio light, realistic professional photo, sharp focus on the face, no props, {alone}, no text"},
+      "layouts": {
+        "post": {
+          "theme": "dark",
+          "background": {"fill": "bg_dark", "glows": [["accent", 0.66, 0.46, 0.42, 0.42]]},
+          "fields": {
+            "headline": "the headline in the top pill, at most 10 words",
+            "cards": "2-4 example cards, each 'Label: example' (labelled examples, no invented numbers), at most 7 words per card",
+            "icons": "one icon name per card",
+            "statement": "a short statement badge, at most 5 words",
+            "services": "3 short service labels from config/services.json, at most 3 words each",
+            "service_icons": "one icon name per service label"
+          },
+          "zones": {
+            "visual": {"kind": "visual", "box": [0.3, 0.2, 1.0, 0.8], "bleed": true, "visualShape": "cutout", "fade": true},
+            "logo": {"kind": "logo", "box": [0.06, 0.048, 0.3, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.06, 0.13, 0.94, 0.215], "size": 44, "weight": "bold", "align": "center", "valign": "middle", "color": "text_on_light", "accent": "primary", "pill": {"fill": "bg_light"}},
+            "cards": {"kind": "items", "field": "cards", "iconsField": "icons", "layout": "floating_cards", "count": [2, 4], "box": [0.06, 0.26, 0.44, 0.74], "size": 22, "weight": "bold", "card": "bg_light"},
+            "statement": {"kind": "text", "field": "statement", "role": "badge", "box": [0.48, 0.705, 0.94, 0.77], "size": 30, "weight": "bold", "align": "center", "valign": "middle", "color": "primary", "pill": {"fill": "accent"}},
+            "services": {"kind": "icons", "field": "services", "iconsField": "service_icons", "box": [0.06, 0.805, 0.94, 0.865], "size": 22, "weight": "semibold"},
+            "footer": {"kind": "footer", "box": [0.0, 0.885, 1.0, 1.0], "bleed": true, "fill": "bg_light", "color": "text_on_light", "elements": ["website", "email"], "divider": true, "size": 26}
+          },
+          "textLimits": {
+            "headline": {"maxChars": 60, "maxLines": 2, "minFontPx": 30},
+            "cards": {"maxChars": 46, "maxLines": 2, "minFontPx": 16},
+            "statement": {"maxChars": 36, "maxLines": 1, "minFontPx": 22},
+            "services": {"maxChars": 24, "maxLines": 1, "minFontPx": 16},
+            "footer": {"maxChars": 60, "maxLines": 1, "minFontPx": 18}
+          }
+        }
+      },
+      "consistent": ["Roman from his LoRA only, cut out", "footer bar with website and email"],
+      "mayVary": ["outfit, angle and expression from the pools", "2-4 cards"],
+      "referenceIds": ["R02", "R16", "R03"]
+    },
+    {
+      "id": "FD-2",
+      "name": "Editorial Portrait",
+      "format": "founder",
+      "platforms": ["linkedin", "facebook"],
+      "purpose": "A point of view or positioning: a lead-in line, a heavy keyword and a finishing line above a calm chest-up portrait on a light studio background.",
+      "contentTypes": ["pov", "positioning"],
+      "topicTags": ["positioning", "german_problems", "ai_risks"],
+      "canvas": "4:5",
+      "provider": "comfyui",
+      "visual": {
+        "subject": "roman_lora",
+        "placement": "centred chest-up portrait below the text",
+        "prompt": "{prefix}, {outfit}, chest-up portrait, centred, calm thoughtful pose, direct gaze into the camera, {expression}, plain light grey seamless studio background, soft even studio light, realistic professional photo, sharp focus on the face, no props, {alone}, empty space above the head, no text"
+      },
+      "layouts": {
+        "post": {
+          "theme": "light",
+          "background": {"fill": "bg_light", "gradient": "silver", "angle": 0},
+          "fields": {
+            "lead_in": "a small lead-in line, e.g. 'Automation is where…', at most 6 words",
+            "keyword": "one heavy keyword, 1-2 words",
+            "finish": "the finishing line, at most 7 words"
+          },
+          "zones": {
+            "logo": {"kind": "logo", "box": [0.06, 0.048, 0.3, 0.115]},
+            "lead_in": {"kind": "text", "field": "lead_in", "role": "sub", "box": [0.1, 0.12, 0.9, 0.165], "size": 34, "align": "center"},
+            "keyword": {"kind": "text", "field": "keyword", "role": "headline", "box": [0.06, 0.17, 0.94, 0.285], "size": 132, "weight": "extrabold", "upper": true, "align": "center", "lineHeight": 1.0},
+            "finish": {"kind": "text", "field": "finish", "role": "sub", "box": [0.1, 0.29, 0.9, 0.335], "size": 34, "align": "center"},
+            "visual": {"kind": "visual", "box": [0.16, 0.355, 0.84, 0.89], "visualShape": "rect", "fade": true},
+            "footer": {"kind": "footer", "box": [0.06, 0.905, 0.94, 0.952], "elements": ["website"], "size": 24, "align": "center"}
+          },
+          "textLimits": {
+            "lead_in": {"maxChars": 40, "maxLines": 1, "minFontPx": 24},
+            "keyword": {"maxChars": 14, "maxLines": 1, "minFontPx": 72},
+            "finish": {"maxChars": 46, "maxLines": 1, "minFontPx": 24},
+            "footer": {"maxChars": 30, "maxLines": 1, "minFontPx": 18}
+          }
+        }
+      },
+      "consistent": ["light studio look", "centred text stack", "minimal footer"],
+      "mayVary": ["outfit and expression"],
+      "referenceIds": ["R36", "R04"]
+    },
+    {
+      "id": "FD-3",
+      "name": "Founder in Context",
+      "format": "founder",
+      "platforms": ["linkedin", "facebook"],
+      "purpose": "Roman alone in a business-credible or quiet-luxury scene: a bottom gradient caption (Facebook) or a top-left headline on a calm area (LinkedIn).",
+      "contentTypes": ["pov", "founder_story", "news"],
+      "topicTags": ["founder", "german_problems", "ai_solutions"],
+      "canvas": "4:5",
+      "provider": "comfyui",
+      "visual": {
+        "subject": "roman_lora",
+        "placement": "full bleed",
+        "prompt": "{prefix}, {outfit}, {setting}, {angle}, {expression}, waist-up, cinematic natural light, realistic photo, sharp focus on the face, {alone}, {noTextSurfaces}, a calm empty area {space} for text, no text"
+      },
+      "pick": "platform",
+      "layouts": {
+        "cover": {
+          "theme": "photo",
+          "platforms": ["facebook"],
+          "background": {"fill": "bg_dark"},
+          "fields": {"headline": "an uppercase headline, at most 8 words", "sub": "optional sub-line, at most 12 words"},
+          "zones": {
+            "visual": {"kind": "visual", "box": [0.0, 0.0, 1.0, 1.0], "bleed": true, "visualShape": "full"},
+            "bottom_scrim": {"kind": "shape", "shape": "scrim", "box": [0.0, 0.5, 1.0, 1.0], "bleed": true, "gradient": {"color": "bg_dark", "start": 0.0, "end": 0.95, "toward": "down"}},
+            "logo": {"kind": "logo", "box": [0.06, 0.048, 0.3, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.06, 0.68, 0.94, 0.83], "size": 62, "weight": "extrabold", "upper": true, "align": "center", "valign": "bottom"},
+            "sub": {"kind": "text", "field": "sub", "role": "sub", "box": [0.1, 0.835, 0.9, 0.885], "size": 28, "align": "center", "optional": true},
+            "footer": {"kind": "footer", "box": [0.56, 0.905, 0.94, 0.952], "elements": ["website"], "size": 22, "align": "right"}
+          },
+          "textLimits": {"headline": {"maxChars": 48, "maxLines": 2, "minFontPx": 40}, "sub": {"maxChars": 80, "maxLines": 1, "minFontPx": 20}, "footer": {"maxChars": 24, "maxLines": 1, "minFontPx": 18}}
+        },
+        "editorial": {
+          "theme": "photo",
+          "platforms": ["linkedin"],
+          "background": {"fill": "bg_dark"},
+          "fields": {"headline": "the headline with one word marked *like this*, at most 8 words", "sub": "optional sub-line, at most 12 words"},
+          "zones": {
+            "visual": {"kind": "visual", "box": [0.0, 0.0, 1.0, 1.0], "bleed": true, "visualShape": "full"},
+            "top_scrim": {"kind": "shape", "shape": "scrim", "box": [0.0, 0.0, 0.72, 0.48], "bleed": true, "gradient": {"color": "bg_dark", "start": 0.96, "end": 0.86, "toward": "right"}},
+            "top_fade": {"kind": "shape", "shape": "scrim", "box": [0.72, 0.0, 1.0, 0.48], "bleed": true, "gradient": {"color": "bg_dark", "start": 0.86, "end": 0.0, "toward": "right"}},
+            "bottom_scrim": {"kind": "shape", "shape": "scrim", "box": [0.4, 0.84, 1.0, 1.0], "bleed": true, "gradient": {"color": "bg_dark", "start": 0.0, "end": 0.95, "toward": "down"}},
+            "logo": {"kind": "logo", "box": [0.7, 0.048, 0.94, 0.115]},
+            "headline": {"kind": "text", "field": "headline", "role": "headline", "box": [0.06, 0.1, 0.62, 0.32], "size": 60, "weight": "bold"},
+            "sub": {"kind": "text", "field": "sub", "role": "sub", "box": [0.06, 0.33, 0.56, 0.42], "size": 28, "optional": true},
+            "footer": {"kind": "footer", "box": [0.56, 0.905, 0.94, 0.952], "elements": ["website"], "size": 22, "align": "right"}
+          },
+          "textLimits": {"headline": {"maxChars": 48, "maxLines": 3, "minFontPx": 38}, "sub": {"maxChars": 80, "maxLines": 2, "minFontPx": 20}, "footer": {"maxChars": 24, "maxLines": 1, "minFontPx": 18}}
+        }
+      },
+      "consistent": ["Roman alone in the frame", "small website bottom right"],
+      "mayVary": ["business or quiet-luxury setting", "outfit, angle, expression"],
+      "referenceIds": ["C1", "C2", "C3", "C4", "C5", "C6", "C7"]
+    }
+  ]
+}

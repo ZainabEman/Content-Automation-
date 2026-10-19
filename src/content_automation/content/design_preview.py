@@ -13,7 +13,7 @@ import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 from content_automation.content.directions import Direction, DirectionCatalog, load_directions
 from content_automation.core.files import atomic_write_text
@@ -65,8 +65,34 @@ def stand_in_picture(direction: Direction, layout_name: str, catalog: DirectionC
     width, height = catalog.size(direction)
     left, top, right, bottom = zone.box
     size = (max(1, round((right - left) * width)), max(1, round((bottom - top) * height)))
+    if zone.visual_shape == "full" and direction.layouts[layout_name].theme != "light":
+        return dark_placeholder(size, direction.id, colors, person=direction.roman)
     stand_in = placeholder(size, direction.id, colors, person=direction.roman)
     return _silhouette(stand_in) if cutout else stand_in
+
+
+def dark_placeholder(size: tuple[int, int], label: str,
+                     colors: Mapping[str, tuple[int, int, int]], person: bool = False
+                     ) -> Image.Image:
+    """v5: a full-bleed stand-in like the approved references (near-black, a blue glow and the
+    object on the right): a preview picture, never a design fill, so no token is needed."""
+    width, height = size
+    image = Image.new("RGB", size, (3, 6, 18))
+    glow = Image.new("L", size, 0)
+    ImageDraw.Draw(glow).ellipse((width * 0.55, height * 0.25, width * 1.05, height * 0.85),
+                                 fill=150)
+    glow = glow.filter(ImageFilter.GaussianBlur(max(4, width // 12)))
+    image.paste(Image.new("RGB", size, colors["accent"]), (0, 0), glow)
+    draw = ImageDraw.Draw(image)
+    if person:
+        draw.ellipse((width * 0.66, height * 0.16, width * 0.84, height * 0.36), fill=(40, 52, 80))
+        draw.rounded_rectangle((width * 0.58, height * 0.38, width * 0.94, height * 1.05),
+                               radius=round(width * 0.12), fill=(40, 52, 80))
+    else:
+        draw.rounded_rectangle((width * 0.66, height * 0.42, width * 0.88, height * 0.64),
+                               radius=round(width * 0.03), outline=colors["accent"],
+                               width=max(2, width // 220))
+    return image
 
 
 def preview(ids: Sequence[str] = (), photo: Path | None = None,

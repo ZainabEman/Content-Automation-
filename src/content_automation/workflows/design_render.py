@@ -135,6 +135,7 @@ class TextRecord:
     contrast: float
     needed: float
     large: bool
+    drawn: list[str] = field(default_factory=list)  # v5: the lines as drawn (hyphens shown)
 
 
 @dataclass
@@ -161,6 +162,7 @@ class Rendered:
     logo: LogoRecord | None = None
     footer: list[str] = field(default_factory=list)  # the footer texts drawn
     notes: list[str] = field(default_factory=list)
+    fonts: list[str] = field(default_factory=list)  # v5: the font files used (brand check)
 
     def manifest(self) -> dict[str, Any]:
         return {
@@ -169,7 +171,7 @@ class Rendered:
             "fills": [list(item) for item in self.fills],
             "visualBoxes": [list(box) for box in self.visual_boxes],
             "logo": vars(self.logo) if self.logo else None,
-            "footer": self.footer, "notes": self.notes,
+            "footer": self.footer, "notes": self.notes, "fonts": self.fonts,
         }
 
 
@@ -519,7 +521,8 @@ class Painter:
             zone=name, text=plain(raw), box=bounds, font_px=round(size / self.scale),
             min_font_px=limit.min_font_px, lines=len(fitted.lines), max_lines=limit.max_lines,
             max_chars=limit.max_chars, tokens=sorted(tokens), backdrop=behind,
-            contrast=round(worst, 2), needed=needed, large=large))
+            contrast=round(worst, 2), needed=needed, large=large,
+            drawn=[_joined(line) for line in fitted.lines]))
         if len(plain(raw)) > limit.max_chars:
             raise DesignRenderError(f"{self.record.direction} {name}: {len(plain(raw))} "
                                     f"characters, at most {limit.max_chars}: shorten it")
@@ -764,6 +767,22 @@ def _shape(painter: Painter, name: str, zone: Zone) -> None:
             painter.shape(lambda d, c: d.rounded_rectangle(box, radius=radius, outline=c,
                                                            width=painter.s(2)),
                           name, outline, 0.35 if zone.shape == "glass" else 1.0)
+    elif zone.shape in ("panel", "glass", "pill") and zone.outline is not None:
+        line_role: str = zone.outline  # an outline-only panel (the references' glass frame)
+        painter.shape(lambda d, c: d.rounded_rectangle(box, radius=radius, outline=c,
+                                                       width=painter.s(3)), name, line_role,
+                      zone.alpha)
+    elif zone.shape == "dots" and fill_role is not None:
+        dot_role: str = fill_role  # the references' dot grid (v5)
+        step, dot = painter.s(26), painter.s(3)
+        left, top, right, bottom = box
+
+        def grid(d: Any, c: Any) -> None:
+            for y in range(top + dot, bottom - dot + 1, step):
+                for x in range(left + dot, right - dot + 1, step):
+                    d.ellipse((x - dot, y - dot, x + dot, y + dot), fill=c)
+
+        painter.shape(grid, name, dot_role, zone.alpha)
     elif zone.shape == "rule" and fill_role is not None:
         rule_role: str = fill_role
         painter.shape(lambda d, c: d.rectangle(box, fill=c), name, rule_role, zone.alpha)
@@ -916,7 +935,7 @@ def _arrow(painter: Painter, name: str, zone: Zone) -> None:
 
 def _icons(painter: Painter, name: str, zone: Zone, layout: Layout,
            copy: Mapping[str, object], catalog: DirectionCatalog) -> None:
-    labels = _lines(copy.get(zone.field)) if zone.field else []
+    labels = _lines(copy.get(zone.field)) if zone.field else list(zone.labels)
     names = _lines(copy.get(zone.icons_field)) if zone.icons_field else list(zone.names)
     count = max(len(labels), len(names))
     if count == 0:
@@ -1331,7 +1350,10 @@ def place_logo(painter: Painter, zone: Zone, layout: Layout) -> None:
     else:
         x = left + clear
     y = top + (height - logo_h) / 2
-    target = (round(x), round(y), round(x + logo_w), round(y + logo_h))
+    # whole pixels from the height, so rounding never stretches the logo (v5)
+    whole_h = max(1, round(logo_h))
+    whole_w = max(1, round(whole_h * aspect))
+    target = (round(x), round(y), round(x) + whole_w, round(y) + whole_h)
     region = painter.image.crop(target).convert("L")
     brightness = sum(region.getdata()) / max(1, region.width * region.height) / 255
     version: Literal["white", "full colour"] = (
@@ -1369,6 +1391,7 @@ def render_layout(
     record = Rendered(image=Image.new("RGB", canvas), direction=direction.id,
                       layout=layout_name, size=canvas)
     painter = Painter(canvas, assets, record)
+    record.fonts = sorted({path.name for path in assets.fonts.values()})
     paint_background(painter, layout.background)
     visual_box: PixelBox | None = None
     for name, zone in layout.zones.items():
@@ -1389,6 +1412,8 @@ def render_layout(
         elif zone.kind == "items":
             _items(painter, name, zone, layout, copy, catalog, step, visual_box)
         elif zone.kind == "footer":
+            if zone.optional and zone.field and not _lines(copy.get(zone.field)):
+                continue  # v5: the carousel's website is optional (last slide only)
             _footer(painter, name, zone, layout, copy)
         elif zone.kind == "swipe":
             _swipe(painter, name, zone, layout)

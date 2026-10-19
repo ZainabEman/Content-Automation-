@@ -1,0 +1,31 @@
+{
+  "_note": "PRD v5 R3: the graphic designer's prompt, kept as the core of every OpenRouter image prompt. Her original (verbatim, original spelling): \"Be my expert graphic designer and show your skill and generate for me a professional, creative, ad style post that I can post on LinkedIn using Brandit Genius brand style guide and logo should also be at the side corner. It must match the motive and aim of Branded Genius. Must be 3:4\" - given together with the logo and the brand style guide. Kept elements: (1) role and quality bar, (2) the brand style guide as an input image, (3) the real logo as an input with a placement rule, (4) purpose and audience (the motive and aim of Branded Genius), (5) creative latitude within the brand, (6) the explicit format. Added: the topic, the German headline as context, the layout variant and its free zones, the approved reference graphics. Text accuracy (R3.5): the app draws the exact German text and pastes the real logo afterwards, so the model keeps those zones free and draws no text or logo. Placeholders: {platform} {category} {format} {size} {purpose} {mission} {topic} {headline} {variant} {picture} {zones} {logoZone} {references} {referenceImages}.",
+  "core": "Be my expert graphic designer and show your skill: create a professional, creative, ad-style {category} visual for Branded Genius that I can post on {platform}. Use the attached Branded Genius brand style guide (image 1) and the attached official Branded Genius logo (image 2) as the brand reference: its colours (Royal Blue #004BA0, Sky Blue #69BFF8, Medium Gray #969595 silver and white), its metallic gradients and its clean, technology-forward look. The logo belongs at {logoZone}; the app places the real logo file there afterwards, so leave that corner empty and never draw, copy or imitate the logo. It must match the motive and aim of Branded Genius: {mission}. Purpose of this graphic: {purpose}. Match the look of the attached approved Branded Genius graphics ({referenceImages}): {references}. You have creative freedom within this brand: lighting, depth, objects and composition are yours.",
+  "brief": "Topic: {topic}. The post's message, for context only (do not write it anywhere): \"{headline}\". Layout variant {variant}. The picture: {picture}.",
+  "rules": "Keep these areas calm, dark and empty, because the app places the exact German text there afterwards: {zones}. Draw no text, letters, numbers, labels, slide numbers, logos, watermarks or UI writing anywhere in the image.",
+  "format": "Format: {format} ({size}).",
+  "categories": {
+    "linkedin_post": {
+      "category": "LinkedIn post",
+      "platform": "LinkedIn",
+      "purpose": "a professional graphic about AI applications, AI-related business problems, practical solutions, services or expertise for decision makers in Germany"
+    },
+    "facebook_post": {
+      "category": "Facebook post",
+      "platform": "Facebook",
+      "purpose": "a feed graphic that informs business owners in Germany and builds trust in Branded Genius"
+    },
+    "facebook_ad": {
+      "category": "Facebook ad",
+      "platform": "Facebook and Instagram ads",
+      "purpose": "an ad creative with one clear message and one offer that makes business owners in Germany act"
+    },
+    "instagram_carousel": {
+      "category": "Instagram carousel slide",
+      "platform": "Instagram",
+      "purpose": "one slide of an informative carousel; every slide of the set shares the same look"
+    }
+  },
+  "mission": "KI-Automatisierung, die Ergebnisse schafft (AI automation that creates results; brandedgenius.de): AI agents and workflows, AI chatbots, AI callbots, AI marketing and sales automation and AI workshops for companies in Germany (the verified services of config/services.json)",
+  "maxReferences": 3
+}

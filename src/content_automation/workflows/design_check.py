@@ -8,6 +8,9 @@ their minimum size, within their lines and characters, contrast 3:1 for large te
 otherwise); contact (only the website and the contact details cleared for graphics, D-4);
 content (no unverified service claimed, no number without a source in the copy is a warning);
 identity (Roman from the LoRA needs a recorded person check; a real photo is refused).
+v5 (PRD R2.7, R4): fonts from the brand set only; texts inside the 64 px margin; a carousel
+shows the logo and the website only on its last slide and never a slide number or counter
+("01/07"); LinkedIn's logo sits at a side corner.
 """
 
 from __future__ import annotations
@@ -28,6 +31,9 @@ from content_automation.references.services import ServiceCatalog
 
 ASPECT_TOLERANCE = 0.01
 _NUMBER = re.compile(r"\d+(?:[.,]\d+)?\s*(?:%|x\b|€|eur\b|k\b)", re.IGNORECASE)
+_COUNTER = re.compile(r"\b\d{1,2}\s*/\s*\d{1,2}\b|\b\d{1,2}\s+(?:von|of)\s+\d{1,2}\b",
+                      re.IGNORECASE)
+CORNER = 0.2
 Box = tuple[float, float, float, float]
 
 
@@ -98,9 +104,25 @@ def check_manifest(
 
     logo = manifest.get("logo")
     logo_zone: Box | None = None
-    if not logo:
+    closing = direction.format != "carousel" or manifest.get("layout") == (
+        direction.last_layout())
+    if not closing and logo:
+        errors.append("a carousel shows the logo only on its last slide (PRD R4)")
+    if not closing and manifest.get("footer"):
+        errors.append("a carousel shows the website only on its last slide (PRD R4)")
+    if direction.format == "carousel":
+        for text in manifest.get("texts") or []:
+            if _COUNTER.search(str(text.get("text", ""))):
+                errors.append(f'{text.get("zone")}: "{text.get("text")}" reads as a slide '
+                              "number or counter; carousels have none (PRD R4)")
+    families = brand.typography.families() if brand.typography else []
+    for font in manifest.get("fonts") or []:
+        if families and not any(str(font).lower().startswith(family.lower())
+                                for family in families):
+            errors.append(f"font {font} is not a brand font ({', '.join(families)})")
+    if not logo and closing:
         errors.append("no logo: every design carries the official logo")
-    else:
+    elif logo:
         if logo.get("sha256") not in (official if official is not None else
                                       _official_hashes(brand)):
             errors.append(f"logo {logo.get('file')} is not the official file (brand.json "
@@ -116,6 +138,10 @@ def check_manifest(
         if clear + 1 < (box[3] - box[1]) * ratio:
             errors.append("logo clear space is under its ratio of the logo height")
         logo_zone = (box[0] - clear, box[1] - clear, box[2] + clear, box[3] + clear)
+        if direction.format == "li_single" and width and height and not (
+                (box[0] <= width * CORNER or box[2] >= width * (1 - CORNER))
+                and (box[1] <= height * CORNER or box[3] >= height * (1 - CORNER))):
+            errors.append("LinkedIn: the logo must sit at a side corner (PRD R3/R4)")
 
     for text in manifest.get("texts") or []:
         where = f"{text.get('zone')} \"{str(text.get('text', ''))[:40]}\""
@@ -123,8 +149,15 @@ def check_manifest(
         if len(values) != 4:
             values = [-2.0, -2.0, -2.0, -2.0]  # reported as outside the canvas
         area: Box = (values[0], values[1], values[2], values[3])
+        layout = direction.layouts.get(str(manifest.get("layout")))
+        zone = layout.zones.get(str(text.get("zone"))) if layout is not None else None
+        bar = zone is not None and zone.kind == "footer" and zone.bleed and zone.fill is not None
+        margin = catalog.margin_px * width / 1080 if width and not bar else 0
         if area[0] < -1 or area[1] < -1 or area[2] > width + 1 or area[3] > height + 1:
             errors.append(f"{where}: outside the canvas")
+        elif margin and (area[0] < margin - 2 or area[2] > width - margin + 2
+                         or area[1] < margin - 2 or area[3] > height - margin + 2):
+            errors.append(f"{where}: inside the {catalog.margin_px} px margin")
         elif logo_zone is not None and _overlap(area, logo_zone):
             errors.append(f"{where}: inside the logo's clear space")
         for token in text.get("tokens") or []:

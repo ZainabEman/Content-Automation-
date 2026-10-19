@@ -46,6 +46,7 @@ from content_automation.content.brief import (
     ImageSlot,
     brand_hashtag,
     load_brief,
+    meta_cta_buttons,
     slot_kind,
 )
 from content_automation.content.deliverables import (
@@ -253,6 +254,12 @@ class ContentPackage(CamelModel):
     note: str | None = None
     format: str | None = None  # the post format (config/post_formats.json), picked at stage 1
     direction: str | None = None  # Phase D: config/design_directions.json, picked at stage 1
+    # v5: the layout variant's category and background treatment (R4, R5.3), the explicit
+    # requires_roman flag (R6.3) and the content language (R1)
+    category: str | None = None
+    treatment: str | None = None
+    requires_roman: bool = False
+    language: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -391,7 +398,8 @@ def _apply_deliverables(
         lines.append(f"Design direction: {direction[0].label} ({direction[1]})")
     elif as_direction:
         raise DeliverableError(f'"as {format_override}": none of these deliverables takes a '
-                               "design direction (LinkedIn or Facebook post, Instagram carousel)")
+                               "layout variant (LinkedIn or Facebook post, Facebook ad, "
+                               "Instagram carousel)")
     post_format = None if direction is not None else _choose_format(
         folder, package, items, settings, articles, format_override)
     if post_format is not None:
@@ -433,6 +441,15 @@ def _apply_deliverables(
     package.formats = [item.brief_format for item in items]
     package.format = post_format.id if post_format is not None else None
     package.direction = direction[0].id if direction is not None else None
+    if direction is not None:  # v5: stored in package.json and the registry (R5.4, R6.3)
+        package.category = direction[0].category
+        package.treatment = direction[0].treatment
+        package.requires_roman = direction[0].roman
+    package.language = load_content(settings.content_file).for_platform(package.platform)
+    for item_id in runtime.package_items(folder).values():
+        runtime.report_design(item_id, layout_variant=package.direction,
+                              background_treatment=package.treatment,
+                              requires_roman=package.requires_roman, language=package.language)
     if post is not None and suggested is not None and "post" not in package.items:
         # Saved now, so the next package already rotates to another format.
         package.items["post"] = PackageItem(picks=DesignPicks(format=suggested))
@@ -493,10 +510,10 @@ def _choose_direction(
     settings: Settings,
     override: str | None,
 ) -> tuple[Direction, str] | None:
-    """Phase D: the design direction of the package's post or carousel (content/
-    direction_pick.py); "as <ID>" wins, "roman" = a founder direction. DeliverableError for a
-    bad override or no usable direction (exit 2: Codex asks the user)."""
-    roman = (override or "").strip().lower() == ROMAN
+    """Phase D / v5: the layout variant of the package's post, ad or carousel (content/
+    direction_pick.py); "as <ID>" wins, "roman" = a founder variant of that category.
+    DeliverableError for a bad override or no usable variant (exit 2: Codex asks the user)."""
+    roman = (override or "").strip().lower() == ROMAN  # requires_roman (v5 R6.3)
     for item in items:
         if item.platform is None:
             continue
@@ -514,6 +531,7 @@ def _choose_direction(
                                          item.platform, exclude=folder),
                 lora_ok=provider_shows_person(lora),
                 override=override if is_direction_id(override) else None,
+                roman=roman,
             )
         except DirectionError as error:
             raise DeliverableError(str(error)) from None
@@ -887,7 +905,7 @@ def _brief_template(
         }
     if post is not None:
         design = suggested or post.format or "statement"
-        if direction is not None and direction.format != "carousel":
+        if direction is not None and direction.format not in ("carousel", "fb_ad"):
             template["post"] = post_template(direction, platform=post.platform, seed=topic,
                                              design=design)
         elif post_format is not None:
@@ -910,7 +928,20 @@ def _brief_template(
         else:
             template["carousel"] = {"format": "carousel", "slides": []}
     if "ad" in by_part:
-        template["ad"] = _slot_template("ad", "ad")
+        if direction is not None and direction.format == "fb_ad":  # v5: a Facebook ad (R4)
+            template["ad"] = {
+                **post_template(direction, platform="facebook", seed=topic, design="ad"),
+                "adFields": {
+                    "primaryText": "<German primary text above the image: the problem, the "
+                                   "offer and the next step, 1-3 short sentences>",
+                    "headline": "<German headline below the image, at most 40 characters>",
+                    "description": "<optional German line under the headline, at most 30 "
+                                   "characters>",
+                    "ctaButton": f"<one of Meta's buttons: {', '.join(meta_cta_buttons())}>",
+                },
+            }
+        else:
+            template["ad"] = _slot_template("ad", "ad")
     video = by_part.get("video")
     if video is not None and video.workflow is not None:
         first = _first_frame(formats)
@@ -1057,6 +1088,12 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool,
                 update={"picks": plan.prepared[0].picks})
     _save(folder, package)
     registered = runtime.package_items(folder)  # part -> BG ID (inside a `ca` command)
+    if package.direction:  # v5: the registry shows the variant (R5.4) and requires_roman
+        for item_id in registered.values():
+            runtime.report_design(item_id, layout_variant=package.direction,
+                                  background_treatment=package.treatment,
+                                  requires_roman=package.requires_roman,
+                                  language=package.language)
     for kind, plan in plans.items():
         with runtime.for_item(registered.get(kind)):
             package.items[kind], check = _make_images(

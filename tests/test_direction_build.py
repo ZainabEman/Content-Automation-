@@ -19,17 +19,17 @@ from content_automation.content.direction_brief import (
 )
 from content_automation.content.directions import load_directions
 from content_automation.core.config import Settings
-from content_automation.workflows import design_check, direction_job
+from content_automation.workflows import design_check, direction_job, image_workflows
 from content_automation.workflows.direction_job import (
     MANIFEST_SUFFIX,
     DirectionDesign,
-    DirectionJobError,
 )
 from content_automation.workflows.image_workflows import (
     WorkflowInputs,
     prepare_workflow,
     run_workflow,
 )
+from content_automation.workflows.registry import WorkflowError
 
 ILLUSTRATION = "a tidy reception desk with a plant and a closed notebook in soft daylight"
 
@@ -41,7 +41,7 @@ def mock_settings(make_settings: Callable[..., Settings], tmp_path: Path,
     ImageDraw.Draw(logo).rectangle((10, 40, 470, 160), fill=(0, 75, 160, 255))
     logo_path = tmp_path / "logo.png"
     logo.save(logo_path)
-    for module in (direction_job, direction_brief):
+    for module in (direction_job, direction_brief, image_workflows):
         monkeypatch.setattr(module, "logo_file", lambda *_: logo_path)
     official = {hashlib.sha256(logo_path.read_bytes()).hexdigest()}  # the stand-in as official
     monkeypatch.setattr(design_check, "_official_hashes", lambda _: official)
@@ -64,100 +64,143 @@ def mock_settings(make_settings: Callable[..., Settings], tmp_path: Path,
 
 def _inputs(direction: str, copy: dict[str, object], **extra: object) -> WorkflowInputs:
     return WorkflowInputs(direction=direction, format_copy=json.dumps(copy),
-                          topic="AI chatbots for practices", direction_platform="facebook",
-                          count=1, **extra)  # type: ignore[arg-type]
+                          topic="KI-Chatbots für Praxen",
+                          **{"direction_platform": "facebook", "count": 1,
+                             **extra})  # type: ignore[arg-type]
 
 
-def test_template_direction_needs_no_picture(mock_settings: Settings) -> None:
-    prepared = prepare_workflow("social_creative", _inputs("FB-3", sample_copy()["FB-3/zigzag"]),
+def _guide_pdf(path: Path) -> None:
+    """A stand-in style guide: a PDF whose page is one embedded JPEG (like the real one)."""
+    import io
+
+    page = io.BytesIO()
+    Image.new("RGB", (400, 560), (240, 240, 240)).save(page, format="JPEG")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"%PDF-1.4\n1 0 obj << /Type /XObject /Subtype /Image /Filter /DCTDecode "
+                     b"/Length 1 >>\nstream\n" + page.getvalue() + b"\nendstream\n%%EOF")
+
+
+def test_designer_prompt_keeps_the_designers_six_elements(mock_settings: Settings,
+                                                          tmp_path: Path) -> None:
+    """R3: role and quality bar, the guide and the logo as inputs, purpose, latitude, format."""
+    copy = dict(sample_copy()["LI-2/post"], illustration=ILLUSTRATION)
+    prepared = prepare_workflow("social_creative", _inputs("LI-2", copy,
+                                                           direction_platform="linkedin"),
                                 mock_settings)
-    assert prepared.settings is not None and prepared.settings.image_provider == "template"
-    assert prepared.design is not None and not prepared.person_shown
-    assert "no picture generated" in prepared.request.prompt
+    prompt = prepared.request.prompt
+    for part in ("Be my expert graphic designer", "professional, creative, ad-style",
+                 "LinkedIn post", "brand style guide (image 1)", "official Branded Genius logo",
+                 "motive and aim of Branded Genius", "creative freedom", "Format: 3:4 (1080x1440)",
+                 ILLUSTRATION, "Keep these areas calm, dark and empty", "Draw no text"):
+        assert part in prompt, part
+    assert "Ein System für Ihren Vertrieb" in prompt  # the headline as context only (R3.2)
+    assert "Von der ersten Anfrage" not in prompt  # never the rest of the copy
+    assert "designerMissing" in prepared.inputs  # mock: no guide/refs in this folder
+    refs = Path(mock_settings.references_dir)
+    _guide_pdf(refs / "brand" / "guidelines" / "Branded Genius Brand Style Guide.pdf")
+    for name in ("01.jpg", "06.jpg"):
+        target = refs / "creative" / "facebook_ads" / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (64, 64), (3, 6, 18)).save(target)
+    full = prepare_workflow("social_creative", _inputs("LI-2", copy,
+                                                       direction_platform="linkedin"),
+                            mock_settings)
+    assert [ref.asset_id for ref in full.request.object_refs] == ["brand-style-guide",
+                                                                  "brand-logo"]
+    assert [ref.asset_id for ref in full.request.style_refs] == ["ref-A01", "ref-A06"]
+    assert "designerMissing" not in full.inputs and "images 3-4" in full.request.prompt
 
 
-def test_illustration_prompt_has_no_copy_and_no_text(mock_settings: Settings) -> None:
+def test_a_paid_job_never_runs_without_the_designer_inputs(mock_settings: Settings) -> None:
+    live = mock_settings.model_copy(update={"image_provider": "openrouter"})
+    copy = dict(sample_copy()["FB-1/post"], illustration=ILLUSTRATION)
+    with pytest.raises(WorkflowError, match="designer prompt needs its inputs"):
+        prepare_workflow("social_creative", _inputs("FB-1", copy), live)
+
+
+def test_illustration_prompt_never_repeats_the_copy(mock_settings: Settings) -> None:
     copy = dict(sample_copy()["FB-1/post"], illustration=ILLUSTRATION)
     prepared = prepare_workflow("social_creative", _inputs("FB-1", copy), mock_settings)
-    prompt = prepared.request.prompt
-    assert ILLUSTRATION in prompt and "no text" in prompt.lower()
-    assert "KI-Chatbot" not in prompt and prepared.settings is not None
+    assert ILLUSTRATION in prepared.request.prompt and prepared.settings is not None
     assert prepared.settings.image_provider == "mock"  # mock stays mock; live: openrouter
-    copied = dict(copy, illustration="Ihr KI-Chatbot für jeden Kanal auf einem Tisch")
+    copied = dict(copy, illustration="automatische antworten, terminbuchungen und mehr")
     with pytest.raises(Exception, match="repeats the copy"):
         prepare_workflow("social_creative", _inputs("FB-1", copied), mock_settings)
 
 
-def test_every_roman_image_is_a_lora_job(mock_settings: Settings,
-                                         make_settings: Callable[..., Settings]) -> None:
-    for direction_id in ("FD-1", "FD-2", "FD-3"):
-        layout = "cover" if direction_id == "FD-3" else "post"
+def test_every_roman_image_is_a_lora_job(mock_settings: Settings) -> None:
+    for direction_id, platform in (("FB-R1", "facebook"), ("FA-R1", "facebook"),
+                                   ("LI-R1", "linkedin")):
         prepared = prepare_workflow(
-            "social_creative", _inputs(direction_id, sample_copy()[f"{direction_id}/{layout}"]),
-            mock_settings)
+            "social_creative", _inputs(direction_id, sample_copy()[f"{direction_id}/post"],
+                                       direction_platform=platform), mock_settings)
         assert prepared.person_shown and prepared.request.person
         assert prepared.request.prompt.startswith(load_directions().roman.prefix)
-        assert "realPhoto" not in prepared.inputs and prepared.settings is not None
-        assert prepared.settings.image_provider == "mock"  # mock stays mock in tests
+        assert not prepared.request.style_refs and not prepared.request.identity_refs
+        assert prepared.settings is not None and prepared.settings.image_provider == "mock"
     live = mock_settings.model_copy(update={"image_provider": "openrouter"})
-    routed = prepare_workflow("social_creative", _inputs("FD-1", sample_copy()["FD-1/post"]),
+    routed = prepare_workflow("social_creative", _inputs("FB-R1", sample_copy()["FB-R1/post"]),
                               live)  # IMAGE_PROVIDER=openrouter: Roman still goes to comfyui
     assert routed.settings is not None and routed.settings.image_provider == "comfyui"
     assert routed.request.person and str(routed.inputs["identity"]).startswith("trained LoRA")
 
 
-def test_fd1_cuts_out_the_lora_image_and_never_a_photo() -> None:
-    design = DirectionDesign(direction="FD-1", layout="post", copy={})
-    green = Image.new("RGB", (300, 400), (20, 200, 40))
-    draw = ImageDraw.Draw(green)
-    draw.ellipse((110, 50, 190, 130), fill=(200, 160, 140))
-    draw.rectangle((70, 130, 230, 399), fill=(30, 40, 80))
-    cut = design.picture(green)
-    assert cut is not None and cut.mode == "RGBA"
-    with pytest.raises(DirectionJobError, match="never a real photo"):
-        design.picture(Image.new("RGB", (300, 400), (200, 200, 200)))
+def test_founder_variants_are_full_bleed_lora_never_a_photo() -> None:
+    for direction in load_directions().directions:
+        if direction.roman:
+            zone = direction.layouts["post"].zones["visual"]
+            assert direction.visual.subject == "roman_lora" and zone.visual_shape == "full"
+    design = DirectionDesign(direction="LI-R1", layout="post", copy={})
+    picture = Image.new("RGB", (300, 400), (20, 30, 60))
+    assert design.picture(picture) is picture  # no cut-out: the LoRA image as it is
 
 
 def test_mock_build_renders_and_checks_the_design(mock_settings: Settings) -> None:
     copy = dict(sample_copy()["LI-3/post"], illustration=ILLUSTRATION)
-    job = run_workflow("social_creative", _inputs("LI-3", copy), mock_settings)
+    job = run_workflow("social_creative", _inputs("LI-3", copy, direction_platform="linkedin"),
+                       mock_settings)
     assert job.status == "completed", job.error
     image = job.folder / job.outputs[0]
     manifest = json.loads(image.with_suffix(MANIFEST_SUFFIX).read_text(encoding="utf-8"))
     assert manifest["direction"] == "LI-3" and manifest["check"]["errors"] == []
     with Image.open(image) as made:
-        assert made.size == (1080, 1350)
+        assert made.size == (1080, 1440)  # 3:4
     assert any(note.startswith("Design: LI-3") for note in job.notes)
-    cut = run_workflow("social_creative", _inputs("FD-1", sample_copy()["FD-1/post"]),
-                       mock_settings)
-    assert cut.status == "completed", cut.error
+    roman = run_workflow("social_creative", _inputs("LI-R1", sample_copy()["LI-R1/post"],
+                                                    direction_platform="linkedin"),
+                         mock_settings)
+    assert roman.status == "completed", roman.error
+    ad = run_workflow("social_creative", _inputs("FA-3", dict(sample_copy()["FA-3/post"],
+                                                              illustration=ILLUSTRATION)),
+                      mock_settings)
+    assert ad.status == "completed", ad.error
 
 
 def test_too_long_copy_fails_the_job_not_silently(mock_settings: Settings) -> None:
-    copy = dict(sample_copy()["FB-3/zigzag"])
-    copy["headline"] = "How we build an AI agent in three very simple steps for every team?"
+    copy = dict(sample_copy()["FB-3/post"], illustration=ILLUSTRATION)
+    copy["headline"] = ("Wie viel Potenzial steckt wirklich in Ihren täglichen, wiederkehrenden "
+                        "Abläufen im Unternehmen?")
     job = run_workflow("social_creative", _inputs("FB-3", copy), mock_settings)
     assert job.status == "failed" and "shorten it" in str(job.error).lower()
 
 
 def test_templates_and_brief_checks(mock_settings: Settings) -> None:
     catalog = load_directions()
-    template = copy_template(catalog.get("FB-1").layouts["post"])
-    assert len(template["capabilities"]) == 3 and len(template["icons"]) == 3
+    template = copy_template(catalog.get("FB-3").layouts["post"])
+    assert len(template["features"]) == 3 and len(template["icons"]) == 3
     roles = slide_roles(catalog.get("CS-1"))
-    assert roles[0] == "cover" and roles[-1] == "cta"
-    assert catalog.get("CS-1").slide_count[0] <= len(roles)  # type: ignore[index]
+    assert roles == ["cover", "point", "point", "point", "cta"]  # 5 slides (R4: 5-6)
     slides = carousel_template(catalog.get("CS-1"))["slides"]
     brief_slides = []
     for slide in slides:
         layout = catalog.get("CS-1").layout_for(role=slide["directionRole"])[0]
         copy = dict(sample_copy()[f"CS-1/{layout}"], illustration=ILLUSTRATION)
         brief_slides.append({"directionRole": slide["directionRole"], "copy": copy,
-                             "altText": "A slide about AI chatbots"})
+                             "altText": "Eine Folie über KI-Chatbots"})
     brief = ContentBrief.model_validate(_brief({"format": "carousel", "direction": "CS-1",
                                                 "slides": brief_slides}))
     assert direction_problems(brief, catalog, mock_settings) == []
-    brief_slides[1]["copy"]["body"] = "word " * 80
+    brief_slides[1]["copy"]["body"] = "Wort " * 80
     brief_slides.pop()
     brief = ContentBrief.model_validate(_brief({"format": "carousel", "direction": "CS-1",
                                                 "slides": brief_slides}))

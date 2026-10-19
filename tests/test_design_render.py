@@ -17,6 +17,7 @@ from content_automation.workflows.cutout import CutoutError, cut_out
 from content_automation.workflows.design_render import (
     Assets,
     DesignRenderError,
+    Rendered,
     design_fonts,
     parse,
     render_layout,
@@ -64,33 +65,54 @@ def test_every_layout_renders_brand_only(assets: Assets) -> None:
             for text in rendered.texts:
                 assert set(text.tokens) <= tokens
                 assert text.font_px >= text.min_font_px and text.lines <= text.max_lines
-            assert rendered.logo is not None and rendered.logo.aspect_error < 0.02
+            if direction.format == "carousel" and name != direction.last_layout():
+                assert rendered.logo is None and not rendered.footer  # R4: last slide only
+                continue
+            assert rendered.logo is not None and rendered.logo.aspect_error < 0.01
             assert rendered.logo.width_px >= rendered.logo.min_width_px
-    assert count == 22
+    assert count == 26  # 14 post/ad variants + 4 carousels x 3 slide layouts
 
 
-def test_light_steps_keep_contrast(assets: Assets) -> None:
+def test_light_variant_and_engagement_row_keep_contrast(assets: Assets) -> None:
     catalog = load_directions()
-    direction = catalog.get("FB-3")
-    rendered = render_layout(catalog, direction, "zigzag", sample_copy()["FB-3/zigzag"], assets)
-    steps = [t for t in rendered.texts if t.text.startswith("STEP")]
-    assert len(steps) == 3 and all(t.contrast >= t.needed for t in steps)
+    light = render_layout(catalog, catalog.get("LI-4"), "post", sample_copy()["LI-4/post"],
+                          assets)
+    assert light.texts and all(t.contrast >= t.needed for t in light.texts)
+    closing = render_layout(catalog, catalog.get("CS-2"), "cta", sample_copy()["CS-2/cta"],
+                            assets)
+    labels = [t.text for t in closing.texts if t.zone == "engage"]
+    assert labels == ["Liken", "Teilen", "Speichern"]
+    assert closing.footer == ["brandedgenius.de"]  # website: "ja"
+    no_site = dict(sample_copy()["CS-2/cta"], website="")
+    assert not render_layout(catalog, catalog.get("CS-2"), "cta", no_site, assets).footer
 
 
 def test_text_that_does_not_fit_is_an_error(assets: Assets) -> None:
     catalog = load_directions()
     copy = dict(sample_copy()["FB-2/post"])
-    copy["headline"] = "A headline far too long to fit into two short lines of this post"
+    copy["headline"] = ("Eine Überschrift, die viel zu lang ist, um in die drei kurzen Zeilen "
+                        "dieses Panels zu passen")
     with pytest.raises(DesignRenderError, match="Shorten it"):
         render_layout(catalog, catalog.get("FB-2"), "post", copy, assets)
+    unbreakable = dict(copy, headline="Datenschutzgrundverordnungskonformitätsprüfung")
+    with pytest.raises(DesignRenderError, match="Shorten it"):  # R1.5: never cut mid-word
+        render_layout(catalog, catalog.get("FB-2"), "post", unbreakable, assets)
+    soft = dict(copy, headline="Datenschutz\u00adgrund\u00adverordnungs\u00adkonformität")
+    rendered = render_layout(catalog, catalog.get("FB-2"), "post", soft, assets)
+    assert any(line.endswith("-") for line in _lines_of(rendered, "headline"))
 
 
 def test_unknown_icon_is_refused(assets: Assets) -> None:
     catalog = load_directions()
-    copy = dict(sample_copy()["FB-1/post"])
+    copy = dict(sample_copy()["FB-3/post"])
     copy["icons"] = ["robot", "robot", "not-an-icon"]
     with pytest.raises(DesignRenderError, match="not allowed"):
-        render_layout(catalog, catalog.get("FB-1"), "post", copy, assets)
+        render_layout(catalog, catalog.get("FB-3"), "post", copy, assets)
+
+
+def _lines_of(rendered: Rendered, zone: str) -> list[str]:
+    """The drawn lines of a text zone (a soft hyphen shows at a line end)."""
+    return [line for text in rendered.texts if text.zone == zone for line in text.drawn]
 
 
 def _green_screen() -> Image.Image:
@@ -119,9 +141,9 @@ def test_cut_out_refuses_a_photo_without_green() -> None:
 def test_preview_writes_png_and_manifest(tmp_path: Path, logo: Path,
                                          monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(design_preview, "logo_file", lambda *_: logo)
-    lines = preview(["fb-1", "FD-1"], out_dir=tmp_path / "out")
+    lines = preview(["fb-1", "LI-R1"], out_dir=tmp_path / "out")
     assert lines[-1].startswith("Preview: 2 rendered, 0 failed")
-    assert (tmp_path / "out" / "FD-1_post.png").is_file()
+    assert (tmp_path / "out" / "LI-R1_post.png").is_file()
     assert (tmp_path / "out" / "FB-1_post.json").read_text(encoding="utf-8").count('"texts"') == 1
 
 

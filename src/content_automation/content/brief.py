@@ -134,6 +134,29 @@ class CardCopy(_BriefModel):
     stat_label: str | None = None
 
 
+META_CTA_FILE = Path("config/meta_cta.json")
+
+
+def meta_cta_buttons(path: Path = META_CTA_FILE) -> list[str]:
+    """Meta's standard CTA buttons (config/meta_cta.json; editable)."""
+    found = path if path.is_file() else Path(__file__).resolve().parents[3] / path
+    try:
+        data = json.loads(found.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return [str(button) for button in data.get("buttons", [])]
+
+
+class AdFields(_BriefModel):
+    """v5 (PRD R4): the Facebook ad's text around the creative, all German; the CTA button is
+    one of Meta's standard buttons (config/meta_cta.json). No ad is placed or paid for."""
+
+    primary_text: str = Field(min_length=1)  # above the image
+    headline: str = Field(min_length=1, max_length=60)  # below the image
+    description: str = Field(default="", max_length=60)  # under the headline (optional)
+    cta_button: str = Field(min_length=1)  # Meta's standard button, e.g. "Learn more"
+
+
 class ImageSlot(_BriefModel):
     """A post or ad image: a designed graphic (social_creative) from the design system.
 
@@ -178,6 +201,7 @@ class ImageSlot(_BriefModel):
     # layout's fields go into "copy" (a carousel: per slide); the app draws the design.
     direction: str | None = None
     copy_text: dict[str, CopyValue] = Field(default_factory=dict, alias="copy")
+    ad_fields: AdFields | None = None  # v5: a Facebook ad's primary text, headline, ... (R4)
 
     @property
     def templated(self) -> bool:
@@ -318,6 +342,14 @@ def brief_problems(
             problems.append(f"{name}.kind must be one of: {', '.join(kinds)}")
         if name == "ad" and image.format != "ad":
             problems.append('ad.format must be "ad" (headline, subheadline and CTA button)')
+        if name == "ad" and image.direction:  # v5: a Facebook ad in a layout variant
+            if image.ad_fields is None:
+                problems.append("ad.adFields: fill primaryText, headline, description and "
+                                "ctaButton (PRD R4)")
+            elif image.ad_fields.cta_button not in meta_cta_buttons():
+                problems.append(f'ad.adFields.ctaButton "{image.ad_fields.cta_button}" is not '
+                                "one of Meta's standard buttons (config/meta_cta.json): "
+                                + ", ".join(meta_cta_buttons()))
         if name == "carousel" and image.format != "carousel":
             problems.append('carousel.format must be "carousel"')
         if image.format == "carousel":

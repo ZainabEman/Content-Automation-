@@ -2,6 +2,8 @@
 
 import json
 from dataclasses import dataclass, field, replace
+from pathlib import Path
+from typing import Any
 
 from content_automation.ai.image import (
     ASPECT_RATIOS,
@@ -11,7 +13,18 @@ from content_automation.ai.image import (
     ReferenceImage,
     get_provider,
 )
-from content_automation.content.directions import DirectionError, load_directions
+from content_automation.content.designer_prompt import (
+    DesignerInputs,
+    DesignerPromptError,
+    designer_inputs,
+)
+from content_automation.content.directions import (
+    Direction,
+    DirectionCatalog,
+    DirectionError,
+    Layout,
+    load_directions,
+)
 from content_automation.content.formats import (
     FormatError,
     PostFormat,
@@ -35,6 +48,7 @@ from content_automation.references import (
 )
 from content_automation.research.store import find_article, number_in_article
 from content_automation.workflows.compose import card_aspect_for
+from content_automation.workflows.design_render import DesignRenderError, logo_file
 from content_automation.workflows.design_system import (
     DEFAULT_FORMAT,
     MAX_SOURCE_WORDS,
@@ -782,6 +796,7 @@ def _prepare_direction(
     except DirectionError as error:
         raise WorkflowError(str(error)) from None
     picture = has_picture(direction, layout, role)
+    designer: DesignerInputs | None = None
     set_id = (inputs.identity_set or inputs.fallback_identity_set
               or settings.default_identity_set)
     recorded: dict[str, str | bool] = {"direction": direction.id, "layout": name,
@@ -802,8 +817,12 @@ def _prepare_direction(
             recorded["identitySet"] = load_set(set_id, settings.references_dir).set_id
             recorded["identity"] = "trained LoRA (no identity photos sent)"
         else:
-            prompt = illustration_prompt(direction, catalog, copy, inputs.prompt or None)
-    except (DirectionJobError, ReferenceLibraryError) as error:
+            picture_text = illustration_prompt(direction, catalog, copy, inputs.prompt or None)
+            designer = _designer(direction, layout, catalog, picture_text, copy, inputs, own,
+                                 role)
+            prompt = designer.prompt
+            recorded.update(designer.record())
+    except (DirectionJobError, ReferenceLibraryError, DesignerPromptError) as error:
         raise WorkflowError(str(error)) from None
     number = (inputs.slide or "").partition("/")[0].strip()
     design = DirectionDesign(direction=direction.id, layout=name, copy=copy,
@@ -815,6 +834,8 @@ def _prepare_direction(
         recorded["slide"] = inputs.slide
     request = ImageRequest(
         prompt=prompt,
+        object_refs=designer.object_refs if designer is not None else [],
+        style_refs=designer.style_refs if designer is not None else [],
         aspect_ratio=picture_aspect(direction, layout, catalog) if picture else "4:5",
         image_size=settings.image_design_size if picture else "1K",
         count=inputs.count,
@@ -822,6 +843,24 @@ def _prepare_direction(
     )
     return PreparedWorkflow(spec=spec, request=request, references=job_references(request),
                             inputs=recorded, person_shown=person, settings=own, design=design)
+
+
+def _designer(direction: Direction, layout: Layout, catalog: DirectionCatalog, picture: str,
+              copy: dict[str, Any], inputs: WorkflowInputs, settings: Settings,
+              role: str | None) -> DesignerInputs:
+    """v5 R3: the designer's prompt with the guide, the logo and the approved references."""
+    brand = load_brand(settings.references_dir)
+    try:
+        logo: Path | None = logo_file(brand, settings.references_dir)
+    except DesignRenderError:
+        logo = None  # named as missing; a paid job then stops
+    headline = " ".join(str(copy.get(name) or "") for name in ("headline", "main")).strip()
+    return designer_inputs(
+        direction, layout, catalog, picture=picture, topic=inputs.topic or "",
+        headline=headline.replace("*", "").replace("[[", "").replace("]]", ""),
+        references_dir=settings.references_dir, logo_path=logo,
+        cache_dir=settings.output_dir.parent / "cache", role=role,
+        mock=settings.image_provider == "mock")
 
 
 def run_workflow(

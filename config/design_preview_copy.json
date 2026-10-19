@@ -1,188 +1,176 @@
 {
-  "_note": "Sample copy for `ca design preview` (Phase D step 3): one entry per direction layout ('<ID>/<layout>'). Only verified services (config/services.json), no numbers, results, quotes or prices. Free and local: pictures are placeholders unless --photo is given. v5: German (PRD R1).",
+  "_note": "v5 sample copy for `ca design preview` and the tests: one entry per layout variant ('<ID>/<layout>'), German (PRD R1). Only verified services (config/services.json); no numbers, results, quotes or prices. Pictures are placeholders unless --photo is given.",
   "FB-1/post": {
-    "headline": "Ihr *KI-Chatbot* für jeden Kanal",
-    "sub": "Beantwortet Fragen und bucht Termine, während Ihr Team arbeitet.",
-    "capabilities": [
-      "FAQ-Automatisierung",
-      "Terminbuchung",
-      "Übergabe ans Team"
-    ],
-    "icons": [
-      "message-chatbot",
-      "calendar-check",
-      "users"
-    ]
+    "headline": "Ihr Vertrieb schläft. *Unsere KI* nicht.",
+    "sub": "Automatische Antworten, Terminbuchungen und Lead-Qualifizierung.",
+    "cta": "Mehr erfahren",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
   "FB-2/post": {
-    "headline": "Immer noch hinter *Nachfassern* her?",
-    "problem": "Leads verstummen, weil niemand Zeit zum Antworten hatte. **Automatische Nachfass-Sequenzen** halten jedes Gespräch in Gang.",
-    "cta_line": "Nennen Sie uns Ihren größten Engpass"
+    "headline": "Weniger Routine. *Mehr Wachstum.*",
+    "sub": "Automatisieren Sie wiederkehrende Prozesse und gewinnen Sie Zeit.",
+    "cta": "Beratung buchen",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
-  "FB-3/zigzag": {
-    "headline": "Wie entsteht [[ein KI-Agent]] in 3 Schritten?",
-    "steps": [
-      "Erfassen: der Prozess, der sich jede Woche wiederholt",
-      "Bauen: ein Agent für die Routinearbeit",
-      "Übergeben: Ihr Team behält die Kontrolle"
+  "FB-3/post": {
+    "headline": "Wie viel *Potenzial* steckt in Ihren Abläufen?",
+    "sub": "Erhalten Sie eine individuelle KI-Potenzialanalyse.",
+    "features": [
+      "Chancen erkennen",
+      "Prozesse optimieren",
+      "Daten sichern"
+    ],
+    "icons": [
+      "bulb",
+      "settings-automation",
+      "shield-check"
+    ],
+    "cta": "Jetzt analysieren",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
+  },
+  "FB-4/post": {
+    "headline": "KI, die Ihr Unternehmen *wirklich* voranbringt",
+    "sub": "Praxisnahe Automatisierung statt komplizierter Theorie.",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
+  },
+  "FB-R1/post": {
+    "headline": "Erst der *Prozess*, dann das Tool",
+    "sub": "Was ich jedem Team vor einem KI-Projekt sage.",
+    "cta": "Mehr erfahren"
+  },
+  "FA-1/post": {
+    "headline": "Jede Anfrage verdient eine *Antwort*",
+    "sub": "Ihr KI-Chatbot antwortet in Sekunden, rund um die Uhr.",
+    "cta": "Kostenlos testen",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
+  },
+  "FA-2/post": {
+    "headline": "Weniger Routine. *Mehr Wachstum.*",
+    "sub": "Automatisieren Sie wiederkehrende Aufgaben im Team.",
+    "cta": "Beratung buchen",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
+  },
+  "FA-3/post": {
+    "headline": "Arbeiten Sie *smarter*, nicht härter",
+    "sub": "Workflows, KI-Agenten und Chatbots für Ihr Unternehmen.",
+    "features": [
+      "Workflows",
+      "KI-Agenten",
+      "Rund um die Uhr"
     ],
     "icons": [
       "route",
       "robot",
-      "user-check"
-    ]
-  },
-  "FB-3/cycle": {
-    "headline": "Wie läuft [[Lead-Pflege]] in 4 Schritten?",
-    "steps": [
-      "Erfassen: jede Anfrage an einem Ort",
-      "Bewerten: Leads automatisch einstufen",
-      "Nachfassen: E-Mails und Erinnerungen",
-      "Auswerten: sehen, was wirkt"
+      "clock"
     ],
-    "icons": [
-      "inbox",
-      "filter",
-      "mail",
-      "report-analytics"
-    ]
+    "cta": "Gespräch buchen",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
+  },
+  "FA-R1/post": {
+    "headline": "KI-Automatisierung, die *Ergebnisse* schafft",
+    "sub": "Fordern Sie Ihre kostenfreie KI-Potenzialanalyse an.",
+    "cta": "Analyse anfragen"
   },
   "LI-1/post": {
-    "tagline": "KI-AUTOMATISIERUNG",
-    "headline": "Ein System für Ihren Vertrieb",
-    "sub": "Von der ersten Anfrage bis zum gebuchten Termin, mit [[weniger Handarbeit]] für Ihr Team.",
-    "cards": [
-      "Leads: jedes Formular in einem CRM",
-      "Bewertung: Fokus auf die richtigen Leads",
-      "Nachfassen: Sequenzen, die selbst laufen",
-      "Berichte: wöchentlich, automatisch"
-    ],
-    "icons": [
-      "user-plus",
-      "gauge",
-      "send",
-      "chart-bar"
-    ],
-    "footer_line": "Automatisierung mit Plan"
+    "headline": "KI-Agenten sind jetzt *Alltag* im Unternehmen",
+    "sub": "Die Frage ist, mit welchen Prozessen Sie anfangen.",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
   "LI-2/post": {
-    "headline": "KI-Agenten sind jetzt *Alltag* im Unternehmen",
-    "context": "Recherche, Berichte und CRM-Pflege laufen von selbst. Die Frage ist, mit welchen Prozessen Sie anfangen."
+    "headline": "Ein System für *Ihren Vertrieb*",
+    "sub": "Von der ersten Anfrage bis zum gebuchten Termin.",
+    "cta": "Mehr erfahren",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
   "LI-3/post": {
-    "headline": "Anrufe angenommen, Tag und Nacht",
-    "sub": "Ein KI-Callbot für Ihr Unternehmen",
-    "values": [
-      "Kundenanfragen",
-      "Terminwünsche",
-      "Anrufweiterleitung",
-      "Rückrufe"
+    "headline": "Drei Regeln für *sichere* KI im Team",
+    "sub": "Was vor dem ersten Einsatz geklärt sein muss.",
+    "features": [
+      "Daten prüfen",
+      "Tools freigeben",
+      "Team schulen"
     ],
     "icons": [
-      "phone-incoming",
-      "calendar-event",
-      "route",
-      "phone-outgoing"
+      "shield-check",
+      "checklist",
+      "school"
     ],
-    "cta": "Fragen Sie uns nach KI-Callbots"
+    "cta": "Mehr erfahren",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
+  },
+  "LI-4/post": {
+    "headline": "Strategisch. Automatisiert. *Messbar.*",
+    "sub": "Alle Tools in einem System, intelligent vernetzt.",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
+  },
+  "LI-R1/post": {
+    "headline": "KI ersetzt keine *Menschen*",
+    "sub": "Sie übernimmt Routinen, damit Ihr Team Zeit für Kunden hat.",
+    "cta": "Mehr erfahren"
   },
   "CS-1/cover": {
-    "headline": "Zu viele Standardfragen? *Ihr KI-Chatbot*",
-    "sub": "Was er ist, wie er hilft und für wen er passt"
+    "headline": "Nicht ein Tool. *Ein persönlicher KI-Assistent.*",
+    "sub": "Was er kann und für wen er passt",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
-  "CS-1/what": {
-    "headline": "Was er ist",
-    "body": "Ein KI-Chatbot antwortet Ihren Kunden auf der Website, per WhatsApp oder Telegram. Er klärt Routinefragen und übergibt an Ihr Team, wenn ein Mensch gefragt ist."
-  },
-  "CS-1/how": {
-    "headline": "Wie er hilft",
-    "bullets": [
-      "Beantwortet häufige Fragen rund um die Uhr",
-      "Erfasst und bewertet neue Leads",
-      "Bucht Termine in Ihren Kalender"
-    ]
-  },
-  "CS-1/benefits": {
-    "headline": "Die Vorteile",
-    "benefits": [
-      "Zeit: weniger Routine-Nachrichten im Team",
-      "Tempo: Kunden bekommen sofort Antwort",
-      "Fokus: Ihr Team löst die schwierigen Fälle"
-    ]
-  },
-  "CS-1/who": {
-    "headline": "Für wen er passt",
-    "audience": [
-      "Dienstleister",
-      "Onlineshops",
-      "Teams mit vollem Posteingang"
-    ]
+  "CS-1/point": {
+    "headline": "Er kennt Ihre *Aufgaben*",
+    "body": "Er sortiert Termine, Projekte und Anfragen. Ihr Team sieht sofort, was wichtig ist.",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
   "CS-1/cta": {
-    "headline": "Welche Frage beantworten Sie am häufigsten?",
-    "sub": "Schreiben Sie es in die Kommentare",
-    "cta": "KI-Chatbot entwickeln"
+    "headline": "Welche Aufgabe würden Sie *zuerst* automatisieren?",
+    "sub": "Schreiben Sie es in die Kommentare.",
+    "website": "ja",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
-  "CS-2/statement": {
-    "eyebrow": "KÄMPFEN SIE MIT",
-    "main": "NACHFASSEN?",
-    "third": "Wir machen es [[automatisch]]",
-    "body": "E-Mail-Sequenzen und Erinnerungen ohne Handarbeit."
+  "CS-2/cover": {
+    "headline": "5 Anzeichen für *zu viel* Handarbeit",
+    "sub": "Was er kann und für wen er passt",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
-  "CS-2/closing": {
-    "eyebrow": "BEREIT ZUM",
-    "main": "AUTOMATISIEREN?",
-    "third": "Starten Sie mit [[einem Prozess]]",
-    "body": "Wachstum automatisieren mit Branded Genius"
+  "CS-2/point": {
+    "headline": "Leads werden von Hand *nachverfolgt*",
+    "body": "Manuelles Nachfassen kostet Zeit. Verzögerungen kosten Anfragen.",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal",
+    "number": "1."
+  },
+  "CS-2/cta": {
+    "headline": "Welche Aufgabe würden Sie *zuerst* automatisieren?",
+    "sub": "Schreiben Sie es in die Kommentare.",
+    "website": "ja",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
   "CS-3/cover": {
-    "headline": "Wie starten Sie mit *KI im Team*?"
+    "headline": "KI ersetzt keine *Menschen*",
+    "sub": "Was er kann und für wen er passt",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
-  "CS-3/steps": {
-    "cards": [
-      "Einsatzfelder finden: Aufgaben auflisten, die sich jede Woche wiederholen, und die zeitraubendste wählen.",
-      "Tools sicher nutzen: vorher festlegen, welche Tools und Daten erlaubt sind, dann mit einer kleinen Aufgabe testen."
-    ]
+  "CS-3/point": {
+    "headline": "Routinen gehen an die *KI*",
+    "body": "Wiederkehrende Anfragen beantwortet der Chatbot. Ihr Team kümmert sich um die schwierigen Fälle.",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
   "CS-3/cta": {
-    "headline": "Planen Sie Ihren ersten KI-Workshop",
-    "cta": "KI-Workshop anfragen"
+    "headline": "Welche Aufgabe würden Sie *zuerst* automatisieren?",
+    "sub": "Schreiben Sie es in die Kommentare.",
+    "website": "ja",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
-  "FD-1/post": {
-    "headline": "Wo KI-Agenten Ihrem Team Zeit sparen",
-    "cards": [
-      "Recherche: Briefings automatisch vorbereitet",
-      "Berichte: pünktlich verschickt",
-      "CRM: Aufgaben aus E-Mails angelegt"
-    ],
-    "icons": [
-      "search",
-      "report-analytics",
-      "database"
-    ],
-    "statement": "Gebaut für echte Prozesse",
-    "services": [
-      "KI-Agenten",
-      "KI-Chatbots",
-      "KI-Callbots"
-    ],
-    "service_icons": [
-      "robot",
-      "message-chatbot",
-      "phone-call"
-    ]
+  "CS-4/cover": {
+    "headline": "Alles an *einem Ort*",
+    "sub": "Was er kann und für wen er passt",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
-  "FD-2/post": {
-    "lead_in": "Mit Automatisierung beginnt",
-    "keyword": "Wachstum",
-    "finish": "zu skalieren"
+  "CS-4/point": {
+    "headline": "CRM, E-Mail und *Kalender*",
+    "body": "Ein System führt die Informationen zusammen. Entscheidungen werden einfacher.",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
-  "FD-3/cover": {
-    "headline": "KI IST TEAMARBEIT",
-    "sub": "Gedanken aus unserem Workshop"
-  },
-  "FD-3/editorial": {
-    "headline": "Erst der *Prozess*, dann das Tool",
-    "sub": "Was ich jedem Team vor einem KI-Projekt sage"
+  "CS-4/cta": {
+    "headline": "Welche Aufgabe würden Sie *zuerst* automatisieren?",
+    "sub": "Schreiben Sie es in die Kommentare.",
+    "website": "ja",
+    "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   }
 }

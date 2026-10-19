@@ -1,0 +1,20 @@
+{
+  "_note": "PRD v5 R4: the Facebook ad's CTA button is chosen from Meta's standard list (Ads Manager). These are the commonly offered button labels as known on 2026-10-19, not checked live against Ads Manager (no web call in this run): verify in Ads Manager and edit this list. Meta shows the button in the viewer's language; the brief stores the English label. No ad is placed or paid for by the system.",
+  "buttons": [
+    "Learn more",
+    "Sign up",
+    "Book now",
+    "Contact us",
+    "Get quote",
+    "Apply now",
+    "Download",
+    "Subscribe",
+    "Get offer",
+    "Send message",
+    "Send WhatsApp message",
+    "Call now",
+    "Request time",
+    "Shop now"
+  ],
+  "default": "Learn more"
+}

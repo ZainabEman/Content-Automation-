@@ -22,7 +22,7 @@ from typing import Any
 
 from content_automation.registry.audit import Actor, append_event
 from content_automation.registry.auth import find_authorization, legacy_authorization
-from content_automation.registry.items import Item, get_item
+from content_automation.registry.items import Item, get_item, set_design
 from content_automation.registry.jobs import (
     JobConfig,
     JobRecord,
@@ -181,6 +181,15 @@ def log(item_id: str | None, event_type: str, details: Mapping[str, Any]) -> Non
         return
     append_event(scope.conn, event_type, command=scope.command, item_id=item_id,
                  details=details)
+
+
+def report_design(item_id: str | None, **fields: str | bool | None) -> None:
+    """v5: the item's layout variant, treatment, requires_roman and language (no-op outside a
+    `ca` command or for an unregistered package)."""
+    scope = current()
+    if scope is None or item_id is None:
+        return
+    set_design(scope.conn, item_id, command=scope.command, **fields)
 
 
 def report_upload(item_id: str | None, target: str, provider: str) -> None:

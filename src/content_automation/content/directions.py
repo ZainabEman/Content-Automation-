@@ -1,15 +1,18 @@
-"""Design directions (config/design_directions.json): reusable layouts rendered by code.
+"""Layout variants (config/design_directions.json): reusable layouts rendered by code.
 
-A direction is one look (FB-1 Service Spotlight, LI-2 Insight Card, CS-3 Numbered Steps, FD-1
-Founder Cutout …) for one format: fb_single, li_single, carousel or founder. Its layouts are
-zones in shares of the canvas (logo, eyebrow, headline, body, items, visual, cta, footer, …),
-colours are brand.json token names only, and the fonts are the brand's (config/brand.json
-typography), so every direction shares the colours, fonts, logo and footer. The loader checks
-the rules that keep designs on brand before anything is rendered: tokens only, text inside the
-64 px margin, no two text zones on top of each other, text over a picture only on a panel or
-scrim, text limits for every text zone, carousels without Roman, founder posts only on LinkedIn
-and Facebook. Selection and rotation: content/design_select.py; rendering:
-workflows/design_render.py.
+v5 (PRD R4/R5): a variant ("direction" in the code) is one layout of one of the four social
+categories, derived from the approved company references (config/brand_refs.json,
+brand/reference-analysis.md): Instagram carousel (format carousel, 1:1), Facebook post
+(fb_single, 4:5), Facebook ad (fb_ad, 4:5) and LinkedIn post (li_single, 3:4). Founder (Roman)
+variants are variants inside a category (id with R, e.g. LI-R1), never a fifth category. Each
+variant names its background treatment; rotation keys on variant + treatment. Layouts are zones
+in shares of the canvas (logo, headline, body, items, visual, cta, footer, …), colours are
+brand.json token names only and the fonts are the brand's. The loader checks the rules that
+keep designs on brand before anything is rendered: tokens only, text inside the 64 px margin,
+no two text zones on top of each other, text over a picture only on a panel or scrim, text
+limits for every text zone, the canvas of each category, carousels of 5-6 slides without Roman
+and with the logo (and an optional website) only on the last slide, LinkedIn's logo at a side
+corner. Selection and rotation: content/direction_pick.py; rendering: workflows/design_render.py.
 """
 
 import json
@@ -22,7 +25,7 @@ from pydantic import ConfigDict, Field, ValidationError, model_validator
 from content_automation.core.files import CamelModel
 from content_automation.references.brand import TokenRole
 
-DirectionFormat = Literal["fb_single", "li_single", "carousel", "founder"]
+DirectionFormat = Literal["fb_single", "fb_ad", "li_single", "carousel"]
 Platform = Literal["linkedin", "facebook", "instagram"]
 Subject = Literal["roman_real", "roman_lora", "illustration", "none"]
 Provider = Literal["template", "openrouter", "comfyui"]
@@ -31,11 +34,18 @@ ZoneKind = Literal["logo", "text", "items", "visual", "shape", "footer", "swipe"
 TextRole = Literal["eyebrow", "headline", "sub", "body", "cta", "tagline", "badge", "number"]
 ItemsLayout = Literal["icon_list", "bullets", "pairs", "zigzag", "cycle", "orbit", "value_map",
                       "numbered_cards", "floating_cards"]
-ShapeKind = Literal["panel", "glass", "rule", "bar", "glow", "scrim", "ring", "pill"]
+ShapeKind = Literal["panel", "glass", "rule", "bar", "glow", "scrim", "ring", "pill", "dots"]
 VisualShape = Literal["rect", "circle", "cutout", "full"]
 Weight = Literal["regular", "medium", "semibold", "bold", "extrabold"]
 Box = tuple[float, float, float, float]
-FORMATS: tuple[DirectionFormat, ...] = ("fb_single", "li_single", "carousel", "founder")
+FORMATS: tuple[DirectionFormat, ...] = ("fb_single", "fb_ad", "li_single", "carousel")
+# PRD R4: one category per format, each with its canvas (from the approved references)
+CATEGORY: dict[str, str] = {"carousel": "instagram_carousel", "fb_single": "facebook_post",
+                            "fb_ad": "facebook_ad", "li_single": "linkedin_post"}
+CANVAS: dict[str, str] = {"carousel": "1:1", "fb_single": "4:5", "fb_ad": "4:5",
+                          "li_single": "3:4"}
+CAROUSEL_SLIDES = (5, 6)
+CORNER = 0.2  # LinkedIn: the logo sits within this share of a side corner
 ROMAN_SUBJECTS: tuple[Subject, ...] = ("roman_real", "roman_lora")
 CONFIG_FILE = Path("config/design_directions.json")
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -133,6 +143,7 @@ class Zone(_Model):
     style: Literal["pill", "arrow_circle", "chevrons", "hand_drawn"] | None = None
     label: str | None = None
     names: list[str] = Field(default_factory=list)  # icons: fixed names
+    labels: list[str] = Field(default_factory=list)  # icons: fixed labels (Liken, Teilen, …)
 
     @model_validator(mode="after")
     def _check(self) -> Self:
@@ -163,7 +174,7 @@ class Zone(_Model):
     def bears_text(self) -> bool:
         """Copy-carrying zones: they need textLimits and may not overlap other text."""
         return self.kind in ("text", "items", "footer") or (
-            self.kind == "icons" and self.field is not None)
+            self.kind == "icons" and (self.field is not None or bool(self.labels)))
 
     @property
     def reserved(self) -> bool:
@@ -226,7 +237,7 @@ class SlideRole(_Model):
 
 
 class Direction(_Model):
-    id: str = Field(pattern=r"^(FB|LI|CS|FD)-\d+$")
+    id: str = Field(pattern=r"^(FB|FA|LI|CS)-R?\d+$")  # R: a founder (Roman) variant
     name: str = Field(min_length=1)
     format: DirectionFormat
     platforms: list[Platform] = Field(min_length=1)
@@ -234,6 +245,7 @@ class Direction(_Model):
     content_types: list[str] = Field(min_length=1)
     topic_tags: list[str] = Field(default_factory=list)
     canvas: str = "4:5"
+    treatment: str = Field(min_length=1)  # background treatment (R5.3 rotation key)
     provider: Provider
     visual: Visual
     layouts: dict[str, Layout] = Field(min_length=1)
@@ -262,21 +274,24 @@ class Direction(_Model):
             high = sum(role.repeat[1] for role in self.slide_roles)
             if not (low <= self.slide_count[0] <= self.slide_count[1] <= high):
                 raise ValueError(f"{self.id}: slideCount must lie within the roles' {low}-{high}")
+            if not (CAROUSEL_SLIDES[0] <= self.slide_count[0] <= self.slide_count[1]
+                    <= CAROUSEL_SLIDES[1]):
+                raise ValueError(f"{self.id}: a carousel has {CAROUSEL_SLIDES[0]}-"
+                                 f"{CAROUSEL_SLIDES[1]} slides (PRD R4)")
         elif self.slide_roles:
             raise ValueError(f"{self.id}: only carousels have slide roles")
-        if self.format == "founder":
-            if self.visual.subject not in ROMAN_SUBJECTS:
-                raise ValueError(f"{self.id}: a founder direction shows Roman")
-            if not set(self.platforms) <= {"linkedin", "facebook"}:
-                raise ValueError(f"{self.id}: founder posts are for LinkedIn and Facebook")
-        if self.format == "fb_single" and self.platforms != ["facebook"]:
-            raise ValueError(f"{self.id}: fb_single is for facebook only")
+        if self.canvas != CANVAS[self.format]:
+            raise ValueError(f"{self.id}: {CATEGORY[self.format]} is {CANVAS[self.format]}, "
+                             f"not {self.canvas} (PRD R4)")
+        if (self.visual.subject in ROMAN_SUBJECTS) != ("-R" in self.id):
+            raise ValueError(f"{self.id}: founder (Roman) variants and only they have an id "
+                             "with R (e.g. LI-R1)")
+        if self.format in ("fb_single", "fb_ad") and self.platforms != ["facebook"]:
+            raise ValueError(f"{self.id}: {self.format} is for facebook only")
         if self.format == "li_single" and self.platforms != ["linkedin"]:
             raise ValueError(f"{self.id}: li_single is for linkedin only")
         if self.format == "carousel" and "instagram" not in self.platforms:
             raise ValueError(f"{self.id}: carousels are for instagram")
-        if self.visual.subject in ROMAN_SUBJECTS and self.format != "founder":
-            raise ValueError(f"{self.id}: Roman appears only in founder directions")
         expected = {"none": "template", "illustration": "openrouter",
                     "roman_lora": "comfyui"}[self.visual.subject]
         if self.provider != expected:
@@ -293,6 +308,14 @@ class Direction(_Model):
     @property
     def roman(self) -> bool:
         return self.visual.subject in ROMAN_SUBJECTS
+
+    @property
+    def category(self) -> str:
+        return CATEGORY[self.format]
+
+    def last_layout(self) -> str | None:
+        """A carousel's closing slide layout (the only one with the logo and the website)."""
+        return self.slide_roles[-1].layout if self.slide_roles else None
 
     def layout_for(self, platform: str | None = None, seed: str = "",
                    role: str | None = None) -> tuple[str, Layout]:
@@ -376,10 +399,24 @@ class DirectionCatalog(_Model):
         if set(layout.fields) - shown - {"illustration"}:
             raise ValueError(f"{where}: fields no zone shows: "
                              f"{sorted(set(layout.fields) - shown - {'illustration'})}")
-        if "logo" not in [zone.kind for zone in zones.values()]:
-            raise ValueError(f"{where}: every layout places the official logo")
-        if "footer" not in [zone.kind for zone in zones.values()]:
-            raise ValueError(f"{where}: every layout has the footer (website)")
+        kinds = [zone.kind for zone in zones.values()]
+        closing = direction.format != "carousel" or name == direction.last_layout()
+        if closing and "logo" not in kinds:
+            raise ValueError(f"{where}: this layout places the official logo")
+        if not closing and ("logo" in kinds or "footer" in kinds):
+            raise ValueError(f"{where}: a carousel shows the logo and the website only on its "
+                             "last slide (PRD R4)")
+        if direction.format == "carousel" and any(
+                role.layout == name for role in direction.slide_roles[:-1]) and closing:
+            raise ValueError(f"{where}: the last slide's layout is used by another slide too")
+        if direction.format == "li_single":
+            logo = next(zone for zone in zones.values() if zone.kind == "logo")
+            left, top, right, bottom = logo.box
+            if not ((left <= CORNER or right >= 1 - CORNER)
+                    and (top <= CORNER or bottom >= 1 - CORNER)):
+                raise ValueError(f"{where}: LinkedIn's logo sits at a side corner (PRD R3/R4)")
+        if any(zone.field and "counter" in zone.field.lower() for zone in zones.values()):
+            raise ValueError(f"{where}: no slide numbers or counters (PRD R4)")
         for zone_name, zone in zones.items():
             left, top, right, bottom = zone.box
             inside = left >= mx - 1e-3 and right <= 1 - mx + 1e-3 and top >= my - 1e-3 and (

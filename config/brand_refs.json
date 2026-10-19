@@ -1,0 +1,119 @@
+{
+  "_note": "PRD v5 R2.3: the APPROVED company references (Branded Genius's own graphics: the Branded Genius logo is on every one of them). Files are under REFERENCES_DIR (assets/reference, git-ignored). Layout variants name these ids in referenceIds; the designer prompt attaches the chosen ones as style inputs. Competitor material is in the competitor archive, never listed here. Analysis: brand/reference-analysis.md.",
+  "guideline": "brand/guidelines/Branded Genius Brand Style Guide.pdf",
+  "refs": {
+    "A01": {
+      "file": "creative/facebook_ads/01.jpg",
+      "kind": "facebook_ad",
+      "use": "panel left with blue outline, uppercase headline with Sky Blue words, sub in capitals, phone + 3D robot right, CTA pill with arrow bottom right, chevrons bottom left, wordmark top left",
+      "sha256": "1c61fbdc2638916e08782d0c1e5b17303251fdd301550d361beadecad64c6776"
+    },
+    "A02": {
+      "file": "creative/facebook_ads/02.jpg",
+      "kind": "facebook_ad",
+      "use": "headline panel top left, before/after split picture (stressed vs relaxed man), light diagonal sweep bottom right, CTA pill with calendar icon, wordmark top right",
+      "sha256": "568db25df7d0966bda5243597539c0ae091fcaec1647e9841e489dd6a51bd057"
+    },
+    "A03": {
+      "file": "creative/facebook_ads/03.jpg",
+      "kind": "facebook_ad",
+      "use": "man right in a dark office with floating UI icons, headline right of centre, sub, play-icon CTA pill, wordmark top right",
+      "sha256": "c5a56206c2db5aba2c3414d860cbfbb554605a0baf54eeaa676cd7142a720e65"
+    },
+    "A04": {
+      "file": "creative/facebook_ads/04.png",
+      "kind": "facebook_ad",
+      "use": "text left (headline with a Sky Blue word), icon row of 4 circles with labels, dashboard visual right, CTA pill bottom right, wordmark top left",
+      "sha256": "a5a61737cc08e5a3c896bf9038187e9ad1f18fe767e5eb8c86a24098a87c7e9c"
+    },
+    "A05": {
+      "file": "creative/facebook_ads/05.jpg",
+      "kind": "facebook_ad",
+      "use": "text left, icon network right, icon row with labels, calendar CTA pill, wordmark top right",
+      "sha256": "a15a3832b44edffe0dcd9f7b5f48ecbc979e34115596d6da829e4d1aa330df0c"
+    },
+    "A06": {
+      "file": "creative/facebook_ads/06.jpg",
+      "kind": "facebook_ad",
+      "use": "glass panel left with headline and sub, man right with floating icons, CTA pill bottom right, wordmark top right",
+      "sha256": "919c5e26ebaf2e27d6830592a4951ed6bb9bec69ab85c320c6fc03006d84dcd0"
+    },
+    "K01": {
+      "file": "creative/carousels/carousel_01/_frames/No 1__2.jpg",
+      "last": "creative/carousels/carousel_01/_frames/No 8_2.jpg",
+      "kind": "instagram_carousel",
+      "use": "centred headline over a full-bleed robot/human hand visual; '01/07' counter pill (not reproduced); last slide: logo top right, Liken/Teilen/Speichern row",
+      "sha256": "c583760c45c26da8af922f4c691a66e2c5034668278421a820176f761561086d"
+    },
+    "K02": {
+      "file": "creative/carousels/carousel_02/_frames/no 1_2.jpg",
+      "last": "creative/carousels/carousel_02/_frames/no 8_2.jpg",
+      "kind": "instagram_carousel",
+      "use": "numbered points: big blue number before the headline, text left, 3D object on a pedestal under a spotlight right",
+      "sha256": "042b881e905568792dddd541d38235e8768fbb439c6922128c2b289ffc92b3ee"
+    },
+    "K03": {
+      "file": "creative/carousels/carousel_03/_frames/no 1_2.jpg",
+      "last": "creative/carousels/carousel_03/_frames/no 8_2.jpg",
+      "kind": "instagram_carousel",
+      "use": "statement cover, text left, clipboard object right",
+      "sha256": "31005989e31040d13352203c8a7844f3e5bde82e474885d88b8dd3113ca47f46"
+    },
+    "K04": {
+      "file": "creative/carousels/carousel_04/_frames/no 1_2.jpg",
+      "last": "creative/carousels/carousel_04/_frames/no 8_2.jpg",
+      "kind": "instagram_carousel",
+      "use": "cover with headline left and floating icon cubes; light grey variant background",
+      "sha256": "7050f6d364e974c1b932a99f069bc7027b9af8d30cd68ef697dbf8d517f5a247"
+    },
+    "K05": {
+      "file": "creative/carousels/carousel_05/_frames/1_2.jpg",
+      "last": "creative/carousels/carousel_05/_frames/8_2.jpg",
+      "kind": "instagram_carousel",
+      "use": "condensed headline left, neon icon network right, dot grids in the corners, arc line",
+      "sha256": "da0622840f764443cd4314897b9748b8937a2c358a208b4259e80a90d3919064"
+    },
+    "K06": {
+      "file": "creative/carousels/carousel_06/_frames/1_2.jpg",
+      "last": "creative/carousels/carousel_06/_frames/8_2.jpg",
+      "kind": "instagram_carousel",
+      "use": "condensed headline with Sky Blue keywords, neon icon cluster right",
+      "sha256": "65311a7f65bef1bf1906b9dfa47ab56d271e886a7b3986ec9b0b499156c2f956"
+    },
+    "K07": {
+      "file": "creative/carousels/carousel_07/_frames/1 animation_2.jpg",
+      "last": "creative/carousels/carousel_07/day 8 carasuals/_frames/1 animation day 8_2.jpg",
+      "kind": "instagram_carousel",
+      "use": "short headline left, neon line icon right, dot grids",
+      "sha256": "a9d0f0955a336f31c5a319b38feef3a2a78213b7a584b2b5c9940f59a92d9905"
+    },
+    "K08": {
+      "file": "creative/carousels/carousel_08/_frames/day 9..1_2.jpg",
+      "last": "creative/carousels/carousel_08/_frames/last day 9..8_2.jpg",
+      "kind": "instagram_carousel",
+      "use": "headline left, 3D robot or browser object right, particle wave bottom",
+      "sha256": "9b60250a8af91189c07def61c3f50ef877a0e21847a97709c7f08aeec738a71a"
+    },
+    "K09": {
+      "file": "creative/carousels/carousel_09/_frames/day 10..1_2.jpg",
+      "last": "creative/carousels/carousel_09/_frames/day 10..8_2.jpg",
+      "kind": "instagram_carousel",
+      "use": "sentence headline left with blue keywords and a short accent rule, neon line icon right, particle wave bottom",
+      "sha256": "0bc7a12a7ad602c11e1ef7c3268b492efa89d35fd295e906a59fd7e5dbb270aa"
+    },
+    "K10": {
+      "file": "creative/carousels/carousel_10/_frames/day 11..1_2.jpg",
+      "last": "creative/carousels/carousel_10/_frames/day 11..8_2.jpg",
+      "kind": "instagram_carousel",
+      "use": "headline left, neon 3D icon right, particle wave; last slide: CTA question, Liken/Teilen/Speichern row, logo top right",
+      "sha256": "eabf81f202d5c9006c150e63a33660b9c541e0a8f64017b294d514907b796212"
+    },
+    "K11": {
+      "file": "creative/carousels/carousel_11/_frames/day 12..1_2.jpg",
+      "last": "creative/carousels/carousel_11/_frames/day 12..8_2.jpg",
+      "kind": "instagram_carousel",
+      "use": "headline left, robot or road visual right, particle wave; last slide logo top right",
+      "sha256": "1fd7d53f0156055c74a57d75318eed0bada812138a5630df6d2997a45ee881f0"
+    }
+  }
+}

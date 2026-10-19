@@ -55,7 +55,12 @@ class Item:
     notes: str | None
     deliverable: str | None = None  # e.g. linkedin_post (D-1)
     upload_provider: str | None = None  # drive or mock (D-16: mock never counts as real)
-    production_status: str = "not_started"  # Phase 8: youtube and podcast
+    production_status: str = "not_started"  # Phase 8: youtube (podcast items: old rows only)
+    layout_variant: str | None = None  # v5 R5.4: e.g. LI-2
+    background_treatment: str | None = None  # v5 R5.3: e.g. dark_panel
+    requires_roman: bool = False  # v5 R6.3: set at planning time, routes to the LoRA
+    language: str | None = None  # v5 R1: de
+    script_style: str | None = None  # v5 R9: the selected YouTube style (A, B or C)
 
     @property
     def is_idea(self) -> bool:
@@ -104,7 +109,41 @@ def _item(row: sqlite3.Row) -> Item:
         deliverable=_text(row["deliverable"]),
         upload_provider=_text(row["upload_provider"]),
         production_status=str(row["production_status"]),
+        layout_variant=_column(row, "layout_variant"),
+        background_treatment=_column(row, "background_treatment"),
+        requires_roman=bool(_column(row, "requires_roman") or 0),
+        language=_column(row, "language"),
+        script_style=_column(row, "script_style"),
     )
+
+
+def _column(row: sqlite3.Row, name: str) -> Any:
+    """A v5 column; None on a registry that is not migrated yet."""
+    return row[name] if name in row.keys() else None  # noqa: SIM118 (Row: `in` checks values)
+
+
+DESIGN_FIELDS = ("layout_variant", "background_treatment", "requires_roman", "language",
+                 "script_style")
+
+
+def set_design(conn: sqlite3.Connection, ref: str, *, command: str | None = None,
+               **fields: str | bool | None) -> Item:
+    """v5: record the layout variant, treatment, requires_roman, language or script style of
+    an item (the registry and the tracker show them); logged as one audit event."""
+    unknown = sorted(set(fields) - set(DESIGN_FIELDS))
+    if unknown:
+        raise RegistryError(f"not a design field: {', '.join(unknown)}")
+    item = get_item(conn, ref)
+    values = {name: (int(value) if isinstance(value, bool) else value)
+              for name, value in fields.items()}
+    if not values:
+        return item
+    with transaction(conn):
+        conn.execute(f"UPDATE items SET {', '.join(f'{name} = ?' for name in values)}, "
+                     "updated_at = ? WHERE id = ?", (*values.values(), now(), item.id))
+        append_event(conn, "item_updated", command=command, item_id=item.id,
+                     details={"design": {name: value for name, value in fields.items()}})
+    return get_item(conn, item.id)
 
 
 def _platforms(values: Sequence[str]) -> list[str]:

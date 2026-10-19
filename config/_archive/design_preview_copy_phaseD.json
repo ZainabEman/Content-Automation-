@@ -1,0 +1,188 @@
+{
+  "_note": "Sample copy for `ca design preview` (Phase D step 3): one entry per direction layout ('<ID>/<layout>'). Only verified services (config/services.json), no numbers, results, quotes or prices. Free and local: pictures are placeholders unless --photo is given. v5: German (PRD R1).",
+  "FB-1/post": {
+    "headline": "Ihr *KI-Chatbot* für jeden Kanal",
+    "sub": "Beantwortet Fragen und bucht Termine, während Ihr Team arbeitet.",
+    "capabilities": [
+      "FAQ-Automatisierung",
+      "Terminbuchung",
+      "Übergabe ans Team"
+    ],
+    "icons": [
+      "message-chatbot",
+      "calendar-check",
+      "users"
+    ]
+  },
+  "FB-2/post": {
+    "headline": "Immer noch hinter *Nachfassern* her?",
+    "problem": "Leads verstummen, weil niemand Zeit zum Antworten hatte. **Automatische Nachfass-Sequenzen** halten jedes Gespräch in Gang.",
+    "cta_line": "Nennen Sie uns Ihren größten Engpass"
+  },
+  "FB-3/zigzag": {
+    "headline": "Wie entsteht [[ein KI-Agent]] in 3 Schritten?",
+    "steps": [
+      "Erfassen: der Prozess, der sich jede Woche wiederholt",
+      "Bauen: ein Agent für die Routinearbeit",
+      "Übergeben: Ihr Team behält die Kontrolle"
+    ],
+    "icons": [
+      "route",
+      "robot",
+      "user-check"
+    ]
+  },
+  "FB-3/cycle": {
+    "headline": "Wie läuft [[Lead-Pflege]] in 4 Schritten?",
+    "steps": [
+      "Erfassen: jede Anfrage an einem Ort",
+      "Bewerten: Leads automatisch einstufen",
+      "Nachfassen: E-Mails und Erinnerungen",
+      "Auswerten: sehen, was wirkt"
+    ],
+    "icons": [
+      "inbox",
+      "filter",
+      "mail",
+      "report-analytics"
+    ]
+  },
+  "LI-1/post": {
+    "tagline": "KI-AUTOMATISIERUNG",
+    "headline": "Ein System für Ihren Vertrieb",
+    "sub": "Von der ersten Anfrage bis zum gebuchten Termin, mit [[weniger Handarbeit]] für Ihr Team.",
+    "cards": [
+      "Leads: jedes Formular in einem CRM",
+      "Bewertung: Fokus auf die richtigen Leads",
+      "Nachfassen: Sequenzen, die selbst laufen",
+      "Berichte: wöchentlich, automatisch"
+    ],
+    "icons": [
+      "user-plus",
+      "gauge",
+      "send",
+      "chart-bar"
+    ],
+    "footer_line": "Automatisierung mit Plan"
+  },
+  "LI-2/post": {
+    "headline": "KI-Agenten sind jetzt *Alltag* im Unternehmen",
+    "context": "Recherche, Berichte und CRM-Pflege laufen von selbst. Die Frage ist, mit welchen Prozessen Sie anfangen."
+  },
+  "LI-3/post": {
+    "headline": "Anrufe angenommen, Tag und Nacht",
+    "sub": "Ein KI-Callbot für Ihr Unternehmen",
+    "values": [
+      "Kundenanfragen",
+      "Terminwünsche",
+      "Anrufweiterleitung",
+      "Rückrufe"
+    ],
+    "icons": [
+      "phone-incoming",
+      "calendar-event",
+      "route",
+      "phone-outgoing"
+    ],
+    "cta": "Fragen Sie uns nach KI-Callbots"
+  },
+  "CS-1/cover": {
+    "headline": "Zu viele Standardfragen? *Ihr KI-Chatbot*",
+    "sub": "Was er ist, wie er hilft und für wen er passt"
+  },
+  "CS-1/what": {
+    "headline": "Was er ist",
+    "body": "Ein KI-Chatbot antwortet Ihren Kunden auf der Website, per WhatsApp oder Telegram. Er klärt Routinefragen und übergibt an Ihr Team, wenn ein Mensch gefragt ist."
+  },
+  "CS-1/how": {
+    "headline": "Wie er hilft",
+    "bullets": [
+      "Beantwortet häufige Fragen rund um die Uhr",
+      "Erfasst und bewertet neue Leads",
+      "Bucht Termine in Ihren Kalender"
+    ]
+  },
+  "CS-1/benefits": {
+    "headline": "Die Vorteile",
+    "benefits": [
+      "Zeit: weniger Routine-Nachrichten im Team",
+      "Tempo: Kunden bekommen sofort Antwort",
+      "Fokus: Ihr Team löst die schwierigen Fälle"
+    ]
+  },
+  "CS-1/who": {
+    "headline": "Für wen er passt",
+    "audience": [
+      "Dienstleister",
+      "Onlineshops",
+      "Teams mit vollem Posteingang"
+    ]
+  },
+  "CS-1/cta": {
+    "headline": "Welche Frage beantworten Sie am häufigsten?",
+    "sub": "Schreiben Sie es in die Kommentare",
+    "cta": "KI-Chatbot entwickeln"
+  },
+  "CS-2/statement": {
+    "eyebrow": "KÄMPFEN SIE MIT",
+    "main": "NACHFASSEN?",
+    "third": "Wir machen es [[automatisch]]",
+    "body": "E-Mail-Sequenzen und Erinnerungen ohne Handarbeit."
+  },
+  "CS-2/closing": {
+    "eyebrow": "BEREIT ZUM",
+    "main": "AUTOMATISIEREN?",
+    "third": "Starten Sie mit [[einem Prozess]]",
+    "body": "Wachstum automatisieren mit Branded Genius"
+  },
+  "CS-3/cover": {
+    "headline": "Wie starten Sie mit *KI im Team*?"
+  },
+  "CS-3/steps": {
+    "cards": [
+      "Einsatzfelder finden: Aufgaben auflisten, die sich jede Woche wiederholen, und die zeitraubendste wählen.",
+      "Tools sicher nutzen: vorher festlegen, welche Tools und Daten erlaubt sind, dann mit einer kleinen Aufgabe testen."
+    ]
+  },
+  "CS-3/cta": {
+    "headline": "Planen Sie Ihren ersten KI-Workshop",
+    "cta": "KI-Workshop anfragen"
+  },
+  "FD-1/post": {
+    "headline": "Wo KI-Agenten Ihrem Team Zeit sparen",
+    "cards": [
+      "Recherche: Briefings automatisch vorbereitet",
+      "Berichte: pünktlich verschickt",
+      "CRM: Aufgaben aus E-Mails angelegt"
+    ],
+    "icons": [
+      "search",
+      "report-analytics",
+      "database"
+    ],
+    "statement": "Gebaut für echte Prozesse",
+    "services": [
+      "KI-Agenten",
+      "KI-Chatbots",
+      "KI-Callbots"
+    ],
+    "service_icons": [
+      "robot",
+      "message-chatbot",
+      "phone-call"
+    ]
+  },
+  "FD-2/post": {
+    "lead_in": "Mit Automatisierung beginnt",
+    "keyword": "Wachstum",
+    "finish": "zu skalieren"
+  },
+  "FD-3/cover": {
+    "headline": "KI IST TEAMARBEIT",
+    "sub": "Gedanken aus unserem Workshop"
+  },
+  "FD-3/editorial": {
+    "headline": "Erst der *Prozess*, dann das Tool",
+    "sub": "Was ich jedem Team vor einem KI-Projekt sage"
+  }
+}

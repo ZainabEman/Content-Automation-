@@ -429,6 +429,11 @@ def _texts(brief: ContentBrief) -> Iterable[tuple[str, str]]:
             yield f"{name}.points[{index}]", point
         for value in _copy_values(slot.copy_text):
             yield f"{name}.copy", value
+        if slot.ad_fields is not None:  # v5: the Facebook ad's own texts (R4)
+            for field in ("primary_text", "headline", "description"):
+                value = getattr(slot.ad_fields, field)
+                if value:
+                    yield f"{name}.adFields.{field}", value
         for number, slide in enumerate(slot.slides, start=1):
             for value in _slide_texts(slide) + [slide.cta or ""] + _copy_values(slide.copy_text):
                 if value:

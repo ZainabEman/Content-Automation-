@@ -73,14 +73,14 @@ def test_brand_logo_layout_and_contact_errors(logo: Path) -> None:
 
 def test_copy_claims_numbers_and_identity(logo: Path) -> None:
     data = _manifest(logo, "FB-1", "post")
-    data["copy"]["sub"] = "Our SEO team doubles traffic by 40%"
+    data["copy"]["sub"] = "Unser SEO-Team verdoppelt den Traffic um 40%"
     report = _check(data, logo)
     assert any("does not offer" in error for error in report.errors)
     assert any("a number needs its source" in warning for warning in report.warnings)
-    lora = _manifest(logo, "FD-3", "cover")
+    lora = _manifest(logo, "LI-R1", "post")
     assert any("person check must pass" in w for w in _check(lora, logo).warnings)
     assert not _check(lora, logo, person_check="pass").warnings
-    real = _manifest(logo, "FD-1", "post")
+    real = _manifest(logo, "FB-R1", "post")
     real["photo"] = "C:/photos/2.jpg"
     assert any("never the final image" in e for e in _check(real, logo).errors)
 
@@ -104,3 +104,30 @@ def test_files_and_cli(tmp_path: Path, logo: Path, monkeypatch: pytest.MonkeyPat
     assert result.exit_code == 0, result.output
     missing = CliRunner().invoke(app, ["design", "check", str(tmp_path / "nothing.json")])
     assert missing.exit_code == 1 and "unreadable manifest" in missing.output
+
+
+def test_v5_category_rules(logo: Path) -> None:
+    """R2.7 / R4: carousel logo and website only on the last slide, no counters, LinkedIn's
+    logo at a side corner, brand fonts only."""
+    assert _check(_manifest(logo, "CS-1", "cta"), logo).passed
+    point = _manifest(logo, "CS-1", "point")
+    assert _check(point, logo).passed
+    with_logo = copy.deepcopy(point)
+    with_logo["logo"] = _manifest(logo, "CS-1", "cta")["logo"]
+    with_logo["footer"] = ["brandedgenius.de"]
+    errors = " | ".join(_check(with_logo, logo).errors)
+    assert "logo only on its last slide" in errors and "website only on its last" in errors
+    counted = copy.deepcopy(point)
+    counted["texts"][0]["text"] = "01/07"
+    assert any("counter" in e for e in _check(counted, logo).errors)
+    linkedin = _manifest(logo, "LI-2", "post")
+    assert _check(linkedin, logo).passed
+    middle = copy.deepcopy(linkedin)
+    middle["logo"]["box"] = [400, 600, 680, 680]
+    assert any("side corner" in e for e in _check(middle, logo).errors)
+    font = copy.deepcopy(linkedin)
+    font["fonts"] = ["Comic-Sans.ttf"]
+    assert any("not a brand font" in e for e in _check(font, logo).errors)
+    margin = copy.deepcopy(linkedin)
+    margin["texts"][0]["box"] = [10, 200, 500, 300]
+    assert any("64 px margin" in e for e in _check(margin, logo).errors)

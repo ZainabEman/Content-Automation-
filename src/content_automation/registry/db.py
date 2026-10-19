@@ -366,6 +366,17 @@ CREATE TABLE verifications (
 CREATE INDEX verifications_integration ON verifications (integration, mode);
 """
 
+# v5 (PRD R5.4, R6.3, R9, R11): the layout variant and its background treatment, the explicit
+# requires_roman flag set at planning time, the content language and the selected YouTube
+# script style, so the registry and the tracker can show them.
+SCHEMA_11 = """
+ALTER TABLE items ADD COLUMN layout_variant TEXT;
+ALTER TABLE items ADD COLUMN background_treatment TEXT;
+ALTER TABLE items ADD COLUMN requires_roman INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE items ADD COLUMN language TEXT;
+ALTER TABLE items ADD COLUMN script_style TEXT;
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "registry core", SCHEMA_1),
     Migration(2, "item deliverable", SCHEMA_2),
@@ -377,6 +388,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(8, "migration actor", SCHEMA_8),
     Migration(9, "production status and media artifacts", SCHEMA_9),
     Migration(10, "integration verifications", SCHEMA_10),
+    Migration(11, "v5 layout variant, requires_roman, language, script style", SCHEMA_11),
 )
 
 _SCHEMA_TABLE = """

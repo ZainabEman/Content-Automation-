@@ -3,7 +3,8 @@
   "status": "draft",
   "sources": [
     "assets/reference/brand/guidelines/Branded Genius Brand Style Guide.pdf",
-    "https://brandedgenius.de/impressum/ (checked 2026-10-17)"
+    "https://brandedgenius.de/impressum/ (checked 2026-10-17)",
+    "brand/reference-analysis.md: the approved company graphics (config/brand_refs.json), v5 2026-10-19; the guide wins where they disagree"
   ],
   "colors": [
     {

@@ -2,7 +2,7 @@
   "deliverables": {
     "facebook_post": {
       "kind": "post",
-      "label": "Facebook post: 1 image (1080x1350) in a design direction (FB-1 service spotlight, FB-2 problem hook, FB-3 how it works; Roman's week: FD-1..FD-3); text, logo and footer drawn by the app; rotates between packages",
+      "label": "Facebook post: 1 image (1080x1350, 4:5) in a layout variant (FB-1 panel + visual, FB-2 before/after, FB-3 icon row, FB-4 light sweep; Roman's row: FB-R1); German text, logo and website drawn by the app; rotates between packages",
       "part": "post",
       "platform": "facebook",
       "formats": [
@@ -12,8 +12,6 @@
         "news"
       ],
       "images": 1,
-      "provider": "comfyui",
-      "fallbackProvider": "openrouter",
       "aliases": [
         "facebook post",
         "fb post"
@@ -21,12 +19,11 @@
     },
     "facebook_ad": {
       "kind": "ad",
-      "label": "Facebook ad: 3 variants of one ad with the person (headline, subheadline, CTA button)",
+      "label": "Facebook ad: 1 creative (1080x1350, 4:5) in a layout variant (FA-1 offer panel, FA-2 before/after, FA-3 features; Roman: FA-R1) with the German button text on the image, plus primary text, headline, description and a CTA button from Meta's list; separate from Facebook posts; nothing is placed or paid",
       "part": "ad",
       "platform": "facebook",
       "format": "ad",
-      "images": 3,
-      "provider": "comfyui",
+      "images": 1,
       "aliases": [
         "facebook ad",
         "fb ad"
@@ -34,7 +31,7 @@
     },
     "linkedin_post": {
       "kind": "post",
-      "label": "LinkedIn post: 1 image (1080x1350) in a design direction (LI-1 editorial ecosystem, LI-2 insight card, LI-3 value map; Roman's week: FD-1..FD-3); text, logo and footer drawn by the app; rotates between packages",
+      "label": "LinkedIn post: 1 image (1080x1440, 3:4, logo at a side corner) in a layout variant (LI-1 headline + visual, LI-2 panel + visual, LI-3 icon row, LI-4 light sweep; Roman's row: LI-R1); German text, logo and website drawn by the app",
       "part": "post",
       "platform": "linkedin",
       "formats": [
@@ -44,8 +41,6 @@
         "news"
       ],
       "images": 1,
-      "provider": "comfyui",
-      "fallbackProvider": "openrouter",
       "aliases": [
         "linkedin post",
         "li post"
@@ -53,11 +48,11 @@
     },
     "instagram_carousel": {
       "kind": "carousel",
-      "label": "Instagram carousel: static PNG slides (1080x1350, no people) in a design direction (CS-1 tool breakdown, CS-2 bold statements, CS-3 numbered steps): cover, body slides, a closing call; caption, hashtags and alt text",
+      "label": "Instagram carousel: 5-6 static PNG slides (1080x1080, 1:1, no people, no slide numbers) in a layout variant (CS-1 neon statement, CS-2 numbered points, CS-3 centred cover, CS-4 condensed blocks): cover, 3-4 points, closing question with Liken/Teilen/Speichern; logo and optional website only on the last slide; German caption, hashtags and alt text",
       "part": "carousel",
       "platform": "instagram",
       "format": "carousel",
-      "slides": 8,
+      "slides": 6,
       "aliases": [
         "insta post",
         "instagram post",

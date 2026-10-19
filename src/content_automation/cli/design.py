@@ -9,6 +9,7 @@ import typer
 
 from content_automation.cli.jobs import _fail, _settings
 from content_automation.content.design_preview import PREVIEW_DIR, preview
+from content_automation.content.design_sheet import SHEET_FILE, compare_sheet
 from content_automation.content.directions import DirectionError, load_directions
 from content_automation.references import load_brand
 from content_automation.references.brand import BrandProfileError
@@ -16,15 +17,15 @@ from content_automation.references.services import ServicesError, load_services
 from content_automation.workflows.design_check import check_files
 from content_automation.workflows.design_render import DesignRenderError
 
-design_app = typer.Typer(no_args_is_help=True, help="Design directions: free local previews.")
+design_app = typer.Typer(no_args_is_help=True, help="Layout variants: free local previews.")
 
 
 @design_app.command("preview")
 def design_preview(
     ids: Annotated[list[str] | None, typer.Argument(
-        help="Direction IDs (e.g. FB-1 FD-2); default: all 12.")] = None,
+        help="Variant IDs (e.g. FB-1 LI-R1); default: all.")] = None,
     photo: Annotated[Path | None, typer.Option(
-        "--photo", help="A photo for the picture (not for Roman's FD directions).")] = None,
+        "--photo", help="A photo for the picture (not for Roman's founder variants).")] = None,
     out: Annotated[Path, typer.Option("--out", help="Folder for the PNGs.")] = PREVIEW_DIR,
 ) -> None:
     """Draw every layout of the directions with config/design_preview_copy.json: PNG + render
@@ -67,3 +68,18 @@ def design_check(
     typer.echo(f"Design check: {len(reports) - failed} passed, {failed} failed (free).")
     if failed:
         raise typer.Exit(code=1)
+
+
+@design_app.command("compare")
+def design_compare(
+    out: Annotated[Path, typer.Option("--out", help="The PNG to write.")] = SHEET_FILE,
+) -> None:
+    """v5 R3.6: every layout variant beside the approved company references, one PNG (free,
+    no provider called). Roman reviews it before the first paid batch."""
+    settings = _settings()
+    try:
+        lines = compare_sheet(settings.references_dir, out)
+    except (DesignRenderError, DirectionError, BrandProfileError, OSError, ValueError) as error:
+        _fail(str(error))
+    for line in lines:
+        typer.echo(line)

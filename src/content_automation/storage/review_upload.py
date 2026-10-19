@@ -42,7 +42,12 @@ def load_storage_config(path: Path) -> StorageConfig:
 
 
 def folder_key(item: Item) -> str:
-    """The Drive folder of an item: Facebook Ads and Shorts by kind, else its platform."""
+    """The Drive folder of an item: v5 by its layout variant's category, Facebook Ads and
+    Shorts by kind, else its platform."""
+    from content_automation.storage import VARIANT_FOLDERS
+
+    if item.layout_variant and item.layout_variant.split("-")[0] in VARIANT_FOLDERS:
+        return VARIANT_FOLDERS[item.layout_variant.split("-")[0]]
     if item.deliverable == "facebook_ad" or item.kind == "ad":
         return "facebook_ads"
     if item.kind == "short":

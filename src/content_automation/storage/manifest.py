@@ -42,6 +42,7 @@ from content_automation.storage import (
     StorageError,
     drive_folder_name,
     get_storage,
+    package_folder_key,
     platform_folder,
     registry_cells,
     update_tracker,
@@ -117,7 +118,7 @@ def pending(data: dict[str, Any]) -> list[dict[str, Any]]:
 def package_targets(folder: Path, package: ContentPackage) -> list[Target]:
     """The finished files of the package's done parts, as `ca drive sync` uploads them."""
     content_id = drive_folder_name(folder, package)
-    base = f"{platform_folder(package.platform)}/{content_id}"
+    base = f"{platform_folder(package_folder_key(package))}/{content_id}"
     items = runtime.package_items(folder)
     targets: list[Target] = []
     for part, item in package.items.items():
@@ -295,7 +296,8 @@ def _post_upload(folder: Path, settings: Settings, catalog: DeliverableCatalog,
         runtime.report_upload(item_id, upload_target(states, list(states)), PROVIDER)
     folders = known_folders(settings)
     content_id = drive_folder_name(folder, package)
-    link = FOLDER_LINK.format(folders.get(f"{platform_folder(package.platform)}/{content_id}", ""))
+    link = FOLDER_LINK.format(folders.get(
+        f"{platform_folder(package_folder_key(package))}/{content_id}", ""))
     storage = get_storage(settings, provider=PROVIDER)
     lines: list[str] = []
     try:

@@ -39,13 +39,23 @@ MANAGER_DEFAULTS = {"Approval status": "Pending", "Publishing status": "Pending"
                     "Publication date": ""}  # written once, when the row is created
 COLUMNS = (*WORKFLOW_COLUMNS, *MANAGER_DEFAULTS)
 REGISTRY_KEYS = ("bg_id", "version", "idea", "generation", "review", "upload", "production",
-                 "publication", "updated")
+                 "publication", "updated",
+                 # v5 (PRD R11): appended after the existing columns, matched by header name
+                 "category", "language", "layout_variant", "requires_roman", "script_style")
 DEFAULT_REGISTRY_COLUMNS = {
     "bg_id": "BG ID", "version": "Version", "idea": "Idea status",
     "generation": "Generation status", "review": "Review status", "upload": "Upload status",
     "production": "Production status", "publication": "Publication",
     "updated": "Last updated",
+    "category": "Category", "language": "Language", "layout_variant": "Layout Variant",
+    "requires_roman": "Requires Roman", "script_style": "Selected Script Style",
 }
+# v5 R11: the Category column's values
+CATEGORY_NAMES = {"instagram_carousel": "Instagram Carousel", "facebook_post": "Facebook Post",
+                  "facebook_ad": "Facebook Ad", "linkedin_post": "LinkedIn",
+                  "youtube_longform": "YouTube"}
+VARIANT_CATEGORY = {"CS": "instagram_carousel", "FB": "facebook_post", "FA": "facebook_ad",
+                    "LI": "linkedin_post"}
 APPROVAL_STATUSES = ("Pending", "Approved", "Rejected")
 PUBLISHING_STATUSES = ("Pending", "Posted")
 PLATFORM_NAMES = {"linkedin": "LinkedIn", "facebook": "Facebook", "instagram": "Instagram"}

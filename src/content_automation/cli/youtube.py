@@ -12,7 +12,9 @@ from content_automation.cli.jobs import _fail, _settings
 from content_automation.cli.scope import registry_scope
 from content_automation.content.plan import month_label
 from content_automation.registry.db import RegistryError
+from content_automation.storage import StorageError
 from content_automation.youtube.topic import YoutubeError
+from content_automation.youtube.upload import upload_topic
 from content_automation.youtube.workflow import (
     check_scripts,
     make_bilingual,
@@ -50,6 +52,8 @@ def _run(command: str, step: str, bg_id: str | None = None, **kwargs: object) ->
                 return write_briefs(scope.conn, bg_id)
             if step == "bilingual":
                 return make_bilingual(scope.conn, bg_id)
+            if step == "upload":
+                return upload_topic(settings, bg_id)
             if step == "check":
                 ok, lines = check_scripts(scope.conn, bg_id)
                 if not ok:
@@ -58,7 +62,7 @@ def _run(command: str, step: str, bg_id: str | None = None, **kwargs: object) ->
                     raise typer.Exit(code=1)
                 return lines
             return select_style(scope.conn, bg_id, str(kwargs["style"]), command=scope.command)
-    except (YoutubeError, RegistryError, ValueError) as error:
+    except (YoutubeError, RegistryError, StorageError, ValueError) as error:
         _fail(str(error), code=2)
 
 
@@ -125,6 +129,13 @@ def youtube_select_style(
 ) -> None:
     """Mark the chosen style and write the storyboard for the editing agency."""
     _echo(_run(f"ca youtube select-style {bg_id} {style}", "select", bg_id, style=style))
+
+
+@youtube_app.command("upload")
+def youtube_upload(bg_id: BgId) -> None:
+    """Drive YouTube/<YYYY-MM>/<BG-ID>_<slug>/ (research, 6 scripts, storyboard) and one
+    tracker row with their links (STORAGE_PROVIDER=mock: outputs/drive/, fake links)."""
+    _echo(_run(f"ca youtube upload {bg_id}", "upload", bg_id))
 
 
 @youtube_app.command("status")

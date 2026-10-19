@@ -158,8 +158,10 @@ class DriveStorage:
         parent = self._state.folders.get(name)
         if not parent:
             raise StorageNotSetUpError(NOT_SET_UP)
-        key = f"{name}/{content_id}"
-        folder = self._content_folder(key, content_id, parent)
+        key, folder = name, parent
+        for part in content_id.split("/"):  # v5: YouTube/<YYYY-MM>/<BG-ID>_<slug> is nested
+            key = f"{key}/{part}"
+            folder = self._content_folder(key, part, folder)
         if subfolder:
             folder = self._content_folder(f"{key}/{subfolder}", subfolder, folder)
         return self._put(file, folder, self._find(file.name, folder))

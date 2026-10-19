@@ -1,5 +1,5 @@
 {
-  "_note": "confirmed 2026-10-14: the tracker is the Google Sheet Content Tracker. The names of the workflow-owned columns the registry adds to the Content Tracker (PRD Phase 4 §14 D-14). They are appended after the existing columns. Publication status and URL wait for Phase 9.",
+  "_note": "confirmed 2026-10-14: the tracker is the Google Sheet Content Tracker. The names of the workflow-owned columns the registry adds to the Content Tracker (PRD Phase 4 §14 D-14). They are appended after the existing columns. Publication status and URL wait for Phase 9. v5 (PRD R11, 2026-10-19): Category, Language, Layout Variant, Requires Roman and Selected Script Style are added at the end, matched by header name; manager-owned fields are never written.",
   "registry_columns": {
     "bg_id": "BG ID",
     "version": "Version",
@@ -9,6 +9,11 @@
     "upload": "Upload status",
     "production": "Production status",
     "publication": "Publication",
-    "updated": "Last updated"
+    "updated": "Last updated",
+    "category": "Category",
+    "language": "Language",
+    "layout_variant": "Layout Variant",
+    "requires_roman": "Requires Roman",
+    "script_style": "Selected Script Style"
   }
 }

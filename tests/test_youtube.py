@@ -177,6 +177,14 @@ def test_one_topic_end_to_end(tmp_path: Path) -> None:
         assert field in board
     package = json.loads((folder / "package.json").read_text(encoding="utf-8"))
     assert package["selectedStyle"] == "B" and package["sourceCheck"]["status"] == "passed"
+    assert steps["upload"] == 0  # mock Drive: YouTube/<YYYY-MM>/<BG-ID>_<slug>/ (R10.2)
+    base = f"YouTube/2026-11/{folder.name}/"
+    assert {base + path for path in visible - {"package.json"}} <= set(result["driveFiles"])
+    tracker = result["tracker"]
+    header = tracker.splitlines()[0]
+    for column in ("Category", "Language", "Selected Script Style"):
+        assert column in header
+    assert result["bgId"] in tracker and "YouTube" in tracker and "teleprompter" in tracker
 
 
 def test_plan_makes_at_most_8_proposed_topics_with_bg_ids() -> None:

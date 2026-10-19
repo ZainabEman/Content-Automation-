@@ -119,6 +119,16 @@ def run(copy_to: Path | None = PREVIEW, keep: bool = False) -> dict[str, Any]:
             result["checkOutput"] = out
             code, out = ca("youtube", "select-style", bg_id, "B")
             result["steps"]["select"] = code
+            os.environ["STORAGE_PROVIDER"] = "mock"  # outputs/drive/, fake links, no Google
+            code, out = ca("youtube", "upload", bg_id)
+            os.environ.pop("STORAGE_PROVIDER", None)
+            result["steps"]["upload"] = code
+            result["uploadOutput"] = out
+            drive = work / "outputs" / "drive" / "Content Automation"
+            result["driveFiles"] = sorted(path.relative_to(drive).as_posix()
+                                          for path in drive.rglob("*") if path.is_file())
+            tracker = drive / "tracking.csv"
+            result["tracker"] = tracker.read_text(encoding="utf-8") if tracker.is_file() else ""
             result["files"] = sorted(path.relative_to(folder).as_posix()
                                      for path in folder.rglob("*") if path.is_file())
             result["folderName"] = folder.name

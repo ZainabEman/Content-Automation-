@@ -228,3 +228,14 @@ Open (for Roman):
 - Formula: the 8-step YouTube formula is in `config/formulas.json youtube_longform` (Phase 1), used by the briefs and by the older `ca script` path.
 - Mock package: `uv run python scripts/youtube_mock_package.py` → `outputs/previews/youtube/BG-001_deepfake-anrufe-im-namen-der-geschaeftsfuehrung/` (+ README). It runs plan → approve → research → a failing check (dead URL, misquote, unsupported fact; scripts refused) → fixed research → passed check → briefs → 3 teleprompters → bilingual → English → check → select B → storyboard. MOCK: the sources are invented test pages on example.org; the scripts are short (format preview, ~180–220 words, length warning shown).
 - Tests: `tests/test_youtube.py` (11): template/structure, check passes, dead URL + misquote caught (§7.12), fact matching, fetch failure never raises, teleprompter rules, bilingual identity, difference check, slug, the 8-topic cap + approval gate + reject, one topic end to end in the R9.11 layout (§7.11).
+
+---
+
+## Phase 6: Drive and tracker code (done, code only)
+
+- New folders in `storage.FOLDER_NAMES`: `Instagram Carousels`, `Facebook Posts` (plus the existing `Facebook Ads`, `LinkedIn`, `YouTube`). `ca drive setup` creates missing folders only; nothing is renamed or moved (R10.3 PENDING). Uploads of v5 packages go to their category folder (`package_folder_key`: package.json `category`); packages without a category (made before v5) keep their platform folder. Review uploads use the item's layout variant. The plugin manifest creates missing folders the same way.
+- Drive API uploads take nested content folders (`YouTube/<YYYY-MM>/<BG-ID>_<slug>/<style>/`), remembered per key in drive_state.
+- `ca youtube upload BG-x`: research file, storyboard and the six script files (internal `.briefs/` and package.json stay local) to `YouTube/<YYYY-MM>/<BG-ID>_<slug>/`, then one tracker row (Content ID = BG ID, Caption = the links). Mock and drive providers; the Codex-plugin path for YouTube topics is not built (clear message).
+- Tracker (R11): registry columns `Category`, `Language`, `Layout Variant`, `Requires Roman`, `Selected Script Style` (config/tracker.json), appended after the existing columns and matched by header name; written values are recorded, so a hand edit is a conflict (not overwritten); manager fields never written (test).
+- `docs/v5-drive-actions.md`: the exact operations waiting for Roman's "ok" (new folders via `ca drive setup`, the five headers, the UGC folder: list first, then trash after "ok"). Nothing was run against Google.
+- Tests: `tests/test_drive_v5.py` (folders kept + added, category routing, nested Drive folders on a stubbed Drive service, headers at the end without touching manager fields), YouTube e2e now uploads to mock Drive and checks the tracker row.

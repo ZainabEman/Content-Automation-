@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from content_automation.content.deliverables import DeliverableCatalog, load_deliverables
 from content_automation.content.package import (
@@ -31,8 +31,10 @@ from content_automation.content.package import (
     save_package,
 )
 from content_automation.content.tracking import (
+    CATEGORY_NAMES,
     PLATFORM_NAMES,
     TRACKER_NAME,
+    VARIANT_CATEGORY,
     Cell,
     Conflict,
     Entry,
@@ -51,7 +53,7 @@ from content_automation.registry import runtime
 from content_automation.registry.audit import append_event
 from content_automation.registry.db import RegistryError
 from content_automation.registry.ids import resolve
-from content_automation.registry.items import get_item, publication_summary
+from content_automation.registry.items import Item, get_item, publication_summary
 from content_automation.registry.progress import upload_label, upload_target
 from content_automation.registry.tracker import CellRecord, last_cells, record_cells
 
@@ -59,7 +61,18 @@ ROOT_FOLDER = "Content Automation"
 PLATFORM_FOLDERS = PLATFORM_NAMES  # platform -> folder name (and the tracker's Platform)
 # Phase 7: YouTube, Shorts, Podcasts, Facebook Ads and TikTok folders (made by `ca drive setup`).
 FOLDER_NAMES = {**PLATFORM_FOLDERS, "youtube": "YouTube", "shorts": "Shorts",
-                "podcast": "Podcasts", "facebook_ads": "Facebook Ads", "tiktok": "TikTok"}
+                "podcast": "Podcasts", "facebook_ads": "Facebook Ads", "tiktok": "TikTok",
+                # v5 (PRD R10.2): new category folders; existing folders are never renamed or
+                # moved (the restructuring spec is PENDING, R10.3)
+                "instagram_carousels": "Instagram Carousels",
+                "facebook_posts": "Facebook Posts"}
+# v5: a package's category (package.json `category`) -> its Drive folder key; a package
+# without a category (made before v5) keeps its platform folder
+CATEGORY_FOLDERS = {"instagram_carousel": "instagram_carousels",
+                    "facebook_post": "facebook_posts", "facebook_ad": "facebook_ads",
+                    "linkedin_post": "linkedin"}
+VARIANT_FOLDERS = {"CS": "instagram_carousels", "FB": "facebook_posts", "FA": "facebook_ads",
+                   "LI": "linkedin"}
 CALENDAR_FOLDER = "Calendar"
 FOLDERS = (*FOLDER_NAMES.values(), CALENDAR_FOLDER)
 EXPORT_NAME = f"{TRACKER_NAME}.csv"  # `ca tracking export`, in the main folder
@@ -139,6 +152,11 @@ def drive_setup_problem(settings: Settings) -> str | None:
     return problem
 
 
+def package_folder_key(package: ContentPackage) -> str:
+    """v5 R10: the Drive folder key of a package: its category's folder, else its platform's."""
+    return CATEGORY_FOLDERS.get(package.category or "", package.platform)
+
+
 def platform_folder(platform: str) -> str:
     try:
         return FOLDER_NAMES[platform.lower()]
@@ -184,7 +202,7 @@ def sync_package(folder: Path, storage: Storage, catalog: DeliverableCatalog) ->
         name: sub for item in package.items.values() for name, sub in item.subfolders.items()
     }
     content_id = drive_folder_name(folder, package)
-    where = f"{platform_folder(package.platform)}/{content_id}"
+    where = f"{platform_folder(package_folder_key(package))}/{content_id}"
     result = SyncResult()
     if not names:
         result.lines.append(f"Drive ({storage.name}): {folder.name} has no finished images or "
@@ -208,7 +226,8 @@ def sync_package(folder: Path, storage: Storage, catalog: DeliverableCatalog) ->
             save_package(folder, package)
             continue
         call = partial(
-            storage.upload, folder / name, package.platform, content_id, subfolders.get(name)
+            storage.upload, folder / name, package_folder_key(package), content_id,
+            subfolders.get(name)
         )
         try:
             done = _twice(call, folder / name)
@@ -245,7 +264,7 @@ def sync_package(folder: Path, storage: Storage, catalog: DeliverableCatalog) ->
         result.waiting = "upload failed; the next sync tries again"
     else:
         try:
-            link = storage.folder_link(package.platform, content_id)
+            link = storage.folder_link(package_folder_key(package), content_id)
             result.entry = tracker_entry(folder, package, catalog, link) | registry_cells(folder)
         except (StorageError, TrackerError) as error:
             result.waiting = str(error)
@@ -279,15 +298,26 @@ def registry_cells(folder: Path) -> Entry:
     items = [get_item(scope.conn, item_id) for item_id in ids]
     if not items:
         return {}
+    return item_cells(scope.tracker_columns, items, scope.conn)
+
+
+def category_name(item: Item) -> str:
+    """v5 R11: Instagram Carousel, Facebook Post, Facebook Ad, LinkedIn or YouTube."""
+    key = VARIANT_CATEGORY.get((item.layout_variant or "").split("-")[0]) or (
+        item.deliverable or "")
+    return CATEGORY_NAMES.get(key, "—")
+
+
+def item_cells(names: dict[str, str], items: list[Item], conn: Any) -> Entry:
+    """The registry columns of one tracker row for these items (packages and YouTube topics)."""
 
     def joined(values: list[str]) -> str:
         if len(set(values)) == 1:
             return values[0]
         return "; ".join(f"{item.id} {value}" for item, value in zip(items, values, strict=True))
 
-    names = scope.tracker_columns
     updated = max(item.updated_at for item in items)
-    return {
+    cells = {
         names["bg_id"]: ", ".join(item.id for item in items),
         names["version"]: joined([f"v{item.current_version}" for item in items]),
         names["idea"]: joined([item.idea_status for item in items]),
@@ -297,9 +327,18 @@ def registry_cells(folder: Path) -> Entry:
         names["production"]: joined([item.production_status if item.kind in ("youtube", "podcast")
                                      else "—" for item in items]),
         names["publication"]: "; ".join(
-            text for item in items if (text := publication_summary(scope.conn, item.id))),
+            text for item in items if (text := publication_summary(conn, item.id))),
         names["updated"]: f"{updated[:10]} {updated[11:16]} UTC",
     }
+    extra = {  # v5 R11 (a config without these keys keeps its columns as they are)
+        "category": joined([category_name(item) for item in items]),
+        "language": joined([item.language or "—" for item in items]),
+        "layout_variant": joined([item.layout_variant or "—" for item in items]),
+        "requires_roman": joined(["yes" if item.requires_roman else "no" for item in items]),
+        "script_style": joined([item.script_style or "—" for item in items]),
+    }
+    cells.update({names[key]: value for key, value in extra.items() if key in names})
+    return cells
 
 
 def _file_items(folder: Path, package: ContentPackage) -> dict[str, str]:
@@ -445,7 +484,8 @@ def resolve_tracker(storage: Storage, catalog: DeliverableCatalog, ref: str, *,
         lines = [f"{key}: kept the Sheet's values for {', '.join(kept) or 'no cell'}; they stay "
                  "until the registry value changes."]
     else:
-        link = storage.folder_link(package.platform, drive_folder_name(folder, package))
+        link = storage.folder_link(package_folder_key(package),
+                                   drive_folder_name(folder, package))
         entry = tracker_entry(folder, package, catalog, link) | registry_cells(folder)
         cells = [Cell(rows[0], header[name], value) for name, value in entry.items()
                  if name in header and name != "Content ID" and shown(name) != value]
@@ -600,9 +640,14 @@ __all__ = [
     "export_tracker",
     "failure_lines",
     "get_storage",
+    "CATEGORY_FOLDERS",
+    "VARIANT_FOLDERS",
+    "package_folder_key",
     "platform_folder",
     "sync_calendar",
     "sync_package",
     "tracker_lines",
     "update_tracker",
+    "item_cells",
+    "category_name",
 ]

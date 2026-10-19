@@ -1,6 +1,25 @@
 {
   "_note": "PRD v5 R9: YouTube research and production planning (`ca youtube`, skill make-youtube). Separate from the social workflow; shares only the registry (BG IDs, approval), storage, tracker and authorization layers. Roman records, the editing agency (Takwa) edits; the system never renders a video. Formula: config/formulas.json youtube_longform (the 8-step storytelling formula, R9.6). Length: Q4 default 10-12 minutes, about 1,300-1,600 spoken German words (130 words per minute); a script outside it is a warning, not an error, until Roman confirms Q4.",
   "topicsPerMonth": 8,
+  "editorialFocus": {
+    "_note": "Persistent editorial preference; monthly capacity and approval gates remain unchanged.",
+    "market": "Germany",
+    "defaultTopicCountWhenAskedToChoose": 2,
+    "priorityThemes": [
+      "current problems affecting German society",
+      "AI making mistakes",
+      "AI misuse",
+      "situations where AI appears out of control",
+      "harm caused by incorrect AI use",
+      "documented German problems AI could help solve"
+    ],
+    "avoidUnlessRequested": [
+      "generic marketing education",
+      "generic SEO education",
+      "business growth topics without a documented German societal problem"
+    ],
+    "sourceRule": "Use current, opened sources and do not claim AI will solve a problem unless the evidence supports it."
+  },
   "outputDir": "outputs/youtube",
   "wordsPerMinute": 130,
   "targetWords": [1300, 1600],

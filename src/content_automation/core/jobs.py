@@ -51,8 +51,9 @@ class JobStep(CamelModel):
 
 ReviewResult = Literal["pass", "fail"]
 # person: is it the identity person? set: does it match the first image of its set (fonts,
-# colours, layout family)?
-ReviewCheck = Literal["person", "set"]
+# colours, layout family)? visual: a Roman image made with Higgsfield: text readable, no
+# overlap, logo correct, German correct (any "no" blocks the item)
+ReviewCheck = Literal["person", "set", "visual"]
 
 
 class JobReference(CamelModel):

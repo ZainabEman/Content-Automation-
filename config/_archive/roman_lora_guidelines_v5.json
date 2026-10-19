@@ -1,0 +1,500 @@
+{
+  "_note": "The Roman image guidelines before 2026-10-20 (the RunPod/ComfyUI LoRA route, now disabled): the founder variants' LoRA visual and layout, and the LoRA prompt pools (also still in config/design_directions.json `roman` for the disabled route's code and the identity sheet). Replaced by config/roman_image_guidelines.json (Higgsfield Soul 2.0). Never read by the generator.",
+  "founderVariants": {
+    "FB-R1": {
+      "visual": {
+        "subject": "roman_lora",
+        "placement": "Roman right of centre, full bleed, a calm dark area left for the text",
+        "prompt": "{prefix}, {outfit}, {setting}, {angle}, {expression}, waist-up, standing on the right side of the frame, cinematic natural light with a cool blue tone, realistic photo, sharp focus on the face, {alone}, {noTextSurfaces}, a calm dark empty area {space} for text, no text"
+      },
+      "provider": "comfyui",
+      "layouts": {
+        "post": {
+          "theme": "photo",
+          "background": {
+            "fill": "bg_dark"
+          },
+          "fields": {
+            "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
+            "sub": "one supporting line in German, at most 14 words",
+            "cta": "optional: a short German call to action (e.g. Mehr erfahren), at most 4 words"
+          },
+          "zones": {
+            "visual": {
+              "kind": "visual",
+              "box": [
+                0.0,
+                0.0,
+                1.0,
+                1.0
+              ],
+              "bleed": true,
+              "visualShape": "full"
+            },
+            "scrim": {
+              "kind": "shape",
+              "shape": "scrim",
+              "box": [
+                0.0,
+                0.0,
+                0.56,
+                1.0
+              ],
+              "bleed": true,
+              "gradient": {
+                "color": "bg_dark",
+                "start": 0.95,
+                "end": 0.88,
+                "toward": "right"
+              }
+            },
+            "scrim2": {
+              "kind": "shape",
+              "shape": "scrim",
+              "box": [
+                0.56,
+                0.0,
+                0.78,
+                1.0
+              ],
+              "bleed": true,
+              "gradient": {
+                "color": "bg_dark",
+                "start": 0.88,
+                "end": 0.0,
+                "toward": "right"
+              }
+            },
+            "logo": {
+              "kind": "logo",
+              "box": [
+                0.06,
+                0.048,
+                0.34,
+                0.125
+              ]
+            },
+            "headline": {
+              "kind": "text",
+              "field": "headline",
+              "role": "headline",
+              "box": [
+                0.06,
+                0.2,
+                0.52,
+                0.5
+              ],
+              "size": 66,
+              "weight": "bold",
+              "upper": true
+            },
+            "sub": {
+              "kind": "text",
+              "field": "sub",
+              "role": "sub",
+              "box": [
+                0.06,
+                0.52,
+                0.52,
+                0.68
+              ],
+              "size": 28,
+              "weight": "medium"
+            },
+            "cta": {
+              "kind": "text",
+              "field": "cta",
+              "role": "cta",
+              "box": [
+                0.06,
+                0.84,
+                0.5,
+                0.91
+              ],
+              "size": 30,
+              "weight": "bold",
+              "optional": true,
+              "align": "center",
+              "valign": "middle",
+              "icon": "arrow-right",
+              "pill": {
+                "fill": "bg_dark",
+                "outline": "accent",
+                "alpha": 0.92
+              }
+            }
+          },
+          "textLimits": {
+            "headline": {
+              "maxChars": 56,
+              "maxLines": 4,
+              "minFontPx": 36
+            },
+            "sub": {
+              "maxChars": 90,
+              "maxLines": 4,
+              "minFontPx": 20
+            },
+            "cta": {
+              "maxChars": 28,
+              "maxLines": 1,
+              "minFontPx": 22
+            }
+          }
+        }
+      }
+    },
+    "FA-R1": {
+      "visual": {
+        "subject": "roman_lora",
+        "placement": "Roman right of centre, full bleed, a calm dark area left for the text",
+        "prompt": "{prefix}, {outfit}, {setting}, {angle}, {expression}, waist-up, standing on the right side of the frame, cinematic natural light with a cool blue tone, realistic photo, sharp focus on the face, {alone}, {noTextSurfaces}, a calm dark empty area {space} for text, no text"
+      },
+      "provider": "comfyui",
+      "layouts": {
+        "post": {
+          "theme": "photo",
+          "background": {
+            "fill": "bg_dark"
+          },
+          "fields": {
+            "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
+            "sub": "one supporting line in German, at most 14 words",
+            "cta": "the German button text on the image, at most 4 words (e.g. Kostenlos testen, Beratung buchen); the Meta CTA button is chosen separately"
+          },
+          "zones": {
+            "visual": {
+              "kind": "visual",
+              "box": [
+                0.0,
+                0.0,
+                1.0,
+                1.0
+              ],
+              "bleed": true,
+              "visualShape": "full"
+            },
+            "scrim": {
+              "kind": "shape",
+              "shape": "scrim",
+              "box": [
+                0.0,
+                0.0,
+                0.56,
+                1.0
+              ],
+              "bleed": true,
+              "gradient": {
+                "color": "bg_dark",
+                "start": 0.95,
+                "end": 0.88,
+                "toward": "right"
+              }
+            },
+            "scrim2": {
+              "kind": "shape",
+              "shape": "scrim",
+              "box": [
+                0.56,
+                0.0,
+                0.78,
+                1.0
+              ],
+              "bleed": true,
+              "gradient": {
+                "color": "bg_dark",
+                "start": 0.88,
+                "end": 0.0,
+                "toward": "right"
+              }
+            },
+            "logo": {
+              "kind": "logo",
+              "box": [
+                0.06,
+                0.048,
+                0.34,
+                0.125
+              ]
+            },
+            "headline": {
+              "kind": "text",
+              "field": "headline",
+              "role": "headline",
+              "box": [
+                0.06,
+                0.2,
+                0.52,
+                0.5
+              ],
+              "size": 66,
+              "weight": "bold",
+              "upper": true
+            },
+            "sub": {
+              "kind": "text",
+              "field": "sub",
+              "role": "sub",
+              "box": [
+                0.06,
+                0.52,
+                0.52,
+                0.68
+              ],
+              "size": 28,
+              "weight": "medium"
+            },
+            "cta": {
+              "kind": "text",
+              "field": "cta",
+              "role": "cta",
+              "box": [
+                0.06,
+                0.84,
+                0.5,
+                0.91
+              ],
+              "size": 30,
+              "weight": "bold",
+              "optional": false,
+              "align": "center",
+              "valign": "middle",
+              "icon": "arrow-right",
+              "pill": {
+                "fill": "bg_dark",
+                "outline": "accent",
+                "alpha": 0.92
+              }
+            }
+          },
+          "textLimits": {
+            "headline": {
+              "maxChars": 56,
+              "maxLines": 4,
+              "minFontPx": 36
+            },
+            "sub": {
+              "maxChars": 90,
+              "maxLines": 4,
+              "minFontPx": 20
+            },
+            "cta": {
+              "maxChars": 28,
+              "maxLines": 1,
+              "minFontPx": 22
+            }
+          }
+        }
+      }
+    },
+    "LI-R1": {
+      "visual": {
+        "subject": "roman_lora",
+        "placement": "Roman right of centre, full bleed, a calm dark area left for the text",
+        "prompt": "{prefix}, {outfit}, {setting}, {angle}, {expression}, waist-up, standing on the right side of the frame, cinematic natural light with a cool blue tone, realistic photo, sharp focus on the face, {alone}, {noTextSurfaces}, a calm dark empty area {space} for text, no text"
+      },
+      "provider": "comfyui",
+      "layouts": {
+        "post": {
+          "theme": "photo",
+          "background": {
+            "fill": "bg_dark"
+          },
+          "fields": {
+            "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
+            "sub": "one supporting line in German, at most 14 words",
+            "cta": "optional: a short German call to action (e.g. Mehr erfahren), at most 4 words"
+          },
+          "zones": {
+            "visual": {
+              "kind": "visual",
+              "box": [
+                0.0,
+                0.0,
+                1.0,
+                1.0
+              ],
+              "bleed": true,
+              "visualShape": "full"
+            },
+            "scrim": {
+              "kind": "shape",
+              "shape": "scrim",
+              "box": [
+                0.0,
+                0.0,
+                0.56,
+                1.0
+              ],
+              "bleed": true,
+              "gradient": {
+                "color": "bg_dark",
+                "start": 0.95,
+                "end": 0.88,
+                "toward": "right"
+              }
+            },
+            "scrim2": {
+              "kind": "shape",
+              "shape": "scrim",
+              "box": [
+                0.56,
+                0.0,
+                0.78,
+                1.0
+              ],
+              "bleed": true,
+              "gradient": {
+                "color": "bg_dark",
+                "start": 0.88,
+                "end": 0.0,
+                "toward": "right"
+              }
+            },
+            "logo": {
+              "kind": "logo",
+              "box": [
+                0.66,
+                0.048,
+                0.94,
+                0.125
+              ]
+            },
+            "headline": {
+              "kind": "text",
+              "field": "headline",
+              "role": "headline",
+              "box": [
+                0.06,
+                0.2,
+                0.52,
+                0.5
+              ],
+              "size": 66,
+              "weight": "bold",
+              "upper": true
+            },
+            "sub": {
+              "kind": "text",
+              "field": "sub",
+              "role": "sub",
+              "box": [
+                0.06,
+                0.52,
+                0.52,
+                0.68
+              ],
+              "size": 28,
+              "weight": "medium"
+            },
+            "cta": {
+              "kind": "text",
+              "field": "cta",
+              "role": "cta",
+              "box": [
+                0.06,
+                0.84,
+                0.5,
+                0.91
+              ],
+              "size": 30,
+              "weight": "bold",
+              "optional": true,
+              "align": "center",
+              "valign": "middle",
+              "icon": "arrow-right",
+              "pill": {
+                "fill": "bg_dark",
+                "outline": "accent",
+                "alpha": 0.92
+              }
+            }
+          },
+          "textLimits": {
+            "headline": {
+              "maxChars": 56,
+              "maxLines": 4,
+              "minFontPx": 36
+            },
+            "sub": {
+              "maxChars": 90,
+              "maxLines": 4,
+              "minFontPx": 20
+            },
+            "cta": {
+              "maxChars": 28,
+              "maxLines": 1,
+              "minFontPx": 22
+            }
+          }
+        }
+      }
+    }
+  },
+  "romanPools": {
+    "prefix": "r0man_bg, a man",
+    "outfits": [
+      "dark navy blazer over a white open-collar shirt",
+      "charcoal knit sweater over a light shirt collar",
+      "light-blue shirt with the sleeves rolled up",
+      "black crew-neck T-shirt under an unbuttoned grey overshirt",
+      "dark green quarter-zip pullover"
+    ],
+    "angles": [
+      "eye-level camera",
+      "camera slightly below eye level",
+      "three-quarter view from the left",
+      "three-quarter view from the right"
+    ],
+    "expressions": [
+      "calm confident expression",
+      "warm slight smile",
+      "focused thoughtful look",
+      "friendly open smile"
+    ],
+    "settings": {
+      "business": [
+        "standing at a large blank glass wall in a bright modern meeting room, colleagues softly out of focus in the background",
+        "seated at a clean desk in a calm modern office with large windows, a laptop seen from behind",
+        "in a modern co-working space, standing by a window, people far in the background out of focus and turned away",
+        "walking through a bright modern office corridor with glass walls"
+      ],
+      "quiet_luxury": [
+        "on a quiet rooftop terrace at dusk with the city lights softly out of focus",
+        "in an elegant hotel lounge with warm light and soft leather armchairs, nobody else near",
+        "in a calm airport business lounge with large windows and aircraft far away out of focus",
+        "in a corner office with floor-to-ceiling windows and a city view at golden hour",
+        "in the back seat of a premium car, daylight through the window, city softly blurred outside"
+      ]
+    },
+    "alone": "he is the only person in focus; anyone else is far away, out of focus, seen from behind or without a visible face",
+    "noTextSurfaces": "no readable screens, monitors, signs, papers, books or whiteboard writing anywhere (blank surfaces only)",
+    "blockedProps": [
+      "private jet",
+      "jet",
+      "sports car",
+      "supercar",
+      "lamborghini",
+      "ferrari",
+      "jet ski",
+      "yacht",
+      "helicopter",
+      "champagne",
+      "cash",
+      "money"
+    ],
+    "loraStrength": [
+      0.8,
+      1.0
+    ],
+    "approvedPhotos": [
+      "2.jpg",
+      "4.jpg",
+      "5.jpg",
+      "6.jpg",
+      "9.jpg"
+    ],
+    "portraitPhotos": [],
+    "photoNotes": "approvedPhotos: the real green-screen selfies used for LoRA v2 (docs/lora-training-results.md). 1, 3, 7 and 8 look like the same session but are not named there; 10-14 look AI-generated and are never used. Real photos are identity references only (LoRA training, the identity sheet at the person check): every image of Roman is generated by his LoRA on ComfyUI, never a real photo as the final image. portraitPhotos is unused (kept empty)."
+  }
+}

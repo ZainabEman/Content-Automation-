@@ -25,6 +25,7 @@ from content_automation.cli.bridge import (
 )
 from content_automation.cli.design import design_app
 from content_automation.cli.help import help_app
+from content_automation.cli.higgsfield import higgsfield_app
 from content_automation.cli.ideas import claims_app, ideas_app
 from content_automation.cli.items import audit_app, items_app
 from content_automation.cli.jobs import auth_app, costs_app, jobs_app, report_app
@@ -276,6 +277,7 @@ app.add_typer(help_app, name="help")
 app.add_typer(design_app, name="design")
 app.add_typer(plan_app, name="plan")
 app.add_typer(youtube_app, name="youtube")
+app.add_typer(higgsfield_app, name="higgsfield")
 app.add_typer(ideas_app, name="ideas")
 app.add_typer(claims_app, name="claims")
 app.add_typer(script_app, name="script")
@@ -952,10 +954,25 @@ def job_review(
                      "saw: likeness, stray text, hands and face)."),
     ] = None,
     reason: Annotated[list[str] | None, typer.Argument(help="With --person: why.")] = None,
+    visual: Annotated[
+        str | None,
+        typer.Option("--visual", help='A Roman image (Higgsfield): "text=yes overlap=yes '
+                     'logo=yes german=yes", then what is wrong; any no blocks the item.'),
+    ] = None,
 ) -> None:
-    """Record a person or set check of an image (saved in details.json; the newest counts)."""
-    if check not in ("person", "set"):
-        typer.echo("--check must be person or set.", err=True)
+    """Record a person, set or visual check of an image (details.json; the newest counts)."""
+    if visual is not None:
+        answers, problem = _visual_answers(visual)
+        if problem or passed or failed is not None or person is not None:
+            typer.echo(problem or "--visual stands alone (no --pass, --fail or --person).",
+                       err=True)
+            raise typer.Exit(code=2)
+        check = "visual"
+        noes = [name for name, value in answers.items() if value == "no"]
+        passed, failed = not noes, (visual.strip() if noes else None)
+        note = visual.strip()
+    if check not in ("person", "set", "visual"):
+        typer.echo("--check must be person, set or visual.", err=True)
         raise typer.Exit(code=2)
     if person is not None:
         text = " ".join(reason or []).strip()
@@ -971,7 +988,8 @@ def job_review(
         raise typer.Exit(code=2)
     job = _load_job(job_dir)
     try:
-        kind: ReviewCheck = "set" if check == "set" else "person"
+        kind: ReviewCheck = "set" if check == "set" else (
+            "visual" if check == "visual" else "person")
         if failed is not None:
             job.add_review(image, "fail", failed.strip() or "differs", check=kind)
         else:
@@ -986,6 +1004,24 @@ def job_review(
                              command=scope.command)
     result = "passed" if passed else "failed"
     typer.echo(f"{image} of {job.job_id}: {check} check {result} (recorded in {DETAILS_FILE}).")
+
+
+_VISUAL = ("text", "overlap", "logo", "german")
+
+
+def _visual_answers(text: str) -> tuple[dict[str, str], str | None]:
+    """The four answers of a visual review ("text=yes overlap=no ..."); a problem or None."""
+    answers: dict[str, str] = {}
+    for word in text.replace(",", " ").split():
+        name, sep, value = word.partition("=")
+        if sep and name.lower() in _VISUAL:
+            answers[name.lower()] = value.lower()
+    missing = [name for name in _VISUAL if answers.get(name) not in ("yes", "no")]
+    if missing:
+        return answers, ('--visual needs yes or no for each of: text, overlap, logo, german '
+                         f'(missing: {", ".join(missing)}), e.g. "text=yes overlap=yes '
+                         'logo=yes german=no Massnahme -> Maßnahme".')
+    return answers, None
 
 
 @env_app.command("set")

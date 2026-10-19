@@ -12,7 +12,7 @@ import uuid
 from PIL import Image, ImageDraw, ImageFont
 
 from content_automation.ai.image import (
-    ASPECT_RATIOS,
+    ALL_ASPECT_RATIOS,
     IMAGE_SIZES,
     GeneratedImage,
     ImageProviderError,
@@ -23,7 +23,8 @@ from content_automation.ai.image import (
 )
 from content_automation.core.config import Settings
 
-_SIZES_1K = {"1:1": (1024, 1024), "4:5": (819, 1024), "9:16": (576, 1024), "16:9": (1024, 576)}
+_SIZES_1K = {"1:1": (1024, 1024), "4:5": (819, 1024), "9:16": (576, 1024), "16:9": (1024, 576),
+             "3:4": (768, 1024), "2:3": (683, 1024), "4:3": (1024, 768), "3:2": (1024, 683)}
 _BACKGROUNDS = ((226, 232, 240), (254, 243, 199), (220, 252, 231), (237, 233, 254))
 
 
@@ -34,7 +35,7 @@ class MockImageProvider:
         max_object_refs=10,
         max_style_refs=3,
         max_object_and_style_refs=10,
-        aspect_ratios=frozenset(ASPECT_RATIOS),
+        aspect_ratios=frozenset(ALL_ASPECT_RATIOS),  # any aspect a real provider makes
         image_sizes=frozenset(IMAGE_SIZES),
         est_cost_usd_per_image={size: 0.0 for size in IMAGE_SIZES},
         max_images_per_call=4,

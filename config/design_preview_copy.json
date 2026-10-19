@@ -33,7 +33,12 @@
     "sub": "Praxisnahe Automatisierung statt komplizierter Theorie.",
     "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
-  "FB-R1/post": {
+  "FB-R1/roman_right": {
+    "headline": "Erst der *Prozess*, dann das Tool",
+    "sub": "Was ich jedem Team vor einem KI-Projekt sage.",
+    "cta": "Mehr erfahren"
+  },
+  "FB-R1/roman_left": {
     "headline": "Erst der *Prozess*, dann das Tool",
     "sub": "Was ich jedem Team vor einem KI-Projekt sage.",
     "cta": "Mehr erfahren"
@@ -66,7 +71,12 @@
     "cta": "Gespräch buchen",
     "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
-  "FA-R1/post": {
+  "FA-R1/roman_right": {
+    "headline": "KI-Automatisierung, die *Ergebnisse* schafft",
+    "sub": "Fordern Sie Ihre kostenfreie KI-Potenzialanalyse an.",
+    "cta": "Analyse anfragen"
+  },
+  "FA-R1/roman_left": {
     "headline": "KI-Automatisierung, die *Ergebnisse* schafft",
     "sub": "Fordern Sie Ihre kostenfreie KI-Potenzialanalyse an.",
     "cta": "Analyse anfragen"
@@ -103,7 +113,12 @@
     "sub": "Alle Tools in einem System, intelligent vernetzt.",
     "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
-  "LI-R1/post": {
+  "LI-R1/roman_right": {
+    "headline": "KI ersetzt keine *Menschen*",
+    "sub": "Sie übernimmt Routinen, damit Ihr Team Zeit für Kunden hat.",
+    "cta": "Mehr erfahren"
+  },
+  "LI-R1/roman_left": {
     "headline": "KI ersetzt keine *Menschen*",
     "sub": "Sie übernimmt Routinen, damit Ihr Team Zeit für Kunden hat.",
     "cta": "Mehr erfahren"

@@ -31,7 +31,12 @@ from PIL import Image, ImageOps
 from pydantic import Field
 
 from content_automation.ai.avatar import AvatarError
-from content_automation.ai.image import ImageError, estimate_cost_usd, get_provider
+from content_automation.ai.image import (
+    ImageAwaitingAgent,
+    ImageError,
+    estimate_cost_usd,
+    get_provider,
+)
 from content_automation.ai.video import VideoError
 from content_automation.content.brief import (
     ASPECT_BY_PLATFORM,
@@ -101,6 +106,15 @@ from content_automation.content.quality import (
 from content_automation.content.relevance import INSIGHT_ONLY, Fit, service_fit
 from content_automation.content.research_input import ResearchIdea, save_sources
 from content_automation.content.roman import RomanError, approved_photos, identity_sheet
+from content_automation.content.roman_prompt import (
+    AI_DISCLOSURE,
+    character_token,
+    history,
+    is_combination,
+    load_guidelines,
+    pick_combination,
+)
+from content_automation.content.routing import DISABLED
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
 from content_automation.core.jobs import DETAILS_FILE, Job, ReviewCheck, slugify
@@ -135,7 +149,7 @@ from content_automation.workflows.design_system import (
     FormatSpec,
     load_design_system,
 )
-from content_automation.workflows.direction_job import direction_settings
+from content_automation.workflows.direction_job import MANIFEST_SUFFIX, direction_settings
 from content_automation.workflows.image_checks import image_problems
 from content_automation.workflows.image_job import raw_image
 from content_automation.workflows.image_workflows import (
@@ -168,8 +182,7 @@ from content_automation.workflows.video_job import (
 from content_automation.workflows.video_plan import PlanError, parse_plan
 
 PACKAGE_FILE = "package.json"
-# v5 R6.7: shown with every image of Roman made by his LoRA (caption and tracker notes)
-AI_DISCLOSURE = "KI-generiertes Bild (Roman, erstellt mit einem KI-Modell)"
+# v5 R6.7: shown with every image of Roman (caption and tracker notes): content/roman_prompt.py
 BRIEF_FILE = "brief.json"
 TEMPLATE_FILE = "brief.template.json"
 RESEARCH_FILE = "research.md"
@@ -222,6 +235,9 @@ class PackageItem(CamelModel):
     est_cost_usd: float | None = None  # the estimate for the same jobs: shown beside the actual
     subfolders: dict[str, str] = Field(default_factory=dict)  # file -> Drive subfolder
     notes: list[str] = Field(default_factory=list)  # for the tracker (fallbacks, set check)
+    # a Roman image via Higgsfield: each strict check's result per file (workflows/
+    # roman_check.py, then Codex's visual review)
+    roman_checks: dict[str, dict[str, str]] = Field(default_factory=dict)
     error: str | None = None
     updated_at: datetime | None = None
 
@@ -265,6 +281,9 @@ class ContentPackage(CamelModel):
     # v5 R6.7 (EU AI Act Art. 50): the label for images of Roman made by his LoRA; also on
     # Facebook ads (Q8 default yes). None: no generated person.
     ai_disclosure: str | None = None
+    # 2026-10-20: Roman's combination for Higgsfield (e.g. "S-L/BG-2/P-3/H-1"), picked at
+    # stage 1 by rotation over the platform's earlier Roman images (content/roman_prompt.py)
+    roman_combination: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -396,15 +415,15 @@ def _apply_deliverables(
     # ("as li_stat"), or for a part no direction takes.
     as_direction = is_direction_id(format_override)
     as_format = bool(format_override) and not as_direction and (
-        str(format_override).strip().lower() != ROMAN)
+        str(format_override).strip().lower() != ROMAN) and not is_combination(format_override)
     direction = None if as_format else _choose_direction(folder, package, items, settings,
                                                          format_override)
     if direction is not None:
         lines.append(f"Design direction: {direction[0].label} ({direction[1]})")
         lines.append(f"Layout variant: {direction[0].id}, {direction[0].category}, "
                      f"treatment {direction[0].treatment}; route: "
-                     + ("comfyui (Roman's LoRA on RunPod; AI disclosure on)" if direction[0].roman
-                        else "openrouter (designer prompt, no person)"))
+                     + (f"{direction[0].provider} (Roman; AI disclosure on)"
+                        if direction[0].roman else "openrouter (designer prompt, no person)"))
     elif as_direction:
         raise DeliverableError(f'"as {format_override}": none of these deliverables takes a '
                                "layout variant (LinkedIn or Facebook post, Facebook ad, "
@@ -456,8 +475,18 @@ def _apply_deliverables(
         package.requires_roman = direction[0].roman
         package.ai_disclosure = AI_DISCLOSURE if direction[0].roman else None
     package.language = load_content(settings.content_file).for_platform(package.platform)
+    package.roman_combination = None
+    if direction is not None and direction[0].visual.subject == "roman_higgsfield":
+        combination, why = pick_combination(
+            package.content_id or folder.name,
+            history(settings.packages_dir, package.platform or "", exclude=folder),
+            override=format_override if is_combination(format_override) else None)
+        package.roman_combination = combination.id
+        lines.append(f"Roman: {combination.id} ({why}); Higgsfield Soul 2.0 with "
+                     f"{character_token()}; text, logo and CTA on the "
+                     f"{'left' if combination.roman_right else 'right'}")
     for item_id in runtime.package_items(folder).values():
-        runtime.report_design(item_id, layout_variant=package.direction,
+        runtime.report_design(item_id, layout_variant=_layout_variant(package),
                               background_treatment=package.treatment,
                               requires_roman=package.requires_roman, language=package.language)
     if post is not None and suggested is not None and "post" not in package.items:
@@ -523,7 +552,8 @@ def _choose_direction(
     """Phase D / v5: the layout variant of the package's post, ad or carousel (content/
     direction_pick.py); "as <ID>" wins, "roman" = a founder variant of that category.
     DeliverableError for a bad override or no usable variant (exit 2: Codex asks the user)."""
-    roman = (override or "").strip().lower() == ROMAN  # requires_roman (v5 R6.3)
+    # requires_roman (v5 R6.3): "roman", or a Roman combination such as "S-L/BG-1/P-2/H-3"
+    roman = (override or "").strip().lower() == ROMAN or is_combination(override)
     for item in items:
         if item.platform is None:
             continue
@@ -532,14 +562,13 @@ def _choose_direction(
             continue
         try:
             catalog = load_directions()
-            lora = settings if settings.image_provider == "mock" else settings.model_copy(
-                update={"image_provider": "comfyui"})
             return pick_direction(
                 catalog, format_name, item.platform,
                 seed=package.content_id or folder.name,
                 recent=recent_directions(settings.packages_dir, catalog, format_name,
                                          item.platform, exclude=folder),
-                lora_ok=provider_shows_person(lora),
+                roman_ok=(settings.image_provider == "mock"
+                          or settings.roman_image_provider not in DISABLED),
                 override=override if is_direction_id(override) else None,
                 roman=roman,
             )
@@ -1100,7 +1129,7 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool,
     registered = runtime.package_items(folder)  # part -> BG ID (inside a `ca` command)
     if package.direction:  # v5: the registry shows the variant (R5.4) and requires_roman
         for item_id in registered.values():
-            runtime.report_design(item_id, layout_variant=package.direction,
+            runtime.report_design(item_id, layout_variant=_layout_variant(package),
                                   background_treatment=package.treatment,
                                   requires_roman=package.requires_roman,
                                   language=package.language)
@@ -1297,14 +1326,31 @@ def _marked(slot: ImageSlot) -> str:
                     for word in (slot.headline or "").split())
 
 
-def _planned_roman(folder: Path) -> bool | None:
-    """v5 R6.3: package.json requiresRoman, set at stage 1 (None for an older package)."""
+def _planned(folder: Path, key: str) -> object:
     try:
         data = json.loads((folder / PACKAGE_FILE).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    value = data.get("requiresRoman") if isinstance(data, dict) else None
+    return data.get(key) if isinstance(data, dict) else None
+
+
+def _planned_roman(folder: Path) -> bool | None:
+    """v5 R6.3: package.json requiresRoman, set at stage 1 (None for an older package)."""
+    value = _planned(folder, "requiresRoman")
     return value if isinstance(value, bool) else None
+
+
+def _planned_combination(folder: Path) -> str | None:
+    """package.json romanCombination, set at stage 1 (None: no Higgsfield image of Roman)."""
+    value = _planned(folder, "romanCombination")
+    return value if isinstance(value, str) and is_combination(value) else None
+
+
+def _layout_variant(package: ContentPackage) -> str | None:
+    """The registry's and tracker's Layout Variant: the variant, plus Roman's combination."""
+    if package.direction and package.roman_combination:
+        return f"{package.direction} {package.roman_combination}"
+    return package.direction
 
 
 def _slot_inputs(
@@ -1362,6 +1408,7 @@ def _slot_inputs(
         direction=slot.direction,
         direction_platform=brief.platform,
         requires_roman=_planned_roman(folder) if slot.direction else None,
+        roman_combination=_planned_combination(folder) if slot.direction else None,
     )
     if slot.templated and slot.slides:  # a static carousel: one image per slide
         total = len(slot.slides)
@@ -1692,9 +1739,64 @@ def _person_lines(
         f'    uv run ca job review "{job.folder}" --image {name} --person pass "<what you saw>"',
         f'    uv run ca job review "{job.folder}" --image {name} --person fail "<what differs>"',
         redo,
-        f'  A pass: uv run ca content build "{folder}" (continues). A fail: tell the user '
+        f'  A pass: uv run ca content build "{folder}" (continues'
+        + ("; the visual review follows" if job.provider == "higgsfield_soul" else "")
+        + "). A fail: tell the user "
         f"what differs; they choose a retry (new dry run, {_cost_text(job, settings)}) or the "
         "no-person version.",
+    ]
+
+
+def _manifest_checks(image: Path) -> dict[str, str]:
+    """The strict Roman checks recorded beside the image (image-N.design.json)."""
+    try:
+        data = json.loads(image.with_suffix(MANIFEST_SUFFIX).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    found = (data.get("check") or {}).get("romanChecks") if isinstance(data, dict) else None
+    return {str(k): str(v) for k, v in found.items()} if isinstance(found, dict) else {}
+
+
+def _higgsfield_image(item: PackageItem, position: int, settings: Settings) -> bool:
+    found = _image_job(item, position, settings)
+    return found is not None and found[0].provider == "higgsfield_soul"
+
+
+def _higgsfield_lines(job_file: Path, folder: Path) -> list[str]:
+    """Codex's steps for Roman's image (the job file has the prompt and the numbered steps)."""
+    try:
+        steps = json.loads(job_file.read_text(encoding="utf-8")).get("instructions") or []
+    except (OSError, ValueError):
+        steps = []
+    return [
+        f"ROMAN IMAGE (Higgsfield Soul 2.0): stop here. Job file: {job_file.resolve()}",
+        *(f"  {line}" for line in steps),
+        f'  Then: uv run ca content build "{folder}"   (checks the image and continues)',
+    ]
+
+
+def _visual_lines(
+    item: PackageItem, position: int, folder: Path, settings: Settings
+) -> list[str]:
+    """The visual review of a finished Roman image: four answers; any "no" blocks it."""
+    found = _image_job(item, position, settings)
+    if found is None:
+        return [f"VISUAL REVIEW for {item.files[position]}: its job record is missing."]
+    job, name = found
+    spelling = next((note for note in job.notes if note.startswith("Spelling:")), "")
+    return [
+        f"VISUAL REVIEW: stop here. Look at {(folder / item.files[position]).resolve()} and "
+        "answer each line yes or no:",
+        "  text readable (size, contrast, nothing cut off)?",
+        "  no overlap (text, logo, CTA and graphics clear of Roman and the hologram third)?",
+        "  logo correct (the official logo, undistorted, with clear space)?",
+        "  German correct (spelling, umlauts and ß, no English, nouns capitalised, no wrong "
+        "hyphenation)?" + (f" {spelling}" if spelling else ""),
+        f'    uv run ca job review "{job.folder}" --image {name} --visual '
+        '"text=yes overlap=yes logo=yes german=yes"',
+        "  Any no blocks the item (write what is wrong after the answers, e.g. "
+        '"german=no Massnahme -> Maßnahme").',
+        f'  Then: uv run ca content build "{folder}"',
     ]
 
 
@@ -1776,6 +1878,26 @@ def _make_images(
             ) is None:
                 item.status = "review"
                 return item, _person_lines(item, position, folder, settings, waiting=True)
+        for position in range(len(item.image_refs)):  # Roman via Higgsfield: visual review
+            if not _higgsfield_image(item, position, settings) or _check(
+                    item, position, "person", settings) != "pass":
+                continue
+            visual = _check(item, position, "visual", settings)
+            if visual is not None:
+                item.roman_checks.setdefault(item.files[position], {})["visualReview"] = (
+                    "passed" if visual == "pass" else "failed")
+            if visual is None:
+                item.status = "review"
+                item.error = f"visual review pending: {item.files[position]}"
+                return item, _visual_lines(item, position, folder, settings)
+            if visual == "fail":
+                found = _image_job(item, position, settings)
+                review = found[0].review(found[1], "visual") if found is not None else None
+                item.status = "failed"
+                item.error = (f"visual review failed: {item.files[position]} "
+                              f"({review.note if review is not None else 'no'})")
+                return item, [f"{kind}: {item.error}; the item is blocked. Tell the user; a new "
+                              "image only after a new dry run and their \"ok\"."]
     else:
         item = PackageItem(status="failed", updated_at=now)
     if len(item.image_folders) < len(item.image_refs):  # an item from before this field
@@ -1808,6 +1930,10 @@ def _make_images(
             inputs = replace(inputs, first_slide=item.image_refs[0])
         try:
             job = run_workflow("social_creative", inputs, settings, cold_start=batch.cold)
+        except ImageAwaitingAgent as waiting:  # Codex makes Roman's image with Higgsfield
+            item.status = "waiting"
+            item.error = f"waiting for Codex (Higgsfield): {waiting.job_file}"
+            return item, _higgsfield_lines(waiting.job_file, folder)
         except _IMAGE_ERRORS as error:
             item.status, item.error = "failed", str(error)
             return item, []
@@ -1836,6 +1962,9 @@ def _make_images(
             item.image_folders.append(entry[2])
         cost = job.actual_cost_usd if job.actual_cost_usd is not None else job.est_cost_usd
         item.cost_usd = _add_cost(item.cost_usd, cost)
+        recorded = _manifest_checks(job.folder / name)
+        if recorded:
+            item.roman_checks[entry[0]] = recorded
         checked = image_problems(target)
         if checked:  # Phase 7: size and not blank; never retried by itself
             item.status = "failed"
@@ -1878,6 +2007,15 @@ def _make_images(
             return item, _set_lines(item, pending, folder, settings)
     item.status, item.error = "done", None
     return item, []
+
+
+def _higgsfield_dry_line(inputs: dict[str, str | bool]) -> str:
+    config = load_guidelines()["higgsfield"]
+    credits = float(config["estimatedCreditsPerImage"])
+    return (f"Roman via Higgsfield {config['model']} ({inputs.get('romanCombination', '?')}; "
+            f"Codex runs the plugin after the \"ok\"; ≈ {credits:g} Higgsfield credits per "
+            f"attempt (estimate, not calibrated), at most {config['maxAttempts']} attempts, "
+            "every attempt counted; person zone, layout, German and visual checks after)")
 
 
 def _fit_size(path: Path, size: tuple[int, int]) -> None:
@@ -2048,9 +2186,14 @@ def _item_line(kind: str, item: PackageItem) -> str:
         cost = f" (${item.cost_usd:.4f}; estimate ${item.est_cost_usd:.4f})"
     elif item.cost_usd:
         cost = f" (${item.cost_usd:.4f})"
+    checks = "".join(
+        f"\n  Roman checks {file}: " + ", ".join(f"{name} {value}" for name, value in
+                                                 found.items() if name != "spelling")
+        for file, found in item.roman_checks.items())
     if item.status == "done":
-        return f"{LABELS[kind]}: done{cost}: {', '.join(item.files)}"
-    return f"{LABELS[kind]}: {item.status}{cost}" + (f": {item.error}" if item.error else "")
+        return f"{LABELS[kind]}: done{cost}: {', '.join(item.files)}{checks}"
+    return (f"{LABELS[kind]}: {item.status}{cost}" + (f": {item.error}" if item.error else "")
+            + checks)
 
 
 def _dry_run_lines(
@@ -2140,8 +2283,9 @@ def _dry_run_lines(
             source = (f"{len(generated)} picture(s) via {part.image_provider}" if generated
                       else "no picture (template, free)")
             layouts = ", ".join(dict.fromkeys(str(p.inputs.get("layout")) for p in plan.prepared))
-            who = ("Roman via his LoRA (person check after)" if lead.person_shown
-                   else "no generated person")
+            who = ("no generated person" if not lead.person_shown else
+                   _higgsfield_dry_line(lead.inputs) if part.image_provider == "higgsfield_soul"
+                   else "Roman via his LoRA (person check after)")
             lines.append(
                 f"{names[kind]}: {images}, direction {slot.direction} ({layouts}), \"{title}\"; "
                 f"{source}; {who}; "

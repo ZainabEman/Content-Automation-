@@ -27,7 +27,7 @@ description: Propose a week's Branded Genius content calendar (calendar/<YYYY-Ww
 ## Monthly social plan ("plan month November", "apply the plan"; v5)
 
 1. Optional first: "find new ideas" / "review ideas" (research-ideas) so approved ideas exist; real German topics fit best.
-2. `uv run ca plan month 2026-11 [--topic "<German topic>" …]` (free). It prints the count (about 2 graphics a day, 30-60, a carousel is one), the mix per category, how many are planned with Roman (requires_roman, his LoRA), open topics, the cost of the planned volume (an estimate; every build still has its own dry run and "ok") and the rotation line. It writes `calendar/2026-11-month-plan.json` and `.csv` (date, category, layout variant, treatment, Roman yes/no, topic, service fit, pictures, estimate, the German metadata to write).
+2. `uv run ca plan month 2026-11 [--topic "<German topic>" …]` (free). It prints the count (about 2 graphics a day, 30-60, a carousel is one), the mix per category, how many are planned with Roman (requires_roman, Higgsfield Soul 2.0), open topics, the cost of the planned volume (an estimate; every build still has its own dry run and "ok") and the rotation line. It writes `calendar/2026-11-month-plan.json` and `.csv` (date, category, layout variant, treatment, Roman yes/no, topic, service fit, pictures, estimate, the German metadata to write).
 3. Show the user the summary lines and the CSV path. Stop for their words.
 4. "apply the plan" → `uv run ca plan month 2026-11 --apply`: the assets with an approved idea become Approved rows of the weekly calendars (Roman rows get Format "roman"); the others are listed. Then generate as below ("generate approved"); each package still gets its own variant pick, German brief, dry run and "ok".
 

@@ -203,3 +203,19 @@ Phase 3 – decided 2026-10-10 (details in `docs/PHASE3-DECISION.md`; these over
 - Drive writes via plugin (2026-10-16): STORAGE_PROVIDER=plugin writes `<package>/upload_manifest.json` (create_folder entries, then `{local_path, target_folder_id, target_name}`; folder IDs from `config/drive_folders.json` + `state/drive_folders.json`; package `upload_pending`); the upload skill uploads with the Codex Google Drive plugin and runs `ca drive record <package> --results <json>` (idempotent; then the tracker row as `sheet_append`, fallback `tracker.csv` in Calendar/, and the calendar row Generated). Google Cloud not needed.
 - YouTube storyboards (2026-10-20): added `ca youtube storyboards BG-x` to create A/B/C boards without selecting a production style; upload now includes all three. Updated AGENTS.md, make-youtube skill, PRD, help, README and Module 6 guide. BG-098 and BG-099 storyboards generated and uploaded (10 files each); CLI workflow exercised; automated tests not run.
 - Calendar cadence (2026-10-20): saved the user's two-static-posts-per-day preference in `config/calendar.json`, `AGENTS.md` and make-calendar skill. Calendar planning now treats rejected date/type rows as open slots so approved ideas can replace them.
+- Roman via Higgsfield (2026-10-20):
+  - Roman's images are made by Codex with the Higgsfield plugin (Soul 2.0, saved character
+    "Roman Traenkle").
+  - The RunPod/ComfyUI LoRA route is disabled by config; its code is kept, and there is no
+    fallback.
+  - New guidelines in `config/roman_image_guidelines.json` and `brand/roman-image-guidelines.md`
+    (old ones in `config/_archive/`):
+    - 3 backgrounds × 3 poses × 3 hologram styles × 2 sides = 54 combinations, rotated per
+      platform
+    - the combination is stored in package.json, the registry and the tracker
+  - Flow: job file `outputs/higgsfield/<key>/job.json`, then `ca higgsfield list|record|fail`;
+    at most 2 attempts, every attempt counted.
+  - Person-safe crop (3:4 → 4:5) and strict checks (person zone, 48 px gap, calm text zones,
+    German, design check), plus the visual review (`ca job review --visual`).
+  - Preview: `scripts/roman_higgsfield_preview.py`.
+  - Details and UNKNOWNs: `docs/v5-implementation-notes.md`.

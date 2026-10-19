@@ -128,35 +128,37 @@ def test_illustration_prompt_never_repeats_the_copy(mock_settings: Settings) -> 
         prepare_workflow("social_creative", _inputs("FB-1", copied), mock_settings)
 
 
-def test_every_roman_image_is_a_lora_job(mock_settings: Settings) -> None:
-    for direction_id, platform in (("FB-R1", "facebook"), ("FA-R1", "facebook"),
-                                   ("LI-R1", "linkedin")):
+def test_every_roman_image_is_a_higgsfield_job(mock_settings: Settings) -> None:
+    for direction_id, platform, aspect in (("FB-R1", "facebook", "4:5"),
+                                           ("FA-R1", "facebook", "4:5"),
+                                           ("LI-R1", "linkedin", "3:4")):
         prepared = prepare_workflow(
-            "social_creative", _inputs(direction_id, sample_copy()[f"{direction_id}/post"],
-                                       direction_platform=platform), mock_settings)
+            "social_creative", _inputs(direction_id, sample_copy()[f"{direction_id}/roman_right"],
+                                       direction_platform=platform,
+                                       roman_combination="S-R/BG-1/P-1/H-1"), mock_settings)
         assert prepared.person_shown and prepared.request.person
-        assert prepared.request.prompt.startswith(load_directions().roman.prefix)
+        assert prepared.request.prompt.startswith("@Roman Traenkle")
+        assert prepared.request.aspect_ratio == aspect  # the canvas; the provider maps it
         assert not prepared.request.style_refs and not prepared.request.identity_refs
         assert prepared.settings is not None and prepared.settings.image_provider == "mock"
-    from pydantic import SecretStr
-
-    live = mock_settings.model_copy(update={  # fake RunPod settings: nothing is called
-        "image_provider": "openrouter", "runpod_api_key": SecretStr("rpa_test_only"),
-        "runpod_endpoint_id": "endpoint-test"})
-    routed = prepare_workflow("social_creative", _inputs("FB-R1", sample_copy()["FB-R1/post"]),
-                              live)  # IMAGE_PROVIDER=openrouter: Roman still goes to comfyui
-    assert routed.settings is not None and routed.settings.image_provider == "comfyui"
-    assert routed.request.person and str(routed.inputs["identity"]).startswith("trained LoRA")
+        assert str(prepared.inputs["aiDisclosure"]).startswith("KI-generiertes Bild")
+    live = mock_settings.model_copy(update={"image_provider": "openrouter"})
+    routed = prepare_workflow("social_creative", _inputs("FB-R1", sample_copy()[
+        "FB-R1/roman_left"], roman_combination="S-L/BG-3/P-2/H-2"), live)
+    assert routed.settings is not None and routed.settings.image_provider == "higgsfield_soul"
+    assert routed.request.person and "Higgsfield character" in str(routed.inputs["identity"])
+    assert routed.inputs["layout"] == "roman_left"
 
 
-def test_founder_variants_are_full_bleed_lora_never_a_photo() -> None:
+def test_founder_variants_are_full_bleed_never_a_photo() -> None:
     for direction in load_directions().directions:
         if direction.roman:
-            zone = direction.layouts["post"].zones["visual"]
-            assert direction.visual.subject == "roman_lora" and zone.visual_shape == "full"
-    design = DirectionDesign(direction="LI-R1", layout="post", copy={})
+            for layout in direction.layouts.values():
+                assert layout.zones["visual"].visual_shape == "full"
+            assert direction.visual.subject == "roman_higgsfield"
+    design = DirectionDesign(direction="LI-R1", layout="roman_right", copy={})
     picture = Image.new("RGB", (300, 400), (20, 30, 60))
-    assert design.picture(picture) is picture  # no cut-out: the LoRA image as it is
+    assert design.picture(picture) is picture  # no cut-out: the generated image as it is
 
 
 def test_mock_build_renders_and_checks_the_design(mock_settings: Settings) -> None:
@@ -170,10 +172,15 @@ def test_mock_build_renders_and_checks_the_design(mock_settings: Settings) -> No
     with Image.open(image) as made:
         assert made.size == (1080, 1440)  # 3:4
     assert any(note.startswith("Design: LI-3") for note in job.notes)
-    roman = run_workflow("social_creative", _inputs("LI-R1", sample_copy()["LI-R1/post"],
-                                                    direction_platform="linkedin"),
+    roman = run_workflow("social_creative", _inputs("LI-R1", sample_copy()["LI-R1/roman_left"],
+                                                    direction_platform="linkedin",
+                                                    roman_combination="S-L/BG-1/P-2/H-3"),
                          mock_settings)
     assert roman.status == "completed", roman.error
+    checks = json.loads((roman.folder / roman.outputs[0]).with_suffix(MANIFEST_SUFFIX)
+                        .read_text(encoding="utf-8"))["check"]["romanChecks"]
+    assert checks["overlap"] == "passed" and checks["german"] == "passed"
+    assert checks["textZoneCalm"].startswith("skipped")  # a mock picture
     ad = run_workflow("social_creative", _inputs("FA-3", dict(sample_copy()["FA-3/post"],
                                                               illustration=ILLUSTRATION)),
                       mock_settings)

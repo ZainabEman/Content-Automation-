@@ -70,7 +70,7 @@ def test_every_layout_renders_brand_only(assets: Assets) -> None:
                 continue
             assert rendered.logo is not None and rendered.logo.aspect_error < 0.01
             assert rendered.logo.width_px >= rendered.logo.min_width_px
-    assert count == 26  # 14 post/ad variants + 4 carousels x 3 slide layouts
+    assert count == 29  # 14 post/ad variants (3 founders x 2 sides) + 4 carousels x 3
 
 
 def test_light_variant_and_engagement_row_keep_contrast(assets: Assets) -> None:
@@ -142,8 +142,8 @@ def test_preview_writes_png_and_manifest(tmp_path: Path, logo: Path,
                                          monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(design_preview, "logo_file", lambda *_: logo)
     lines = preview(["fb-1", "LI-R1"], out_dir=tmp_path / "out")
-    assert lines[-1].startswith("Preview: 2 rendered, 0 failed")
-    assert (tmp_path / "out" / "LI-R1_post.png").is_file()
+    assert lines[-1].startswith("Preview: 3 rendered, 0 failed")
+    assert (tmp_path / "out" / "LI-R1_roman_left.png").is_file()
     assert (tmp_path / "out" / "FB-1_post.json").read_text(encoding="utf-8").count('"texts"') == 1
 
 

@@ -1,0 +1,132 @@
+# Roman image guidelines (Higgsfield Soul 2.0, since 2026-10-20)
+
+The data lives in `config/roman_image_guidelines.json`; `content/roman_prompt.py` builds every
+prompt from it. Change the wording there, never in code. The guidelines from before (the
+RunPod/ComfyUI LoRA route, now disabled) are archived in `config/_archive/`.
+
+## Who makes the image
+
+- Codex makes the image with the **Higgsfield plugin**, model **Soul 2.0**, from the saved
+  Higgsfield character **Roman Traenkle** (`higgsfield.characterName`).
+- Every prompt opens with the character token (`higgsfield.characterToken`, default
+  `@{name}`, so `@Roman Traenkle`).
+- `ca` never calls Higgsfield. It writes a job file; Codex runs the plugin and records the
+  result (`ca higgsfield record`).
+- Never use a real photo, never use another provider, and never fall back silently.
+- Every Roman image carries the AI disclosure label (package.json `aiDisclosure`).
+
+## A) Fixed rules (every prompt)
+
+- **Framing:** small in frame, a wide medium shot from the waist up, the camera pulled far
+  back. Roman sits at the far edge of his side and fills only about 20% of the width. The
+  frame edge cuts through his far shoulder. No person appears elsewhere.
+- **Gaze:** he looks straight into the lens with his head level.
+- **Wardrobe:** a tailored dark navy suit and a crisp white shirt.
+- **Lighting:** a soft, even frontal key light, with a subtle blue rim light on his shoulders
+  and hair.
+- **Negative space:** the other two-thirds stay calm, dark and empty, ready for the German
+  text, the logo and the CTA.
+- **Finish:** photographic, with no text, letters, logos or watermarks in the image.
+
+## B) Backgrounds
+
+| ID | Background |
+|---|---|
+| BG-1 | Penthouse office at blue hour (city skyline, glossy desk) |
+| BG-2 | Glass boardroom at night (frosted glass, black conference table) |
+| BG-3 | Technology lab at night (blue LED strips, blurred server racks) |
+
+## C) Poses
+
+The wording of each pose depends on the background. It is stored as data in
+`poses.<P>.byBackground`, so every pose fits every background.
+
+| ID | Pose |
+|---|---|
+| P-1 | Seated, hands loosely clasped |
+| P-2 | Standing, one hand on the table |
+| P-3 | Standing, arms crossed |
+
+## D) Hologram styles
+
+The hologram always stays **confined to the right third of the frame**. With S-L it is the
+left third.
+
+| ID | Hologram style |
+|---|---|
+| H-1 | Hub: a small glowing translucent hub with a thin ring of light |
+| H-2 | Workflow: a few small rounded-square holographic icons joined by lines |
+| H-3 | Neural network: fine blue lines and points of light |
+
+## E) Sides
+
+| ID | Roman | Text, logo and CTA |
+|---|---|---|
+| S-R | Right edge | Left two-thirds (layout `roman_right`) |
+| S-L | Left edge | Right two-thirds (layout `roman_left`, mirrored) |
+
+- The side is mirrored **in the words of the prompt**, never by flipping the image. An S-L
+  prompt never says "right edge" or "rightmost" about Roman.
+- The text, logo and CTA layout mirrors with the side.
+
+## F) Rotation (54 combinations)
+
+A combination id looks like `S-L/BG-2/P-3/H-1`. Rotation runs per platform, over the Roman
+images in package.json `romanCombination`, newest first:
+
+- Never reuse the background, the pose or the hologram style of the previous Roman image.
+- Never use the same side three times in a row.
+- Never repeat a full combination from the last 12 images.
+
+The pick is seeded by the Content ID. The id is stored in package.json, in the registry and
+in the tracker's Layout Variant column, for example `LI-R1 S-L/BG-2/P-3/H-1`.
+
+To override the pick, name a combination at stage 1, for example `--as "S-L BG-1 P-2 H-3"`
+or "use S-L BG-1 P-2 H-3".
+
+## Aspect ratios
+
+Soul 2.0 supports these ratios (`higgsfield.aspectRatios`): 9:16, 3:4, 2:3, 1:1, 4:3, 16:9,
+3:2. It has no 4:5.
+
+| Canvas | Generated at | Then |
+|---|---|---|
+| LinkedIn 3:4 | 3:4 | No crop |
+| Square 1:1 | 1:1 | No crop |
+| Facebook post or ad 4:5 | 3:4 | 1080×1440 is cropped to 1080×1350, a person-safe crop that removes 90 px of height |
+| Any other canvas | The nearest supported ratio | The same person-safe crop |
+
+How the person-safe crop works:
+
+- It takes height from the bottom first.
+- It never cuts the head or the hands.
+- If no crop keeps both, the image fails.
+- It never upscales.
+
+## Checks (any failure blocks the item)
+
+1. **Person zone:** Roman stays within the outer 25% of the width on his side, and nothing
+   person-like appears in the empty two-thirds. A failure gets one regeneration, which is the
+   second of at most 2 attempts.
+2. **No overlap:** the text, the CTA and the logo (with its clear space) stay at least 48 px
+   (at 1080 px width) from Roman's third.
+3. **Calm text zones:** behind each text box the picture's brightness spread is at most 30 and
+   its detail at most 12.
+4. **Contrast, sizes, margins and logo:** the `ca design check` thresholds, with 64 px
+   margins, the official logo hash and the logo's clear space.
+5. **German:** the German quality pass, noun capitalisation after an article, no broken
+   hyphenation, and spelling. Spelling uses Hunspell de_DE when it is installed; otherwise
+   Codex checks it in the visual review.
+6. **Visual review** (Codex): it answers four questions about the image:
+
+   ```
+   ca job review <job> --visual "text=yes overlap=yes logo=yes german=yes"
+   ```
+
+   Any "no" blocks the item.
+
+Results go to `image-N.design.json` (`check.romanChecks`) and package.json
+(`romanChecks`), and the build summary shows them.
+
+The preview sheet is made with `uv run python scripts/roman_higgsfield_preview.py` and saved
+at `outputs/previews/design/roman_higgsfield_layouts.png`.

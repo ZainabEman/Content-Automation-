@@ -21,6 +21,7 @@ from PIL import Image
 
 from content_automation.ai.image import ASPECT_RATIOS, AspectRatio
 from content_automation.content.directions import (
+    SIDE_LAYOUTS,
     Direction,
     DirectionCatalog,
     DirectionError,
@@ -42,6 +43,7 @@ from content_automation.workflows.design_render import (
     plain,
     render_layout,
 )
+from content_automation.workflows.roman_check import run_checks
 
 MANIFEST_SUFFIX = ".design.json"  # beside image-N.png in the job folder
 
@@ -51,9 +53,10 @@ class DirectionJobError(ValueError):
 
 
 def direction_layout(direction: Direction, *, platform: str | None, seed: str,
-                  role: str | None = None) -> tuple[str, Layout]:
-    """The layout the template, the brief check and the build all use (same seed, same one)."""
-    return direction.layout_for(platform, seed=seed, role=role)
+                     role: str | None = None, side: str | None = None) -> tuple[str, Layout]:
+    """The layout the template, the brief check and the build all use (same seed, same one;
+    a Higgsfield founder variant: the layout of Roman's side)."""
+    return direction.layout_for(platform, seed=seed, role=role, side=side)
 
 
 def has_picture(direction: Direction, layout: Layout, role: str | None = None) -> bool:
@@ -176,6 +179,12 @@ class DirectionDesign:
                                 services=load_services(settings.services_file),
                                 name=f"{self.direction} {self.layout}", image=rendered.image,
                                 person_check=self.person_check)
+        if direction.visual.subject == "roman_higgsfield":  # the strict checks (2026-10-20)
+            side = "S-L" if self.layout == SIDE_LAYOUTS["S-L"] else "S-R"
+            mock = settings.image_provider == "mock"
+            roman, _ = run_checks(manifest, side, None if mock else generated)
+            report.errors += roman.errors
+            report.checks = roman.results
         return rendered, report
 
 

@@ -90,7 +90,7 @@ def test_generation_opens_nothing_from_the_archive(opened: list[str], tmp_path: 
         for direction in catalog.for_format(format_name):
             for platform in direction.platforms:
                 pick_direction(catalog, format_name, platform, seed="x", recent=[],
-                               lora_ok=True)
+                               roman_ok=True)
     samples = sample_copy()
     for direction in catalog.directions:
         if direction.visual.subject != "illustration":

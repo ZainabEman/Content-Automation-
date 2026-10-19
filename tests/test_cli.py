@@ -47,7 +47,7 @@ def test_image_command_failure_exits_non_zero(
 
 @pytest.mark.usefixtures("isolated")
 def test_image_command_rejects_bad_aspect() -> None:
-    result = CliRunner().invoke(app, ["image", "--prompt", "test", "--aspect", "3:2"])
+    result = CliRunner().invoke(app, ["image", "--prompt", "test", "--aspect", "5:4"])
 
     assert result.exit_code == 1
     assert "Aspect must be one of" in result.output

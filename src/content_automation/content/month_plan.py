@@ -5,7 +5,7 @@ asset); the category mix of config/deliverables.json monthlyPlan is scaled to it
 remainder). Days are filled two at a time with the categories that are furthest behind their
 share, never the same category twice a day and, while another is left, not the category of the
 day before, so formats spread over the month. Every romanEvery-th LinkedIn/Facebook post or ad
-is planned with requires_roman (a founder variant, his LoRA).
+is planned with requires_roman (a founder variant, Higgsfield Soul 2.0).
 
 Topics: approved, unplanned ideas of the backlog (best score first) and the --topic texts. Each
 topic goes to the slot whose category fits it best (a verified service fit favours an ad, how-to
@@ -215,14 +215,14 @@ def plan_month(settings: Settings, deliverables: DeliverableCatalog, catalog: Di
             key = (format_name, platform)
             chosen, _ = pick_direction(catalog, format_name, platform,
                                        seed=f"{label}-{len(assets) + 1}",
-                                       recent=recent.get(key, [])[:2], lora_ok=True,
+                                       recent=recent.get(key, [])[:2], roman_ok=True,
                                        roman=roman)
             recent[key] = [chosen.id, *recent.get(key, [])][:5]
             topic = max(pool, key=lambda item: _affinity(item, name, services)) if pool else None
             if topic is not None:
                 pool.remove(topic)
             pictures = len(slide_roles(chosen)) if chosen.format == "carousel" else 1
-            provider = "comfyui" if chosen.roman else "openrouter"
+            provider = chosen.provider if chosen.roman else "openrouter"
             assets.append(Asset(
                 number=len(assets) + 1, day=day.isoformat(), deliverable=name,
                 category=chosen.category, platform=platform, requires_roman=chosen.roman,
@@ -260,9 +260,11 @@ def summary_lines(label: str, assets: list[Asset], days: int) -> list[str]:
     lines = [
         f"Month plan {label}: {len(assets)} graphics over {days} days (a carousel counts as one): "
         + ", ".join(f"{name} {count}" for name, count in by_category.items()) + ".",
-        f"Roman (requires_roman, his LoRA on RunPod): {roman}; topics open: {open_topics}.",
+        f"Roman (requires_roman, Higgsfield Soul 2.0 via Codex): {roman}; topics open: "
+        f"{open_topics}.",
         f"Dry run of the planned volume (estimate, nothing called): {pictures} pictures, about "
-        f"${cost:.2f} (OpenRouter designer images and RunPod LoRA images; text, logo and "
+        f"${cost:.2f} (OpenRouter designer images and Higgsfield Roman images, an estimate; "
+        "text, logo and "
         "website are drawn by the app for free). Each build still has its own dry run and "
         "needs its own \"ok\".",
     ]

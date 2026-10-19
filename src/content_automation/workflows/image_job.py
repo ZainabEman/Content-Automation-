@@ -11,6 +11,7 @@ from pathlib import Path
 from PIL import Image
 
 from content_automation.ai.image import (
+    ImageAwaitingAgent,
     ImageRequest,
     ReferenceImage,
     comfyui_photo_prompt,
@@ -109,6 +110,7 @@ def run_image_job(
         check_daily_limit(
             settings.output_dir, limit=settings.image_daily_limit, requested=request.count
         )
+    _await_agent(request, settings)  # Higgsfield: no registry job before Codex delivers
     registered, reused = _registry_job(request, settings, workflow_id, inputs, cold_start)
     if reused is not None:
         return reused
@@ -194,10 +196,16 @@ def run_image_job(
                 path = job.folder / f"image-{index}.png"
                 drawn.image.save(path, format="PNG", optimize=True)
                 manifest = drawn.manifest() | {"copy": design.copy, "check": {
-                    "errors": report.errors, "warnings": report.warnings}}
+                    "errors": report.errors, "warnings": report.warnings,
+                    **({"romanChecks": report.checks} if report.checks else {})}}
                 atomic_write_text(path.with_suffix(MANIFEST_SUFFIX),
                                   json.dumps(manifest, indent=2, ensure_ascii=False, default=str))
                 written.append(path)
+                if report.checks:
+                    job.notes.append("Roman checks: " + "; ".join(
+                        f"{name} {value}" for name, value in report.checks.items()
+                        if name != "spelling") + ".")
+                    job.notes.append(report.checks.get("spelling", ""))
                 if report.errors:
                     raise DirectionJobError(f"{path.name} failed the design check: "
                                             + "; ".join(report.errors))
@@ -242,6 +250,12 @@ def run_image_job(
         if registered is not None:
             runtime.fail(registered.id, "interrupted (Ctrl+C)")
         raise
+    except ImageAwaitingAgent:  # an attempt was rejected; Codex makes the next one
+        _remove(written)
+        job.cancel("Higgsfield attempt rejected; Codex makes the next one.")
+        if registered is not None:
+            runtime.reject(registered.id, "Higgsfield attempt rejected; waiting for the next one")
+        raise
     except Exception as error:
         _remove(written)
         message = mask_secrets(f"{type(error).__name__}: {error}", secret_values(settings))
@@ -255,6 +269,29 @@ def run_image_job(
         else:
             runtime.fail(registered.id, job.error or "failed", actual=job.actual_cost_usd)
     return job
+
+
+def _await_agent(request: ImageRequest, settings: Settings) -> None:
+    """An agent-mode image provider (higgsfield_soul): Codex makes the image with its plugin.
+    Until the image is delivered only its job file is written (no registry job, nothing spent)
+    and ImageAwaitingAgent is raised; a paid one only after the user's "ok"."""
+    provider = get_provider(settings.image_provider, settings)
+    waiting = getattr(provider, "waiting", None)
+    if getattr(provider, "mode", "code") != "agent" or waiting is None:
+        return
+    scope = runtime.current()
+    config = scope.config if scope is not None else load_job_config(settings.jobs_file)
+    name = settings.image_provider
+    authorized = scope is not None and (bool(scope.authorizations) or runtime.authorized_max(
+        scope.item, name, config.unit(name)) is not None)
+    if config.paid(name) and not authorized:
+        raise NotAuthorized(
+            f"Image jobs via {name} cost credits and run only under an authorization: run the "
+            "dry run, show the estimate, and after the user's \"ok\" run with --authorize "
+            "<dryrun_id>.")
+    job_file = waiting(request)
+    if job_file is not None:
+        raise ImageAwaitingAgent(f"waiting for Codex: {job_file}", Path(job_file))
 
 
 def _job_inputs(

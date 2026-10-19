@@ -116,7 +116,7 @@ GROUPS: tuple[Group, ...] = (
                'ca content start --topic "X" --deliverables "…"',
                "a package with those deliverables"),
         Phrase("use comfyui", 'ca content build "<folder>" --provider comfyui --dry-run',
-               "this run on ComfyUI (Roman's LoRA): its dry run, then ok"),
+               "this run on ComfyUI (only when the user asks; Roman's LoRA route is disabled)"),
         Phrase("use the fallback", 'ca content build "<folder>" --provider <fallback> --dry-run',
                "only the offered fallback line's own dry run, then ok; never for ads"),
     )),

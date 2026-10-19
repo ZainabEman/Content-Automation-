@@ -1,4 +1,5 @@
-"""PRD v5 R6 / §7.8: requires_roman → RunPod LoRA, everything else → OpenRouter; no silent
+"""PRD v5 R6 / §7.8 (2026-10-20): requires_roman → Higgsfield Soul 2.0 (Codex, his saved
+character), everything else → OpenRouter; the RunPod LoRA route is disabled; no silent
 fallback; no secret in prompts, job records, manifests or package files (mock only, offline)."""
 
 import hashlib
@@ -81,31 +82,33 @@ def _inputs(direction: str, copy: dict[str, object], **extra: object) -> Workflo
 
 
 def test_the_route_follows_requires_roman() -> None:
-    assert image_route(True) == "comfyui" and image_route(False) == "openrouter"
+    assert image_route(True) == "higgsfield_soul" and image_route(False) == "openrouter"
     assert image_route(True, picture=False) == "template"
+    assert image_route(True, roman_provider="comfyui") == "comfyui"  # refused by check_route
 
 
-def test_roman_without_runpod_fails_clearly_never_a_fallback(mock_settings: Settings) -> None:
-    live = mock_settings.model_copy(update={"image_provider": "openrouter"})
-    assert runpod_missing(live) == ["RUNPOD_API_KEY", "RUNPOD_ENDPOINT_ID"]
-    with pytest.raises(RoutingError, match="RUNPOD_API_KEY, RUNPOD_ENDPOINT_ID is not set"):
+def test_the_runpod_route_is_disabled_never_a_fallback(mock_settings: Settings) -> None:
+    live = mock_settings.model_copy(update={"image_provider": "openrouter",
+                                            "roman_image_provider": "comfyui"})
+    assert runpod_missing(live) == ["RUNPOD_API_KEY", "RUNPOD_ENDPOINT_ID"]  # code kept
+    with pytest.raises(RoutingError, match="disabled"):
         check_route(load_directions().get("LI-R1"), live)
     with pytest.raises(WorkflowError, match="no fallback to another provider"):
-        prepare_workflow("social_creative", _inputs("LI-R1", sample_copy()["LI-R1/post"]),
+        prepare_workflow("social_creative", _inputs("LI-R1", sample_copy()["LI-R1/roman_right"]),
                          live)
 
 
-def test_roman_with_runpod_goes_to_comfyui_others_to_openrouter(
-        mock_settings: Settings) -> None:
-    from pydantic import SecretStr
-
-    live = mock_settings.model_copy(update={
-        "image_provider": "comfyui", "runpod_api_key": SecretStr(RUNPOD_KEY),
-        "runpod_endpoint_id": "endpoint-test"})
-    roman = prepare_workflow("social_creative", _inputs("LI-R1", sample_copy()["LI-R1/post"]),
-                             live)
-    assert roman.inputs["route"] == "comfyui" and roman.settings is not None
-    assert roman.settings.image_provider == "comfyui"
+def test_roman_goes_to_higgsfield_others_to_openrouter(mock_settings: Settings) -> None:
+    live = mock_settings.model_copy(update={"image_provider": "openrouter"})
+    roman = prepare_workflow("social_creative", _inputs(
+        "LI-R1", sample_copy()["LI-R1/roman_left"], roman_combination="S-L/BG-2/P-3/H-1"), live)
+    assert roman.inputs["route"] == "higgsfield_soul" and roman.settings is not None
+    assert roman.settings.image_provider == "higgsfield_soul"
+    assert roman.inputs["romanCombination"] == "S-L/BG-2/P-3/H-1"
+    assert roman.inputs["layout"] == "roman_left"
+    assert roman.request.prompt.startswith("@Roman Traenkle")
+    assert roman.request.aspect_ratio == "3:4" and not roman.request.identity_refs
+    assert roman.request.options == {"combination": "S-L/BG-2/P-3/H-1", "side": "S-L"}
     _designer_files(Path(live.references_dir), "LI-1")
     other = prepare_workflow("social_creative", _inputs("LI-1", dict(
         sample_copy()["LI-1/post"], illustration=ILLUSTRATION)), live.model_copy(update={
@@ -120,7 +123,7 @@ def test_a_variant_must_match_the_planned_flag(mock_settings: Settings) -> None:
             sample_copy()["LI-1/post"], illustration=ILLUSTRATION), requires_roman=True),
             mock_settings)
     with pytest.raises(WorkflowError, match="requires_roman=false"):
-        prepare_workflow("social_creative", _inputs("LI-R1", sample_copy()["LI-R1/post"],
+        prepare_workflow("social_creative", _inputs("LI-R1", sample_copy()["LI-R1/roman_right"],
                                                     requires_roman=False), mock_settings)
 
 
@@ -130,7 +133,7 @@ def test_no_secret_in_prompts_job_records_or_manifests(mock_settings: Settings) 
     keyed = mock_settings.model_copy(update={"runpod_api_key": SecretStr(RUNPOD_KEY),
                                              "runpod_endpoint_id": "endpoint-test"})
     texts: list[str] = []
-    for direction_id, copy in (("LI-R1", sample_copy()["LI-R1/post"]),
+    for direction_id, copy in (("LI-R1", sample_copy()["LI-R1/roman_right"]),
                                ("LI-2", dict(sample_copy()["LI-2/post"],
                                              illustration=ILLUSTRATION))):
         prepared = prepare_workflow("social_creative", _inputs(direction_id, copy), keyed)

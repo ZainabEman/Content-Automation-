@@ -38,40 +38,40 @@ def test_never_the_previous_variant_on_the_platform() -> None:
     catalog = load_directions()
     for seed in range(30):
         chosen, reason = pick_direction(catalog, "fb_single", "facebook", seed=str(seed),
-                                        recent=["FB-2"], lora_ok=False)
+                                        recent=["FB-2"], roman_ok=False)
         assert chosen.id in ("FB-1", "FB-3", "FB-4") and "FB-2" in reason
 
 
 def test_carousels_skip_the_last_two() -> None:
     catalog = load_directions()
     picks = {pick_direction(catalog, "carousel", "instagram", seed=str(seed),
-                            recent=["CS-3", "CS-1"], lora_ok=True)[0].id for seed in range(30)}
+                            recent=["CS-3", "CS-1"], roman_ok=True)[0].id for seed in range(30)}
     assert picks == {"CS-2", "CS-4"}
 
 
 def test_seeded_and_spread_without_history() -> None:
     catalog = load_directions()
-    first = pick_direction(catalog, "li_single", "linkedin", seed="BG-7", recent=[], lora_ok=True)
-    again = pick_direction(catalog, "li_single", "linkedin", seed="BG-7", recent=[], lora_ok=True)
+    first = pick_direction(catalog, "li_single", "linkedin", seed="BG-7", recent=[], roman_ok=True)
+    again = pick_direction(catalog, "li_single", "linkedin", seed="BG-7", recent=[], roman_ok=True)
     assert first[0].id == again[0].id and first[1] == "first of its category"
     spread = {pick_direction(catalog, "li_single", "linkedin", seed=str(seed), recent=[],
-                             lora_ok=True)[0].id for seed in range(60)}
+                             roman_ok=True)[0].id for seed in range(60)}
     assert spread == {"LI-1", "LI-2", "LI-3", "LI-4"}  # Roman only when required
 
 
 def test_requires_roman_picks_the_founder_variant_never_a_photo() -> None:
     catalog = load_directions()
     with pytest.raises(DirectionError, match="every founder li_single variant needs"):
-        pick_direction(catalog, "li_single", "linkedin", seed="x", recent=[], lora_ok=False,
+        pick_direction(catalog, "li_single", "linkedin", seed="x", recent=[], roman_ok=False,
                        roman=True)
     for format_name, platform, wanted in (("li_single", "linkedin", "LI-R1"),
                                           ("fb_single", "facebook", "FB-R1"),
                                           ("fb_ad", "facebook", "FA-R1")):
         chosen, _ = pick_direction(catalog, format_name, platform, seed="x", recent=[],
-                                   lora_ok=True, roman=True)
-        assert chosen.id == wanted and chosen.provider == "comfyui"
+                                   roman_ok=True, roman=True)
+        assert chosen.id == wanted and chosen.provider == "higgsfield_soul"
     with pytest.raises(DirectionError, match="never swapped"):
-        pick_direction(catalog, "fb_single", "facebook", seed="x", recent=[], lora_ok=False,
+        pick_direction(catalog, "fb_single", "facebook", seed="x", recent=[], roman_ok=False,
                        override="FB-R1")
 
 
@@ -81,20 +81,20 @@ def test_no_third_treatment_in_a_row() -> None:
     # the last two LinkedIn posts both used the dark_panel treatment (LI-2): never a third
     for seed in range(40):
         chosen, reason = pick_direction(catalog, "li_single", "linkedin", seed=str(seed),
-                                        recent=["LI-2", "LI-2"], lora_ok=True)
+                                        recent=["LI-2", "LI-2"], roman_ok=True)
         assert chosen.treatment != "dark_panel" and chosen.id != "LI-2"
 
 
 def test_override_must_fit_the_category_and_platform() -> None:
     catalog = load_directions()
     chosen, reason = pick_direction(catalog, "li_single", "linkedin", seed="x", recent=["LI-2"],
-                                    lora_ok=True, override="li-2")
+                                    roman_ok=True, override="li-2")
     assert chosen.id == "LI-2" and reason == "as asked"
     with pytest.raises(DirectionError, match="not fb_single on facebook"):
-        pick_direction(catalog, "fb_single", "facebook", seed="x", recent=[], lora_ok=True,
+        pick_direction(catalog, "fb_single", "facebook", seed="x", recent=[], roman_ok=True,
                        override="FA-1")
     with pytest.raises(DirectionError, match="unknown design direction"):
-        pick_direction(catalog, "fb_single", "facebook", seed="x", recent=[], lora_ok=True,
+        pick_direction(catalog, "fb_single", "facebook", seed="x", recent=[], roman_ok=True,
                        override="FB-9")
 
 

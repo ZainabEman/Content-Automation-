@@ -77,10 +77,10 @@ def test_copy_claims_numbers_and_identity(logo: Path) -> None:
     report = _check(data, logo)
     assert any("does not offer" in error for error in report.errors)
     assert any("a number needs its source" in warning for warning in report.warnings)
-    lora = _manifest(logo, "LI-R1", "post")
+    lora = _manifest(logo, "LI-R1", "roman_right")
     assert any("person check must pass" in w for w in _check(lora, logo).warnings)
     assert not _check(lora, logo, person_check="pass").warnings
-    real = _manifest(logo, "FB-R1", "post")
+    real = _manifest(logo, "FB-R1", "roman_left")
     real["photo"] = "C:/photos/2.jpg"
     assert any("never the final image" in e for e in _check(real, logo).errors)
 

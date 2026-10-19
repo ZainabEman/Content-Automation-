@@ -1,0 +1,129 @@
+{
+  "_note": "Roman image guidelines (2026-10-20, replaces the LoRA prompt pools; the old LoRA prompt pools are in the archive). Every image of Roman is made by Codex with the Higgsfield plugin, model Soul 2.0, from the saved Higgsfield character (content/roman_prompt.py builds the prompt from the parts below; workflows/roman_check.py checks the result; the app adds the German text, the logo and the CTA). {side} = the edge Roman stands at (right for S-R, left for S-L), {other} = the opposite side. A combination is <side>/<background>/<pose>/<hologram>, e.g. S-L/BG-2/P-3/H-1: 2 x 3 x 3 x 3 = 54.",
+  "higgsfield": {
+    "_note": "UNKNOWN until checked in Codex: the exact way the plugin references a saved character (this token, a character id parameter, or both), the Soul 2.0 model id, and the credits per image. aspectRatios is the user's list for Soul 2.0 (2026-10-20); every job is validated against it.",
+    "characterName": "Roman Traenkle",
+    "characterToken": "@{name}",
+    "subjectName": "Roman",
+    "model": "Soul 2.0",
+    "plugin": "Higgsfield",
+    "aspectRatios": ["9:16", "3:4", "2:3", "1:1", "4:3", "16:9", "3:2"],
+    "imagesPerJob": 1,
+    "maxAttempts": 2,
+    "estimatedCreditsPerImage": 5,
+    "usdPerCredit": 0.075,
+    "estimateNote": "estimate, not calibrated: 5 credits and $0.075 per credit are the unverified Phase 3 figures; record the real credits with `ca higgsfield record` and update these numbers",
+    "outputDir": "outputs/higgsfield"
+  },
+  "canvasAspects": {
+    "_note": "target canvas aspect -> the Soul 2.0 aspect generated; a different target is cropped person-safe (workflows/roman_check.py safe_crop); nothing is upscaled beyond the generated size without saying so",
+    "3:4": "3:4",
+    "1:1": "1:1",
+    "4:5": "3:4"
+  },
+  "fixed": {
+    "framing": "{token}, small in frame, wide medium shot from the waist up, camera pulled far back. He {verb} at the far {side} edge of the image, occupying only the {side}most 20% of the frame width, the {side} frame edge cutting through his far shoulder and arm. The center and {other} of the image contain no person.",
+    "gazeAndPose": "{pose}, body angled slightly toward the {other}, face turned toward the camera with head level, eyes looking directly into the lens, {expression}.",
+    "wardrobe": "Tailored dark navy suit, crisp white shirt.",
+    "lighting": "Soft even frontal key light on his face, subtle blue rim light on his shoulders and hair.",
+    "setting": "Setting: {setting}",
+    "hologram": "Holographic layer: confined to the {side} third of the frame, {hologram}",
+    "negativeSpace": "The {other} two-thirds of the frame is quiet negative space: {fade} fading into deep near-black navy shadow, very low contrast, no holograms, {bans}, no light sources, no bright reflections, {tail}so text added later stays readable.",
+    "lightAndColor": "Light and color: deep midnight navy and near-black overall, royal blue #004BA0 glow around him, sky blue #69BFF8 only as small highlights on the holograms.",
+    "finish": "Photorealistic corporate photography, 35mm lens, f/2.8, eye level, {subject} in sharp focus, {holoWord} crisp, {blur} softly blurred. No text, letters or numbers anywhere, no logos.",
+    "paragraphs": [["framing", "gazeAndPose", "wardrobe", "lighting"], ["setting"], ["hologram"], ["negativeSpace"], ["lightAndColor"], ["finish"]]
+  },
+  "sides": {
+    "S-R": {"name": "Roman right", "side": "right", "other": "left"},
+    "S-L": {"name": "Roman left", "side": "left", "other": "right"}
+  },
+  "backgrounds": {
+    "BG-1": {
+      "name": "Penthouse office at blue hour",
+      "setting": "a real penthouse office at blue hour, floor-to-ceiling windows behind him with a softly blurred city skyline and a deep blue sky. The dark glossy desk extends from the {side} edge, with an open silver laptop and a black coffee mug near him.",
+      "fade": "the same room",
+      "bans": ["no neon"],
+      "tail": "only a faint dark suggestion of window frames, ",
+      "blur": "room",
+      "surface": "the desk"
+    },
+    "BG-2": {
+      "name": "Glass boardroom at night",
+      "setting": "a real modern glass boardroom at night, frosted glass wall behind him, a glossy black conference table reflecting a soft blue glow near him, empty leather chairs softly blurred.",
+      "fade": "the far end of the boardroom",
+      "bans": ["no neon", "no LED lines"],
+      "tail": "",
+      "blur": "room",
+      "surface": "the table"
+    },
+    "BG-3": {
+      "name": "Technology lab at night",
+      "setting": "a real high-end technology lab at night, dark wall behind him with a few vertical blue LED strips, blurred server racks with tiny blue lights in the background behind him, polished dark floor.",
+      "fade": "the lab",
+      "bans": ["no LED strips", "no neon"],
+      "tail": "",
+      "blur": "background",
+      "surface": "the polished floor"
+    }
+  },
+  "poses": {
+    "P-1": {
+      "name": "Seated",
+      "verb": "sits",
+      "expression": "calm confident expression",
+      "byBackground": {
+        "BG-1": "Seated at a dark glossy desk, hands loosely clasped",
+        "BG-2": "Seated at the glossy black conference table, hands loosely clasped",
+        "BG-3": "Seated at a dark glossy lab desk, hands loosely clasped"
+      }
+    },
+    "P-2": {
+      "name": "Standing, hand on table",
+      "verb": "stands",
+      "expression": "composed confident half-smile",
+      "byBackground": {
+        "BG-1": "One hand resting on the end of the dark glossy desk",
+        "BG-2": "One hand resting on the end of a long dark conference table",
+        "BG-3": "One hand resting on the end of a dark lab workbench"
+      }
+    },
+    "P-3": {
+      "name": "Standing, arms crossed",
+      "verb": "stands",
+      "expression": "calm confident expression",
+      "byBackground": {"BG-1": "Arms crossed", "BG-2": "Arms crossed", "BG-3": "Arms crossed"}
+    }
+  },
+  "holograms": {
+    "H-1": {
+      "name": "Hub",
+      "text": "a small glowing translucent hub floating just behind his shoulder, a thin ring of light connected by fine lines to five small circular holographic icons (chat bubble, calendar, envelope, people, bar chart). A faint wave of tiny blue particles drifts along the bottom {side} corner area only.",
+      "word": "holograms"
+    },
+    "H-2": {
+      "name": "Workflow",
+      "text": "a compact glowing workflow hovering behind him: a few small rounded-square holographic icon nodes (document, envelope, calendar, gear, check mark) connected by thin glowing lines, the glow reflecting faintly on {surface} beside him.",
+      "word": "holograms"
+    },
+    "H-3": {
+      "name": "Neural network",
+      "text": "a small glowing translucent neural network made of fine blue lines and light points floating above and behind his shoulder, connected by thin light paths to three small circular holographic icons (chat bubble, calendar, bar chart).",
+      "word": "hologram"
+    }
+  },
+  "rotation": {
+    "_note": "per platform, over the Roman images only (package.json romanCombination, newest first)",
+    "noRepeatOfPrevious": ["background", "pose", "hologram"],
+    "maxSameSideInARow": 2,
+    "noFullRepeatWithin": 12
+  },
+  "checks": {
+    "_note": "workflows/roman_check.py; shares of the canvas width unless named px (at 1080 px width)",
+    "personZoneShare": 0.25,
+    "hologramZoneShare": 0.3334,
+    "minGapPx": 48,
+    "textZoneMaxStd": 30,
+    "textZoneMaxDetail": 12,
+    "skinMinAreaShare": 0.0005
+  }
+}

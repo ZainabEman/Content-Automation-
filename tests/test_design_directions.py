@@ -49,7 +49,8 @@ def test_three_to_five_variants_per_category() -> None:
         assert direction.slide_roles[-1].role == "cta"
     founders = [d for d in catalog.directions if d.roman]
     assert {d.format for d in founders} == {"fb_single", "fb_ad", "li_single"}  # R4.1
-    assert all("-R" in d.id and d.provider == "comfyui" for d in founders)
+    assert all("-R" in d.id and d.provider == "higgsfield_soul" and d.pick == "side"
+               for d in founders)  # 2026-10-20: Roman via Higgsfield, mirrored layouts
 
 
 def test_every_variant_names_a_treatment_and_approved_references() -> None:

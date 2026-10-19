@@ -15,7 +15,13 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter
 
-from content_automation.content.directions import Direction, DirectionCatalog, load_directions
+from content_automation.content.directions import (
+    SIDE_LAYOUTS,
+    Direction,
+    DirectionCatalog,
+    load_directions,
+)
+from content_automation.content.roman_standin import stand_in as roman_stand_in
 from content_automation.core.files import atomic_write_text
 from content_automation.references import load_brand
 from content_automation.workflows.design_render import (
@@ -65,6 +71,8 @@ def stand_in_picture(direction: Direction, layout_name: str, catalog: DirectionC
     width, height = catalog.size(direction)
     left, top, right, bottom = zone.box
     size = (max(1, round((right - left) * width)), max(1, round((bottom - top) * height)))
+    if direction.visual.subject == "roman_higgsfield":  # Roman on his side, mirrored layouts
+        return roman_stand_in(size, "S-L" if layout_name == SIDE_LAYOUTS["S-L"] else "S-R")
     if zone.visual_shape == "full" and direction.layouts[layout_name].theme != "light":
         return dark_placeholder(size, direction.id, colors, person=direction.roman)
     stand_in = placeholder(size, direction.id, colors, person=direction.roman)

@@ -7,7 +7,10 @@ from pydantic import Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # comfyui: ComfyUI on a RunPod Serverless endpoint (config/comfyui.json; IMAGE_MODEL = workflow).
-ImageProvider = Literal["mock", "openrouter", "comfyui", "template"]
+ImageProvider = Literal["mock", "openrouter", "comfyui", "template", "higgsfield_soul"]
+# Roman's images (2026-10-20): Higgsfield Soul 2.0 via Codex; the RunPod/ComfyUI LoRA route is
+# kept in the code but off (ROMAN_IMAGE_PROVIDER=comfyui is refused while it is disabled)
+RomanImageProvider = Literal["higgsfield_soul", "comfyui"]
 # "none": no provider is set; a content package then keeps its video pending.
 # Agent providers are Codex plugins: Codex makes the clip, the app records it.
 VideoProvider = Literal["none", "mock", "higgsfield-plugin"]
@@ -67,6 +70,7 @@ class Settings(BaseSettings):
     # The static Instagram carousel's slide images: always OpenRouter (OPENROUTER_API_KEY);
     # IMAGE_PROVIDER=mock keeps them mock.
     carousel_image_model: str = Field(default="google/gemini-3.1-flash-image", min_length=1)
+    roman_image_provider: RomanImageProvider = "higgsfield_soul"
     default_identity_set: str = Field(default="identity/person_01", min_length=1)
     openrouter_api_key: SecretStr | None = None
     comfyui_config_file: Path = Path("config/comfyui.json")  # GPU price, workflows, LoRA

@@ -288,3 +288,66 @@ Open (for Roman):
 ### PRD §9 defaults used
 
 Q1 static carousels (animation already deleted 2026-10-16) · Q2 references as above · Q3 "Sie" · Q4 10–12 min · Q5 UTF-8 TXT · Q6 Markdown, one block per scene · Q7 clips untouched · Q8 disclosure on ads too · Q9 new folders only, nothing renamed/moved.
+
+---
+
+## Roman via Higgsfield (2026-10-20)
+
+### Audit (read-only, before the change)
+
+- **Roman prompts and identity rules (today):** `config/design_directions.json` → `roman` (LoRA prompt pools: prefix `r0man_bg, a man`, outfits, angles, expressions, business/quiet-luxury settings, the "alone" rule, blocked props, LoRA strength 0.8–1.0, approved real photos 2/4/5/6/9 for the identity sheet). Prompt builder: `content/roman.py roman_prompt()` (seeded by the Content ID, quiet luxury 1 in 4, `{space}` from the layout's text side, free prompt checks). Founder variants: `FB-R1`, `FA-R1`, `LI-R1` in `config/design_directions.json` (visual subject `roman_lora`, provider `comfyui`, the LoRA prompt `ROMAN_PROMPT`: Roman right of centre, full bleed, text left on a scrim). The FD-1..FD-3 directions of Phase D are archived (`config/_archive/design_directions_phaseD_competitor.json`). Identity rules (D-8): Roman only by his LoRA, never a real photo; person check with an identity sheet (`ca job review --person pass|fail`).
+- **requires_roman routing (today):** set at planning (the calendar's "roman" row or "as LI-R1"), stored in package.json `requiresRoman` and the registry; `content/routing.py check_route()` maps it to `comfyui` (RunPod Serverless, Z-Image Turbo + LoRA `r0man_bg_v2_step3000`) and fails clearly without RUNPOD_API_KEY/RUNPOD_ENDPOINT_ID; `workflows/direction_job.direction_settings()` uses the variant's provider, never swapped.
+- **Higgsfield flow (today):** the Phase 3 animated carousel (Higgsfield stills and clips, `ca carousel record`) was deleted on 2026-10-16; there is no carousel Higgsfield code left. The live pattern is the reel video agent step: `ai/video/providers/higgsfield_plugin.py` (agent mode) writes `<job>/requests/scene-N.json` (prompt, aspect, start image, identity images, numbered instructions), the job pauses as `awaiting_agent`, Codex finds the plugin tool at run time, makes the clip, records it with `ca job complete "<job>" --step scene-N --file … --credits …` (or `ca job fail`, no retries), then `ca video resume`. Image jobs (`workflows/image_job.py`) had only code-mode providers (mock, openrouter, comfyui, template).
+- **Higgsfield Soul, characters, aspect ratios, credits (what the repo says):** `docs/PHASE3-DECISION.md` §10 (plugin listing of 2026-10-16): image tool `mcp__codex_apps__higgsfield_generate_image`, model then selected `gpt_image_2_5`, reference images via `image_references` (uploaded media UUIDs or HTTPS URLs), no negative-prompt field, about 0.25 credits per 1k image for that model; §2: the MCP officially offers "Soul characters". **UNKNOWN in the repo:** the Soul 2.0 model id in the plugin, how a saved character is referenced (the `@Roman Traenkle` token, a character id parameter, or both), Soul 2.0's credits per image, and its aspect ratios (the list used here, 9:16, 3:4, 2:3, 1:1, 4:3, 16:9, 3:2, comes from the user's brief, not from the code or a listing). Old unverified estimates: 5 credits per still, $0.075 per credit (deleted `config/carousel_design.json`).
+- **Person detection available offline:** OpenCV Haar cascades (bundled with opencv-python-headless; used by `ca lora prepare` and the face check in `workflows/person_check.py`); rembg needs a model download (not used here).
+
+### Decision (2026-10-20)
+
+- **Roman via Higgsfield Soul 2.0:** Codex makes his images with the Higgsfield plugin, from
+  the saved character "Roman Traenkle". The prompt comes from the new guidelines
+  (`config/roman_image_guidelines.json`, `brand/roman-image-guidelines.md`); the old LoRA
+  guidelines are archived in `config/_archive/roman_lora_guidelines_v5.json`.
+- **RunPod disabled:** the RunPod/ComfyUI LoRA route is off by config: `content/routing.py
+  DISABLED`, `ROMAN_IMAGE_PROVIDER` defaults to `higgsfield_soul`. Its code stays.
+  `ROMAN_IMAGE_PROVIDER=comfyui` is refused with a clear message, and there is no fallback.
+  Non-Roman images stay on OpenRouter (Nano Banana 2 kept).
+- **Founder variants:** FB-R1, FA-R1 and LI-R1 now use `provider higgsfield_soul` and
+  `pick side`, with two mirrored layouts, `roman_right` (S-R) and `roman_left` (S-L). The
+  scrim covers only the text two-thirds and fades out before Roman's third.
+- **Flow:**
+  1. Stage 1 picks the combination by rotation (or takes an override) and stores
+     `romanCombination`.
+  2. The dry run shows "≈ 5 Higgsfield credits per attempt (estimate, not calibrated), at
+     most 2 attempts".
+  3. After the user's "ok", the build writes `outputs/higgsfield/<key>/job.json` with the
+     prompt, the character, Soul 2.0, the aspect, the count, the expected output path and
+     the estimate. It stops (item `waiting`) and shows Codex's numbered steps; no registry
+     job exists yet.
+  4. Codex runs the plugin, saves the PNG and runs `ca higgsfield record <key> --file …
+     --credits …` (or `ca higgsfield fail`).
+  5. The next build runs the person-zone check and the safe crop, draws the German text,
+     the logo and the CTA, then runs `ca design check` and the strict Roman checks
+     (`workflows/roman_check.py`).
+  6. The person check and the visual review follow. A failed zone check asks for attempt 2;
+     after 2 attempts the item fails. Every attempt's credits count toward the cost.
+- **Tracker:** Layout Variant shows "LI-R1 S-L/BG-2/P-3/H-1".
+
+### UNKNOWN (Higgsfield plugin; nothing was called in this run)
+
+- **Character reference syntax:** UNKNOWN. The default is an `@Roman Traenkle` token at the
+  start of the prompt (config `characterToken`). The job instructions ask Codex to also
+  select the saved character if the tool has a character or reference parameter, and to
+  record the syntax that worked here.
+- **Soul 2.0 model id and tool name:** UNKNOWN. §10 of PHASE3-DECISION lists
+  `mcp__codex_apps__higgsfield_generate_image`, but Soul 2.0 is not confirmed. Codex
+  finds the tool at run time.
+- **Soul 2.0 aspect ratios:** taken from the user's brief (9:16, 3:4, 2:3, 1:1, 4:3, 16:9,
+  3:2) and not checked against the plugin.
+- **Credits per image and USD per credit:** UNKNOWN. Config uses 5 credits and $0.075 per
+  credit, marked "estimate, not calibrated". A credit amount that the plugin does not
+  report is counted as the estimate and marked as such.
+- **Spelling:** Hunspell is not installed on this machine, so spelling is Codex's
+  visual-review step (recorded per image).
+- **Check thresholds:** the calm-zone thresholds (brightness spread 30, detail 12) and the
+  skin-tone person detection are calibrated only on drawn stand-ins. Real Soul 2.0 output
+  should be checked on the first images.

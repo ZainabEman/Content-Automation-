@@ -3,11 +3,12 @@
 import json
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from content_automation.ai.image import (
     ASPECT_RATIOS,
     MAX_COUNT,
+    AspectRatio,
     ImageRequest,
     ProviderCapabilities,
     ReferenceImage,
@@ -19,6 +20,7 @@ from content_automation.content.designer_prompt import (
     designer_inputs,
 )
 from content_automation.content.directions import (
+    CANVAS,
     Direction,
     DirectionCatalog,
     DirectionError,
@@ -31,6 +33,15 @@ from content_automation.content.formats import (
     image_prompt,
     load_formats,
 )
+from content_automation.content.roman_prompt import (
+    AI_DISCLOSURE,
+    Combination,
+    RomanPromptError,
+    character_token,
+    parse_combination,
+    pick_combination,
+)
+from content_automation.content.roman_prompt import build_prompt as roman_prompt_text
 from content_automation.content.routing import RoutingError, check_route
 from content_automation.core.config import Settings
 from content_automation.core.jobs import DETAILS_FILE, Job, JobReference
@@ -167,6 +178,8 @@ class WorkflowInputs:
     direction_platform: str | None = None
     # v5 R6.3: set at planning time (package.json requiresRoman); None = the variant decides
     requires_roman: bool | None = None
+    # 2026-10-20: Roman's combination (side/background/pose/hologram), chosen at stage 1
+    roman_combination: str | None = None
 
     def provided(self) -> set[InputName]:
         values: dict[InputName, str | bool | None] = {
@@ -793,10 +806,15 @@ def _prepare_direction(
         raise WorkflowError(f"{direction.id}: the copy must be an object of the layout's fields")
     seed = inputs.topic or inputs.request or ""
     role = inputs.slide_type if direction.format == "carousel" else None
+    combination: Combination | None = None
     try:
-        name, layout = direction_layout(direction, platform=inputs.direction_platform,
-                                        seed=seed, role=role)
-    except DirectionError as error:
+        if direction.visual.subject == "roman_higgsfield":
+            combination = (parse_combination(inputs.roman_combination)
+                           if inputs.roman_combination else pick_combination(seed, [])[0])
+        name, layout = direction_layout(
+            direction, platform=inputs.direction_platform, seed=seed, role=role,
+            side=combination.side if combination is not None else None)
+    except (DirectionError, RomanPromptError) as error:
         raise WorkflowError(str(error)) from None
     picture = has_picture(direction, layout, role)
     designer: DesignerInputs | None = None
@@ -805,14 +823,21 @@ def _prepare_direction(
     recorded: dict[str, str | bool] = {"direction": direction.id, "layout": name,
                                        "personShown": False}
     try:
-        # Roman is always his LoRA on comfyui (never a real photo, never another provider).
+        # Roman: Higgsfield Soul 2.0 (his saved character), never a real photo, never another
+        # provider; the RunPod LoRA route is disabled.
         route = check_route(direction, settings, requires_roman=inputs.requires_roman)
-        recorded["route"] = route  # v5 R6: comfyui (Roman's LoRA) or openrouter
+        recorded["route"] = route
         own = direction_settings(direction, picture, settings)
         capabilities = get_provider(own.image_provider, own).capabilities
         person = direction.roman and picture
         if not picture:
             prompt = f"{direction.id}: no picture generated; the app renders the design"
+        elif person and combination is not None:
+            prompt = roman_prompt_text(combination)
+            recorded["romanCombination"] = combination.id
+            recorded["identity"] = (f"Higgsfield character {character_token()} "
+                                    "(no identity photos sent)")
+            recorded["aiDisclosure"] = AI_DISCLOSURE
         elif person:
             if capabilities.identity_prompt is None and own.image_provider != "mock":
                 raise WorkflowError(f"{direction.id} shows Roman: its provider "
@@ -838,11 +863,16 @@ def _prepare_direction(
     recorded["design"] = design.to_json()
     if inputs.slide:
         recorded["slide"] = inputs.slide
+    aspect: AspectRatio = picture_aspect(direction, layout, catalog) if picture else "4:5"
+    if combination is not None:  # the canvas aspect; higgsfield_soul maps and crops it
+        aspect = cast(AspectRatio, CANVAS[direction.format])
     request = ImageRequest(
         prompt=prompt,
         object_refs=designer.object_refs if designer is not None else [],
         style_refs=designer.style_refs if designer is not None else [],
-        aspect_ratio=picture_aspect(direction, layout, catalog) if picture else "4:5",
+        options=({"combination": combination.id, "side": combination.side}
+                 if combination is not None else {}),
+        aspect_ratio=aspect,
         image_size=settings.image_design_size if picture else "1K",
         count=inputs.count,
         person=person,

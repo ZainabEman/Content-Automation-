@@ -12,15 +12,19 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from content_automation.core.config import Settings, load_settings
 
-AspectRatio = Literal["1:1", "4:5", "9:16", "16:9"]
+# 3:4, 2:3, 4:3, 3:2: Higgsfield Soul 2.0 (Roman's images); OpenRouter keeps ASPECT_RATIOS
+AspectRatio = Literal["1:1", "4:5", "9:16", "16:9", "3:4", "2:3", "4:3", "3:2"]
 ImageSize = Literal["1K", "2K", "4K"]
 ASPECT_RATIOS: tuple[AspectRatio, ...] = ("1:1", "4:5", "9:16", "16:9")
+ALL_ASPECT_RATIOS: tuple[AspectRatio, ...] = (*ASPECT_RATIOS, "3:4", "2:3", "4:3", "3:2")
 IMAGE_SIZES: tuple[ImageSize, ...] = ("1K", "2K", "4K")
 MAX_COUNT = 4
 
 # Provider name -> adapter module. Adding a provider = one adapter file + one line here.
 _ADAPTERS: dict[str, str] = {
     "mock": "content_automation.ai.image.providers.mock",
+    # Roman's images: Codex makes them with the Higgsfield plugin (Soul 2.0, his character)
+    "higgsfield_soul": "content_automation.ai.image.providers.higgsfield_soul",
     "openrouter": "content_automation.ai.image.providers.openrouter",
     "comfyui": "content_automation.ai.image.providers.comfyui",
     # No picture: a post format without an image slot is rendered by the app alone (free).
@@ -52,6 +56,16 @@ class ImageProviderError(ImageError):
         super().__init__(message)
         self.retryable = retryable
         self.cost_usd = cost_usd
+
+
+class ImageAwaitingAgent(ImageError):
+    """An agent provider (Codex with a plugin) has not delivered the image yet: the job waits.
+
+    `job_file` tells Codex what to make; nothing is charged until an image is delivered."""
+
+    def __init__(self, message: str, job_file: Path) -> None:
+        super().__init__(message)
+        self.job_file = job_file
 
 
 class ImageTimeoutError(ImageProviderError, TimeoutError):
@@ -90,6 +104,9 @@ class ImageRequest(BaseModel):
     # The identity person is shown. Providers with a trained identity (identity_prompt) apply
     # it only then; the others get identity_refs instead.
     person: bool = False
+    # Provider hints that are not part of the image itself, e.g. the Roman combination and the
+    # side he stands on (higgsfield_soul uses them for its job file and the person-zone check)
+    options: dict[str, str] = Field(default_factory=dict)
 
 
 class GeneratedImage(BaseModel):

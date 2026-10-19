@@ -78,7 +78,7 @@ def pick_direction(
     *,
     seed: str,
     recent: list[str],
-    lora_ok: bool,
+    roman_ok: bool,
     override: str | None = None,
     roman: bool = False,
 ) -> tuple[Direction, str]:
@@ -88,9 +88,10 @@ def pick_direction(
         if chosen.format != format_name or platform not in chosen.platforms:
             raise DirectionError(f"{chosen.id} is a {chosen.category} variant for "
                                  f"{'/'.join(chosen.platforms)}, not {format_name} on {platform}")
-        if chosen.provider == "comfyui" and not lora_ok:
-            raise DirectionError(f"{chosen.id} needs Roman's LoRA (comfyui), which is not set up; "
-                                 "it is never swapped for another provider")
+        if chosen.roman and not roman_ok:
+            raise DirectionError(f"{chosen.id} needs Roman's image route ({chosen.provider}), "
+                                 "which is not enabled; it is never swapped for another "
+                                 "provider")
         return chosen, "as asked"
     options = [item for item in catalog.directions
                if item.format == format_name and platform in item.platforms
@@ -99,10 +100,11 @@ def pick_direction(
         kind = "founder (Roman) " if roman else ""
         raise DirectionError(f"config/design_directions.json has no {kind}{format_name} variant "
                              f"for {platform}")
-    usable = [item for item in options if item.provider != "comfyui" or lora_ok]
+    usable = [item for item in options if not item.roman or roman_ok]
     if not usable:
-        raise DirectionError(f"every founder {format_name} variant needs Roman's LoRA (comfyui), "
-                             "which is not set up; it is never swapped for another provider")
+        raise DirectionError(f"every founder {format_name} variant needs Roman's image route "
+                             "(Higgsfield Soul 2.0), which is not enabled; it is never swapped "
+                             "for another provider")
     avoid = recent[:_AVOID.get(format_name, 1)]
     treatments = _treatments(catalog, recent[:_SAME_TREATMENT])
     tired = treatments[0] if len(treatments) == _SAME_TREATMENT and len(set(treatments)) == 1 \

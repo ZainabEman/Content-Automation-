@@ -24,6 +24,7 @@ from content_automation.youtube.workflow import (
     select_style,
     status_lines,
     write_briefs,
+    write_storyboards,
 )
 
 youtube_app = typer.Typer(no_args_is_help=True,
@@ -54,6 +55,8 @@ def _run(command: str, step: str, bg_id: str | None = None, **kwargs: object) ->
                 return make_bilingual(scope.conn, bg_id)
             if step == "upload":
                 return upload_topic(settings, bg_id)
+            if step == "storyboards":
+                return write_storyboards(scope.conn, bg_id, command=scope.command)
             if step == "check":
                 ok, lines = check_scripts(scope.conn, bg_id)
                 if not ok:
@@ -131,9 +134,15 @@ def youtube_select_style(
     _echo(_run(f"ca youtube select-style {bg_id} {style}", "select", bg_id, style=style))
 
 
+@youtube_app.command("storyboards")
+def youtube_storyboards(bg_id: BgId) -> None:
+    """Write one editing storyboard for each checked style A, B and C."""
+    _echo(_run(f"ca youtube storyboards {bg_id}", "storyboards", bg_id))
+
+
 @youtube_app.command("upload")
 def youtube_upload(bg_id: BgId) -> None:
-    """Drive YouTube/<YYYY-MM>/<BG-ID>_<slug>/ (research, 6 scripts, storyboard) and one
+    """Drive YouTube/<YYYY-MM>/<BG-ID>_<slug>/ (research, 6 scripts, 3 storyboards) and one
     tracker row with their links (STORAGE_PROVIDER=mock: outputs/drive/, fake links)."""
     _echo(_run(f"ca youtube upload {bg_id}", "upload", bg_id))
 

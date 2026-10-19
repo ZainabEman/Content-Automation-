@@ -1,6 +1,6 @@
 ---
 name: make-youtube
-description: Branded Genius YouTube research and production planning (PRD v5 R9): 8 German topics a month from real incidents, a verified research TXT per topic, three script styles (A investigativ, B direkte Warnung, C menschlich) as German teleprompter files plus German-English scripts, and a storyboard for the editing agency for the chosen style. Roman records, the agency edits; nothing renders a video. Use for "plan youtube November", "research BG-x", "check sources BG-x", "write scripts BG-x", "select style B for BG-x", "youtube status". Separate from the social skills; shares only BG IDs, approval, storage and the tracker.
+description: Branded Genius YouTube research and production planning (PRD v5 R9): 8 German topics a month from real incidents, a verified research TXT per topic, three script styles (A investigativ, B direkte Warnung, C menschlich) as German teleprompter files plus German-English scripts, and a storyboard for each style for the editing agency. Roman records, the agency edits; nothing renders a video. Use for "plan youtube November", "research BG-x", "check sources BG-x", "write scripts BG-x", "generate storyboards BG-x", "select style B for BG-x", "upload youtube BG-x", "youtube status". Separate from the social skills; shares only BG IDs, approval, storage and the tracker.
 ---
 
 # Make YouTube (research and production planning)
@@ -52,12 +52,17 @@ write. No paid model is called by `ca`. Topic folder: `outputs/youtube/<YYYY-MM>
    file; replace every "<English translation …>" under "English:" with a faithful translation
    (never change the German there). Then `uv run ca youtube check BG-x` until every style
    passes; length warnings are reported, the difference check flags styles that are too similar
-   (rewrite one). Show the user the three openings and **stop** for their choice.
-5. **"select style B for BG-x"** → `uv run ca youtube select-style BG-x B` (registry +
-   package.json) writes `storyboard_<style>.md`: one block per scene with timecode, the German
-   line, the English, and `<…>` fields for visual direction, graphics, on-screen text (exact
-   German + English explanation), sources and pacing. Fill every `<…>`; factual visuals cite
-   the research [S#]. The rest of the storyboard spec is PENDING: do not invent extra sections.
-6. **"youtube status"** → `uv run ca youtube status [--month 2026-11]`.
+   (rewrite one). Show the user the three openings, then create storyboards for all three styles;
+   a style choice is not needed for storyboard creation.
+5. **"generate storyboards BG-x"** → `uv run ca youtube storyboards BG-x` writes
+   `storyboard_style-A_investigativ.md`, `storyboard_style-B_direkte-warnung.md` and
+   `storyboard_style-C_menschlich.md` from the checked scripts, without recording a production
+   style. Fill every `<…>` in all three files; factual visuals cite the research [S#]. The rest of
+   the storyboard spec is PENDING: do not invent extra sections.
+6. **"select style B for BG-x"** → `uv run ca youtube select-style BG-x B` records the style
+   for production and ensures all three storyboards exist. It does not replace the other two.
+7. **"upload youtube BG-x"** → `uv run ca youtube upload BG-x` uploads research, six scripts,
+   all three storyboards and records their links in the tracker.
+8. **"youtube status"** → `uv run ca youtube status [--month 2026-11]`.
 
 Production after the storyboard (recording, edits, finals, thumbnail): produce-video.

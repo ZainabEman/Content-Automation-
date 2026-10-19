@@ -21,7 +21,6 @@ from content_automation.content.calendar import (
     assign_roman,
     calendar_path,
     check_edits,
-    read_calendar,
     read_view,
     week_days,
     week_label,
@@ -140,13 +139,14 @@ def plan_calendar(settings: Settings, catalog: DeliverableCatalog, strategy: Str
             path = calendar_path(settings, week)
             if path.exists():
                 check_edits(path)
-            weeks[week] = read_calendar(path) if path.exists() else []
+            weeks[week] = read_view(path) if path.exists() else []
         return weeks[week]
 
     for day in days:
         week_rows(week_of(day))
+    # A rejected row no longer owns its slot; let an approved idea fill that date and type.
     occupied = {(row["Planned date"], row["Content type"])
-                for rows in weeks.values() for row in rows}
+                for rows in weeks.values() for row in rows if row["Status"] != "Rejected"}
     ideas = _approved_ideas(conn)
     used = len(ideas)
     shares = {pillar.key: pillar.target_share for pillar in strategy.pillars}

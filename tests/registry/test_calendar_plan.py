@@ -25,8 +25,11 @@ WEEK = "2026-W45"  # Mon 2026-11-02 .. Sun 2026-11-08
 def env(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("DELIVERABLES_FILE", str(REPO / "config" / "deliverables.json"))
     (isolated / "config").mkdir()
-    for name in ("calendar.json", "strategy.json"):
-        shutil.copy(REPO / "config" / name, isolated / "config" / name)
+    # A fixed cadence (the v5 plan slots with YouTube and shorts), so these tests do not follow
+    # the user's editable config/calendar.json.
+    shutil.copy(REPO / "tests" / "fixtures" / "calendar_plan_fixture.json",
+                isolated / "config" / "calendar.json")
+    shutil.copy(REPO / "config" / "strategy.json", isolated / "config" / "strategy.json")
     return isolated
 
 

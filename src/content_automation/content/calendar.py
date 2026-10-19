@@ -489,11 +489,12 @@ def check_calendar(path: Path, label: str, catalog: DeliverableCatalog,
         problems += [f"{where}: {problem}" for problem in _format_problems(row)]
         key = _topic_key(row["Topic"])
         idea = row["Research source"] if row["Research source"].startswith("idea:") else ""
-        if not key:
+        if not key and row["Status"] != "Rejected":
             problems.append(f"{where}: no topic")
-        elif key in topics and not (idea and topics[key][1] == idea):  # C5-13: one idea, rows
+        elif (row["Status"] != "Rejected" and key in topics
+              and not (idea and topics[key][1] == idea)):  # C5-13: one idea, rows
             problems.append(f"{where}: same topic as row {topics[key][0]}")  # per platform
-        else:
+        elif row["Status"] != "Rejected" and key:
             topics.setdefault(key, (row["Row"], idea))
         source_problem = _source_problem(row["Research source"], research_dir)
         if source_problem:

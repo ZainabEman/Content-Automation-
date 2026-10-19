@@ -196,8 +196,9 @@ def _fill_brief(template: Path) -> None:
         "subheadline": "Der Bot bietet nach 18:00 Uhr freie Termine per WhatsApp an",
         "points": ["Beantwortet WhatsApp-Fragen nachts", "Bietet nach 18:00 Uhr Termine per SMS",
                    "Erinnert Patienten per E-Mail"],
-        "person": False,
     })
+    if brief.get("platform") == "linkedin":  # only a LinkedIn post may leave the man out
+        brief["post"]["person"] = False
     for key in ("stat", "source", "sourceName"):
         brief["post"].pop(key, None)
     if brief["post"].get("direction"):  # Phase D: the direction's layout fields

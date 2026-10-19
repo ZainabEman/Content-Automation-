@@ -242,9 +242,39 @@ def check_scripts(conn: sqlite3.Connection, bg_id: str, *,
     return ok, lines
 
 
+def write_storyboards(conn: sqlite3.Connection, bg_id: str, *, root: Path | None = None,
+                      command: str | None = None) -> list[str]:
+    """R9.10: write an editing storyboard for every checked script style, without selecting one."""
+    item = _approved(conn, bg_id)
+    folder = find_folder(item.id, root)
+    data = read_package(folder)
+    missing = [key for key, style in styles().items()
+               if (data.get("styles") or {}).get(style.key, {}).get("check") != "passed"]
+    if missing:
+        raise YoutubeError(f"styles {', '.join(missing)} have not passed their check: "
+                           f"uv run ca youtube check {item.id}")
+    found = research_file_module.read(research_file(folder))
+    boards: list[str] = []
+    lines: list[str] = []
+    for key, style in styles().items():
+        target = style_dir(folder, key)
+        board = folder / f"storyboard_{style.folder}.md"
+        atomic_write_text(board, storyboard_text(
+            style, item.title, item.id, (target / TELEPROMPTER).read_text(encoding="utf-8"),
+            (target / BILINGUAL).read_text(encoding="utf-8"), found))
+        boards.append(board.name)
+        lines.append(f"Storyboard {key} {style.name}: {board.as_posix()} "
+                     "(fill every <…>; the rest of the spec is PENDING).")
+    data["storyboards"] = boards
+    write_package(folder, data)
+    append_event(conn, "item_updated", command=command, item_id=item.id,
+                 actor="system", details={"storyboards": list(styles())})
+    return [*lines, f"Created {len(boards)} storyboards; no production style was selected."]
+
+
 def select_style(conn: sqlite3.Connection, bg_id: str, key: str, *, root: Path | None = None,
                  command: str | None = None) -> list[str]:
-    """R9.10: mark the choice (registry + package.json) and write the storyboard."""
+    """Mark the production choice and make sure every style has a storyboard."""
     item = _approved(conn, bg_id)
     folder = find_folder(item.id, root)
     data = read_package(folder)
@@ -255,18 +285,14 @@ def select_style(conn: sqlite3.Connection, bg_id: str, key: str, *, root: Path |
     if state.get("check") != "passed":
         raise YoutubeError(f"style {style.key} has not passed its check: uv run ca youtube "
                            f"check {item.id}")
-    target = style_dir(folder, style.key)
-    found = research_file_module.read(research_file(folder))
-    board = folder / f"storyboard_{style.folder}.md"
-    atomic_write_text(board, storyboard_text(
-        style, item.title, item.id, (target / TELEPROMPTER).read_text(encoding="utf-8"),
-        (target / BILINGUAL).read_text(encoding="utf-8"), found))
+    write_storyboards(conn, item.id, root=root, command=command)
+    data = read_package(folder)
     data["selectedStyle"] = style.key
-    data["storyboard"] = board.name
+    data["storyboard"] = f"storyboard_{style.folder}.md"
     write_package(folder, data)
     set_design(conn, item.id, script_style=style.key, command=command)
     return [f"{item.id}: style {style.key} {style.name} selected (registry and package.json).",
-            f"Storyboard: {board.as_posix()} (fill every <…>; the rest of the spec is PENDING).",
+            f"Created storyboards for every style: {', '.join(data['storyboards'])}.",
             "Production stays: Roman records, the editing agency edits (produce-video)."]
 
 
@@ -292,4 +318,5 @@ def status_lines(conn: sqlite3.Connection, month: str | None = None, *,
 
 
 __all__ = ["DELIVERABLE", "check_scripts", "make_bilingual", "plan_topics", "research",
-           "run_source_check", "select_style", "status_lines", "write_briefs"]
+           "run_source_check", "select_style", "status_lines", "write_briefs",
+           "write_storyboards"]

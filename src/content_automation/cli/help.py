@@ -188,8 +188,10 @@ GROUPS: tuple[Group, ...] = (
                "URLs, quotations and facts checked; results in the file (free)"),
         Phrase("write scripts BG-x", "ca youtube scripts BG-x; ca youtube bilingual BG-x; "
                "ca youtube check BG-x", "3 styles x teleprompter + German-English script"),
+        Phrase("generate storyboards BG-x", "ca youtube storyboards BG-x",
+               "one editing storyboard for each checked style A, B and C"),
         Phrase("select style B for BG-x", "ca youtube select-style BG-x B",
-               "the choice recorded and the storyboard for the editing agency"),
+               "the production choice recorded; all three storyboards are kept"),
         Phrase("upload youtube BG-x", "ca youtube upload BG-x",
                "Drive YouTube/<YYYY-MM>/<BG-ID>_<slug>/ and the tracker row"),
         Phrase("youtube status", "ca youtube status", "every topic and its step"),

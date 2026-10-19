@@ -1,7 +1,7 @@
 # PRD v5: German refocus, brand-controlled visuals and YouTube production planning
 
 **Project:** Branded Genius Content Automation
-**Version:** v5 draft, 19 Oct 2026
+**Version:** v5 draft, updated 20 Oct 2026
 **Owner:** Roman (Branded Genius)
 **Builds on:** the existing system described in `final project context.md` (v4, 19 Oct 2026) and `docs/PROGRESS.md` in the repo
 **Status:** draft. Two parts of the brief are still missing (end of §14 storyboard and the Google Drive restructuring details). They are marked **PENDING** below and must not be guessed.
@@ -171,7 +171,7 @@ Exactly four main categories, each with its own generation handling and its own 
 ### R9. YouTube research and production planning
 
 #### R9.1 Volume and selection
-- 8 topics a month; 3 script styles per topic (24 candidate scripts); 2 files per style (24 teleprompter + 24 bilingual); 1 storyboard per topic for the selected style.
+- 8 topics a month; 3 script styles per topic (24 candidate scripts); 2 files per style (24 teleprompter + 24 bilingual); 3 storyboards per topic, one for each style.
 - Topics go through the same approve/reject gate as social topics, with their own BG IDs.
 
 #### R9.2 Editorial direction
@@ -244,7 +244,7 @@ This replaces the old YouTube formula and absorbs the old podcast formula.
 - **Generated from the teleprompter file**, not written separately, and a free check verifies that the German text in the bilingual file is identical to the teleprompter file, paragraph for paragraph.
 
 #### R9.10 Storyboard for the editing agency
-One per topic, for the selected style (the select command, for example `select style B for BG-…`, triggers it). The editor reads English, so each scene explains both what Roman says and what appears on screen. Each scene includes:
+One per style per topic. Generate storyboards for A, B and C after the script checks pass; no production-style selection is needed to generate them. Selecting a style later records the production preference and preserves all three storyboards. The editor reads English, so each scene explains both what Roman says and what appears on screen. Each scene includes:
 - scene or segment number;
 - approximate timecode or estimated duration;
 - German spoken line or script excerpt;
@@ -270,7 +270,9 @@ YouTube/<YYYY-MM>/<BG-ID>_<slug>/
   style-C_menschlich/
     teleprompter_DE.txt
     script_DE-EN.txt
-  storyboard_<selected-style>.md
+  storyboard_style-A_investigativ.md
+  storyboard_style-B_direkte-warnung.md
+  storyboard_style-C_menschlich.md
   package.json
 ```
 Exact Drive names depend on the PENDING Drive section (R10).
@@ -297,7 +299,7 @@ A separate Codex skill (for example `.agents/skills/make-youtube`) and a separat
 
 - Reuse the Google Sheet "Content Tracker" and its header-name matching. Never overwrite manager-owned fields.
 - Add columns only where needed, for example: Category (Instagram Carousel / Facebook Post / Facebook Ad / LinkedIn / YouTube), Language, Layout Variant, Requires Roman, Selected Script Style. New columns are added at the end so existing manual columns are untouched.
-- YouTube rows: one row per topic, with links to the research file, the six scripts and the storyboard.
+- YouTube rows: one row per topic, with links to the research file, the six scripts and all three storyboards.
 - Approval flow unchanged: propose → approve/reject → free stage → dry run with cost → "ok" → build → Drive → tracker. YouTube text generation is cheap but still goes through the dry-run estimate if it uses a paid API.
 
 ## 5. Operator commands (Codex phrases, suggested)
@@ -310,7 +312,8 @@ A separate Codex skill (for example `.agents/skills/make-youtube`) and a separat
 | "approve 1 3 5" / "reject 2" / by BG ID | Unchanged |
 | "research BG-123" | Research TXT + source check (R9.4, R9.5) |
 | "write scripts BG-123" | 3 styles × 2 files (R9.7–R9.9) |
-| "select style B for BG-123" | Marks the choice, writes the storyboard (R9.10) |
+| "generate storyboards BG-123" | Writes one storyboard for each passing script style A, B and C (R9.10) |
+| "select style B for BG-123" | Records the production choice and keeps all three storyboards |
 | "generate approved" | Unchanged gate, now with routing per R6 |
 
 ## 6. Changes to earlier decisions
@@ -339,7 +342,7 @@ A separate Codex skill (for example `.agents/skills/make-youtube`) and a separat
 8. Routing: `requires_roman` jobs go to RunPod, all others to OpenRouter; no silent fallback; no secret in any log or output (tests).
 9. The monthly planner produces 30–60 assets with a format mix, a carousel counting as one.
 10. UGC, podcast and finished-video commands and skills are gone; YouTube planning, carousel and research code still pass their tests.
-11. YouTube mock run for one topic produces the research TXT, 3 styles × 2 files and a storyboard in the R9.11 layout; the bilingual file's German matches the teleprompter file exactly; the teleprompter file contains no English, no citations and no headings.
+11. YouTube mock run for one topic produces the research TXT, 3 styles × 2 files and 3 storyboards in the R9.11 layout; the bilingual file's German matches the teleprompter file exactly; the teleprompter file contains no English, no citations and no headings.
 12. Source check catches a dead URL and a quotation that is not in the page (tests with fixtures).
 13. ruff, strict mypy and the full offline test suite pass. No paid or external call was made without an estimate and an "ok".
 

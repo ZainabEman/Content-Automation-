@@ -48,8 +48,17 @@ def topic_files(folder: Path) -> list[tuple[Path, str | None, str]]:
             if path.is_file():
                 found.append((path, style.folder, f"Style {key} {label}"))
     data = read_package(folder)
+    storyboards = data.get("storyboards") or []
+    if isinstance(storyboards, str):
+        storyboards = [storyboards]
+    for index, name in enumerate(storyboards, start=1):
+        path = folder / str(name)
+        label = path.stem.replace("storyboard_", "Storyboard ").replace("_", " ")
+        found.append((path, None, label or f"Storyboard {index}"))
     if data.get("storyboard"):
-        found.append((folder / str(data["storyboard"]), None, "Storyboard"))
+        path = folder / str(data["storyboard"])
+        if path not in [entry[0] for entry in found]:
+            found.append((path, None, "Selected-style storyboard"))
     return [item for item in found if item[0].is_file()]
 
 

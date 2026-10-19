@@ -66,7 +66,7 @@ You can also ask for single images, videos or research (see the guides).
 | `uv run ca research collect` | Collects new articles from the sites in `config/sources.json`. |
 | `uv run ca research digest [--topic "…"] [--days 14] [--limit 10]` | Lists saved articles, ranked by topic if given. |
 | `uv run ca plan month YYYY-MM [--apply]` | v5: the monthly social plan, about 2 graphics a day, with the cost of the planned volume (free). |
-| `uv run ca youtube plan\|research\|check-sources\|scripts\|bilingual\|check\|select-style\|upload\|status` | v5: YouTube research and production planning (skill make-youtube). |
+| `uv run ca youtube plan\|research\|check-sources\|scripts\|bilingual\|check\|storyboards\|select-style\|upload\|status` | v5: YouTube research and production planning; storyboards for A, B and C (skill make-youtube). |
 | `uv run ca design preview\|compare\|check` | Layout variants with sample copy, beside the approved references, and the free design check. |
 | `uv run ca image …` | One image job (see the [Images guide](guides/module-1-images.md)). |
 | `uv run ca video --plan <file> [--dry-run]` / `uv run ca video resume <job>` | One video job (see the [Video guide](guides/module-2-video.md)). |
@@ -101,6 +101,7 @@ You can also ask for single images, videos or research (see the guides).
 - [Module 4: Calendar, Google Drive and the Content Tracker](guides/module-4-calendar-drive.md)
 - v5: [PRD](PRD-v5-german-brand-youtube.md) · [implementation notes and acceptance table](v5-implementation-notes.md) · [Drive actions waiting for "ok"](v5-drive-actions.md) · [reference analysis](../brand/reference-analysis.md) · `ca plan month`, `ca youtube …`, `ca design compare`
 - [Module 5: Content items, approvals and spending (the registry)](guides/module-5-registry.md)
+- [Module 6: YouTube production planning](guides/module-6-youtube.md)
 - [Guide template](guides/_TEMPLATE.md)
 - [Pre-Codex check](PRE-CODEX-CHECK.md): what was checked before Codex testing, and what only Codex can check
 

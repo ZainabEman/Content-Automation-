@@ -1,9 +1,13 @@
 {
-  "_note": "slots: the weekly cadence of `ca calendar new` (make calendar next week). plan: calendar v2 for `ca calendar plan --week|--month` (Phase 5 P5-D12).",
+  "_note": "Two static social posts each day across LinkedIn, Facebook and Instagram (2026-10-20 user preference); the Instagram deliverable is a static carousel. Calendar v2 slots follow the same daily cadence.",
   "slots": [
     {
       "weekday": "mon",
       "deliverable": "linkedin_post"
+    },
+    {
+      "weekday": "mon",
+      "deliverable": "facebook_post"
     },
     {
       "weekday": "tue",
@@ -18,16 +22,44 @@
       "deliverable": "linkedin_post"
     },
     {
+      "weekday": "wed",
+      "deliverable": "facebook_post"
+    },
+    {
       "weekday": "thu",
       "deliverable": "facebook_post"
     },
     {
+      "weekday": "thu",
+      "deliverable": "linkedin_post"
+    },
+    {
       "weekday": "fri",
       "deliverable": "instagram_carousel"
+    },
+    {
+      "weekday": "fri",
+      "deliverable": "facebook_post"
+    },
+    {
+      "weekday": "sat",
+      "deliverable": "linkedin_post"
+    },
+    {
+      "weekday": "sat",
+      "deliverable": "facebook_post"
+    },
+    {
+      "weekday": "sun",
+      "deliverable": "facebook_post"
+    },
+    {
+      "weekday": "sun",
+      "deliverable": "linkedin_post"
     }
   ],
   "plan": {
-    "_note": "targets confirmed 2026-10-14: 1-2 posts a day (LinkedIn, Facebook), 1 Instagram carousel and 2 YouTube videos a week, a YouTube Short and a TikTok 2 days after each video. v5 (PRD R8): podcasts removed.",
+    "_note": "Daily static social cadence confirmed 2026-10-20: two posts per day across LinkedIn, Facebook and Instagram; one static Instagram carousel weekly. Long-form YouTube scripts are planned separately.",
     "types": {
       "youtube_longform": {
         "platform": "youtube",
@@ -56,7 +88,18 @@
       {
         "weekday": "mon",
         "types": [
-          "linkedin_post",
+          "linkedin_post"
+        ]
+      },
+      {
+        "weekday": "mon",
+        "types": [
+          "facebook_post"
+        ]
+      },
+      {
+        "weekday": "tue",
+        "types": [
           "facebook_post"
         ]
       },
@@ -67,9 +110,9 @@
         ]
       },
       {
-        "weekday": "tue",
+        "weekday": "wed",
         "types": [
-          "youtube_longform"
+          "linkedin_post"
         ]
       },
       {
@@ -81,14 +124,13 @@
       {
         "weekday": "thu",
         "types": [
-          "linkedin_post",
           "facebook_post"
         ]
       },
       {
-        "weekday": "fri",
+        "weekday": "thu",
         "types": [
-          "facebook_post"
+          "linkedin_post"
         ]
       },
       {
@@ -100,7 +142,7 @@
       {
         "weekday": "fri",
         "types": [
-          "youtube_longform"
+          "facebook_post"
         ]
       },
       {
@@ -110,22 +152,34 @@
         ]
       },
       {
+        "weekday": "sat",
+        "types": [
+          "facebook_post"
+        ]
+      },
+      {
         "weekday": "sun",
         "types": [
           "facebook_post"
+        ]
+      },
+      {
+        "weekday": "sun",
+        "types": [
+          "linkedin_post"
         ]
       }
     ],
     "targets": {
       "postTypes": [
         "linkedin_post",
-        "facebook_post"
+        "facebook_post",
+        "instagram_carousel"
       ],
-      "postsPerDayMin": 1,
+      "postsPerDayMin": 2,
       "postsPerDayMax": 2,
       "perWeek": {
-        "instagram_carousel": 1,
-        "youtube_longform": 2
+        "instagram_carousel": 1
       }
     },
     "pillarTolerance": 0.15

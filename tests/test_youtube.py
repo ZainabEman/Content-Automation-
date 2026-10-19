@@ -156,8 +156,8 @@ def test_one_topic_end_to_end(tmp_path: Path) -> None:
     folder = tmp_path / result["folderName"]
     assert folder.name.startswith(result["bgId"] + "_")
     styles = ("style-A_investigativ", "style-B_direkte-warnung", "style-C_menschlich")
-    expected = {f"research_{folder.name.split('_', 1)[1]}.txt", "package.json",
-                "storyboard_style-B_direkte-warnung.md"}
+    expected = {f"research_{folder.name.split('_', 1)[1]}.txt", "package.json"}
+    expected |= {f"storyboard_{name}.md" for name in styles}  # every style has one
     expected |= {f"{name}/{file}" for name in styles
                  for file in ("teleprompter_DE.txt", "script_DE-EN.txt")}
     visible = {path for path in result["files"] if not path.startswith(".briefs/")}

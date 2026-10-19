@@ -202,6 +202,7 @@ class ImageSlot(_BriefModel):
     direction: str | None = None
     copy_text: dict[str, CopyValue] = Field(default_factory=dict, alias="copy")
     ad_fields: AdFields | None = None  # v5: a Facebook ad's primary text, headline, ... (R4)
+    alt_text: str | None = None  # v5 R7.4: German alt text of a post or ad image
 
     @property
     def templated(self) -> bool:
@@ -342,6 +343,9 @@ def brief_problems(
             problems.append(f"{name}.kind must be one of: {', '.join(kinds)}")
         if name == "ad" and image.format != "ad":
             problems.append('ad.format must be "ad" (headline, subheadline and CTA button)')
+        if name in ("post", "ad") and image.direction and not (image.alt_text or "").strip():
+            problems.append(f"{name}.altText: describe the image in German for screen readers "
+                            "(PRD R7.4)")
         if name == "ad" and image.direction:  # v5: a Facebook ad in a layout variant
             if image.ad_fields is None:
                 problems.append("ad.adFields: fill primaryText, headline, description and "

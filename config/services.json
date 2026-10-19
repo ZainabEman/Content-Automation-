@@ -17,7 +17,7 @@
       "forWhom": ["teams in marketing, sales, customer service and internal processes"],
       "problemsSolved": ["recurring manual work", "tools that are not connected", "slow internal processes"],
       "useCases": ["lead qualification and routing", "automated research", "internal knowledge assistants", "reporting and notifications", "document and data processing", "CRM updates and task creation", "customer service workflows", "multi-step business processes"],
-      "topicKeywords": ["ai agent", "agents", "agentic", "workflow", "automation", "automate", "process", "back office", "operations", "integration", "repetitive", "manual work", "data processing", "reporting", "ki-agent", "automatisierung", "prozess"],
+      "topicKeywords": ["ai agent", "agents", "agentic", "workflow", "automation", "automate", "process", "back office", "operations", "integration", "repetitive", "manual work", "data processing", "reporting", "ki-agent", "automatisierung", "prozess", "ki-agenten", "agenten", "workflows", "prozesse", "automatisieren", "automatisierte"],
       "allowedCtas": [
         {"type": "question"},
         {"type": "enquiry", "label": "KI-Agenten entdecken"},
@@ -40,7 +40,7 @@
       "forWhom": ["customer service and sales teams", "teams in marketing, sales, customer service and internal processes"],
       "problemsSolved": ["slow replies to customer and lead enquiries", "repeated FAQ questions", "enquiries outside office hours"],
       "useCases": ["customer service via WhatsApp and Telegram", "lead capture and qualification", "appointment booking", "internal employee support", "FAQ automation", "automatic handover to staff"],
-      "topicKeywords": ["chatbot", "chat bot", "whatsapp", "telegram", "customer service", "support", "faq", "enquiry", "messaging", "24/7", "lead qualification", "kundenservice"],
+      "topicKeywords": ["chatbot", "chat bot", "whatsapp", "telegram", "customer service", "support", "faq", "enquiry", "messaging", "24/7", "lead qualification", "kundenservice", "chatbots", "ki-chatbot", "ki-chatbots", "kundenanfragen", "patientenfragen"],
       "allowedCtas": [
         {"type": "question"},
         {"type": "enquiry", "label": "KI-Chatbot entwickeln"},
@@ -63,7 +63,7 @@
       "forWhom": ["customer service and sales teams"],
       "problemsSolved": ["missed or slow phone calls", "manual appointment booking by phone", "follow-up calls that never happen"],
       "useCases": ["inbound: customer enquiries, appointment requests, qualification, support, call routing", "outbound: lead qualification, follow-ups, appointment booking, reactivation, customer surveys"],
-      "topicKeywords": ["callbot", "voice", "phone", "call", "calls", "telephone", "voice assistant", "voice ai", "appointment", "missed calls", "telefon", "anruf"],
+      "topicKeywords": ["callbot", "voice", "phone", "call", "calls", "telephone", "voice assistant", "voice ai", "appointment", "missed calls", "telefon", "anruf", "callbots", "anrufe", "telefonassistent", "telefonie"],
       "allowedCtas": [
         {"type": "question"},
         {"type": "enquiry", "label": "KI-Callbots entdecken"},
@@ -86,7 +86,7 @@
       "forWhom": ["marketing and sales teams"],
       "problemsSolved": ["leads that slip through between marketing and sales", "manual follow-ups", "tools and CRM that are not connected"],
       "useCases": ["automated lead capture", "CRM workflows", "lead qualification and scoring", "email and follow-up sequences", "sales pipeline automation", "appointment workflows", "lead nurturing", "customer reactivation", "AI-assisted outreach", "automated reporting"],
-      "topicKeywords": ["marketing automation", "sales automation", "crm", "lead", "leads", "lead generation", "follow-up", "pipeline", "nurturing", "conversion", "customer journey", "outreach", "email sequence", "vertrieb", "leadgenerierung"],
+      "topicKeywords": ["marketing automation", "sales automation", "crm", "lead", "leads", "lead generation", "follow-up", "pipeline", "nurturing", "conversion", "customer journey", "outreach", "email sequence", "vertrieb", "leadgenerierung", "vertriebsautomatisierung", "nachfassen", "e-mail-marketing", "neukunden"],
       "allowedCtas": [
         {"type": "question"},
         {"type": "enquiry", "label": "Wachstum automatisieren"},
@@ -109,7 +109,7 @@
       "forWhom": ["teams and leaders", "management", "marketing teams", "sales teams", "customer service", "back office and operations", "HR and team leads"],
       "problemsSolved": ["employees do not know which AI tools they may use or how to work with them", "no clear roadmap for AI"],
       "useCases": ["recognising relevant AI use cases", "using suitable tools safely", "better prompts and workflows", "simplifying recurring tasks", "judging chances and risks realistically", "agreeing clear next steps"],
-      "topicKeywords": ["workshop", "training", "upskilling", "ai literacy", "employees", "leadership", "prompting", "ai policy", "schulung", "weiterbildung"],
+      "topicKeywords": ["workshop", "training", "upskilling", "ai literacy", "employees", "leadership", "prompting", "ai policy", "schulung", "weiterbildung", "workshops", "ki-kompetenz", "ki-schulung", "mitarbeitende", "schulungen"],
       "allowedCtas": [
         {"type": "question"},
         {"type": "enquiry", "label": "KI-Workshop anfragen"},

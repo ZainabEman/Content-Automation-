@@ -201,6 +201,8 @@ def _fill_brief(template: Path) -> None:
     for key in ("stat", "source", "sourceName"):
         brief["post"].pop(key, None)
     if brief["post"].get("direction"):  # Phase D: the direction's layout fields
+        brief["post"]["altText"] = ("Grafik mit der Überschrift über einen Praxis-Chatbot, "
+                                    "daneben ein Bild zum Thema")
         brief["post"]["copy"] = _direction_copy(brief["post"]["direction"], brief["post"]["copy"])
     elif isinstance(brief["post"].get("copy"), dict):  # a post format: fill only its fields
         brief["post"]["copy"] = {name: _copy_value(name, value)

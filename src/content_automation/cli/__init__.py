@@ -28,6 +28,7 @@ from content_automation.cli.help import help_app
 from content_automation.cli.ideas import claims_app, ideas_app
 from content_automation.cli.items import audit_app, items_app
 from content_automation.cli.jobs import auth_app, costs_app, jobs_app, report_app
+from content_automation.cli.plan import plan_app
 from content_automation.cli.scope import (
     authorization_lines,
     authorize,
@@ -272,6 +273,7 @@ app.add_typer(audit_app, name="audit")
 app.add_typer(jobs_app, name="jobs")
 app.add_typer(help_app, name="help")
 app.add_typer(design_app, name="design")
+app.add_typer(plan_app, name="plan")
 app.add_typer(ideas_app, name="ideas")
 app.add_typer(claims_app, name="claims")
 app.add_typer(script_app, name="script")

@@ -74,5 +74,23 @@
         "facebook video"
       ]
     }
+  },
+  "monthlyPlan": {
+    "_note": "v5 (PRD R7.3): `ca plan month YYYY-MM`. About 2 graphics a day, 30-60 a month; a carousel counts as one. mix: shares per 60 (PRD default LinkedIn 16, Facebook post 16, Instagram carousel 16, Facebook ad 12), scaled to the month. romanEvery: every n-th LinkedIn/Facebook post or ad is planned with Roman (requires_roman, his LoRA). Edit freely.",
+    "graphicsPerDay": 2,
+    "minPerMonth": 30,
+    "maxPerMonth": 60,
+    "mix": {
+      "linkedin_post": 16,
+      "facebook_post": 16,
+      "instagram_carousel": 16,
+      "facebook_ad": 12
+    },
+    "romanEvery": 8,
+    "romanDeliverables": [
+      "linkedin_post",
+      "facebook_post",
+      "facebook_ad"
+    ]
   }
 }

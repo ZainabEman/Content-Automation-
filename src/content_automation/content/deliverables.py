@@ -81,8 +81,24 @@ def normalize(name: str) -> str:
     return _FILLER.sub("", text).strip()
 
 
+class MonthlyPlan(_Model):
+    """v5 (PRD R7): `ca plan month` at about 2 graphics a day, 30-60 a month (a carousel is
+    one); mix = deliverable -> share (the PRD default per 60); every romanEvery-th LinkedIn or
+    Facebook post or ad is planned with requires_roman (a founder variant)."""
+
+    note: str = Field(default="", alias="_note")
+    graphics_per_day: int = Field(default=2, ge=1, le=4)
+    min_per_month: int = Field(default=30, ge=1)
+    max_per_month: int = Field(default=60, ge=1)
+    mix: dict[str, int] = Field(min_length=1)
+    roman_every: int = Field(default=8, ge=0)  # 0: never planned with Roman
+    roman_deliverables: list[str] = Field(default_factory=lambda: [
+        "linkedin_post", "facebook_post", "facebook_ad"])
+
+
 class DeliverableCatalog(_Model):
     deliverables: dict[str, Deliverable] = Field(min_length=1)
+    monthly_plan: MonthlyPlan | None = None
 
     @model_validator(mode="after")
     def _check(self) -> Self:
@@ -105,6 +121,12 @@ class DeliverableCatalog(_Model):
                 alias = normalize(name)
                 if seen.setdefault(alias, key) != key:
                     problems.append(f'"{alias}" names both {seen[alias]} and {key}')
+        if self.monthly_plan is not None:
+            unknown = sorted(set(self.monthly_plan.mix) - set(self.deliverables))
+            if unknown:
+                problems.append(f"monthlyPlan.mix: unknown deliverables {unknown}")
+            if self.monthly_plan.min_per_month > self.monthly_plan.max_per_month:
+                problems.append("monthlyPlan: minPerMonth is above maxPerMonth")
         if problems:
             raise ValueError("; ".join(problems))
         return self

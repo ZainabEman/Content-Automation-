@@ -67,7 +67,8 @@ def slide_roles(direction: Direction) -> list[str]:
 def post_template(direction: Direction, *, platform: str | None, seed: str,
                   design: str) -> dict[str, Any]:
     _, layout = direction_layout(direction, platform=platform, seed=seed)
-    return {"format": design, "direction": direction.id, "copy": copy_template(layout)}
+    return {"format": design, "direction": direction.id, "copy": copy_template(layout),
+            "altText": "<German alt text: what the image shows and says, for screen readers>"}
 
 
 def carousel_template(direction: Direction) -> dict[str, Any]:

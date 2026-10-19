@@ -1,5 +1,7 @@
 # User guide: Content Automation in Codex
 
+> **v5 (2026-10-19):** UGC ads, podcast media and finished YouTube videos are no longer generated (PRD v5 R8). Only reels (`reel_short`, Higgsfield) remain as video; HeyGen avatar clips are not used by any workflow. YouTube is research and production planning: `ca youtube` and the make-youtube skill. Everything the audience sees is German.
+
 Type every phrase below in Codex Desktop. Codex runs the matching `uv run ca …` command for you. Nothing that costs money runs until you have seen its dry run and said "ok". Nothing is published automatically. Every item has a BG ID (for example BG-007).
 
 ## First-time setup
@@ -88,12 +90,11 @@ Type every phrase below in Codex Desktop. Codex runs the matching `uv run ca …
 - "tracker conflicts": hand edits, missing rows and duplicate IDs
 
 ## Production
-- "production status": YouTube and podcast production, finals against the targets
+- "production status": YouTube production (Roman records, the agency edits), finals against the targets
 - "import recording/final for BG-x <path>": a checked copy; the status moves on
 - "send BG-x to the editor <name>": the handoff folder for the editor
 - "BG-x recorded": moves the production status (legal moves only)
 - "make thumbnail for BG-x": a 1280x720 thumbnail with the brief's text
-- "export podcast audio for BG-x": an MP3 at -16 LUFS
 
 ## Clips
 - "make clips from BG-x": the note for Opus Pro (run manually)
@@ -118,3 +119,12 @@ Type every phrase below in Codex Desktop. Codex runs the matching `uv run ca …
 - "retry failed jobs": a dry run, then "ok"
 - "show audit log": the newest events
 - "what can I say": every phrase, with the command behind it
+
+## New in v5 (German, brand visuals, YouTube planning)
+
+- "plan month November": about 2 graphics a day across Instagram carousels, Facebook posts, Facebook ads and LinkedIn, with the cost of the planned volume (free). "apply the plan" puts the rows with an approved idea into the weekly calendars.
+- "make an insta carousel about TOPIC": 5-6 square slides, no slide numbers, logo and website only on the last slide.
+- "make a facebook ad about TOPIC": one ad creative plus primary text, headline, description and a Meta button choice (nothing is placed or paid).
+- "compare designs": every layout variant beside the company's own graphics, `outputs/previews/design/v5_vs_references.png` (free). Please review it before the first paid batch.
+- "plan youtube November", "research BG-x", "check sources BG-x", "write scripts BG-x", "select style B for BG-x", "upload youtube BG-x", "youtube status": the YouTube research and production planning (skill make-youtube). Roman records, the editing agency edits.
+- Drive: new folders Instagram Carousels, Facebook Posts and Facebook Ads are created on the next `ca drive setup`; nothing existing is renamed or moved (docs/v5-drive-actions.md lists what waits for your "ok").

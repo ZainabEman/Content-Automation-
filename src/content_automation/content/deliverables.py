@@ -227,7 +227,8 @@ class DeliverableCatalog(_Model):
                 problems.append(
                     f"{item.part}.format must be {' or '.join(allowed)} ({item.label})"
                 )
-            elif item.slides is not None and not MIN_SLIDES <= len(slot.slides) <= MAX_SLIDES:
+            elif item.slides is not None and not slot.direction and not (
+                    MIN_SLIDES <= len(slot.slides) <= MAX_SLIDES):
                 problems.append(
                     f"{item.part}.slides: {key} has {MIN_SLIDES}-{MAX_SLIDES} slides, chosen by "
                     f"the content (default {item.slides}); found {len(slot.slides)}"

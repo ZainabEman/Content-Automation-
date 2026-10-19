@@ -1,5 +1,7 @@
 # Content Automation
 
+> **v5 (2026-10-19):** UGC ads, podcast media and finished YouTube videos are no longer generated (PRD v5 R8). Only reels (`reel_short`, Higgsfield) remain as video; HeyGen avatar clips are not used by any workflow. YouTube is research and production planning: `ca youtube` and the make-youtube skill. Everything the audience sees is German.
+
 Branded Genius's content assistant. You ask Codex in plain English ("make an Instagram post
 about AI chatbots"); it researches the topic, writes the brief, makes the images and the reel,
 and puts everything (with the caption, hashtags and sources) in one folder for you to review.
@@ -31,7 +33,7 @@ Ask Codex for a post, ad or reel about a topic. Codex follows `AGENTS.md`:
 
 1. `uv run ca content start --topic "…" --deliverables "<what you named>"` collects fresh news
    and creates a package folder (only for what you named: an insta post is a 5-slide carousel;
-   a video, reel, UGC ad or podcast clip is a real video part) in
+   a reel is a real video part; v5: no UGC ad or podcast clip) in
    `outputs/content/YYYY-MM-DD_<topic>/` with `research.md` and `brief.template.json`.
 2. Codex writes `brief.json` (designs, reel, caption) from the research, the company
    profile (`brand/services.md`), the brand rules and the design system
@@ -63,6 +65,9 @@ You can also ask for single images, videos or research (see the guides).
 | `uv run ca tracking show\|export\|conflicts\|resolve` | Content Tracker status counts; CSV copy (local + "Content Tracker.csv" in Drive); hand-edit conflicts and how to settle them. |
 | `uv run ca research collect` | Collects new articles from the sites in `config/sources.json`. |
 | `uv run ca research digest [--topic "…"] [--days 14] [--limit 10]` | Lists saved articles, ranked by topic if given. |
+| `uv run ca plan month YYYY-MM [--apply]` | v5: the monthly social plan, about 2 graphics a day, with the cost of the planned volume (free). |
+| `uv run ca youtube plan\|research\|check-sources\|scripts\|bilingual\|check\|select-style\|upload\|status` | v5: YouTube research and production planning (skill make-youtube). |
+| `uv run ca design preview\|compare\|check` | Layout variants with sample copy, beside the approved references, and the free design check. |
 | `uv run ca image …` | One image job (see the [Images guide](guides/module-1-images.md)). |
 | `uv run ca video --plan <file> [--dry-run]` / `uv run ca video resume <job>` | One video job (see the [Video guide](guides/module-2-video.md)). |
 | `uv run ca job status\|complete\|fail\|review <job> …` | Job records, video steps done by Codex, and the person check of an image. |
@@ -94,6 +99,7 @@ You can also ask for single images, videos or research (see the guides).
 - [Module 2: Video](guides/module-2-video.md)
 - [Module 3: Research and content packages](guides/module-3-research.md)
 - [Module 4: Calendar, Google Drive and the Content Tracker](guides/module-4-calendar-drive.md)
+- v5: [PRD](PRD-v5-german-brand-youtube.md) · [implementation notes and acceptance table](v5-implementation-notes.md) · [Drive actions waiting for "ok"](v5-drive-actions.md) · [reference analysis](../brand/reference-analysis.md) · `ca plan month`, `ca youtube …`, `ca design compare`
 - [Module 5: Content items, approvals and spending (the registry)](guides/module-5-registry.md)
 - [Guide template](guides/_TEMPLATE.md)
 - [Pre-Codex check](PRE-CODEX-CHECK.md): what was checked before Codex testing, and what only Codex can check

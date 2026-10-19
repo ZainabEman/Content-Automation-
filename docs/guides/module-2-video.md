@@ -1,5 +1,7 @@
 # Module guide: Video
 
+> **v5 (2026-10-19):** UGC ads, podcast media and finished YouTube videos are no longer generated (PRD v5 R8). Only reels (`reel_short`, Higgsfield) remain as video; HeyGen avatar clips are not used by any workflow. YouTube is research and production planning: `ca youtube` and the make-youtube skill. Everything the audience sees is German.
+
 > Status: `ca video` turns a video plan into a finished `final.mp4`. With the free mock providers
 > it works offline; with Higgsfield (video) and HeyGen (avatar) Codex makes the clips with
 > their **Codex plugins** (see "Higgsfield and HeyGen plugins"). Codex finds the plugins' tools
@@ -26,8 +28,8 @@ A video is made of **scenes** (each 15 seconds or less). Each scene is one of:
 
 - **Three video workflows**:
   - `reel_short` (up to 90 s): video scenes plus optional image scenes. For Reels and Shorts.
-  - `ugc_ad` (up to 60 s): video scenes plus optional image scenes. For short ads.
-  - `podcast_clip` (up to 90 s): one or more avatar scenes speaking the script, plus optional
+  - (removed in v5: `ugc_ad`, `podcast_clip` and the `youtube` video workflow)
+  - (v5: no workflow takes avatar scenes; the lines below describe the old podcast clip)
     video scenes as b-roll.
 - **Video plan (`plan.json`)**: the plan Codex writes before anything is made (hook, script,
   call to action, scenes). It is checked first, and every problem is listed in plain words,
@@ -182,8 +184,7 @@ Job status can be `queued`, `processing`, `awaiting_agent` (paused for Codex),
 - Higgsfield and HeyGen use your plan credits. The tool does not estimate them; Codex shows
   the cost the plugin reports before it generates, and records each clip's credits as
   `creditsUsed`.
-- Scenes are at most 15 seconds. Videos: `ugc_ad` up to 60 seconds; `reel_short` and
-  `podcast_clip` up to 90 seconds.
+- Scenes are at most 15 seconds. Videos: `reel_short` up to 90 seconds (v5: the only video workflow).
 - Making `final.mp4` takes a few seconds per scene on this computer.
 
 ## Troubleshooting

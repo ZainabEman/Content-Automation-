@@ -105,6 +105,22 @@ Decisions (2026-10-17):
 - D-5 Logo clear space (0.25 × logo height) and minimum width (160 px at 1080) are project defaults: the guide has none.
 - D-6 Roman: quiet luxury allowed besides business settings (rooftop at dusk, hotel lounge, airport business lounge, corner office, car interior); no jets, sports cars, jet skis or yachts. No Roman in carousels. The docx captions are competitor posts: layout reference only.
 
+## v5 — German refocus, brand visuals, YouTube planning
+
+PRD: [docs/PRD-v5-german-brand-youtube.md](PRD-v5-german-brand-youtube.md); detail, findings, assumptions and the acceptance table: [docs/v5-implementation-notes.md](v5-implementation-notes.md). Branch `phase-v5-german-brand` (from `phase-d-design`; not merged, not pushed). Built 2026-10-19 in one run, offline (no paid or external call).
+
+- [x] Step 0 – Audit (notes, Phase 0): guide PDF, logo, approved references (6 company ads, 11 company carousels), competitor material (Phase D R01–R36/C1–C7, never in the repo), routing, text generation, removals, conflicts.
+- [x] Step 1 – Removed UGC ads, podcast media, finished YouTube videos (commands, skills, phrases, config); competitor index archived (`config/_archive/`), isolation test; German defaults and the free German check (`config/german_quality.json`); German-safe rendering (hyphen and soft-hyphen breaks).
+- [x] Step 2 – Brand visual system: `brand/reference-analysis.md`, `config/brand_refs.json`, 18 layout variants in 4 categories (Phase D directions archived), designer prompt with guide/logo/references as inputs, Facebook ad category with ad fields, rotation by variant + treatment, design check rules, `ca design compare` → `outputs/previews/design/v5_vs_references.png`, registry migration 11.
+- [x] Step 3 – Routing: requires_roman → RunPod LoRA (comfyui), else OpenRouter; no fallback (a Roman job without RunPod stops in the dry run); AI disclosure; secret scan test.
+- [x] Step 4 – `ca plan month YYYY-MM [--apply]`: about 2 graphics a day (30–60), category mix in `config/deliverables.json monthlyPlan`, simulated rotation, German metadata, cost of the planned volume.
+- [x] Step 5 – `ca youtube` + make-youtube skill: 8 topics a month, research TXT, source check, 3 styles × teleprompter + DE-EN, storyboard (rest of spec PENDING); mock package `outputs/previews/youtube/`.
+- [x] Step 6 – Drive: new category folders and nested `YouTube/<YYYY-MM>/<BG-ID>_<slug>/`, tracker columns Category, Language, Layout Variant, Requires Roman, Selected Script Style (code only). Pending Google actions: [docs/v5-drive-actions.md](v5-drive-actions.md) (run only after the user's "ok").
+- [x] Step 7 – Docs, skills, help phrases, `scripts/e2e_v5.py` (9/9), full suite.
+
+Decisions (v5, defaults from PRD §9 unless the user says otherwise): Q1 static carousels (the animated pipeline was already deleted on 2026-10-16); Q3 "Sie"; Q4 10–12 min (length is a warning); Q5 teleprompter = plain UTF-8 TXT; Q6 storyboard = Markdown, one block per scene (PENDING); Q8 AI disclosure also on ads; D-1 kept (app fills = the 4 guide colours; the references' near-black backgrounds come from the generated picture); reels kept (not named in R8); HeyGen adapter kept dormant (unreachable).
+PENDING: the end of the storyboard spec (R9.10, Q6) and the Drive restructuring (R10.3, Q9).
+
 ## Phase 4 done (2026-10-13)
 
 - Registry (`src/content_automation/registry/`, `state/registry.db`): BG IDs, five statuses, versions, decisions, jobs with idempotency, authorizations from saved dry runs, append-only redacted audit log; calendar CSV as a view with a hand-edit guard; tracker registry columns with last-written values and a conflict report (mock); `ca registry migrate`.

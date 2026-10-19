@@ -1,5 +1,7 @@
 # Set up Codex Desktop for Content Automation
 
+> **v5 (2026-10-19):** UGC ads, podcast media and finished YouTube videos are no longer generated (PRD v5 R8). Only reels (`reel_short`, Higgsfield) remain as video; HeyGen avatar clips are not used by any workflow. YouTube is research and production planning: `ca youtube` and the make-youtube skill. Everything the audience sees is German.
+
 Follow these steps once per computer. You do not need to know how to code: Codex runs the
 commands for you. Each step says what to click or type.
 

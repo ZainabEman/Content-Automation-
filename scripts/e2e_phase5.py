@@ -207,8 +207,11 @@ def c6_c7_c8(notes: dict[int, list[str]]) -> None:
 def c9(notes: list[str]) -> None:
     from content_automation.research.models import load_sources
 
+    # The live fix d5d9607 enabled the German sources (before v5); v5 (PRD R9.3) wants them,
+    # so the check is that they are present (enabled or not).
     german = [s for s in load_sources(Path("config/sources.json")) if s.language == "de"]
-    notes.append(f"{len(german)} disabled" if german and not any(s.runs for s in german)
+    enabled = sum(1 for s in german if s.runs)
+    notes.append(f"{len(german)} present, {enabled} enabled" if german
                  else "failed: German sources")
 
 
@@ -221,7 +224,7 @@ CRITERIA = {
     6: "calendar plan --month meets targets, keeps pillar balance, blocks shorts",
     7: "planned rows are child items with inherited approval in the log",
     8: "generate approved skips youtube/podcast/short with a clear message",
-    9: "German candidate sources are present but disabled",
+    9: "German candidate sources are present (enabled since the live fix d5d9607; v5 R9.3)",
 }
 
 

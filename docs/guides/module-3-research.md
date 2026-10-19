@@ -1,5 +1,7 @@
 # Module guide: Research
 
+> **v5 (2026-10-19):** UGC ads, podcast media and finished YouTube videos are no longer generated (PRD v5 R8). Only reels (`reel_short`, Higgsfield) remain as video; HeyGen avatar clips are not used by any workflow. YouTube is research and production planning: `ca youtube` and the make-youtube skill. Everything the audience sees is German.
+
 > Status: our own free news scraper collects articles from the sites in `config/sources.json`;
 > `ca research digest` ranks them for a topic; and `ca content start` / `ca content build` turn a
 > topic into a content package (research, brief, images, reel, post text).
@@ -93,8 +95,6 @@ file in between (the steps are in the skill `.agents/skills/make-content/SKILL.m
 | "facebook ad", "fb ad" | `facebook_ad`: 3 variants of one ad, each with you |
 | "insta post", "instagram post", "ig post", "insta carousel", "instagram carousel", "ig carousel" | `instagram_carousel`: 6-8 slides (default 7), one story: hook (with you), problem, steps or insights, example or result, call to action (with you) |
 | "video", "reel", "insta reel", "facebook video" | `reel_short`: a 9:16 video up to 90 s |
-| "ugc ad" | `ugc_ad`: a UGC-style video ad up to 60 s |
-| "podcast clip" | `podcast_clip`: your avatar speaks the script, up to 90 s |
 
 Only what you name is made: "facebook ad only" makes just the ad. If a word is not in the
 table, or could mean two things ("ad", "post"), Codex asks you instead of guessing. One package
@@ -141,7 +141,7 @@ with no deliverables (research and text only) and get them later; until then not
      or ad set is complete for the **set check** (every image against the first: fonts,
      colours, layout family). Codex records each check and asks you before anything is made
      again;
-   - **video** (reel, UGC ad or podcast clip): made with `VIDEO_PROVIDER` / `AVATAR_PROVIDER`
+   - **video** (a reel; v5: no UGC ad or podcast clip): made with `VIDEO_PROVIDER` / `AVATAR_PROVIDER`
      from `.env`; its first frame is the first post image when there is one. The dry run shows
      the video's provider and credits, and Codex waits for your OK as for images. If a provider
      is `mock` or `none` (or its Codex plugin is missing), the package does not fail: the

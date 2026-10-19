@@ -239,3 +239,52 @@ Open (for Roman):
 - Tracker (R11): registry columns `Category`, `Language`, `Layout Variant`, `Requires Roman`, `Selected Script Style` (config/tracker.json), appended after the existing columns and matched by header name; written values are recorded, so a hand edit is a conflict (not overwritten); manager fields never written (test).
 - `docs/v5-drive-actions.md`: the exact operations waiting for Roman's "ok" (new folders via `ca drive setup`, the five headers, the UGC folder: list first, then trash after "ok"). Nothing was run against Google.
 - Tests: `tests/test_drive_v5.py` (folders kept + added, category routing, nested Drive folders on a stubbed Drive service, headers at the end without touching manager fields), YouTube e2e now uploads to mock Drive and checks the tracker row.
+
+---
+
+## Phase 7: docs and final check (done)
+
+- Docs: AGENTS.md (make-youtube, "plan month November", "apply the plan", layout variants, Facebook ad category, person rule via founder variants, German captions, LinkedIn 3:4, carousel playbook, Drive layout; removed UGC/podcast/YouTube-video phrases), CLAUDE.md (v5 summary), skills (make-calendar, make-carousel, make-content, write-script, show-content, upload, produce-video, make-video; new make-youtube), `ca help commands` (v5 phrases), PROGRESS.md (v5 section), README, USER-GUIDE, module-2/3 guides and SETUP-CODEX (v5 note at the top; removed workflows marked).
+- Final run: `uv run ruff check .` clean; `uv run mypy --strict src tests` clean (235 files); `uv run pytest` 517 passed (baseline was 465). `scripts/e2e_v5.py` 9/9 (in the suite as tests/test_e2e_v5.py), `scripts/e2e_phase4.py` 8/8 (in the suite), `scripts/e2e_phase6.py` 7/7, `scripts/e2e_phase5.py` 9/9 after updating its criterion 9 (it checked "German sources disabled", which the live fix d5d9607 had already changed before v5; v5 wants them).
+- Previews (git-ignored): `outputs/previews/design/v5_vs_references.png`, `outputs/previews/youtube/BG-001_deepfake-anrufe-im-namen-der-geschaeftsfuehrung/` (+ README.txt; MOCK).
+- External calls in this run: none (no OpenRouter, RunPod, Google, Higgsfield, HeyGen, Gmail or web request). Local only: one free `ca plan month 2026-11` on this machine's registry (migration 11 applied, backup `state/backups/registry-20261019T135115Z.db`, plan files in `calendar/`).
+
+### Acceptance criteria (PRD §7)
+
+| # | Criterion | Result | Evidence |
+|---|---|---|---|
+| 1 | No audience-facing English in a mock end-to-end run (automated) | PASS | `scripts/e2e_v5.py` §7.1: German check over every reader text of the 4 built briefs, every text drawn on the rendered designs, the 3 teleprompter files (`ca youtube check`) |
+| 2 | Generator loads no file from the competitor archive | PASS | `tests/test_archive_isolation.py` (static scan + audit-hook runtime test over load, pick, prompt build, render, brand, reference scan) |
+| 3 | Contact sheet of all variants beside the approved references; Roman approves before the first paid batch | PASS (sheet) / NOT TESTABLE OFFLINE (approval) | `uv run ca design compare` → `outputs/previews/design/v5_vs_references.png`; Roman's approval is pending |
+| 4 | Carousels: 5–6 slides, no counter, logo only last, website only last (automated) | PASS | loader rules (`tests/test_design_directions.py`), design check (`tests/test_design_check.py::test_v5_category_rules`), built carousel in `scripts/e2e_v5.py` §7.4 (5 slides) |
+| 5 | Facebook posts and ads: separate templates, packages, Drive folders | PASS | FB-1..4/FB-R1 vs FA-1..3/FA-R1; `scripts/e2e_v5.py` §7.5 (separate packages, categories); `tests/test_drive_v5.py` (Facebook Posts vs Facebook Ads) |
+| 6 | LinkedIn 3:4, real logo at a side corner, hash matches the official file | PASS (offline) | loader corner rule, design check (sha256 of the official file, corner), `scripts/e2e_v5.py` §7.6 (1080×1440). The sandbox registers its stand-in as the official logo; the real file's hash is in `config/brand.json` (`ff800645…`) and is checked the same way on this machine (`ca design compare` used the real logo) |
+| 7 | Simulated month: no platform with 3 consecutive images of the same variant + treatment | PASS | `tests/test_month_plan.py` (Nov 2026, Dec 2026, Feb 2027), `tests/test_direction_pick.py::test_no_third_treatment_in_a_row`, `scripts/e2e_v5.py` §7.7 |
+| 8 | Routing: requires_roman → RunPod, others → OpenRouter; no silent fallback; no secret in logs/outputs | PASS | `tests/test_routing.py` (5 tests incl. the secret scan), `tests/test_direction_build.py::test_every_roman_image_is_a_lora_job` |
+| 9 | Monthly planner: 30–60 assets with a format mix, carousel = one | PASS | `tests/test_month_plan.py`, `scripts/e2e_v5.py` §7.9 (60 assets, 4 categories) |
+| 10 | UGC, podcast and finished-video commands and skills gone; YouTube planning, carousel and research still pass | PASS | `tests/registry/test_thumbnail.py::test_podcast_commands_are_gone`; `VideoWorkflow = "reel_short"`; no `ugc_ad`/`podcast_clip` deliverables; skills/AGENTS.md updated; suite 517 passed incl. youtube, carousel, research tests |
+| 11 | YouTube mock run: research TXT, 3 styles × 2 files, storyboard in the R9.11 layout; bilingual German = teleprompter; teleprompter has no English, citations or headings | PASS | `tests/test_youtube.py::test_one_topic_end_to_end`, `scripts/e2e_v5.py` §7.11 |
+| 12 | Source check catches a dead URL and a quotation not in the page (fixtures) | PASS | `tests/test_youtube.py::test_source_check_catches_a_dead_url_and_a_misquote`, `scripts/e2e_v5.py` §7.12 |
+| 13 | ruff, strict mypy, full offline suite pass; no paid or external call without an estimate and "ok" | PASS | ruff clean, mypy strict clean, 517 passed; no external call was made in this run |
+
+### Questions only Roman can answer
+
+1. **Q2 / references:** confirm that the approved references are `assets/reference/creative/facebook_ads/01–06` and `creative/carousels/carousel_01–11`; add the graphic designer's own outputs to `assets/reference/creative/designer/` (none found) so the comparison sheet shows them. No reference image was UNSURE.
+2. **Background colour (D-1 vs references):** every approved graphic is near-black navy; the guide has 4 colours and D-1 says dark designs are Royal Blue. Allow a near-black (or a darker Royal Blue shade) as a dark token? See the sheet.
+3. **Q3:** "Sie" (default, used) or "du"? The company carousels use "du", the ads "Sie".
+4. **Q4:** YouTube length 10–12 min (default, used as a warning)?
+5. **Q5:** which teleprompter app? (plain UTF-8 TXT for now)
+6. **Q6 / R9.10 PENDING:** the rest of the storyboard spec and its format.
+7. **Q7:** Opus Pro / Shorts clips (kept, untouched): still wanted?
+8. **Q8:** AI disclosure also on Facebook ads with Roman (default yes, used).
+9. **Q9 / R10.3 PENDING:** the Drive restructuring details; and the exact name/location of the UGC ad folder.
+10. **Reels:** `reel_short` (Higgsfield) is kept (not named in R8). Keep or remove? HeyGen is unreachable now; remove its dormant adapter too?
+11. **3:4 at OpenRouter:** LinkedIn pictures are made at 4:5 and cropped to 3:4 (the adapter's aspect list); a one-image paid test (about $0.10) would show whether the model accepts 3:4.
+12. **Meta CTA list** (`config/meta_cta.json`) and **German source domains** (`config/sources_de.json`) were not checked online: please confirm or correct.
+13. **LinkedIn hashtags:** context doc says 0–3, the code's rule is 3–5; planned as exactly 3 (incl. #BrandedGenius). OK?
+14. **Monthly mix and Roman share:** PRD default mix (16/16/16/12 per 60) and Roman every 8th post/ad; change in `config/deliverables.json monthlyPlan`.
+15. **Futura:** licensed Futura files are still missing (Jost stand-in).
+
+### PRD §9 defaults used
+
+Q1 static carousels (animation already deleted 2026-10-16) · Q2 references as above · Q3 "Sie" · Q4 10–12 min · Q5 UTF-8 TXT · Q6 Markdown, one block per scene · Q7 clips untouched · Q8 disclosure on ads too · Q9 new folders only, nothing renamed/moved.

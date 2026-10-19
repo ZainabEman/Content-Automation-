@@ -149,7 +149,9 @@ def _carousels(brief: ContentBrief) -> Iterable[tuple[str, ImageSlot]]:
 
 def _slide_texts(slide: SlideSlot) -> list[str]:
     texts = [slide.headline, slide.subheadline or ""]
-    for value in slide.copy_text.values():
+    for name, value in slide.copy_text.items():
+        if name in _NOT_SHOWN:  # e.g. the picture prompt: the model's, not the reader's
+            continue
         texts += value if isinstance(value, list) else [value]
     texts += [bubble.text for bubble in slide.chat] + list(slide.diagram) + list(slide.checklist)
     if slide.before_after is not None:

@@ -9,6 +9,7 @@ description: Upload Branded Genius files to Google Drive with the Codex Google D
 
 - Upload only what `ca` asks for: the approved version's files (`ca item approve` on the review gate writes them; config/storage.json `upload.requireReview`). Never upload other files, never make anything public, never change sharing.
 - Plugins are found at run time; never assume tool names. If the Google Drive plugin is missing, stop and name it.
+- v5: never rename, move or delete an existing Drive folder (the restructuring spec is PENDING); new category folders (Instagram Carousels, Facebook Posts, Facebook Ads) are created by the manifest or `ca drive setup`. The UGC ad folder is trashed only after the user's "ok" (docs/v5-drive-actions.md). YouTube topics upload with `uv run ca youtube upload BG-x` (STORAGE_PROVIDER drive or mock).
 - Record every upload with `ca`; never say "uploaded" without the file ID and link the plugin returned. Mock uploads stay labelled mock.
 
 ## Steps

@@ -357,7 +357,9 @@ def brief_problems(
         if name == "carousel" and image.format != "carousel":
             problems.append('carousel.format must be "carousel"')
         if image.format == "carousel":
-            if image.slide is None and not MIN_SLIDES <= len(image.slides) <= MAX_SLIDES:
+            # v5: a layout variant's carousel has 5-6 slides, checked with its slide roles
+            if image.slide is None and not image.direction and not (
+                    MIN_SLIDES <= len(image.slides) <= MAX_SLIDES):
                 problems.append(
                     f"{name}.slides: a carousel has {MIN_SLIDES}-{MAX_SLIDES} slides (hook, "
                     "problem, steps or insights, example or result, call to action)"

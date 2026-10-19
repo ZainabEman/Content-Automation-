@@ -31,6 +31,7 @@ from content_automation.content.formats import (
     image_prompt,
     load_formats,
 )
+from content_automation.content.routing import RoutingError, check_route
 from content_automation.core.config import Settings
 from content_automation.core.jobs import DETAILS_FILE, Job, JobReference
 from content_automation.references import (
@@ -164,6 +165,8 @@ class WorkflowInputs:
     # format_copy holds its copy, slide_type the carousel slide role, topic seeds the layout.
     direction: str | None = None
     direction_platform: str | None = None
+    # v5 R6.3: set at planning time (package.json requiresRoman); None = the variant decides
+    requires_roman: bool | None = None
 
     def provided(self) -> set[InputName]:
         values: dict[InputName, str | bool | None] = {
@@ -803,6 +806,8 @@ def _prepare_direction(
                                        "personShown": False}
     try:
         # Roman is always his LoRA on comfyui (never a real photo, never another provider).
+        route = check_route(direction, settings, requires_roman=inputs.requires_roman)
+        recorded["route"] = route  # v5 R6: comfyui (Roman's LoRA) or openrouter
         own = direction_settings(direction, picture, settings)
         capabilities = get_provider(own.image_provider, own).capabilities
         person = direction.roman and picture
@@ -822,7 +827,8 @@ def _prepare_direction(
                                  role)
             prompt = designer.prompt
             recorded.update(designer.record())
-    except (DirectionJobError, ReferenceLibraryError, DesignerPromptError) as error:
+    except (DirectionJobError, ReferenceLibraryError, DesignerPromptError,
+            RoutingError) as error:
         raise WorkflowError(str(error)) from None
     number = (inputs.slide or "").partition("/")[0].strip()
     design = DirectionDesign(direction=direction.id, layout=name, copy=copy,

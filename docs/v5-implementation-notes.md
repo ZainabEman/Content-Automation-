@@ -189,3 +189,13 @@ Open (for Roman):
 - **Contact sheet**: `uv run ca design compare` → `outputs/previews/design/v5_vs_references.png` (18 rows: approved references left, v5 renders right; free). Designer's own outputs: none found (the sheet adds `creative/designer/*` when Roman drops them there).
 - Carousel animation (R4.3/Q1): the Higgsfield animated carousel was already deleted on 2026-10-16 (PROGRESS); static slides are the only path. Nothing to switch off.
 - Dormant: `workflows/cutout.py` (green-screen cut-out) is no longer used by any variant (no FD-1); kept, tested.
+
+---
+
+## Phase 3: image routing (done)
+
+- Inspected before changing (R6.4): RunPod Serverless ComfyUI worker, `POST https://api.runpod.ai/v2/{RUNPOD_ENDPOINT_ID}/run {"input":{"workflow":…}}` → poll `/status/{id}`; workflow `config/comfyui/workflows/z_image_turbo.json` (+ map: prompt, negative, seed, size, steps, cfg, lora_name, lora_strength); LoRA `r0man_bg_v2_step3000.safetensors`, trigger `r0man_bg`, strength 0.9; models on the network volume per `config/comfyui.json`. Key names in `.env`: RUNPOD_API_KEY, RUNPOD_ENDPOINT_ID, RUNPOD_NETWORK_VOLUME_ID (values not read). Nothing was called.
+- 7d20445 logic reused unchanged: a variant's `visual.subject` fixes its provider (`roman_lora` → comfyui, `illustration` → openrouter), `direction_settings()` never swaps, mock stays mock.
+- New `content/routing.py`: `image_route(requires_roman)` and `check_route()`, called in `_prepare_direction` (so in every dry run, before any cost is approved): the variant must match the flag planned at stage 1 (`package.json requiresRoman`, passed as `WorkflowInputs.requires_roman`), and a Roman job without RUNPOD_API_KEY / RUNPOD_ENDPOINT_ID fails with those names, "no fallback to another provider or a real photo". A global IMAGE_PROVIDER does not decide (test with IMAGE_PROVIDER=comfyui: a non-Roman variant still goes to openrouter). The job record carries `route`.
+- AI disclosure (R6.7, Q8 default yes incl. ads): there was no field yet ("planned"); package.json `aiDisclosure` = "KI-generiertes Bild (Roman, erstellt mit einem KI-Modell)" for every requires_roman package; stage 1 prints the route and "AI disclosure on". Tracker column in Phase 6.
+- Credentials stay in `.env` / settings (SecretStr). `tests/test_routing.py` runs prepare + mock builds with fake RunPod and OpenRouter keys and scans prompts, job inputs and every JSON/TXT/MD file in the job folders: no key (nor its tail) appears. The Phase 4 e2e already checks the audit log for secrets.

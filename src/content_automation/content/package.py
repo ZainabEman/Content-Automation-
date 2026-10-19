@@ -168,6 +168,8 @@ from content_automation.workflows.video_job import (
 from content_automation.workflows.video_plan import PlanError, parse_plan
 
 PACKAGE_FILE = "package.json"
+# v5 R6.7: shown with every image of Roman made by his LoRA (caption and tracker notes)
+AI_DISCLOSURE = "KI-generiertes Bild (Roman, erstellt mit einem KI-Modell)"
 BRIEF_FILE = "brief.json"
 TEMPLATE_FILE = "brief.template.json"
 RESEARCH_FILE = "research.md"
@@ -260,6 +262,9 @@ class ContentPackage(CamelModel):
     treatment: str | None = None
     requires_roman: bool = False
     language: str | None = None
+    # v5 R6.7 (EU AI Act Art. 50): the label for images of Roman made by his LoRA; also on
+    # Facebook ads (Q8 default yes). None: no generated person.
+    ai_disclosure: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -396,6 +401,10 @@ def _apply_deliverables(
                                                          format_override)
     if direction is not None:
         lines.append(f"Design direction: {direction[0].label} ({direction[1]})")
+        lines.append(f"Layout variant: {direction[0].id}, {direction[0].category}, "
+                     f"treatment {direction[0].treatment}; route: "
+                     + ("comfyui (Roman's LoRA on RunPod; AI disclosure on)" if direction[0].roman
+                        else "openrouter (designer prompt, no person)"))
     elif as_direction:
         raise DeliverableError(f'"as {format_override}": none of these deliverables takes a '
                                "layout variant (LinkedIn or Facebook post, Facebook ad, "
@@ -445,6 +454,7 @@ def _apply_deliverables(
         package.category = direction[0].category
         package.treatment = direction[0].treatment
         package.requires_roman = direction[0].roman
+        package.ai_disclosure = AI_DISCLOSURE if direction[0].roman else None
     package.language = load_content(settings.content_file).for_platform(package.platform)
     for item_id in runtime.package_items(folder).values():
         runtime.report_design(item_id, layout_variant=package.direction,
@@ -1287,6 +1297,16 @@ def _marked(slot: ImageSlot) -> str:
                     for word in (slot.headline or "").split())
 
 
+def _planned_roman(folder: Path) -> bool | None:
+    """v5 R6.3: package.json requiresRoman, set at stage 1 (None for an older package)."""
+    try:
+        data = json.loads((folder / PACKAGE_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    value = data.get("requiresRoman") if isinstance(data, dict) else None
+    return value if isinstance(value, bool) else None
+
+
 def _slot_inputs(
     name: str,
     slot: ImageSlot,
@@ -1341,6 +1361,7 @@ def _slot_inputs(
         topic=brief.topic,
         direction=slot.direction,
         direction_platform=brief.platform,
+        requires_roman=_planned_roman(folder) if slot.direction else None,
     )
     if slot.templated and slot.slides:  # a static carousel: one image per slide
         total = len(slot.slides)

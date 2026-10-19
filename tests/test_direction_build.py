@@ -138,7 +138,11 @@ def test_every_roman_image_is_a_lora_job(mock_settings: Settings) -> None:
         assert prepared.request.prompt.startswith(load_directions().roman.prefix)
         assert not prepared.request.style_refs and not prepared.request.identity_refs
         assert prepared.settings is not None and prepared.settings.image_provider == "mock"
-    live = mock_settings.model_copy(update={"image_provider": "openrouter"})
+    from pydantic import SecretStr
+
+    live = mock_settings.model_copy(update={  # fake RunPod settings: nothing is called
+        "image_provider": "openrouter", "runpod_api_key": SecretStr("rpa_test_only"),
+        "runpod_endpoint_id": "endpoint-test"})
     routed = prepare_workflow("social_creative", _inputs("FB-R1", sample_copy()["FB-R1/post"]),
                               live)  # IMAGE_PROVIDER=openrouter: Roman still goes to comfyui
     assert routed.settings is not None and routed.settings.image_provider == "comfyui"

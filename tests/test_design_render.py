@@ -41,8 +41,9 @@ def assets(logo: Path) -> Assets:
 
 def test_marks_and_touching_punctuation() -> None:
     words = parse("Still chasing *follow-ups*? Start with the *process*, not **two words**.")
-    assert [(w.text, w.style) for w in words if w.style != "plain"] == [
-        ("follow-ups?", "accent"), ("process,", "accent"), ("two", "bold"), ("words.", "bold")]
+    assert [(w.text, w.style, w.glue) for w in words if w.style != "plain"] == [
+        ("follow-", "accent", False), ("ups?", "accent", True),  # v5: a break point (R1.5)
+        ("process,", "accent", False), ("two", "bold", False), ("words.", "bold", False)]
     pill = parse("How we build [[an AI agent]] in 3 steps?")
     assert {w.group for w in pill if w.style == "pill"} == {0}
     assert pill[-1].text == "steps?" and pill[-1].style == "plain"

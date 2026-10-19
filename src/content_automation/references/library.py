@@ -18,6 +18,7 @@ from pathlib import Path
 from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
 
 from content_automation.ai.image import ReferenceImage
+from content_automation.core.archive import is_archived
 from content_automation.core.config import load_settings
 from content_automation.references.frames import frame_paths
 from content_automation.references.models import (
@@ -97,6 +98,8 @@ def scan(root: Path | None = None) -> ScanReport:
     for child in sorted(root.iterdir(), key=lambda p: natural_key(p.name)):
         if child.name.startswith(".") or child.name.casefold() in IGNORED_FILES:
             continue
+        if is_archived(child.name):  # the competitor archive is never a reference (PRD v5 R2.2)
+            continue
         if child.is_dir() and child.name not in REF_TYPES:
             report.warnings.append(
                 f"Folder '{child.name}' ignored: top-level folders must be "
@@ -113,7 +116,8 @@ def scan(root: Path | None = None) -> ScanReport:
             continue
         for dirpath, dirnames, filenames in os.walk(type_dir):
             dirnames[:] = sorted(
-                (d for d in dirnames if d not in _GENERATED_DIRS and not d.startswith(".")),
+                (d for d in dirnames if d not in _GENERATED_DIRS and not d.startswith(".")
+                 and not is_archived(d)),
                 key=natural_key,
             )
             folder = Path(dirpath)
@@ -333,7 +337,8 @@ def list_sets(ref_type: RefType | None = None, root: Path | None = None) -> list
         return []
     sets = []
     for set_file in root.rglob(SET_FILE):
-        if _GENERATED_DIRS.intersection(set_file.parts):
+        if _GENERATED_DIRS.intersection(set_file.parts) or is_archived(
+                set_file.relative_to(root)):
             continue
         try:
             ref_set = ReferenceSet.load(set_file)

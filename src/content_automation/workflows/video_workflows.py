@@ -32,33 +32,6 @@ VIDEO_WORKFLOWS: dict[str, VideoWorkflowSpec] = {
             scene_types=("video", "image"),
             required_scene_type="video",
         ),
-        VideoWorkflowSpec(
-            workflow_id="ugc_ad",
-            version="1",
-            description="Short UGC-style ad from generated clips and M1 images.",
-            max_duration_sec=60,
-            scene_types=("video", "image"),
-            required_scene_type="video",
-        ),
-        VideoWorkflowSpec(
-            workflow_id="podcast_clip",
-            version="1",
-            description="Talking avatar speaking the script, with optional b-roll clips.",
-            max_duration_sec=90,
-            scene_types=("avatar", "video"),
-            required_scene_type="avatar",
-        ),
-        VideoWorkflowSpec(
-            workflow_id="youtube",
-            version="1",
-            description="YouTube video (16:9): the HeyGen avatar speaking the script, with "
-            "optional b-roll clips and images.",
-            max_duration_sec=600,
-            scene_types=("avatar", "video", "image"),
-            required_scene_type="avatar",
-            aspect="16:9",
-            size=(1920, 1080),
-        ),
     )
 }
 

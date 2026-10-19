@@ -28,9 +28,9 @@ description: Propose a week's Branded Genius content calendar (calendar/<YYYY-Ww
 
 1. Week or month: "plan next week" → `uv run ca calendar plan --week next`; "plan next month" → `uv run ca calendar plan --month next` (also `this`, `2026-W45`, `2026-11`).
 2. It fills the `plan` slots of `config/calendar.json` from **approved** ideas only (best score first, pillar balance of `config/strategy.json`): one row per platform, each row a child item of its idea, Approved by inheritance (logged with the idea's ID). YouTube videos get a YouTube Short and a TikTok row 2 days later. Rows a week file already has stay as they are. Nothing is generated.
-3. Show its lines: rows planned, slots with no approved idea left (offer "review ideas"), "Targets met." or the missed targets, the pillar balance, and the plan-only types (YouTube, podcast, shorts: not producible until Phase 8/9). A row marked "blocked: waiting for BG-x" is a short whose video is not planned at least 2 days before it; say so.
+3. Show its lines: rows planned, slots with no approved idea left (offer "review ideas"), "Targets met." or the missed targets, the pillar balance, and the plan-only types (YouTube, shorts: not producible until Phase 8/9; YouTube topics come from the make-youtube skill). A row marked "blocked: waiting for BG-x" is a short whose video is not planned at least 2 days before it; say so.
 4. "show month" → `uv run ca calendar show --month next` (rows of every week file, Row as `<week>#<n>`).
-5. Generate a planned week as below ("generate approved"); YouTube, podcast and short rows are skipped with "not producible until Phase 8/9".
+5. Generate a planned week as below ("generate approved"); YouTube and short rows are skipped with "not producible until Phase 8/9".
 
 ## Approve or reject
 

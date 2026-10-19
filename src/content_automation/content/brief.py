@@ -214,7 +214,7 @@ class ReelScene(_BriefModel):
 
 
 class ReelSlot(_BriefModel):
-    """The package's video: reel_short, ugc_ad or podcast_clip (see deliverables.json)."""
+    """The package's video: reel_short (see deliverables.json; UGC and podcast removed in v5)."""
 
     workflow: VideoWorkflow = "reel_short"
     hook: str = Field(min_length=1)

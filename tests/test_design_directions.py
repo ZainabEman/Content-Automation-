@@ -96,7 +96,9 @@ def test_rules_are_enforced(tmp_path: Path, change: Any, message: str) -> None:
 
 
 def test_reference_ids_exist_in_the_reference_map() -> None:
-    refs = json.loads((REPO / "config" / "social_refs.json").read_text(encoding="utf-8"))["refs"]
+    # v5 Phase 1: the competitor map is archived; the Phase D directions are replaced in Phase 2.
+    refs = json.loads((REPO / "config" / "_archive" / "social_refs_competitor.json").read_text(
+        encoding="utf-8"))["refs"]
     used = {ref for d in load_directions(CONFIG).directions for ref in d.reference_ids}
     assert used <= set(refs)
     assert len(refs) == 43 and refs["R17"]["use"].count("watermark") == 1

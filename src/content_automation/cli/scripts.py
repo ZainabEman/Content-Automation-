@@ -28,7 +28,7 @@ from content_automation.registry.db import RegistryError
 script_app = typer.Typer(no_args_is_help=True,
                          help="Scripts and copy from the editorial formulas.")
 brief_app = typer.Typer(no_args_is_help=True,
-                        help="Production briefs (YouTube, podcast, social visual direction).")
+                        help="Production briefs (YouTube, social visual direction).")
 JsonOption = Annotated[bool, typer.Option("--json", help="Print JSON (for skills).")]
 RefArgument = Annotated[str, typer.Argument(help="The item (BG ID or Content ID).")]
 VersionOption = Annotated[int | None, typer.Option("--version", min=1,

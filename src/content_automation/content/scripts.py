@@ -60,7 +60,7 @@ class PlatformRules(_Model):
 
 class Formula(_Model):
     artifact: Literal["script", "copy"]
-    brief: Literal["youtube", "podcast"] | None = None
+    brief: Literal["youtube"] | None = None
     minutes: tuple[int, int] | None = None
     sections: list[SectionSpec] = Field(min_length=1)
     platforms: dict[str, PlatformRules] = Field(default_factory=dict)

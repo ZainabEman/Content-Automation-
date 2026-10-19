@@ -57,15 +57,14 @@ def test_template_has_sections_claims_and_feedback(conn: sqlite3.Connection) -> 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     assert data["formula"] == "youtube_longform" and data["version"] == 2
-    assert [s["key"] for s in data["skeleton"]["sections"]][:2] == ["hook", "german_problem"]
-    assert data["totalWords"] == [1200, 1800] and data["claims"][0]["status"] == "unverified"
+    assert [s["key"] for s in data["skeleton"]["sections"]][:2] == ["hook", "warning"]
+    assert data["totalWords"] == [1300, 1560] and data["claims"][0]["status"] == "unverified"
     assert data["feedback"] == "Shorter hook, more on the Mittelstand"
     assert data["storesIn"].endswith(f"items/{video}/scripts/v2")
 
 
 def test_every_formula_has_a_template(conn: sqlite3.Connection) -> None:
-    for kind, deliverable, platform in (("podcast", "podcast_episode", "podcast"),
-                                        ("post", "linkedin_post", "linkedin"),
+    for kind, deliverable, platform in (("post", "linkedin_post", "linkedin"),
                                         ("carousel", "instagram_carousel", "instagram"),
                                         ("ad", "facebook_ad", "facebook")):
         item = create_item(conn, kind=kind, title=f"A {kind}", topic="t", platforms=[platform],
@@ -84,8 +83,9 @@ def test_shorts_have_no_formula_and_artifacts_are_logged(conn: sqlite3.Connectio
 
 
 TODAY = datetime.now(UTC).date()
-LENGTHS = {"hook": 80, "german_problem": 300, "ai_risk_or_mistake": 350, "why_it_happens": 300,
-           "correct_ai_solution": 400, "cta_outro": 70}
+LENGTHS = {"hook": 100, "warning": 120, "critical_situation": 280, "why_it_matters": 190,
+           "why_it_happens": 190, "what_could_go_wrong": 190, "correct_response": 340,
+           "conclusion": 90}
 
 
 def _sourced_video(conn: sqlite3.Connection) -> tuple[str, dict[str, str]]:
@@ -109,8 +109,8 @@ def _sourced_video(conn: sqlite3.Connection) -> tuple[str, dict[str, str]]:
 def _draft(path: Path, item: str, version: int, verified: str, **changes: object) -> Path:
     sections: list[dict[str, object]] = [
         {"key": key, "text": " ".join(["Firms"] * count)
-         + (" In 2025 calls rose." if key == "ai_risk_or_mistake" else ""),
-         "claimRefs": [verified] if key == "ai_risk_or_mistake" else []}
+         + (" In 2025 calls rose." if key == "critical_situation" else ""),
+         "claimRefs": [verified] if key == "critical_situation" else []}
         for key, count in LENGTHS.items()]
     data: dict[str, object] = {"item": item, "version": version, "formula": "youtube_longform",
                                "language": "en", "sections": sections,
@@ -130,23 +130,23 @@ def test_valid_youtube_script_saves_v1_with_md(conn: sqlite3.Connection, tmp_pat
     assert json.loads((folder / "script.json").read_text("utf-8"))["durationMinutes"] == 10.0
     assert "## hook" in (folder / "script.md").read_text("utf-8")
     assert ca("script", "check", video).exit_code == 0
-    assert "## cta_outro" in ca("script", "show", video).output
+    assert "## conclusion" in ca("script", "show", video).output
 
 
 def test_check_refuses_with_clear_messages(conn: sqlite3.Connection, tmp_path: Path) -> None:
     video, claims = _sourced_video(conn)
     draft = _draft(tmp_path / "s.json", video, 1, claims["verified"])
     data = json.loads(draft.read_text("utf-8"))
-    data["sections"] = data["sections"][:-1]  # no cta_outro
+    data["sections"] = data["sections"][:-1]  # no conclusion
     data["sections"][0]["text"] += " 40 percent"  # a number without a verified claim
     data["sections"][1]["claimRefs"] = [claims["outdated"]]
     data["sections"][3]["claimRefs"] = [claims["opinion"]]
     draft.write_text(json.dumps(data), encoding="utf-8")
     result = ca("script", "save", video, str(draft))
     assert result.exit_code == 1 and "Not saved" in result.output
-    for message in ("cta_outro: missing or empty", "hook: number without verified source",
-                    f"german_problem: {claims['outdated']} is outdated",
-                    f"why_it_happens: {claims['opinion']} is opinion and unverified"):
+    for message in ("conclusion: missing or empty", "hook: number without verified source",
+                    f"warning: {claims['outdated']} is outdated",
+                    f"why_it_matters: {claims['opinion']} is opinion and unverified"):
         assert message in result.output
     assert not (Path("outputs") / "items" / video / "scripts" / "v1").exists()
 
@@ -164,22 +164,22 @@ def test_revise_then_save_makes_v2_and_keeps_v1(conn: sqlite3.Connection,
                str(_draft(tmp_path / "b.json", video, 1, claims["verified"])))
     assert stale.exit_code == 1 and "current version is v2" in stale.output
     again = ca("script", "save", video, str(_draft(tmp_path / "c.json", video, 2,
-                                                   claims["verified"], cta="Book a call")))
+                                                   claims["verified"], cta="Termin buchen")))
     assert again.exit_code == 0 and "Saved v2" in again.output
-    assert v1.read_bytes() == before and "Book a call" in ca("script", "show", video).output
+    assert v1.read_bytes() == before and "Termin buchen" in ca("script", "show", video).output
 
 
 def test_linkedin_copy_outside_range_fails(conn: sqlite3.Connection, tmp_path: Path) -> None:
     post = create_item(conn, kind="post", title="A post", topic="t", platforms=["linkedin"],
                        deliverable="linkedin_post")
     texts = {"central_message": "Answer every lead", "audience": "Clinic owners",
-             "purpose": "educational", "headline": "Leads wait for *nobody*",
+             "purpose": "educational", "headline": "Leads warten auf *niemanden*",
              "copy": "Leads wait for nobody.\n" + " ".join(["word"] * 95),
              "visual_direction": "Roman at a reception desk with a phone",
-             "cta": "Book a free analysis"}
+             "cta": "Kostenlose Analyse buchen"}
     draft = tmp_path / "post.json"
     draft.write_text(json.dumps({
-        "item": post.id, "version": 1, "formula": "social_graphic", "language": "en",
+        "item": post.id, "version": 1, "formula": "social_graphic", "language": "de",
         "sections": [{"key": k, "text": v} for k, v in texts.items()],
         "hashtags": ["#BrandedGenius", "#AI", "#Leads"]}), encoding="utf-8")
     result = ca("script", "save", post.id, str(draft))
@@ -207,30 +207,15 @@ def test_youtube_brief_validates_and_renders(conn: sqlite3.Connection, tmp_path:
     assert refused.exit_code == 1 and "thumbnail.text: 6 words (at most 5)" in refused.output
 
 
-def test_podcast_brief_validates_segments(conn: sqlite3.Connection, tmp_path: Path) -> None:
-    episode = create_item(conn, kind="podcast", title="Voice clones", topic="t",
-                          platforms=["podcast"], deliverable="podcast_episode")
-    skeleton = json.loads(ca("brief", "template", episode.id, "--json").output)["skeleton"]
-    for segment in skeleton["segments"]:
-        segment.update({"title": segment["section"], "minutes": 3})
-    skeleton.update({"showNotes": "Links and sources", "episodeTitle": "Voice clones",
-                     "episodeDescription": "Why finance teams get fake calls"})
-    draft = tmp_path / "brief.json"
-    draft.write_text(json.dumps(skeleton), encoding="utf-8")
-    saved = ca("brief", "save", episode.id, str(draft))
-    assert saved.exit_code == 0, saved.output
-    assert "## Segments" in ca("brief", "show", episode.id).output
-    assert ca("brief", "check", episode.id).exit_code == 0
-
-
 SOCIAL = {"central_message": "Answer every lead", "audience": "Clinic owners",
-          "purpose": "educational", "headline": "Leads wait for *nobody*",
-          "visual_direction": "Roman at a reception desk with a phone", "cta": "Book a call"}
+          "purpose": "educational", "headline": "Leads warten auf *niemanden*",
+          "visual_direction": "Roman at a reception desk with a phone",
+          "cta": "Jetzt Termin buchen"}
 
 
 def _post_draft(path: Path, item: str, copy: str) -> Path:
     path.write_text(json.dumps({
-        "item": item, "version": 1, "formula": "social_graphic", "language": "en",
+        "item": item, "version": 1, "formula": "social_graphic", "language": "de",
         "sections": [{"key": k, "text": v} for k, v in {**SOCIAL, "copy": copy}.items()],
         "hashtags": ["#BrandedGenius", "#AI", "#Leads"]}), encoding="utf-8")
     return path
@@ -245,16 +230,16 @@ def test_post_copy_fills_its_brief_fields_only(conn: sqlite3.Connection, tmp_pat
     (package / "brief.json").write_text(json.dumps(brief), encoding="utf-8")
     post = create_item(conn, kind="post", title="Leads", topic="t", platforms=["linkedin"],
                        deliverable="linkedin_post", package_path=package.as_posix())
-    lines = ["Leads wait for nobody.", *[" ".join(["Answer"] * 40) for _ in range(3)],
-             "How fast do you answer?"]
+    lines = ["Leads warten auf niemanden.", *[" ".join(["Antwort"] * 40) for _ in range(3)],
+             "Wie schnell antworten Sie?"]
     result = ca("script", "save", post.id, str(_post_draft(tmp_path / "p.json", post.id,
                                                             "\n".join(lines))))
     assert result.exit_code == 0, result.output
     assert "brief.json updated: post.headline, captions.linkedin_post" in result.output
     data = json.loads((package / "brief.json").read_text("utf-8"))
-    assert data["post"] == {"format": "statement", "headline": "Leads wait for nobody",
-                            "highlight": ["nobody"]}
-    assert data["captions"]["linkedin_post"]["question"] == "How fast do you answer?"
+    assert data["post"] == {"format": "statement", "headline": "Leads warten auf niemanden",
+                            "highlight": ["niemanden"]}
+    assert data["captions"]["linkedin_post"]["question"] == "Wie schnell antworten Sie?"
     assert data["captions"]["facebook_post"]["hook"] == "keep" and data["cta"] == "Old cta"
     assert (package / "scripts" / post.id / "v1" / "script.md").is_file()
 

@@ -24,6 +24,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from content_automation.content.copy_apply import apply_copy
+from content_automation.content.german import check_texts
 from content_automation.content.production import start_if_ready
 from content_automation.content.scripts import (
     Script,
@@ -48,6 +49,8 @@ from content_automation.registry.db import RegistryError
 from content_automation.registry.items import get_item
 
 _NUMBER = re.compile(r"\d")
+# Sections only the team reads (briefing for the writer and the image pipeline)
+INTERNAL_SECTIONS = frozenset({"central_message", "audience", "purpose", "visual_direction"})
 _QUOTES = re.compile(r"[\"“”„«»]|(^|\s)['‘’]|['‘’](\s|$)")
 _HIGHLIGHT = re.compile(r"\*([^*\s][^*]*)\*")
 # First words that are not verbs (a bullet starts with what to do: "Review", "Ask", "Keep").
@@ -198,6 +201,11 @@ def check_script(conn: sqlite3.Connection, template: Template, script: Script) -
         if spec.key == "copy" and template.rules:
             _platform(text, script, template, check)
     check.words = sum(words(section.text) for section in script.sections)
+    if template.language == "de":  # v5 R1.6: the free German pass on what the audience sees
+        german = check_texts((section.key, section.text) for section in script.sections
+                             if section.key not in INTERNAL_SECTIONS)
+        check.problems += german.errors
+        check.warnings += german.warnings
     layout = template.layout_language
     caption = given.get("copy")
     if layout is not None and layout.caption_ends_german and caption is not None:

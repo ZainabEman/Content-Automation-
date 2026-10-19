@@ -1,11 +1,10 @@
 {
-  "_note": "client to confirm: finals per month (Phase 8) and the podcast loudness.",
+  "_note": "client to confirm: finals per month (Phase 8). v5 (PRD R8): podcasts removed (target and loudness).",
   "targetsPerMonth": {
-    "youtube": 8,
-    "podcast": 2
+    "youtube": 8
   },
   "reportTargets": {
-    "_note": "Phase 10 `ca report month`: client to confirm. YouTube comes from targetsPerMonth; podcasts are counted against the podcasts scheduled that month.",
+    "_note": "Phase 10 `ca report month`: client to confirm. YouTube comes from targetsPerMonth.",
     "clips": [32, 40],
     "graphics": [30, 60],
     "reviewedPublishedPercent": 100
@@ -13,6 +12,5 @@
   "youtubeFinal": {
     "aspect": "16:9",
     "minHeight": 1080
-  },
-  "podcastLoudnessLufs": -16
+  }
 }

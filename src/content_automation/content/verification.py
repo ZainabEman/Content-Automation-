@@ -278,12 +278,6 @@ INTEGRATIONS: tuple[Integration, ...] = (
                 "a dry run", ("jobs_file",),
                 "content_automation.ai.video.providers.higgsfield_plugin",
                 _plugin("higgsfield-plugin", "clip")),
-    Integration("heygen", "HeyGen plugin", "a podcast recording is made and imported with "
-                "`ca podcast record`", "a missing avatar or voice ID stops before the job; a "
-                "failed request is retried after a dry run", ("jobs_file",),
-                "content_automation.ai.avatar.providers.heygen_plugin",
-                _plugin("heygen-plugin", "avatar_scene"),
-                keys=("heygen_avatar_id", "heygen_voice_id")),
     Integration("comfyui", "ComfyUI/RunPod", "an image with Roman's identity comes back from "
                 "the RunPod endpoint", "an unknown workflow or missing key stops before a call",
                 ("comfyui_config_file",), "content_automation.ai.image.providers.comfyui",
@@ -308,8 +302,8 @@ INTEGRATIONS: tuple[Integration, ...] = (
                 "clips into approved shorts", "the API route is a stub (\"not configured\"); a "
                 "clip that is not vertical or 15-90 s is not imported", ("clips_file",),
                 "content_automation.content.clips", _opus),
-    Integration("ffmpeg", "FFmpeg media", "a podcast MP3 and platform video variants are made "
-                "locally", "a file that does not decode is refused with the reason", (),
+    Integration("ffmpeg", "FFmpeg media", "platform video variants are made locally",
+                "a file that does not decode is refused with the reason", (),
                 "content_automation.core.media", _ffmpeg),
     Integration("publishing", "publishing (manual URL)", "a live post's URL is recorded with "
                 "`ca publish mark`", "no URL: refused; a failed post is recorded with the "

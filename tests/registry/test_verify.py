@@ -32,7 +32,7 @@ def test_verify_run_record_list(isolated: Path) -> None:
     assert "publishing (publishing (manual URL)): not operational (no recorded live pass)" \
         in listed.output
     assert "comfyui (ComfyUI/RunPod) — live pending (user setup" in listed.output
-    assert "0 of 12 operational" in listed.output
+    assert "0 of 11 operational" in listed.output
 
     assert ca("verify", "record", "publishing", "--live", "maybe", "x").exit_code == 2
     recorded = ca("verify", "record", "publishing", "--live", "pass", "posted on LinkedIn")
@@ -41,4 +41,4 @@ def test_verify_run_record_list(isolated: Path) -> None:
     states = {row["name"]: (row["offline"], row["live"], row["operational"]) for row in rows}
     assert states["publishing"] == ("pass", "pass", True)
     assert states["gmail"] == ("fail", None, False)
-    assert "1 of 12 operational" in ca("verify", "list").output
+    assert "1 of 11 operational" in ca("verify", "list").output

@@ -29,6 +29,10 @@ def conn(isolated: Path) -> Iterator[sqlite3.Connection]:
     (isolated / "config").mkdir()
     for name in ("formulas.json", "content.json", "strategy.json"):
         shutil.copy(REPO / "config" / name, isolated / "config" / name)
+    # the live-fix card mixes English and German: only for a platform set to en since v5
+    content = isolated / "config" / "content.json"
+    data = json.loads(content.read_text(encoding="utf-8"))
+    content.write_text(json.dumps({**data, "platforms": {"linkedin": "en"}}), encoding="utf-8")
     connection = open_registry(db_path(Path("state")), Path("config/registry.json"))
     yield connection
     connection.close()

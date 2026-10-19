@@ -35,7 +35,7 @@ class BrandFont(_BrandModel):
 
 
 class BrandCarousel(_BrandModel):
-    language: str = "en"  # kept for older brand.json files; carousel text is English
+    language: str = "de"  # v5 (PRD R1.4): German by default; "en" stays possible
 
 
 HEX = r"^#[0-9A-Fa-f]{6}$"
@@ -163,7 +163,7 @@ class BrandProfile(_BrandModel):
     sources: list[str] = Field(default_factory=list)
     colors: list[BrandColor] = Field(min_length=1)
     fonts: list[BrandFont] = Field(default_factory=list)
-    language: str = ""
+    language: str = "de"  # v5 (PRD R1.4)
     carousel: BrandCarousel = Field(default_factory=BrandCarousel)
     tone: str = ""
     audience: str = ""

@@ -1,9 +1,11 @@
 {
-  "_note": "Editorial formulas (Phase 6 P6-D2). Section word ranges, durations and the deliverable mapping are a draft — client to confirm.",
-  "wordsPerMinute": {"de": 130, "en": 150},
+  "_note": "Editorial formulas (Phase 6 P6-D2; v5: the 8-step YouTube storytelling formula of PRD R9.6 replaces the old YouTube formula and absorbs the podcast formula, which is removed). Section word ranges and durations are a draft: client to confirm (Q4 default 10-12 min, about 1,300-1,600 spoken German words).",
+  "wordsPerMinute": {
+    "de": 130,
+    "en": 150
+  },
   "byDeliverable": {
     "youtube_longform": "youtube_longform",
-    "podcast_episode": "podcast",
     "linkedin_post": "social_graphic",
     "facebook_post": "social_graphic",
     "instagram_graphic": "social_graphic",
@@ -12,7 +14,6 @@
   },
   "byKind": {
     "youtube": "youtube_longform",
-    "podcast": "podcast",
     "post": "social_graphic",
     "graphic": "social_graphic",
     "carousel": "carousel",
@@ -22,74 +23,402 @@
     "youtube_longform": {
       "artifact": "script",
       "brief": "youtube",
-      "minutes": [8, 12],
+      "minutes": [
+        10,
+        12
+      ],
       "sections": [
-        {"key": "hook", "what": "The first 20-30 seconds: why this matters to the viewer now", "words": [40, 120]},
-        {"key": "german_problem", "what": "The real problem in Germany (Mittelstand, society) this touches", "words": [150, 450]},
-        {"key": "ai_risk_or_mistake", "what": "The AI risk or mistake: what goes wrong, with sourced examples", "words": [200, 500]},
-        {"key": "why_it_happens", "what": "Why it happens: causes, incentives, missing knowledge", "words": [150, 450]},
-        {"key": "correct_ai_solution", "what": "The correct way to use AI here: concrete steps", "words": [250, 550]},
-        {"key": "cta_outro", "what": "Outro with one call to action", "words": [30, 120]}
-      ]
-    },
-    "podcast": {
-      "artifact": "script",
-      "brief": "podcast",
-      "minutes": [10, 20],
-      "sections": [
-        {"key": "warning", "what": "The warning in one or two sentences", "words": [30, 150]},
-        {"key": "critical_situation", "what": "The critical situation: who, where, what happened (sourced)", "words": [250, 900]},
-        {"key": "why_it_matters", "what": "Why it matters for the listener", "words": [200, 700]},
-        {"key": "what_could_go_wrong", "what": "What could go wrong next", "words": [200, 700]},
-        {"key": "correct_response", "what": "The correct response: what to do instead", "words": [250, 900]}
+        {
+          "key": "hook",
+          "what": "Hook: a question, a real incident, a surprising verified finding or a concrete situation",
+          "words": [
+            80,
+            120
+          ]
+        },
+        {
+          "key": "warning",
+          "what": "Warning: the problem or risk",
+          "words": [
+            100,
+            140
+          ]
+        },
+        {
+          "key": "critical_situation",
+          "what": "Critical situation: what happened or is happening (sourced)",
+          "words": [
+            240,
+            300
+          ]
+        },
+        {
+          "key": "why_it_matters",
+          "what": "Why it matters for German individuals, businesses or society",
+          "words": [
+            170,
+            200
+          ]
+        },
+        {
+          "key": "why_it_happens",
+          "what": "Why it happens: causes, limitations, misuse, implementation failures",
+          "words": [
+            170,
+            200
+          ]
+        },
+        {
+          "key": "what_could_go_wrong",
+          "what": "What could go wrong: realistic risks, no exaggerated fear",
+          "words": [
+            170,
+            200
+          ]
+        },
+        {
+          "key": "correct_response",
+          "what": "Correct response: responsible use, practical solutions",
+          "words": [
+            290,
+            340
+          ]
+        },
+        {
+          "key": "conclusion",
+          "what": "Conclusion: one useful takeaway",
+          "words": [
+            80,
+            100
+          ]
+        }
       ]
     },
     "social_graphic": {
       "artifact": "copy",
       "sections": [
-        {"key": "central_message", "what": "The one message of the post", "words": [3, 30]},
-        {"key": "audience", "what": "Who it is for", "words": [1, 15]},
-        {"key": "purpose", "what": "educational, promotional or campaign", "words": [1, 1], "choices": ["educational", "promotional", "campaign"]},
-        {"key": "tag", "what": "Category in capitals, 2-3 words from the pillar, e.g. \"AI RISK · HR\", \"AI MISUSE · FINANCE\", \"AI SOLUTION · MITTELSTAND\"", "words": [2, 3], "optional": true, "uppercase": true, "prefixes": ["AI RISK", "AI MISUSE", "AI MISTAKE", "AI SOLUTION", "GERMAN PROBLEM"]},
-        {"key": "headline", "what": "A hook for business owners and decision makers, in English, one highlight word marked like *word*", "words": [3, 7], "highlights": 1},
-        {"key": "subtitle", "what": "In German: the core message, at most 8 words", "words": [2, 8], "optional": true, "language": "de"},
-        {"key": "bullets", "what": "Exactly 3 English bullets, one per line: each starts with a verb, a benefit or action, at most 6 words, no quotes, no tool jargon", "words": [3, 18], "optional": true, "lines": 3, "lineWords": 6, "verbFirst": true, "noQuotes": true},
-        {"key": "icons", "what": "One icon per bullet, one per line, from the allowed list", "words": [3, 3], "optional": true, "lines": 3, "lineChoices": ["shield-check", "search", "user-check", "alert-triangle", "scale", "lock", "eye", "checklist", "bulb", "chart-line", "clock", "message-circle", "target", "users", "rocket", "file-check"]},
-        {"key": "cta_en", "what": "The image CTA in English, at most 5 words, e.g. \"Follow for weekly AI checks\"", "words": [1, 5], "optional": true},
-        {"key": "cta_de", "what": "The short German CTA, at most 3 words, e.g. \"Jetzt folgen\", \"Mehr erfahren\"", "words": [1, 3], "optional": true, "language": "de"},
-        {"key": "stat", "what": "Optional: one number for the stat badge, only with a verified fact claim", "words": [1, 2], "optional": true},
-        {"key": "stat_label", "what": "Optional: the stat badge's label, one line", "words": [1, 8], "optional": true},
-        {"key": "copy", "what": "The caption: a hook line, a short story or insight in plain words, the 3 takeaways, one question, one German line, then 3-5 hashtags mixing English and German", "words": [120, 250]},
-        {"key": "visual_direction", "what": "What the image shows (for the existing image pipeline)", "words": [5, 60]},
-        {"key": "cta", "what": "One call to action with the offer", "words": [2, 25]}
+        {
+          "key": "central_message",
+          "what": "The one message of the post",
+          "words": [
+            3,
+            30
+          ]
+        },
+        {
+          "key": "audience",
+          "what": "Who it is for",
+          "words": [
+            1,
+            15
+          ]
+        },
+        {
+          "key": "purpose",
+          "what": "educational, promotional or campaign",
+          "words": [
+            1,
+            1
+          ],
+          "choices": [
+            "educational",
+            "promotional",
+            "campaign"
+          ]
+        },
+        {
+          "key": "tag",
+          "what": "Category in capitals, 2-3 words from the pillar, e.g. \"AI RISK · HR\", \"AI MISUSE · FINANCE\", \"AI SOLUTION · MITTELSTAND\"",
+          "words": [
+            2,
+            3
+          ],
+          "optional": true,
+          "uppercase": true,
+          "prefixes": [
+            "AI RISK",
+            "AI MISUSE",
+            "AI MISTAKE",
+            "AI SOLUTION",
+            "GERMAN PROBLEM"
+          ]
+        },
+        {
+          "key": "headline",
+          "what": "A hook for business owners and decision makers, in English, one highlight word marked like *word*",
+          "words": [
+            3,
+            7
+          ],
+          "highlights": 1
+        },
+        {
+          "key": "subtitle",
+          "what": "In German: the core message, at most 8 words",
+          "words": [
+            2,
+            8
+          ],
+          "optional": true,
+          "language": "de"
+        },
+        {
+          "key": "bullets",
+          "what": "Exactly 3 English bullets, one per line: each starts with a verb, a benefit or action, at most 6 words, no quotes, no tool jargon",
+          "words": [
+            3,
+            18
+          ],
+          "optional": true,
+          "lines": 3,
+          "lineWords": 6,
+          "verbFirst": true,
+          "noQuotes": true
+        },
+        {
+          "key": "icons",
+          "what": "One icon per bullet, one per line, from the allowed list",
+          "words": [
+            3,
+            3
+          ],
+          "optional": true,
+          "lines": 3,
+          "lineChoices": [
+            "shield-check",
+            "search",
+            "user-check",
+            "alert-triangle",
+            "scale",
+            "lock",
+            "eye",
+            "checklist",
+            "bulb",
+            "chart-line",
+            "clock",
+            "message-circle",
+            "target",
+            "users",
+            "rocket",
+            "file-check"
+          ]
+        },
+        {
+          "key": "cta_en",
+          "what": "The image CTA in English, at most 5 words, e.g. \"Follow for weekly AI checks\"",
+          "words": [
+            1,
+            5
+          ],
+          "optional": true
+        },
+        {
+          "key": "cta_de",
+          "what": "The short German CTA, at most 3 words, e.g. \"Jetzt folgen\", \"Mehr erfahren\"",
+          "words": [
+            1,
+            3
+          ],
+          "optional": true,
+          "language": "de"
+        },
+        {
+          "key": "stat",
+          "what": "Optional: one number for the stat badge, only with a verified fact claim",
+          "words": [
+            1,
+            2
+          ],
+          "optional": true
+        },
+        {
+          "key": "stat_label",
+          "what": "Optional: the stat badge's label, one line",
+          "words": [
+            1,
+            8
+          ],
+          "optional": true
+        },
+        {
+          "key": "copy",
+          "what": "The caption: a hook line, a short story or insight in plain words, the 3 takeaways, one question, one German line, then 3-5 hashtags mixing English and German",
+          "words": [
+            120,
+            250
+          ]
+        },
+        {
+          "key": "visual_direction",
+          "what": "What the image shows (for the existing image pipeline)",
+          "words": [
+            5,
+            60
+          ]
+        },
+        {
+          "key": "cta",
+          "what": "One call to action with the offer",
+          "words": [
+            2,
+            25
+          ]
+        }
       ],
-      "bannedTerms": ["nurture workflow", "lifecycle context", "leverage", "synergy", "exceptions", "ATS", "CSV", "CRM", "workflow", "lifecycle", "pipeline"],
+      "bannedTerms": [
+        "nurture workflow",
+        "lifecycle context",
+        "leverage",
+        "synergy",
+        "exceptions",
+        "ATS",
+        "CSV",
+        "CRM",
+        "workflow",
+        "lifecycle",
+        "pipeline"
+      ],
       "platforms": {
-        "linkedin": {"copyWords": [120, 250], "hookFirstLine": true, "hashtags": [3, 5]},
-        "facebook": {"copyWords": [120, 200], "hookFirstLine": true, "hashtags": [3, 5]},
-        "instagram": {"copyWords": [120, 200], "hookFirstLine": true, "hashtags": [3, 5]}
+        "linkedin": {
+          "copyWords": [
+            120,
+            250
+          ],
+          "hookFirstLine": true,
+          "hashtags": [
+            3,
+            5
+          ]
+        },
+        "facebook": {
+          "copyWords": [
+            120,
+            200
+          ],
+          "hookFirstLine": true,
+          "hashtags": [
+            3,
+            5
+          ]
+        },
+        "instagram": {
+          "copyWords": [
+            120,
+            200
+          ],
+          "hookFirstLine": true,
+          "hashtags": [
+            3,
+            5
+          ]
+        }
       }
     },
     "carousel": {
       "artifact": "copy",
       "sections": [
-        {"key": "slide_01", "what": "Cover: the hook", "words": [2, 14]},
-        {"key": "slide_02", "what": "Point, stat or list", "words": [3, 40]},
-        {"key": "slide_03", "what": "Point, stat or list", "words": [3, 40]},
-        {"key": "slide_04", "what": "Point, stat or list", "words": [3, 40]},
-        {"key": "slide_05", "what": "Point, stat or list", "words": [3, 40]},
-        {"key": "slide_06", "what": "Point, stat or list", "words": [3, 40]},
-        {"key": "slide_07", "what": "Point, stat or list", "words": [3, 40]},
-        {"key": "slide_08", "what": "Final slide: a question for the comments", "words": [3, 20], "endsWith": "?"}
+        {
+          "key": "slide_01",
+          "what": "Cover: the hook",
+          "words": [
+            2,
+            14
+          ]
+        },
+        {
+          "key": "slide_02",
+          "what": "Point, stat or list",
+          "words": [
+            3,
+            40
+          ]
+        },
+        {
+          "key": "slide_03",
+          "what": "Point, stat or list",
+          "words": [
+            3,
+            40
+          ]
+        },
+        {
+          "key": "slide_04",
+          "what": "Point, stat or list",
+          "words": [
+            3,
+            40
+          ]
+        },
+        {
+          "key": "slide_05",
+          "what": "Point, stat or list",
+          "words": [
+            3,
+            40
+          ]
+        },
+        {
+          "key": "slide_06",
+          "what": "Point, stat or list",
+          "words": [
+            3,
+            40
+          ]
+        },
+        {
+          "key": "slide_07",
+          "what": "Point, stat or list",
+          "words": [
+            3,
+            40
+          ]
+        },
+        {
+          "key": "slide_08",
+          "what": "Final slide: a question for the comments",
+          "words": [
+            3,
+            20
+          ],
+          "endsWith": "?"
+        }
       ]
     },
     "facebook_ad": {
       "artifact": "copy",
       "sections": [
-        {"key": "primary_text", "what": "Primary text above the ad", "words": [15, 125]},
-        {"key": "headline", "what": "Headline (at most 6 words)", "words": [1, 6]},
-        {"key": "description", "what": "Description under the headline", "words": [2, 20]},
-        {"key": "cta", "what": "Button text", "words": [1, 4]}
+        {
+          "key": "primary_text",
+          "what": "Primary text above the ad",
+          "words": [
+            15,
+            125
+          ]
+        },
+        {
+          "key": "headline",
+          "what": "Headline (at most 6 words)",
+          "words": [
+            1,
+            6
+          ]
+        },
+        {
+          "key": "description",
+          "what": "Description under the headline",
+          "words": [
+            2,
+            20
+          ]
+        },
+        {
+          "key": "cta",
+          "what": "Button text",
+          "words": [
+            1,
+            4
+          ]
+        }
       ]
     }
   }

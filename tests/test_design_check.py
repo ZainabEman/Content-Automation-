@@ -35,7 +35,7 @@ def _manifest(logo: Path, direction_id: str, layout: str) -> dict[str, Any]:
     rendered = render_layout(catalog, catalog.get(direction_id), layout,
                              sample_copy()[f"{direction_id}/{layout}"],
                              Assets(brand=brand, logo_path=logo, fonts=design_fonts(brand)))
-    data = json.loads(json.dumps(rendered.manifest(), default=str))
+    data: dict[str, Any] = json.loads(json.dumps(rendered.manifest(), default=str))
     data["copy"] = sample_copy()[f"{direction_id}/{layout}"]
     return data
 

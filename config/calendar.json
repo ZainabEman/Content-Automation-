@@ -27,15 +27,11 @@
     }
   ],
   "plan": {
-    "_note": "targets confirmed 2026-10-14: 1-2 posts a day (LinkedIn, Facebook), 1 Instagram carousel and 2 YouTube videos a week, a podcast every second week, a YouTube Short and a TikTok 2 days after each video.",
+    "_note": "targets confirmed 2026-10-14: 1-2 posts a day (LinkedIn, Facebook), 1 Instagram carousel and 2 YouTube videos a week, a YouTube Short and a TikTok 2 days after each video. v5 (PRD R8): podcasts removed.",
     "types": {
       "youtube_longform": {
         "platform": "youtube",
         "kind": "youtube"
-      },
-      "podcast_episode": {
-        "platform": "podcast",
-        "kind": "podcast"
       },
       "youtube_short": {
         "platform": "youtube",
@@ -88,13 +84,6 @@
           "linkedin_post",
           "facebook_post"
         ]
-      },
-      {
-        "weekday": "thu",
-        "types": [
-          "podcast_episode"
-        ],
-        "everyWeeks": 2
       },
       {
         "weekday": "fri",

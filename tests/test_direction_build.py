@@ -81,9 +81,9 @@ def test_illustration_prompt_has_no_copy_and_no_text(mock_settings: Settings) ->
     prepared = prepare_workflow("social_creative", _inputs("FB-1", copy), mock_settings)
     prompt = prepared.request.prompt
     assert ILLUSTRATION in prompt and "no text" in prompt.lower()
-    assert "AI chatbot" not in prompt and prepared.settings is not None
+    assert "KI-Chatbot" not in prompt and prepared.settings is not None
     assert prepared.settings.image_provider == "mock"  # mock stays mock; live: openrouter
-    copied = dict(copy, illustration="your AI chatbot for every channel on a desk")
+    copied = dict(copy, illustration="Ihr KI-Chatbot für jeden Kanal auf einem Tisch")
     with pytest.raises(Exception, match="repeats the copy"):
         prepare_workflow("social_creative", _inputs("FB-1", copied), mock_settings)
 
@@ -103,7 +103,7 @@ def test_every_roman_image_is_a_lora_job(mock_settings: Settings,
     routed = prepare_workflow("social_creative", _inputs("FD-1", sample_copy()["FD-1/post"]),
                               live)  # IMAGE_PROVIDER=openrouter: Roman still goes to comfyui
     assert routed.settings is not None and routed.settings.image_provider == "comfyui"
-    assert routed.request.person and routed.inputs["identity"].startswith("trained LoRA")
+    assert routed.request.person and str(routed.inputs["identity"]).startswith("trained LoRA")
 
 
 def test_fd1_cuts_out_the_lora_image_and_never_a_photo() -> None:

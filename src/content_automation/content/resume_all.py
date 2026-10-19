@@ -5,7 +5,7 @@
   one, a new dry run and the user's "ok" (never run here);
 - uploads: a stale (running too long) or failed upload is re-queued (a new request file);
   a queued one is an outstanding plugin request for the upload skill;
-- HeyGen podcast requests and video jobs: waiting plugin steps are listed for the make-video
+- video jobs: waiting plugin steps are listed for the make-video
   skill; a video job with every step recorded is resumed (`ca video resume`);
 - anything else: "needs manual action: <what>".
 Nothing here calls a paid or external service.
@@ -108,10 +108,6 @@ def resume_all(conn: sqlite3.Connection, settings: Settings, config: JobConfig, 
             lines.append(_image(conn, job))
         elif "video_job" in job.inputs:
             continue  # a video job's plugin step: listed with its job folder below
-        elif job.job_type == "avatar_scene" and job.provider == "heygen-plugin":
-            request = settings.state_dir / "heygen" / f"{job.id}.json"
-            lines.append(f"{job.line()}: plugin request {request.as_posix()} (make-video "
-                         f"skill; then uv run ca podcast record {job.id} <file>)")
         elif job.status == "running":
             lines.append(f"{job.line()}: still running")
         else:

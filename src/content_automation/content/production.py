@@ -1,6 +1,6 @@
-"""YouTube and podcast production (Phase 8 Step 1).
+"""YouTube production (Phase 8 Step 1; podcasts removed in v5).
 
-Production status (youtube and podcast items): not_started -> awaiting_recording (when the
+Production status (youtube items): not_started -> awaiting_recording (when the
 current version's script and production brief checks passed) -> recorded -> editing -> edited
 -> final. Going back to editing needs a review revise (a new version). At final the generation
 counts as generated, so the review gate opens.
@@ -37,7 +37,7 @@ from content_automation.registry.items import Item, get_item, list_items, set_st
 from content_automation.registry.progress import part_done
 from content_automation.registry.versions import start_new_version
 
-PRODUCTION_KINDS = ("youtube", "podcast")
+PRODUCTION_KINDS = ("youtube",)  # v5: podcasts are no longer produced (PRD R8)
 IMPORT_MOVES = {"recording": "recorded", "edit": "edited", "final": "final"}
 IMPORT_TYPES = ("recording", "edit", "final", "thumbnail", "audio")
 
@@ -53,8 +53,7 @@ def production_config(settings: Settings) -> dict[str, Any]:
 def produced_item(conn: sqlite3.Connection, ref: str) -> Item:
     item = get_item(conn, ref)
     if item.kind not in PRODUCTION_KINDS:
-        raise RegistryError(f"{item.id} is a {item.kind}: production is for youtube and podcast "
-                            "items.")
+        raise RegistryError(f"{item.id} is a {item.kind}: production is for youtube items.")
     return item
 
 

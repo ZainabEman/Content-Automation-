@@ -141,11 +141,12 @@ def copy_template(conn: sqlite3.Connection, settings: Settings, ref: str,
     formula = formulas.formulas["social_graphic"]
     platform = publication_of(variant)
     item = get_item(conn, ref)
+    content = load_content(settings.content_file)
     base = template or Template(
         item=item, version=item.current_version, formula_name="social_graphic",
-        formula=formula, language="en", platform=platform, rules=None, claims=[],
-        feedback=None, total_words=None, stores_in=platform_dir(settings, item, variant))
-    content = load_content(settings.content_file)
+        formula=formula, language=content.for_platform(platform), platform=platform, rules=None,
+        claims=[], feedback=None, total_words=None,
+        stores_in=platform_dir(settings, item, variant))
     touch = content.layout_language if content.for_platform(platform) == "en" else None
     return replace(base, formula_name="social_graphic", formula=formula, platform=platform,
                    rules=formula.platforms.get(platform), total_words=None,

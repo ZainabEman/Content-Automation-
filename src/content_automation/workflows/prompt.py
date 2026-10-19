@@ -32,8 +32,8 @@ from content_automation.workflows.design_system import (
 from content_automation.workflows.registry import WorkflowSpec
 from content_automation.workflows.variety import DesignLook
 
-DEFAULT_TEXT_LANGUAGE = "English"
-_LANGUAGE_NAMES = {"en": "English"}
+DEFAULT_TEXT_LANGUAGE = "German"  # v5 (PRD R1.4)
+_LANGUAGE_NAMES = {"en": "English", "de": "German"}
 
 _INTROS = {
     "person_lifestyle": (
@@ -146,7 +146,7 @@ def _not_about_logo(rule: str) -> bool:
 
 
 def text_language(brand: BrandProfile | None) -> str:
-    """On-image text language: brand.json "language" (e.g. "en"), default English."""
+    """On-image text language: brand.json "language" (e.g. "de"), default German."""
     code = brand.language.strip() if brand else ""
     return _LANGUAGE_NAMES.get(code.lower(), code) or DEFAULT_TEXT_LANGUAGE
 

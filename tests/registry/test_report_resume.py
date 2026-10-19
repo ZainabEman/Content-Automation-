@@ -3,7 +3,7 @@
 import json
 import sqlite3
 from collections.abc import Iterator
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -50,7 +50,6 @@ def test_report_month_counts_recorded_finals(conn: sqlite3.Connection, isolated:
     post = _approved(conn, kind="post", platforms=["linkedin"])
     mock = _approved(conn, kind="post", platforms=["linkedin"])
     set_upload(conn, mock.id, "uploaded", "mock")
-    _approved(conn, kind="podcast", platforms=["youtube"], planned_date=date.today())
     set_status(conn, post.id, "publication", "ready", platform="linkedin")
     mark_published(conn, post.id, "linkedin", "https://ln/p/1")
 
@@ -60,13 +59,13 @@ def test_report_month_counts_recorded_finals(conn: sqlite3.Connection, isolated:
     assert "YouTube finals (review approved): 1 of 8" in out
     assert "Clips selected and approved: 1 of 32–40" in out
     assert "Graphics approved (posts, carousels, ads): 1 of 30–60" in out
-    assert "Podcast finals (of those scheduled): 1 of 1 — target met" in out
+    assert "Podcast" not in out  # v5: podcasts removed (PRD R8)
     assert f"Published on linkedin: 1 ({post.id} https://ln/p/1)" in out
     assert "Published with an approved review: 1 of 1 (100%), target 100%" in out
     assert f"Mock (not counted): 1 ({mock.id} post: mock upload)" in out
     assert (isolated / "outputs" / "reports" / f"{month}.md").is_file()
     data = json.loads(ca("report", "month", month, "--json").output)
-    assert [row["count"] for row in data["rows"]] == [1, 1, 1, 1] and clip.id in str(data)
+    assert [row["count"] for row in data["rows"]] == [1, 1, 1] and clip.id in str(data)
     assert ca("report", "month", "2026-13").exit_code == 1
 
 

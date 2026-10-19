@@ -81,6 +81,7 @@ from content_automation.content.formats import (
     recent_formats,
     research_has_number,
 )
+from content_automation.content.german import check_texts
 from content_automation.content.quality import (
     CAPTION_MAX_WORDS,
     CAPTION_MAX_WORDS_BY_PLATFORM,
@@ -93,6 +94,7 @@ from content_automation.content.quality import (
     offer_label,
     post_problems,
     proof_problems,
+    reader_texts,
     service_problems,
 )
 from content_automation.content.relevance import INSIGHT_ONLY, Fit, service_fit
@@ -118,6 +120,7 @@ from content_automation.registry.artifacts import latest_artifact
 from content_automation.registry.db import RegistryError
 from content_automation.registry.dryruns import CostLine
 from content_automation.registry.jobs import JobConfig, find_by_result, load_job_config
+from content_automation.registry.strategy import load_content
 from content_automation.research.collectors import CollectorError
 from content_automation.research.models import SourceArticle, SourcesError
 from content_automation.research.run import collect, topic_digest, topic_note
@@ -436,7 +439,8 @@ def _apply_deliverables(
     _save(folder, package)
     lines += [
         f"Next (Codex): write {BRIEF_FILE} for only these deliverables: start from "
-        f"{TEMPLATE_FILE} (and {CONTENT_FILE} if it exists) and replace every <...> (English; "
+        f"{TEMPLATE_FILE} (and {CONTENT_FILE} if it exists) and replace every <...> (German "
+        "for everything the audience sees, natural for readers in Germany, \"Sie\"; "
         "use brand/services.md and the brand and design rules in _help; no invented "
         "results, statistics, prices or client names; one caption per deliverable).",
         f'Then run: uv run ca content build "{folder}" --dry-run',
@@ -743,23 +747,12 @@ def _first_frame(formats: Sequence[str]) -> str | None:
 
 
 def _video_template(workflow: str, first_frame: str | None) -> dict[str, Any]:
-    """reel_short and ugc_ad: generated clips; podcast_clip: the avatar speaks the script."""
+    """reel_short: generated clips (UGC ads and podcast clips were removed in v5)."""
     video: dict[str, Any] = {
         "workflow": workflow,
         "hook": "<the first sentence that stops the scroll>",
         "script": "<what the video tells, in 2-4 sentences>",
     }
-    if workflow == "podcast_clip":
-        video["scenes"] = [
-            {
-                "type": "avatar",
-                "prompt": "<the exact words the avatar says, about 2.5 words per second>",
-                "durationSec": 12,
-                "onScreenText": "<at most 6 words>",
-            },
-            {"type": "video", "prompt": "<b-roll shot>", "durationSec": 5},
-        ]
-        return video
     if first_frame:
         video["firstFrame"] = first_frame
     video["scenes"] = [
@@ -795,9 +788,11 @@ def _brief_template(
     template: dict[str, Any] = {
         "_help": {
             "howTo": (
-                f"Save a copy as {BRIEF_FILE} in this folder and replace every <...>. English "
-                "only. Use brand/services.md and config/services.json (verified services only) "
-                "and the brand and design rules below. "
+                f"Save a copy as {BRIEF_FILE} in this folder and replace every <...>. Everything "
+                "the audience sees is German (natural, for readers in Germany, \"Sie\"; no "
+                "literal translations, no generic AI marketing language: config/"
+                "german_quality.json). Use brand/services.md and config/services.json "
+                "(verified services only) and the brand and design rules below. "
                 "Never invent results, statistics, prices or client names. Keep deliverables "
                 "and formats unchanged: build only what the user named. This _help block is "
                 "ignored."
@@ -812,7 +807,7 @@ def _brief_template(
             ) if fit is not None else "",
             "brandRules": {
                 "tone": brand.tone if brand else "",
-                "language": "English",
+                "language": "German (de), \"Sie\"",
                 "avoid": brand.dont if brand else [],
                 "contentRules": company.content_rules if company else "",
             },
@@ -826,9 +821,8 @@ def _brief_template(
                 "ad": f"{AD_VARIANTS} variants of one ad: one message, one offer, one CTA",
                 "reel": (
                     "9:16 video (workflow from the deliverable); each scene at most 15 s; "
-                    "reel_short and podcast_clip at most 90 s, ugc_ad at most 60 s; scene 1 "
-                    'starts from firstFrame; a scene with "image": "post-1" shows that picture; '
-                    'podcast_clip scenes are "avatar" (the exact words) or "video" (b-roll)'
+                    "reel_short at most 90 s; scene 1 starts from firstFrame; a scene with "
+                    '"image": "post-1" shows that picture'
                 ),
             },
             "caption": (
@@ -836,7 +830,7 @@ def _brief_template(
                 "points; question = one question that invites comments; the cta (with the "
                 "offer) and link close the caption; hook, takeaways, question and cta together "
                 f"{CAPTION_MIN_WORDS}-{CAPTION_MAX_WORDS} words; {MIN_HASHTAGS}-{MAX_HASHTAGS} "
-                f"English hashtags including {brand_tag}."
+                f"hashtags (German or brand tags) including {brand_tag}."
             ),
             "insights": (
                 f"Before writing anything else, list at least {MIN_INSIGHTS} specific insights "
@@ -1218,6 +1212,8 @@ def _quality_problems(brief: ContentBrief, settings: Settings, folder: Path) -> 
             pass  # reported by the deliverable checks
     problems += post_problems(brief) + caption_problems(brief, offer, caption_platforms)
     problems += banned_problems(brief)
+    if load_content(settings.content_file).for_platform(brief.platform) == "de":
+        problems += check_texts(reader_texts(brief)).errors  # v5 R1.6: the German pass
     try:
         system = load_design_system(settings.design_system_file)
         problems = carousel_problems(brief, system, platforms, offer) + problems

@@ -5,11 +5,19 @@
       "label": "Facebook post: 1 image (1080x1350) in a design direction (FB-1 service spotlight, FB-2 problem hook, FB-3 how it works; Roman's week: FD-1..FD-3); text, logo and footer drawn by the app; rotates between packages",
       "part": "post",
       "platform": "facebook",
-      "formats": ["statement", "stat", "checklist", "news"],
+      "formats": [
+        "statement",
+        "stat",
+        "checklist",
+        "news"
+      ],
       "images": 1,
       "provider": "comfyui",
       "fallbackProvider": "openrouter",
-      "aliases": ["facebook post", "fb post"]
+      "aliases": [
+        "facebook post",
+        "fb post"
+      ]
     },
     "facebook_ad": {
       "kind": "ad",
@@ -19,18 +27,29 @@
       "format": "ad",
       "images": 3,
       "provider": "comfyui",
-      "aliases": ["facebook ad", "fb ad"]
+      "aliases": [
+        "facebook ad",
+        "fb ad"
+      ]
     },
     "linkedin_post": {
       "kind": "post",
       "label": "LinkedIn post: 1 image (1080x1350) in a design direction (LI-1 editorial ecosystem, LI-2 insight card, LI-3 value map; Roman's week: FD-1..FD-3); text, logo and footer drawn by the app; rotates between packages",
       "part": "post",
       "platform": "linkedin",
-      "formats": ["statement", "stat", "checklist", "news"],
+      "formats": [
+        "statement",
+        "stat",
+        "checklist",
+        "news"
+      ],
       "images": 1,
       "provider": "comfyui",
       "fallbackProvider": "openrouter",
-      "aliases": ["linkedin post", "li post"]
+      "aliases": [
+        "linkedin post",
+        "li post"
+      ]
     },
     "instagram_carousel": {
       "kind": "carousel",
@@ -40,8 +59,12 @@
       "format": "carousel",
       "slides": 8,
       "aliases": [
-        "insta post", "instagram post", "ig post",
-        "insta carousel", "instagram carousel", "ig carousel"
+        "insta post",
+        "instagram post",
+        "ig post",
+        "insta carousel",
+        "instagram carousel",
+        "ig carousel"
       ]
     },
     "reel_short": {
@@ -49,21 +72,12 @@
       "label": "Short vertical video (reel), up to 90 s",
       "part": "video",
       "workflow": "reel_short",
-      "aliases": ["video", "reel", "insta reel", "facebook video"]
-    },
-    "ugc_ad": {
-      "kind": "ad",
-      "label": "UGC-style video ad, up to 60 s",
-      "part": "video",
-      "workflow": "ugc_ad",
-      "aliases": ["ugc ad"]
-    },
-    "podcast_clip": {
-      "kind": "short",
-      "label": "Podcast clip: the person's own HeyGen avatar speaks the script, with optional b-roll, up to 90 s",
-      "part": "video",
-      "workflow": "podcast_clip",
-      "aliases": ["podcast clip"]
+      "aliases": [
+        "video",
+        "reel",
+        "insta reel",
+        "facebook video"
+      ]
     }
   }
 }

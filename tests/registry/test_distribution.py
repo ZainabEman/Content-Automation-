@@ -53,12 +53,12 @@ def ca(*args: str) -> Result:
 
 def _copy(path: Path, item: str) -> Path:
     texts = {"central_message": "Answer every lead", "audience": "Clinic owners",
-             "purpose": "educational", "headline": "Leads wait for *nobody*",
+             "purpose": "educational", "headline": "Leads warten auf *niemanden*",
              "copy": "Leads wait for nobody.\n" + " ".join(["Answer"] * 130),
              "visual_direction": "Roman at a reception desk with a phone",
-             "cta": "Book a free analysis"}
+             "cta": "Kostenlose Analyse buchen"}
     path.write_text(json.dumps({
-        "item": item, "version": 1, "formula": "social_graphic", "language": "en",
+        "item": item, "version": 1, "formula": "social_graphic", "language": "de",
         "sections": [{"key": k, "text": v} for k, v in texts.items()],
         "hashtags": ["#BrandedGenius", "#AI", "#Leads"]}), encoding="utf-8")
     return path

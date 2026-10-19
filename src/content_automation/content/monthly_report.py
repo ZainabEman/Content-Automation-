@@ -130,11 +130,10 @@ def _row(label: str, items: list[Item], target: tuple[int, int]) -> Row:
 
 def month_report(conn: sqlite3.Connection, settings: Settings, month: str) -> MonthReport:
     year, number = (int(part) for part in month.split("-"))
-    first, last = date(year, number, 1), date(year, number, monthrange(year, number)[1])
+    date(year, number, monthrange(year, number)[1])  # a month that does not exist raises
     config = production_config(settings)
     targets = {**DEFAULT_TARGETS, **config.get("reportTargets", {})}
     approved_at = _reached(conn, "review", "approved")
-    final_at = _reached(conn, "production", "final")
     mock: dict[str, str] = {}
 
     def counted(item: Item, when: dict[str, str]) -> bool:
@@ -154,15 +153,11 @@ def month_report(conn: sqlite3.Connection, settings: Settings, month: str) -> Mo
     clips = [item for item in approved if item.kind == "short" and item.parent_id is not None
              and item.idea_status == "approved"]
     graphics = [item for item in approved if item.kind in GRAPHIC_KINDS]
-    podcasts = [item for item in items if item.kind == "podcast"
-                and item.production_status == "final" and counted(item, final_at)]
-    scheduled = len(list_items(conn, kind="podcast", planned_from=first, planned_to=last))
     youtube_target = int(config.get("targetsPerMonth", {}).get("youtube", 8))
     rows = [
         _row("YouTube finals (review approved)", youtube, (youtube_target, youtube_target)),
         _row("Clips selected and approved", clips, _range(targets["clips"])),
         _row("Graphics approved (posts, carousels, ads)", graphics, _range(targets["graphics"])),
-        _row("Podcast finals (of those scheduled)", podcasts, (scheduled, scheduled)),
     ]
     published: dict[str, list[str]] = {}
     published_items: set[str] = set()

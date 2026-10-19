@@ -33,6 +33,11 @@ def test_templates_carry_the_layout_language_and_the_check_warns(
         conn: sqlite3.Connection) -> None:
     post = create_item(conn, kind="post", title="Leads", topic="t", platforms=["linkedin"],
                        deliverable="linkedin_post")
+    default = CliRunner().invoke(app, ["script", "template", post.id, "--json"])
+    assert json.loads(default.output)["layoutLanguage"] is None  # v5: German, no mix
+    content = Path("config/content.json")  # the old English/German mix: a platform set to en
+    data = json.loads(content.read_text(encoding="utf-8"))
+    content.write_text(json.dumps({**data, "platforms": {"linkedin": "en"}}), encoding="utf-8")
     shown = CliRunner().invoke(app, ["script", "template", post.id])
     assert shown.exit_code == 0, shown.output
     assert "subtitle in German; the CTA in English plus a short German CTA" in shown.output

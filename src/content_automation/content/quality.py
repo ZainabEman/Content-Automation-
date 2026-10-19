@@ -36,25 +36,33 @@ from content_automation.workflows.design_system import DesignSystem
 SAME_POINT = 0.6  # tips whose key words overlap this much make the same point
 CAPTION_MIN_WORDS, CAPTION_MAX_WORDS = 120, 200
 CAPTION_MAX_WORDS_BY_PLATFORM = {"linkedin": 250}  # LinkedIn shows longer professional text
-_WORD = re.compile(r"[a-z0-9]+")
+_WORD = re.compile(r"[a-z0-9äöüß]+")
 _STOP = frozenset({
     "a", "an", "and", "are", "as", "at", "be", "by", "can", "for", "from", "get", "how", "in",
     "into", "is", "it", "its", "more", "of", "on", "or", "our", "so", "than", "that", "the",
     "their", "them", "they", "this", "to", "up", "use", "with", "you", "your",
+    # v5: German copy (the default language)
+    "der", "die", "das", "den", "dem", "des", "ein", "eine", "einen", "einem", "einer", "und",
+    "oder", "mit", "für", "von", "zu", "zum", "zur", "im", "ist", "sind", "sie", "ihr", "ihre",
+    "ihren", "ihrem", "wir", "unser", "unsere", "auf", "aus", "bei", "nicht", "noch", "mehr",
+    "wie", "was", "als", "auch", "es", "sich", "dass", "am", "um", "nur",
 })
 _TIP_LIKE = re.compile(r"^\s*(?:tip|step)\s*\d|^\s*\d+\s*[.)]", re.IGNORECASE)
 # Numbers that read as results: percentages, multiples, money, counts of business outcomes.
 _RESULT = re.compile(
-    r"\d+(?:[.,]\d+)?\s*(?:%|percent\b|x\b|×|times\b)"
+    r"\d+(?:[.,]\d+)?\s*(?:%|percent\b|prozent\b|x\b|×|times\b|mal\b)"
     r"|[€$£]\s*\d+(?:[.,]\d+)*|\d+(?:[.,]\d+)*\s*(?:€|eur\b|euros?\b|dollars?\b)"
-    r"|\d+(?:[.,]\d+)*\s+(?:more\s+|new\s+|extra\s+)?(?:leads|clients|customers|sales|bookings|"
-    r"appointments|calls|hours|reviews|patients|orders)\b",
+    r"|\d+(?:[.,]\d+)*\s+(?:more\s+|new\s+|extra\s+|mehr\s+|neue\s+|zusätzliche\s+)?"
+    r"(?:leads|clients|customers|sales|bookings|appointments|calls|hours|reviews|patients|orders"
+    r"|kunden|kundinnen|buchungen|termine|anrufe|stunden|bewertungen|patienten|bestellungen"
+    r"|anfragen)\b",
     re.IGNORECASE,
 )
 _NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
 # "within 5 minutes", "after 24 hours": a timing, not a result
-_TIMING_BEFORE = re.compile(r"(?:within|after|before|every|each|per|next|first|in the first)\s+$",
-                            re.IGNORECASE)
+_TIMING_BEFORE = re.compile(r"(?:within|after|before|every|each|per|next|first|in the first"
+                            r"|innerhalb von|innerhalb|nach|vor|alle|jede|jeden|pro|"
+                            r"in den ersten)\s+$", re.IGNORECASE)
 
 # What makes a line usable: a channel or tool (who sends through what) and a timing (when).
 CHANNELS = (
@@ -66,26 +74,40 @@ CHANNELS = (
     "inbox", "notification", "reminder", "sequence", "workflow", "trigger", "webhook",
     "google", "zillow", "portal", "listing alert", "lead form", "voice agent", "ai assistant",
     "review request", "survey", "newsletter", "ads",
+    # v5: German copy (the default language)
+    "telefon", "anruf", "anrufe", "rückruf", "anrufbeantworter", "mailbox", "webseite",
+    "kontaktformular", "formular", "landingpage", "kalender", "buchungslink", "terminbuchung",
+    "posteingang", "benachrichtigung", "erinnerung", "vorlage", "tabelle", "ki-assistent",
+    "sprachassistent", "bewertungsanfrage", "umfrage", "anzeigen", "online-termin", "ki-agent",
 )
 TIMINGS = (  # real times: they make a line specific
     "minute", "minutes", "min", "hour", "hours", "day", "days", "week", "weeks", "month",
     "months", "morning", "evening", "night", "overnight", "same day", "same-day", "24/7",
     "weekend", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
     "daily", "weekly", "instantly", "immediately", "tomorrow", "today",
+    # v5: German copy
+    "minute", "minuten", "stunde", "stunden", "tag", "tage", "tagen", "woche", "wochen",
+    "monat", "monate", "monaten", "morgens", "abends", "nachts", "über nacht", "wochenende",
+    "montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag", "sonntag", "täglich",
+    "wöchentlich", "sofort", "heute", "rund um die uhr",
 )
-SEQUENCE = ("within", "after", "before", "every", "once", "when", "until", "then")  # "when" only
+SEQUENCE = ("within", "after", "before", "every", "once", "when", "until", "then",  # "when" only
+            "innerhalb", "nach", "sobald", "bevor", "jede", "jeden", "bis", "dann")
 # Empty marketing phrases: a line with one of them is generic, whatever else it says.
 BUZZWORDS = (
     "game changer", "game-changer", "next level", "unlock", "supercharge", "revolutionize",
     "revolutionise", "seamless", "cutting-edge", "cutting edge", "world-class", "fast-paced",
     "sets the next step", "take your business", "skyrocket", "effortless",
+    # v5: German (config/german_quality.json has the full banned list for the German check)
+    "gamechanger", "nächste level", "nächsten level", "revolutionär", "revolutionieren",
+    "bahnbrechend", "nahtlos", "mühelos", "schnelllebigen",
 )
 _QUOTED = re.compile(r"[\"“”‘’]|'[^']{3,}'")
 
 
 def _has(text: str, words: Iterable[str]) -> bool:
     low = text.lower()
-    return any(re.search(rf"(?<![a-z]){re.escape(word)}(?![a-z])", low) for word in words)
+    return any(re.search(rf"(?<![a-zäöüß]){re.escape(word)}(?![a-zäöüß])", low) for word in words)
 
 
 def generic_reason(text: str) -> str | None:
@@ -412,10 +434,12 @@ def _texts(brief: ContentBrief) -> Iterable[tuple[str, str]]:
                 if value:
                     yield f"{name}.slides[{number}]", value
     for key, caption in brief.captions.items():
-        for value in (caption.hook, *caption.takeaways, caption.question):
+        for value in (caption.hook, *caption.takeaways, caption.question,
+                      caption.closing_de or ""):
             yield f"captions.{key}", value
     if brief.caption is not None:
-        for value in (brief.caption.hook, *brief.caption.takeaways, brief.caption.question):
+        for value in (brief.caption.hook, *brief.caption.takeaways, brief.caption.question,
+                      brief.caption.closing_de or ""):
             yield "caption", value
     yield "cta", brief.cta
     if brief.reel is not None:
@@ -426,6 +450,11 @@ def _texts(brief: ContentBrief) -> Iterable[tuple[str, str]]:
                 yield "reel.onScreenText", scene.on_screen_text
             if scene.type == "avatar":
                 yield "reel.avatar", scene.prompt
+
+
+def reader_texts(brief: ContentBrief) -> list[tuple[str, str]]:
+    """Every text a reader sees, with where it is (also for the German check, v5 R1.6)."""
+    return list(_texts(brief))
 
 
 def service_problems(brief: ContentBrief, services: ServiceCatalog) -> list[str]:

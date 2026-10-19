@@ -47,4 +47,4 @@ def test_strategy_and_content_configs() -> None:
     assert "mittelstand" in strategy.pillar("german_problems").keywords  # type: ignore[union-attr]
     assert abs(sum(p.target_share for p in strategy.pillars) - 1.0) < 1e-9
     content = load_content(REPO / "config" / "content.json")
-    assert content.language == "en" and content.for_platform("linkedin") == "en"
+    assert content.language == "de" and content.for_platform("linkedin") == "de"  # v5 R1.4

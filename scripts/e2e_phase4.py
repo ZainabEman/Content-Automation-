@@ -27,20 +27,24 @@ WEEK = "2026-W45"
 FAKE_KEY = "sk-or-v1-e2efakefakefake0123456789abcdef"
 TOPICS = ["AI chatbots for dentists", "Missed calls cost clinics patients without automation",
           "Chatbots that book physiotherapy slots"]
+# v5: German copy (PRD R1); the e2e also proves the German quality pass accepts it.
 TAKEAWAYS = [
-    "The chatbot answers WhatsApp questions about opening hours within seconds, day and night.",
-    "After 18:00 it offers the next two free slots from the practice calendar by SMS.",
-    "It sends the patient a reminder by email the evening before the visit.",
-    "Reception sees every chat in the CRM the next morning and calls back only open cases.",
-    "New patients get a WhatsApp welcome message with the address and parking tips.",
+    "Der Chatbot beantwortet WhatsApp-Fragen zu Öffnungszeiten innerhalb von Sekunden, Tag "
+    "und Nacht.",
+    "Nach 18:00 Uhr bietet er per SMS die nächsten zwei freien Termine aus dem Praxiskalender "
+    "an.",
+    "Am Vorabend des Besuchs schickt er dem Patienten eine Erinnerung per E-Mail.",
+    "Das Empfangsteam sieht morgens jeden Chat im CRM und ruft nur die offenen Fälle zurück, "
+    "statt den ganzen Vormittag am Telefon zu verbringen.",
+    "Neue Patienten erhalten per WhatsApp eine Begrüßung mit Adresse und Parkhinweisen.",
 ]
 INSIGHTS = [
-    "A practice chatbot answers WhatsApp questions about opening hours at any time.",
-    "After closing time the bot offers the next two free slots from the calendar.",
-    "Patients confirm a slot by replying with its number in the same chat.",
-    "The bot sends an email reminder the evening before the appointment.",
-    "Reception reviews the night's chats in the CRM each morning.",
-    "Only cases the bot could not settle get a call back from the team.",
+    "Ein Praxis-Chatbot beantwortet WhatsApp-Fragen zu Öffnungszeiten rund um die Uhr.",
+    "Nach Praxisschluss bietet der Bot die nächsten zwei freien Termine aus dem Kalender an.",
+    "Patienten bestätigen einen Termin im selben Chat mit seiner Nummer.",
+    "Der Bot verschickt am Vorabend des Termins eine Erinnerung per E-Mail.",
+    "Das Empfangsteam prüft morgens die Chats der Nacht im CRM.",
+    "Nur Fälle, die der Bot im Chat nicht klären konnte, bekommen einen Rückruf am Telefon.",
 ]
 
 
@@ -138,8 +142,8 @@ def _ca(*args: str) -> tuple[int, str, str]:
     return result.exit_code, result.stdout, result.stderr
 
 
-COPY_LINES = ["Answers patient questions after closing time", "Offers free slots by SMS",
-              "Hands open cases to reception", "Reminds patients by email the day before"]
+COPY_LINES = ["Beantwortet Fragen nach Praxisschluss", "Bietet freie Termine per SMS an",
+              "Übergibt offene Fälle an den Empfang", "Erinnert am Vortag per E-Mail"]
 
 
 def _copy_value(name: str, value: Any) -> Any:
@@ -150,7 +154,7 @@ def _copy_value(name: str, value: Any) -> Any:
         return "a tidy reception desk with a plant and a closed notebook in soft daylight"
     if name in ("source", "attribution", "sourceName"):
         return "Branded Genius"
-    return "Your chatbot books patients while you sleep"
+    return "Ihr Chatbot bucht Termine, während Sie schlafen"
 
 
 ILLUSTRATION = "a tidy reception desk with a plant and a closed notebook in soft daylight"
@@ -176,21 +180,22 @@ def _fill_brief(template: Path) -> None:
     ids = brief["sourceArticleIds"]
     brief.update({
         "service": "AI chatbots",
-        "objective": "Show practices how a chatbot books appointments after hours",
-        "keyPoints": ["Answers WhatsApp questions at night", "Books free slots by SMS",
-                      "Hands open cases to reception"],
+        "objective": "Praxen zeigen, wie ein Chatbot nach Feierabend Termine bucht",
+        "keyPoints": ["Beantwortet WhatsApp-Fragen nachts", "Bucht freie Termine per SMS",
+                      "Übergibt offene Fälle an den Empfang"],
         "insights": [{"text": text, "source": ids[i % len(ids)]}
                      for i, text in enumerate(INSIGHTS)],
-        "cta": ("Request a free AI potential analysis: we show how a practice chatbot answers, "
-                "books and reminds your patients on WhatsApp."),
+        "cta": ("Fordern Sie Ihre kostenfreie KI-Potenzialanalyse an: Wir zeigen Ihnen, wie "
+                "ein Praxis-Chatbot Ihre Patienten per WhatsApp berät, Termine bucht und "
+                "rechtzeitig vor dem Besuch erinnert."),
         "hashtags": ["#BrandedGenius", "#Healthcare", "#Chatbots"],
     })
     brief["post"].update({
-        "format": "statement", "audienceLine": "FOR PRACTICES",
-        "headline": "Your chatbot books patients while you sleep", "highlight": ["chatbot"],
-        "subheadline": "The bot offers free slots by WhatsApp after 18:00",
-        "points": ["Answers WhatsApp questions at night", "Offers free slots by SMS after 18:00",
-                   "Reminds patients by email"],
+        "format": "statement", "audienceLine": "FÜR PRAXEN",
+        "headline": "Ihr Chatbot bucht Termine, während Sie schlafen", "highlight": ["Chatbot"],
+        "subheadline": "Der Bot bietet nach 18:00 Uhr freie Termine per WhatsApp an",
+        "points": ["Beantwortet WhatsApp-Fragen nachts", "Bietet nach 18:00 Uhr Termine per SMS",
+                   "Erinnert Patienten per E-Mail"],
         "person": False,
     })
     for key in ("stat", "source", "sourceName"):
@@ -202,11 +207,11 @@ def _fill_brief(template: Path) -> None:
                                  for name, value in brief["post"]["copy"].items()}
     caption = brief["captions"][next(iter(brief["captions"]))]
     caption.update({
-        "hook": "Most patients who message your practice after 18:00 never hear back before "
-                "they book somewhere else.",
+        "hook": "Die meisten Patienten, die Ihrer Praxis nach 18:00 Uhr schreiben, buchen "
+                "woanders, bevor sie eine Antwort bekommen.",
         "takeaways": TAKEAWAYS,
-        "question": "Which questions do your patients ask most often after closing time, and "
-                    "who answers them today?",
+        "question": "Welche Fragen stellen Ihre Patienten nach Praxisschluss am häufigsten, "
+                    "und wer beantwortet sie heute?",
     })
     (template.parent / "brief.json").write_text(json.dumps(brief, indent=2), encoding="utf-8")
 

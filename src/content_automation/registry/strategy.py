@@ -1,10 +1,10 @@
 """Strategy and content-language configs (Phase 5 P5-D2, P5-D3); drafts, client to confirm.
 
 config/strategy.json: pillars (description, keywords DE + EN, target share), audiences,
-exclusions. config/content.json: the content language (default "en", today's behaviour),
-per-platform overrides and the layout language (live fix: which part of a post is English and
-which German; templates show the rule, the script check warns where German is missing).
-Missing files give the defaults; nothing switches to German silently.
+exclusions. config/content.json: the content language (default "de" since v5, PRD R1.4),
+per-platform overrides and the layout language (live fix, only for a platform set to "en":
+which part of a post is English and which German; templates show the rule, the script check
+warns where German is missing). Missing files give the defaults.
 """
 
 import json
@@ -79,7 +79,7 @@ class LayoutLanguage:
 
 @dataclass(frozen=True)
 class ContentLanguage:
-    language: str = "en"
+    language: str = "de"  # v5 (PRD R1.4): German is the default for everything the audience sees
     platforms: dict[str, str] = field(default_factory=dict)
     layout_language: LayoutLanguage | None = None
 
@@ -142,6 +142,6 @@ def load_content(path: Path) -> ContentLanguage:
             ("headline", "headline"), ("subtitle", "subtitle"), ("tag", "tag"),
             ("bullets", "bullets"), ("body", "body"), ("caption", "caption"), ("cta", "cta"))
             if name in found}, caption_ends_german=bool(found.get("captionEndsGerman", True)))
-    return ContentLanguage(str(data.get("language", "en")),
+    return ContentLanguage(str(data.get("language", "de")),
                            {str(k): str(v) for k, v in platforms.items()
                             if not str(k).startswith("_")}, layout)

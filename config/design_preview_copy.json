@@ -1,111 +1,188 @@
 {
-  "_note": "Sample copy for `ca design preview` (Phase D step 3): one entry per direction layout ('<ID>/<layout>'). Only verified services (config/services.json), no numbers, results, quotes or prices. Free and local: pictures are placeholders unless --photo is given.",
+  "_note": "Sample copy for `ca design preview` (Phase D step 3): one entry per direction layout ('<ID>/<layout>'). Only verified services (config/services.json), no numbers, results, quotes or prices. Free and local: pictures are placeholders unless --photo is given. v5: German (PRD R1).",
   "FB-1/post": {
-    "headline": "Your *AI chatbot* for every channel",
-    "sub": "Answers questions and books appointments while your team works.",
-    "capabilities": ["FAQ automation", "Appointment booking", "Handover to staff"],
-    "icons": ["message-chatbot", "calendar-check", "users"]
+    "headline": "Ihr *KI-Chatbot* für jeden Kanal",
+    "sub": "Beantwortet Fragen und bucht Termine, während Ihr Team arbeitet.",
+    "capabilities": [
+      "FAQ-Automatisierung",
+      "Terminbuchung",
+      "Übergabe ans Team"
+    ],
+    "icons": [
+      "message-chatbot",
+      "calendar-check",
+      "users"
+    ]
   },
   "FB-2/post": {
-    "headline": "Still chasing *follow-ups*?",
-    "problem": "Leads go quiet because nobody had time to reply. **Automated follow-up sequences** keep every conversation moving.",
-    "cta_line": "Tell us your biggest bottleneck"
+    "headline": "Immer noch hinter *Nachfassern* her?",
+    "problem": "Leads verstummen, weil niemand Zeit zum Antworten hatte. **Automatische Nachfass-Sequenzen** halten jedes Gespräch in Gang.",
+    "cta_line": "Nennen Sie uns Ihren größten Engpass"
   },
   "FB-3/zigzag": {
-    "headline": "How we build [[an AI agent]] in 3 steps?",
-    "steps": ["Map: the process you repeat every week", "Build: an agent for the routine work", "Hand over: your team stays in control"],
-    "icons": ["route", "robot", "user-check"]
+    "headline": "Wie entsteht [[ein KI-Agent]] in 3 Schritten?",
+    "steps": [
+      "Erfassen: der Prozess, der sich jede Woche wiederholt",
+      "Bauen: ein Agent für die Routinearbeit",
+      "Übergeben: Ihr Team behält die Kontrolle"
+    ],
+    "icons": [
+      "route",
+      "robot",
+      "user-check"
+    ]
   },
   "FB-3/cycle": {
-    "headline": "How [[lead nurturing]] runs in 4 steps?",
-    "steps": ["Capture: every enquiry in one place", "Qualify: score leads automatically", "Follow up: timely emails and reminders", "Report: see what moves the pipeline"],
-    "icons": ["inbox", "filter", "mail", "report-analytics"]
+    "headline": "Wie läuft [[Lead-Pflege]] in 4 Schritten?",
+    "steps": [
+      "Erfassen: jede Anfrage an einem Ort",
+      "Bewerten: Leads automatisch einstufen",
+      "Nachfassen: E-Mails und Erinnerungen",
+      "Auswerten: sehen, was wirkt"
+    ],
+    "icons": [
+      "inbox",
+      "filter",
+      "mail",
+      "report-analytics"
+    ]
   },
   "LI-1/post": {
-    "tagline": "AI AUTOMATION",
-    "headline": "One system for your sales pipeline",
-    "sub": "From the first enquiry to the booked call, with [[less manual work]] for your team.",
-    "cards": ["Lead capture: every form in one CRM", "Scoring: focus on the right leads", "Follow-ups: sequences that run themselves", "Reporting: weekly updates, automatic"],
-    "icons": ["user-plus", "gauge", "send", "chart-bar"],
-    "footer_line": "Automation with a plan"
+    "tagline": "KI-AUTOMATISIERUNG",
+    "headline": "Ein System für Ihren Vertrieb",
+    "sub": "Von der ersten Anfrage bis zum gebuchten Termin, mit [[weniger Handarbeit]] für Ihr Team.",
+    "cards": [
+      "Leads: jedes Formular in einem CRM",
+      "Bewertung: Fokus auf die richtigen Leads",
+      "Nachfassen: Sequenzen, die selbst laufen",
+      "Berichte: wöchentlich, automatisch"
+    ],
+    "icons": [
+      "user-plus",
+      "gauge",
+      "send",
+      "chart-bar"
+    ],
+    "footer_line": "Automatisierung mit Plan"
   },
   "LI-2/post": {
-    "headline": "AI agents are now *everyday* business tools",
-    "context": "Routine research, reporting and CRM updates can run on their own. The question is which processes to start with."
+    "headline": "KI-Agenten sind jetzt *Alltag* im Unternehmen",
+    "context": "Recherche, Berichte und CRM-Pflege laufen von selbst. Die Frage ist, mit welchen Prozessen Sie anfangen."
   },
   "LI-3/post": {
-    "headline": "Calls answered, day and night",
-    "sub": "An AI callbot for your business",
-    "values": ["Customer enquiries", "Appointment requests", "Call routing", "Follow-up calls"],
-    "icons": ["phone-incoming", "calendar-event", "route", "phone-outgoing"],
-    "cta": "Ask us about AI callbots"
+    "headline": "Anrufe angenommen, Tag und Nacht",
+    "sub": "Ein KI-Callbot für Ihr Unternehmen",
+    "values": [
+      "Kundenanfragen",
+      "Terminwünsche",
+      "Anrufweiterleitung",
+      "Rückrufe"
+    ],
+    "icons": [
+      "phone-incoming",
+      "calendar-event",
+      "route",
+      "phone-outgoing"
+    ],
+    "cta": "Fragen Sie uns nach KI-Callbots"
   },
   "CS-1/cover": {
-    "headline": "Too many repeat questions? *Meet your AI chatbot*",
-    "sub": "What it is, how it helps and who it is for"
+    "headline": "Zu viele Standardfragen? *Ihr KI-Chatbot*",
+    "sub": "Was er ist, wie er hilft und für wen er passt"
   },
   "CS-1/what": {
-    "headline": "What it is",
-    "body": "An AI chatbot answers your customers on your website, WhatsApp or Telegram. It handles the routine questions and hands over to your team when a person is needed."
+    "headline": "Was er ist",
+    "body": "Ein KI-Chatbot antwortet Ihren Kunden auf der Website, per WhatsApp oder Telegram. Er klärt Routinefragen und übergibt an Ihr Team, wenn ein Mensch gefragt ist."
   },
   "CS-1/how": {
-    "headline": "How it helps",
-    "bullets": ["Answers frequent questions at any hour", "Captures and qualifies new leads", "Books appointments into your calendar"]
+    "headline": "Wie er hilft",
+    "bullets": [
+      "Beantwortet häufige Fragen rund um die Uhr",
+      "Erfasst und bewertet neue Leads",
+      "Bucht Termine in Ihren Kalender"
+    ]
   },
   "CS-1/benefits": {
-    "headline": "The benefits",
-    "benefits": ["Time: fewer routine messages for your team", "Speed: customers get answers straight away", "Focus: staff handle the complex cases"]
+    "headline": "Die Vorteile",
+    "benefits": [
+      "Zeit: weniger Routine-Nachrichten im Team",
+      "Tempo: Kunden bekommen sofort Antwort",
+      "Fokus: Ihr Team löst die schwierigen Fälle"
+    ]
   },
   "CS-1/who": {
-    "headline": "Who it is for",
-    "audience": ["Service businesses", "Online shops", "Teams with busy inboxes"]
+    "headline": "Für wen er passt",
+    "audience": [
+      "Dienstleister",
+      "Onlineshops",
+      "Teams mit vollem Posteingang"
+    ]
   },
   "CS-1/cta": {
-    "headline": "Which question do you answer most often?",
-    "sub": "Tell us in the comments",
+    "headline": "Welche Frage beantworten Sie am häufigsten?",
+    "sub": "Schreiben Sie es in die Kommentare",
     "cta": "KI-Chatbot entwickeln"
   },
   "CS-2/statement": {
-    "eyebrow": "STRUGGLING WITH",
-    "main": "FOLLOW-UPS?",
-    "third": "We make them [[automatic]]",
-    "body": "Email sequences and reminders that run without manual work."
+    "eyebrow": "KÄMPFEN SIE MIT",
+    "main": "NACHFASSEN?",
+    "third": "Wir machen es [[automatisch]]",
+    "body": "E-Mail-Sequenzen und Erinnerungen ohne Handarbeit."
   },
   "CS-2/closing": {
-    "eyebrow": "READY TO",
-    "main": "AUTOMATE?",
-    "third": "Start with [[one process]]",
-    "body": "Wachstum automatisieren with Branded Genius"
+    "eyebrow": "BEREIT ZUM",
+    "main": "AUTOMATISIEREN?",
+    "third": "Starten Sie mit [[einem Prozess]]",
+    "body": "Wachstum automatisieren mit Branded Genius"
   },
   "CS-3/cover": {
-    "headline": "How do you start with *AI in your team*?"
+    "headline": "Wie starten Sie mit *KI im Team*?"
   },
   "CS-3/steps": {
-    "cards": ["Find use cases: list the tasks your team repeats every week and pick the one that takes the most time.", "Use tools safely: agree which tools and data are allowed before anyone starts, then test with one small task."]
+    "cards": [
+      "Einsatzfelder finden: Aufgaben auflisten, die sich jede Woche wiederholen, und die zeitraubendste wählen.",
+      "Tools sicher nutzen: vorher festlegen, welche Tools und Daten erlaubt sind, dann mit einer kleinen Aufgabe testen."
+    ]
   },
   "CS-3/cta": {
-    "headline": "Plan your first AI workshop",
+    "headline": "Planen Sie Ihren ersten KI-Workshop",
     "cta": "KI-Workshop anfragen"
   },
   "FD-1/post": {
-    "headline": "Where AI agents save your team time",
-    "cards": ["Research: briefings prepared automatically", "Reporting: updates sent on schedule", "CRM: tasks created from emails"],
-    "icons": ["search", "report-analytics", "database"],
-    "statement": "Built for real processes",
-    "services": ["AI agents", "AI chatbots", "AI callbots"],
-    "service_icons": ["robot", "message-chatbot", "phone-call"]
+    "headline": "Wo KI-Agenten Ihrem Team Zeit sparen",
+    "cards": [
+      "Recherche: Briefings automatisch vorbereitet",
+      "Berichte: pünktlich verschickt",
+      "CRM: Aufgaben aus E-Mails angelegt"
+    ],
+    "icons": [
+      "search",
+      "report-analytics",
+      "database"
+    ],
+    "statement": "Gebaut für echte Prozesse",
+    "services": [
+      "KI-Agenten",
+      "KI-Chatbots",
+      "KI-Callbots"
+    ],
+    "service_icons": [
+      "robot",
+      "message-chatbot",
+      "phone-call"
+    ]
   },
   "FD-2/post": {
-    "lead_in": "Automation is where",
-    "keyword": "growth",
-    "finish": "starts to scale"
+    "lead_in": "Mit Automatisierung beginnt",
+    "keyword": "Wachstum",
+    "finish": "zu skalieren"
   },
   "FD-3/cover": {
-    "headline": "AI IS A TEAM SKILL",
-    "sub": "Thoughts from our latest workshop"
+    "headline": "KI IST TEAMARBEIT",
+    "sub": "Gedanken aus unserem Workshop"
   },
   "FD-3/editorial": {
-    "headline": "Start with the *process*, not the tool",
-    "sub": "What I tell every team before an AI project"
+    "headline": "Erst der *Prozess*, dann das Tool",
+    "sub": "Was ich jedem Team vor einem KI-Projekt sage"
   }
 }

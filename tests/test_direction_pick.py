@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from content_automation.content.deliverables import load_deliverables
+from content_automation.content.deliverables import DeliverableError, load_deliverables
 from content_automation.content.direction_pick import (
     direction_format,
     is_direction_id,
@@ -16,7 +16,6 @@ from content_automation.content.direction_pick import (
 from content_automation.content.directions import DirectionError, load_directions
 from content_automation.content.package import (
     ContentPackage,
-    DeliverableError,
     _choose_direction,
 )
 from content_automation.core.config import Settings

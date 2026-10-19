@@ -30,7 +30,7 @@ description: Write a Branded Genius script, social copy or production brief for 
 
 ## Production brief ("write brief for BG-x", "show brief BG-x")
 
-1. `uv run ca brief template BG-x --json` (YouTube: b-roll per section, motion graphics, on-screen text, captions, thumbnail with at most 5 words, chapters, music mood, presenter Roman + setting, assets, editor notes; podcast: recording source roman|heygen|higgsfield, timed segments, show notes, episode title and description; social: the visual direction).
+1. `uv run ca brief template BG-x --json` (YouTube: b-roll per section, motion graphics, on-screen text, captions, thumbnail with at most 5 words, chapters, music mood, presenter Roman + setting, assets, editor notes; social: the visual direction).
 2. Fill it from the saved script only, write a draft file, `uv run ca brief save BG-x <file>`; fix and save again until "check OK".
 3. "show brief BG-x" → `uv run ca brief show BG-x`.
 

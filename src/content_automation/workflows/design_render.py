@@ -221,6 +221,33 @@ class Word:
     text: str
     style: Literal["plain", "accent", "bold", "pill"]
     group: int = -1  # pill words of one [[phrase]] share a group
+    # v5 (PRD R1.5): long German words break only at their own hyphens or at a soft hyphen
+    # (U+00AD) the writer set. glue: this fragment continues the word before it (no space);
+    # soft: a soft hyphen follows, shown as "-" only when the line breaks there.
+    glue: bool = False
+    soft: bool = False
+
+
+SOFT_HYPHEN = "\u00ad"
+_BREAK = re.compile(r"(?<=[^\s\-\u00ad])(-|\u00ad)(?=[^\s\-\u00ad])")
+
+
+def fragments(word: Word) -> list[Word]:
+    """A word split at its break points: "KI-gestützte" -> "KI-" + "gestützte" (glued)."""
+    parts: list[tuple[str, bool]] = []
+    start = 0
+    for match in _BREAK.finditer(word.text):
+        if match.group(1) == "-":
+            parts.append((word.text[start:match.end()], False))
+        else:
+            parts.append((word.text[start:match.start()], True))
+        start = match.end()
+    parts.append((word.text[start:].replace(SOFT_HYPHEN, ""), False))
+    if len(parts) == 1:
+        return [word if SOFT_HYPHEN not in word.text else Word(parts[0][0], word.style,
+                                                                word.group)]
+    return [Word(text, word.style, word.group, glue=index > 0, soft=soft)
+            for index, (text, soft) in enumerate(parts)]
 
 
 def parse(text: str, upper: bool = False) -> list[Word]:
@@ -255,7 +282,16 @@ def parse(text: str, upper: bool = False) -> list[Word]:
     plain_words(text[position:])
     if upper:
         words = [Word(w.text.upper(), w.style, w.group) for w in words]
-    return words
+    return [part for word in words for part in fragments(word)]
+
+
+def _unglued(word: Word) -> Word:
+    return Word(word.text, word.style, word.group, False, word.soft) if word.glue else word
+
+
+def _joined(words: Sequence[Word]) -> str:
+    return "".join(("" if index == 0 or w.glue else " ") + w.text
+                   for index, w in enumerate(words))
 
 
 @dataclass
@@ -340,13 +376,21 @@ class Painter:
             fits = True
             for word in words:
                 w = self.word_width(word, zone.weight, size, zone.tracking)
-                if w > width - 2 * pad[0]:
+                hyphen = self.word_width(Word("-", word.style), zone.weight, size,
+                                         zone.tracking) if word.soft else 0.0
+                if w + hyphen > width - 2 * pad[0]:
                     fits = False
                     break
-                extra = w + (space if current else 0)
+                extra = w + (space if current and not word.glue else 0)
                 if current and current_w + extra > width - 2 * pad[0]:
+                    if word.glue and not current[-1].soft and not current[-1].text.endswith("-"):
+                        fits = False  # never split a word where it has no break point
+                        break
+                    if current[-1].soft:  # the soft hyphen shows at the line end
+                        last = current[-1]
+                        current[-1] = Word(last.text + "-", last.style, last.group, last.glue)
                     lines.append(current)
-                    current, current_w = [word], w
+                    current, current_w = [_unglued(word)], w
                 else:
                     current.append(word)
                     current_w += extra
@@ -363,7 +407,7 @@ class Painter:
             return _Fitted(size, lines, total, widest, line_px)
         raise DesignRenderError(
             f"{self.record.direction} {zone.field or zone.kind}: "
-            + '"' + " ".join(w.text for w in words) + '"'
+            + '"' + _joined(words) + '"'
             + f" does not fit its zone at {limit.min_font_px} px or more in {limit.max_lines} "
             "line(s). Shorten it.")
 
@@ -372,8 +416,9 @@ class Painter:
 
     def _line_width(self, line: list[Word], zone: Zone, size: int) -> float:
         space = self.font(zone.weight, size).getlength(" ") + zone.tracking * size
-        return sum(self.word_width(w, zone.weight, size, zone.tracking) for w in line) + space * (
-            len(line) - 1)
+        gaps = sum(1 for index, w in enumerate(line) if index and not w.glue)
+        return sum(self.word_width(w, zone.weight, size, zone.tracking) for w in line) + (
+            space * gaps)
 
     def text(self, name: str, zone: Zone, raw: str, layout: Layout,
              limit: TextLimit, box: PixelBox | None = None, color: str | None = None,
@@ -426,13 +471,15 @@ class Painter:
                  / 2, "right": inner_right - line_w}[zone.align]
             groups: dict[int, list[float]] = {}
             positions: list[tuple[float, Word]] = []
-            for word in line:
+            for index, word in enumerate(line):
+                if index and not word.glue:
+                    x += space
                 positions.append((x, word))
                 w = self.word_width(word, zone.weight, size, zone.tracking)
                 if word.style == "pill":
                     span = groups.setdefault(word.group, [x, x + w])
                     span[1] = x + w
-                x += w + space
+                x += w
             for start, end in groups.values():  # [[phrase]]: a highlight pill behind it
                 padding = size * 0.22
                 # centred on the glyphs (caps to descenders); never taller than one line, so

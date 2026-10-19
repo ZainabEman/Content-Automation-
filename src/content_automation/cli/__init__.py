@@ -90,13 +90,6 @@ from content_automation.content.plan import (
     plan_calendar,
 )
 from content_automation.content.plan_config import plan_only_types
-from content_automation.content.podcast import (
-    heygen_lines,
-    heygen_request,
-    make_thumbnail,
-    podcast_audio,
-    record_heygen,
-)
 from content_automation.content.production import (
     handoff,
     import_media,
@@ -112,6 +105,7 @@ from content_automation.content.review import (
 from content_automation.content.review import show_lines as review_show_lines
 from content_automation.content.scripts import template_json as script_template_json
 from content_automation.content.scripts import template_lines as script_template_lines
+from content_automation.content.thumbnail import make_thumbnail
 from content_automation.content.tracking import TrackerError, status_lines
 from content_automation.core.agent_steps import record_agent_output, request_path
 from content_automation.core.config import ConfigurationError, Settings, load_settings
@@ -266,10 +260,8 @@ app.add_typer(review_app, name="review")
 app.add_typer(costs_app, name="costs")
 app.add_typer(report_app, name="report")
 app.add_typer(verify_app, name="verify")
-production_app = typer.Typer(no_args_is_help=True, help="YouTube and podcast production.")
+production_app = typer.Typer(no_args_is_help=True, help="YouTube production.")
 app.add_typer(production_app, name="production")
-podcast_app = typer.Typer(no_args_is_help=True, help="Podcast recording (HeyGen) and audio.")
-app.add_typer(podcast_app, name="podcast")
 clips_app = typer.Typer(no_args_is_help=True, help="Opus Pro clips from a finished video.")
 app.add_typer(clips_app, name="clips")
 copy_app = typer.Typer(no_args_is_help=True, help="Per-platform copy (Phase 6 checks).")
@@ -1093,40 +1085,6 @@ def video_resume(job_dir: JobDir) -> None:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from None
     _report_video(job, settings)
-
-
-@video_app.command("upload")
-def video_upload(
-    job_dir: JobDir,
-    content_id: Annotated[
-        str | None,
-        typer.Option("--content-id", help="Drive folder name (default: the job folder's name)."),
-    ] = None,
-) -> None:
-    """Upload a finished youtube video's final.mp4 to Drive YouTube/<Content ID>/."""
-    _utf8_output()
-    settings = _settings(check_keys=False)
-    job = _load_job(job_dir)
-    final = job.folder / "final.mp4"
-    if job.workflow_id != "youtube":
-        typer.echo(f"{job.workflow_id} is not a youtube video; packages upload with ca drive "
-                   "sync.", err=True)
-        raise typer.Exit(code=2)
-    if job.status != "completed" or not final.is_file():
-        typer.echo(f'Not finished ({job.status}): run uv run ca video resume "{job.folder}" '
-                   "first.", err=True)
-        raise typer.Exit(code=1)
-    target = content_id or job.folder.name
-    try:
-        uploaded = get_storage(settings).upload(final, "youtube", target)
-    except (StorageNotSetUpError, StorageError) as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(code=1) from None
-    job.notes.append(f"Drive ({settings.storage_provider}): {ROOT_FOLDER}/YouTube/{target}/"
-                     f"final.mp4 {uploaded.link}")
-    job.save()
-    typer.echo(f"Uploaded: {ROOT_FOLDER}/YouTube/{target}/final.mp4 ({settings.storage_provider})")
-    typer.echo(f"Link: {uploaded.link}")
 
 
 def _report_video(job: Job, settings: Settings) -> None:
@@ -2431,59 +2389,6 @@ def thumbnail(ref: Annotated[str, typer.Argument(help="The item (BG ID).")]) -> 
     settings = _settings(dry_run=True)
     with _registry(settings, f"ca thumbnail {ref}") as scope:
         lines = make_thumbnail(scope.conn, settings, ref, command=scope.command)
-    for line in lines:
-        typer.echo(line)
-
-
-@podcast_app.command("heygen")
-def podcast_heygen(
-    ref: Annotated[str, typer.Argument(help="The podcast item (BG ID).")],
-    authorize_id: AuthorizeOption = None,
-) -> None:
-    """The HeyGen recording: a dry run; after the user's "ok" --authorize writes the request."""
-    _utf8_output()
-    settings = _settings(check_keys=False)
-    with _registry(settings, f"ca podcast heygen {ref}"
-                   + (" --authorize" if authorize_id else "")) as scope:
-        lines = heygen_lines(scope.conn, settings, ref)
-        key = f"podcast heygen {lines[0].item}"
-        if authorize_id is None:
-            for cost in lines:
-                typer.echo(f"{cost.item} {cost.label}: about {cost.estimate:g} {cost.unit}")
-            for line in save_dry_run_lines(settings, scope, key, lines):
-                typer.echo(line)
-            typer.echo(f"Only after the user says ok: uv run ca podcast heygen {ref} "
-                       "--authorize <the dry run ID above>")
-            return
-        for line in authorization_lines(authorize(settings, scope, authorize_id, key, lines)):
-            typer.echo(line)
-        for line in heygen_request(scope.conn, settings, ref, command=scope.command):
-            typer.echo(line)
-
-
-@podcast_app.command("record")
-def podcast_record(
-    job_id: Annotated[int, typer.Argument(help="The HeyGen request's jobId.")],
-    file: Annotated[Path, typer.Argument(help="The file the HeyGen plugin made.")],
-    credits: Annotated[float | None, typer.Option(help="Credits the plugin reported.")] = None,
-) -> None:
-    """Record the HeyGen result and import it as the recording."""
-    _utf8_output()
-    settings = _settings(dry_run=True)
-    with _registry(settings, f"ca podcast record {job_id}") as scope:
-        lines = record_heygen(scope.conn, settings, job_id, file, credits=credits,
-                              command=scope.command)
-    for line in lines:
-        typer.echo(line)
-
-
-@podcast_app.command("audio")
-def podcast_audio_command(ref: Annotated[str, typer.Argument(help="The item (BG ID).")]) -> None:
-    """MP3 with FFmpeg loudnorm (-16 LUFS, config/production.json)."""
-    _utf8_output()
-    settings = _settings(dry_run=True)
-    with _registry(settings, f"ca podcast audio {ref}") as scope:
-        lines = podcast_audio(scope.conn, settings, ref, command=scope.command)
     for line in lines:
         typer.echo(line)
 

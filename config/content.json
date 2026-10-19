@@ -1,6 +1,6 @@
 {
-  "_note": "confirmed 2026-10-14 (language), live fix (layoutLanguage): the content language is English (\"en\"); a post's subtitle and short CTA are German, and its caption ends with one German line; platforms may override the language.",
-  "language": "en",
+  "_note": "v5 (PRD R1.4, 2026-10-19): the content language is German (\"de\") for everything the audience sees; English generation is kept, not the default. layoutLanguage applies only when a platform overrides the language to \"en\" (the old English/German mix, live fix). Form of address: config/german_quality.json address (Q3 default Sie).",
+  "language": "de",
   "platforms": {},
   "layoutLanguage": {
     "headline": "en",

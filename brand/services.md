@@ -7,7 +7,7 @@ Sources: https://brandedgenius.de/ , /leistungen/ , /ki-workshop/ , /impressum/ 
 Positioning: AI automation that creates results; AI made practical, structured and implementable (site taglines "KI-Automatisierung, die Ergebnisse schafft." and "Branded Genius macht KI praktisch, strukturiert und umsetzbar.").
 Core message: All tools, one system, intelligently connected (site tagline "Alle Tools. Ein System. Intelligent vernetzt.").
 Content rules: English, with the German lines the layouts ask for; name a service only with the wording in config/services.json; never invent results, statistics, prices, client names, testimonials or guarantees; the case-study figures and quotes on the website are not confirmed and are never used.
-Offer: Free AI potential analysis - request it at brandedgenius.de (site: "KI-Potenzialanalyse anfragen", "Analyse-Auswertung kostenfrei sichern")
+Offer: kostenfreie KI-Potenzialanalyse - anfragen auf brandedgenius.de (site: "KI-Potenzialanalyse anfragen", "Analyse-Auswertung kostenfrei sichern")
 Website: https://brandedgenius.de
 
 Services (verified on brandedgenius.de):

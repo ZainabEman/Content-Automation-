@@ -3,9 +3,9 @@
 Run:  uv run python scripts/e2e_phase6.py [--keep]
 
 A new temp folder with a copy of config/; the registry gets an idea with sourced claims, a
-YouTube item, a podcast item and a LinkedIn post. Main flow: template -> save v1 -> refusals ->
-revise -> v2 -> briefs. Criterion 7 (post and carousel builds on mock, old packages) runs
-scripts/e2e_phase4.py, which builds them on mock providers. No network, no paid call.
+YouTube item and a LinkedIn post (no podcast item since v5). Main flow: template -> save v1
+-> refusals -> revise -> v2 -> briefs. Criterion 7 (post and carousel builds on mock, old
+packages) runs scripts/e2e_phase4.py, which builds them on mock providers. No network, no paid call.
 """
 
 import json
@@ -22,8 +22,9 @@ from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
 TODAY = datetime.now(UTC).date()
-LENGTHS = {"hook": 80, "german_problem": 300, "ai_risk_or_mistake": 350, "why_it_happens": 300,
-           "correct_ai_solution": 400, "cta_outro": 70}
+LENGTHS = {"hook": 100, "warning": 120, "critical_situation": 280, "why_it_matters": 190,
+           "why_it_happens": 190, "what_could_go_wrong": 190, "correct_response": 340,
+           "conclusion": 90}
 
 
 @contextmanager
@@ -76,7 +77,6 @@ def _seed() -> dict[str, str]:
         approve(conn, idea.id, gate="idea", note="e2e: the user's approval")
         for key, kind, platform, deliverable in (
                 ("video", "youtube", "youtube", "youtube_longform"),
-                ("podcast", "podcast", "podcast", "podcast_episode"),
                 ("post", "post", "linkedin", "linkedin_post"),
                 ("carousel", "carousel", "instagram", "instagram_carousel"),
                 ("ad", "ad", "facebook", "facebook_ad")):
@@ -90,8 +90,8 @@ def _seed() -> dict[str, str]:
 
 def _draft(item: str, version: int, verified: str, **changes: Any) -> Path:
     sections = [{"key": key, "text": " ".join(["Firms"] * count)
-                 + (" In 2025 calls rose." if key == "ai_risk_or_mistake" else ""),
-                 "claimRefs": [verified] if key == "ai_risk_or_mistake" else []}
+                 + (" In 2025 calls rose." if key == "critical_situation" else ""),
+                 "claimRefs": [verified] if key == "critical_situation" else []}
                 for key, count in LENGTHS.items()]
     data: dict[str, Any] = {"item": item, "version": version, "formula": "youtube_longform",
                             "language": "en", "sections": sections}
@@ -107,10 +107,10 @@ def flow(notes: dict[int, list[str]], ids: dict[str, str]) -> None:
 
     video = ids["video"]
     templates = [json.loads(_ca("script", "template", ids[key], "--json")[1])
-                 for key in ("video", "podcast", "post", "carousel", "ad")]
+                 for key in ("video", "post", "carousel", "ad")]
     formulas = {t["formula"] for t in templates}
     claims_ok = all(len(t["claims"]) == 3 for t in templates)
-    notes[1].append(f"{len(formulas)} formulas with claims" if len(formulas) == 5 and claims_ok
+    notes[1].append(f"{len(formulas)} formulas with claims" if len(formulas) == 4 and claims_ok
                     else f"failed: {formulas}")
     code, out = _ca("script", "save", video, str(_draft(video, 1, ids["verified"])))
     v1 = Path("outputs/items") / video / "scripts" / "v1"
@@ -138,7 +138,7 @@ def flow(notes: dict[int, list[str]], ids: dict[str, str]) -> None:
     notes[4].append("v2 saved, v1 unchanged, feedback shown" if code == 0 and "Saved v2" in out
                     and (v1 / "script.json").read_bytes() == before and feedback
                     else f"failed: {out[-200:]}")
-    for key, fill in (("video", _youtube_brief), ("podcast", _podcast_brief)):
+    for key, fill in (("video", _youtube_brief),):
         skeleton = json.loads(_ca("brief", "template", ids[key], "--json")[1])["skeleton"]
         Path(f"brief-{key}.json").write_text(json.dumps(fill(skeleton)), encoding="utf-8")
         code, out = _ca("brief", "save", ids[key], f"brief-{key}.json")
@@ -170,14 +170,6 @@ def _youtube_brief(skeleton: dict[str, Any]) -> dict[str, Any]:
     return skeleton
 
 
-def _podcast_brief(skeleton: dict[str, Any]) -> dict[str, Any]:
-    for segment in skeleton["segments"]:
-        segment.update({"title": segment["section"], "minutes": 3})
-    skeleton.update({"showNotes": "Sources in the description", "episodeTitle": "Voice clones",
-                     "episodeDescription": "Why finance teams get fake calls"})
-    return skeleton
-
-
 def c7(notes: list[str]) -> None:
     result = subprocess.run([sys.executable, str(REPO / "scripts" / "e2e_phase4.py")],
                             capture_output=True, text=True, encoding="utf-8", timeout=900,
@@ -191,7 +183,7 @@ CRITERIA = {
     2: "a valid YouTube script saves as v1 with md and a duration estimate",
     3: "missing section, number without verified source, outdated, unacknowledged unverified fail",
     4: "a revise then a new save creates v2; v1 is unchanged",
-    5: "podcast and YouTube briefs validate and render",
+    5: "the YouTube brief validates and renders",
     6: "LinkedIn copy outside 120-250 words fails",
     7: "existing post and carousel builds still work on mock; old packages render",
 }

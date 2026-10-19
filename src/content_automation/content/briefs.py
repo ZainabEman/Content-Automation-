@@ -4,9 +4,9 @@ need, saved as `brief.json` + `brief.md` next to the script in v<n> (C6-2, C6-3)
 - youtube: b-roll per section (stock, screen, own_footage, ai_generated), motion graphics,
   on-screen text, captions, thumbnail (text at most 5 words), chapters, music mood, presenter
   (Roman) and setting, assets needed, editor notes;
-- podcast: recording source (roman, heygen, higgsfield; a field only), timed segments, show
-  notes, episode title and description;
 - social: the visual direction for the existing image pipeline.
+
+The podcast brief was removed in v5 (PRD R8: no podcast media).
 """
 
 import json
@@ -76,28 +76,13 @@ class YoutubeBrief(_Brief):
     editor_notes: str = ""
 
 
-class Segment(_Model):
-    title: str = Field(min_length=1)
-    section: str
-    minutes: float = Field(gt=0)
-
-
-class PodcastBrief(_Brief):
-    type: Literal["podcast"]
-    recording_source: Literal["roman", "heygen", "higgsfield"]
-    segments: list[Segment] = Field(min_length=1)
-    show_notes: str = Field(min_length=1)
-    episode_title: str = Field(min_length=1)
-    episode_description: str = Field(min_length=1)
-
-
 class SocialBrief(_Brief):
     type: Literal["social"]
     visual_direction: str = Field(min_length=1)
 
 
-Brief = Annotated[YoutubeBrief | PodcastBrief | SocialBrief, Field(discriminator="type")]
-_BRIEF: TypeAdapter[YoutubeBrief | PodcastBrief | SocialBrief] = TypeAdapter(Brief)
+Brief = Annotated[YoutubeBrief | SocialBrief, Field(discriminator="type")]
+_BRIEF: TypeAdapter[YoutubeBrief | SocialBrief] = TypeAdapter(Brief)
 
 
 def brief_type(template: Template) -> str:
@@ -116,10 +101,6 @@ def skeleton(template: Template) -> dict[str, Any]:
                  "chapters": [{"title": "", "section": key} for key in keys],
                  "musicMood": "", "presenter": {"name": "Roman", "setting": ""},
                  "assetsNeeded": [], "editorNotes": ""}
-    elif base["type"] == "podcast":
-        base |= {"recordingSource": "roman",
-                 "segments": [{"title": "", "section": key, "minutes": 1} for key in keys],
-                 "showNotes": "", "episodeTitle": "", "episodeDescription": ""}
     else:
         base |= {"visualDirection": ""}
     return base
@@ -131,12 +112,11 @@ def template_json(template: Template) -> dict[str, Any]:
             "language": template.language, "sections": [s.key for s in template.formula.sections],
             "minutes": list(template.formula.minutes) if template.formula.minutes else None,
             "rules": {"thumbnailWords": THUMBNAIL_WORDS,
-                      "sourceHints": ["stock", "screen", "own_footage", "ai_generated"],
-                      "recordingSources": ["roman", "heygen", "higgsfield"]},
+                      "sourceHints": ["stock", "screen", "own_footage", "ai_generated"]},
             "storesIn": template.stores_in.as_posix(), "skeleton": skeleton(template)}
 
 
-def read_brief(path: Path) -> YoutubeBrief | PodcastBrief | SocialBrief:
+def read_brief(path: Path) -> YoutubeBrief | SocialBrief:
     try:
         return _BRIEF.validate_json(path.read_text(encoding="utf-8"))
     except OSError:
@@ -148,7 +128,7 @@ def read_brief(path: Path) -> YoutubeBrief | PodcastBrief | SocialBrief:
 
 
 def check_brief(conn: sqlite3.Connection, template: Template,
-                brief: YoutubeBrief | PodcastBrief | SocialBrief) -> Check:
+                brief: YoutubeBrief | SocialBrief) -> Check:
     check = Check()
     keys = {spec.key for spec in template.formula.sections}
     if brief.item.upper() != template.item.id:
@@ -171,15 +151,6 @@ def check_brief(conn: sqlite3.Connection, template: Template,
                                   f"content language is {template.language}")
         if not brief.presenter.name.strip():
             check.problems.append("presenter.name: missing (Roman)")
-    elif isinstance(brief, PodcastBrief):
-        check.problems += [f"{key}: not a section of {template.formula_name}"
-                           for key in sorted({s.section for s in brief.segments} - keys)]
-        total = sum(segment.minutes for segment in brief.segments)
-        if template.formula.minutes and not (
-                template.formula.minutes[0] <= total <= template.formula.minutes[1]):
-            low, high = template.formula.minutes
-            check.problems.append(f"segments: {total:g} min (allowed {low}-{high})")
-        check.minutes = total
     elif words(brief.visual_direction) < 5:
         check.problems.append("visualDirection: at least 5 words for the image pipeline")
     if latest_artifact(conn, template.item.id, template.formula.artifact,
@@ -189,7 +160,7 @@ def check_brief(conn: sqlite3.Connection, template: Template,
     return check
 
 
-def render_brief(template: Template, brief: YoutubeBrief | PodcastBrief | SocialBrief) -> str:
+def render_brief(template: Template, brief: YoutubeBrief | SocialBrief) -> str:
     out = [f"# Production brief: {template.item.title}", "",
            f"{template.item.id} v{brief.version} · {brief.type}", ""]
     if isinstance(brief, YoutubeBrief):
@@ -207,11 +178,6 @@ def render_brief(template: Template, brief: YoutubeBrief | PodcastBrief | Social
                 out += [f"## {title}", *[f"- {value}" for value in values], ""]
         if brief.editor_notes:
             out += ["## Editor notes", brief.editor_notes, ""]
-    elif isinstance(brief, PodcastBrief):
-        out += [f"Episode: {brief.episode_title}", f"Recording: {brief.recording_source}", "",
-                brief.episode_description, "", "## Segments",
-                *[f"- {s.title} ({s.section}, {s.minutes:g} min)" for s in brief.segments], "",
-                "## Show notes", brief.show_notes, ""]
     else:
         out += ["## Visual direction", brief.visual_direction, ""]
     return "\n".join(out).rstrip() + "\n"
@@ -243,7 +209,7 @@ def save_brief(conn: sqlite3.Connection, settings: Settings, ref: str, draft: Pa
 
 def stored_brief(conn: sqlite3.Connection, settings: Settings, ref: str,
                  version: int | None = None
-                 ) -> tuple[Template, YoutubeBrief | PodcastBrief | SocialBrief, Path]:
+                 ) -> tuple[Template, YoutubeBrief | SocialBrief, Path]:
     template = build_template(conn, settings, ref)
     found = latest_artifact(conn, ref, "brief", version)
     if found is None:

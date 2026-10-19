@@ -1,0 +1,72 @@
+{
+  "_note": "PRD v5 R1.6: the free German quality pass on every audience-facing text before the dry run (content/german.py). transliterations: written without umlauts or ß (error, with the right spelling). misspellings: frequent German spelling mistakes (error). bannedPhrases: generic AI marketing language (error). englishWords: English function words and phrases that are not German words; two different ones in a text, or one phrase, is an English leftover (error), one word a warning. allowEnglish: loanwords and names that are normal in German business copy. address: the default form of address (Q3 default Sie); the other form is a warning. Edit freely; the lists are a starting point, not a dictionary.",
+  "address": "Sie",
+  "transliterations": {
+    "fuer": "für", "ueber": "über", "Ueber": "Über", "koennen": "können", "koennte": "könnte",
+    "moeglich": "möglich", "Moeglichkeit": "Möglichkeit", "Moeglichkeiten": "Möglichkeiten",
+    "waehrend": "während", "Loesung": "Lösung", "Loesungen": "Lösungen", "loesen": "lösen",
+    "Fuehrung": "Führung", "fuehren": "führen", "Geschaeft": "Geschäft", "Geschaefte": "Geschäfte",
+    "Kuenstliche": "Künstliche", "kuenstliche": "künstliche", "naechste": "nächste",
+    "naechsten": "nächsten", "Groesse": "Größe", "schoen": "schön", "oeffentlich": "öffentlich",
+    "oeffentliche": "öffentliche", "Aenderung": "Änderung", "Aenderungen": "Änderungen",
+    "Gruende": "Gründe", "pruefen": "prüfen", "Pruefung": "Prüfung", "Unterstuetzung": "Unterstützung",
+    "unterstuetzen": "unterstützen", "wuerde": "würde", "wuerden": "würden", "muessen": "müssen",
+    "muesste": "müsste", "haeufig": "häufig", "taeglich": "täglich", "Faelle": "Fälle",
+    "Faelschung": "Fälschung", "Betrueger": "Betrüger", "Behoerde": "Behörde",
+    "Behoerden": "Behörden", "Luecke": "Lücke", "Sicherheitsluecke": "Sicherheitslücke",
+    "zuverlaessig": "zuverlässig", "verlaesslich": "verlässlich", "gefaehrlich": "gefährlich",
+    "Gefaehrdung": "Gefährdung", "Ueberwachung": "Überwachung", "Ueberblick": "Überblick",
+    "Uebersicht": "Übersicht", "Erklaerung": "Erklärung", "erklaeren": "erklären",
+    "frueher": "früher", "zurueck": "zurück", "Rueckruf": "Rückruf", "spaeter": "später",
+    "aeusserst": "äußerst", "Massnahme": "Maßnahme", "Massnahmen": "Maßnahmen",
+    "Strasse": "Straße", "heisst": "heißt", "gross": "groß", "grosse": "große",
+    "groessere": "größere", "gemaess": "gemäß", "schliesslich": "schließlich",
+    "ausschliesslich": "ausschließlich", "Spass": "Spaß", "weiss": "weiß", "Gruss": "Gruß",
+    "Kuendigung": "Kündigung", "Glaeubiger": "Gläubiger", "Haendler": "Händler",
+    "Aerzte": "Ärzte", "Buero": "Büro", "Mittelstaendler": "Mittelständler",
+    "Datenschutzbehoerde": "Datenschutzbehörde", "Anwaelte": "Anwälte", "Steuerberaterbuero": "Steuerberaterbüro"
+  },
+  "misspellings": {
+    "Standart": "Standard", "Vorraussetzung": "Voraussetzung", "vorraussichtlich": "voraussichtlich",
+    "wiederrum": "wiederum", "Addresse": "Adresse", "Rythmus": "Rhythmus", "Packet": "Paket",
+    "Email": "E-Mail", "email": "E-Mail", "Emails": "E-Mails", "nähmlich": "nämlich",
+    "Hilfsbereitschafft": "Hilfsbereitschaft", "Agentur's": "Agenturen", "Atmosphere": "Atmosphäre",
+    "Reperatur": "Reparatur", "Resource": "Ressource", "Resourcen": "Ressourcen",
+    "Ressource's": "Ressourcen", "Detailiert": "Detailliert", "detailiert": "detailliert",
+    "Inhaltsverzeichniss": "Inhaltsverzeichnis", "Ergebniss": "Ergebnis", "Zeugniss": "Zeugnis",
+    "tod langweilig": "todlangweilig", "Seperat": "Separat", "seperat": "separat",
+    "Maschiene": "Maschine", "Bisiness": "Business", "Kompetenzen's": "Kompetenzen"
+  },
+  "bannedPhrases": [
+    "in der heutigen schnelllebigen Welt", "in der heutigen digitalen Welt", "im heutigen digitalen Zeitalter",
+    "in einer Welt, in der", "im Zeitalter der KI", "revolutionär", "revolutionieren", "bahnbrechend",
+    "Game-Changer", "Gamechanger", "auf das nächste Level", "auf ein neues Level", "nächste Level",
+    "Tauchen Sie ein", "tauchen wir ein", "Lassen Sie uns eintauchen", "entfesseln", "nahtlos",
+    "mühelos", "Synergien", "die Zukunft ist jetzt", "Zukunft gestalten", "sich ständig verändernden",
+    "unverzichtbar", "Es ist wichtig zu beachten", "Es ist wichtig zu betonen", "auf dieser Reise",
+    "Reise in die Zukunft", "Potenzial freisetzen", "das volle Potenzial", "durch die Decke",
+    "game changer", "unlock", "unleash", "leverage", "delve", "fast-paced", "revolutionize",
+    "seamless", "cutting-edge", "next level", "elevate your"
+  ],
+  "englishWords": [
+    "the", "and", "with", "your", "you", "our", "we", "of", "is", "are", "this", "that", "for",
+    "to", "it", "be", "how", "why", "what", "when", "who", "which", "now", "free", "learn", "read",
+    "get", "today", "about", "from", "without", "into", "their", "they", "can", "more", "click",
+    "here", "just", "only", "every", "need", "should", "would", "could", "don't", "it's",
+    "you're", "let's", "book", "call", "swipe", "save", "share", "like"
+  ],
+  "englishPhrases": [
+    "learn more", "read more", "book a call", "book now", "swipe", "sign up", "click here",
+    "find out", "get started", "follow us", "link in bio", "comment below", "let us know",
+    "did you know", "how to", "step by step"
+  ],
+  "allowEnglish": [
+    "Business", "Content", "Marketing", "Team", "Teams", "Lead", "Leads", "Workflow", "Workflows",
+    "Chatbot", "Chatbots", "Meeting", "Meetings", "Deepfake", "Deepfakes", "Software", "online",
+    "Online", "KI-Tools", "Tools", "Tool", "Prompt", "Prompts", "Newsletter", "Website", "Feedback",
+    "Know-how", "Startup", "Startups", "Social Media", "Branded Genius", "BrandedGenius", "Google",
+    "LinkedIn", "Facebook", "Instagram", "YouTube", "WhatsApp", "ChatGPT", "OpenAI", "Microsoft",
+    "Phishing", "Scam", "Scams", "Fake", "Fakes", "Cloud", "Update", "Updates", "Account",
+    "Accounts", "Login", "CEO", "CRM", "E-Mail", "E-Mails", "Call", "Calls", "Like"
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "source": "outputs/jobs/2026-10-20/0300_eine-testauszahlung-ist-kein-beweis-f-r/image-1.png (generated, rejected: PRD v6 §2)",
+  "category": "linkedin_post",
+  "provider": "openrouter",
+  "website": true,
+  "logoBox": [
+    0.077,
+    0.061,
+    0.285,
+    0.113
+  ],
+  "read": [
+    {
+      "text": "x 6-34%",
+      "box": [
+        0.0,
+        0.02,
+        0.15,
+        0.06
+      ]
+    },
+    {
+      "text": "y 5-12%",
+      "box": [
+        0.0,
+        0.065,
+        0.1,
+        0.09
+      ]
+    },
+    {
+      "text": "BRANDED GENIUS",
+      "box": [
+        0.08,
+        0.06,
+        0.29,
+        0.11
+      ]
+    },
+    "EINE KLEINE AUSZAHLUNG BEWEIST NICHTS",
+    "x 9-56%",
+    "y 22-52%",
+    "IM FALL ALTÖTTING STIEGEN ANZEIGEN, SPÄTERE AUSZAHLUNGEN BLIEBEN AUS.",
+    "x 9-56%",
+    "y 55-74%",
+    "x 50-94%",
+    "y 84-91%",
+    "Quelle unabhängig prüfen",
+    "v-inmleie",
+    "brandedgenius.de",
+    "x 6-60%, y 92-95%"
+  ],
+  "intended": [
+    "EINE KLEINE AUSZAHLUNG BEWEIST NICHTS",
+    "IM FALL ALTÖTTING STIEGEN ANZEIGEN, SPÄTERE AUSZAHLUNGEN BLIEBEN AUS.",
+    "Quelle unabhängig prüfen"
+  ],
+  "pattern": "R3.1-2 garbled fake text in the CTA (v-inmleie); R3.1-4 CTA pill colliding with its arrow circle; R3.1-1 coordinates",
+  "expect": [
+    "coordinates",
+    "stray_text",
+    "logo_overlap",
+    "flat_blue"
+  ]
+}

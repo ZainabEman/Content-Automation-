@@ -60,6 +60,7 @@ from content_automation.content.deliverables import (
     DeliverableError,
     load_deliverables,
 )
+from content_automation.content.design_variation import pick_variation, recent_variations
 from content_automation.content.direction_brief import (
     carousel_template,
     direction_problems,
@@ -112,6 +113,7 @@ from content_automation.content.roman_prompt import (
     history,
     is_combination,
     load_guidelines,
+    parse_combination,
     pick_combination,
 )
 from content_automation.content.routing import DISABLED
@@ -284,6 +286,9 @@ class ContentPackage(CamelModel):
     # 2026-10-20: Roman's combination for Higgsfield (e.g. "S-L/BG-2/P-3/H-1"), picked at
     # stage 1 by rotation over the platform's earlier Roman images (content/roman_prompt.py)
     roman_combination: str | None = None
+    # v6 (R3.5): the layout variant's variation (side/panel/deco/cta), picked at stage 1 by
+    # rotation over the platform's earlier packages (content/design_variation.py)
+    variation: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -485,6 +490,10 @@ def _apply_deliverables(
         lines.append(f"Roman: {combination.id} ({why}); Higgsfield Soul 2.0 with "
                      f"{character_token()}; text, logo and CTA on the "
                      f"{'left' if combination.roman_right else 'right'}")
+    package.variation = None
+    if direction is not None:
+        package.variation, why = _choose_variation(folder, package, direction[0], settings)
+        lines.append(f"Variation: {package.variation} ({why})")
     for item_id in runtime.package_items(folder).values():
         runtime.report_design(item_id, layout_variant=_layout_variant(package),
                               background_treatment=package.treatment,
@@ -575,6 +584,25 @@ def _choose_direction(
         except DirectionError as error:
             raise DeliverableError(str(error)) from None
     return None
+
+
+def _choose_variation(folder: Path, package: ContentPackage, direction: Direction,
+                      settings: Settings) -> tuple[str, str]:
+    """v6 R3.5: the variation of the variant's layout (Roman: his side's layout; a carousel:
+    its cover), rotated against the platform's newest packages."""
+    catalog = load_directions()
+    side = None
+    if package.roman_combination:
+        side = parse_combination(package.roman_combination).side
+    role = "cover" if direction.format == "carousel" else None
+    _, layout = direction.layout_for(package.platform, seed=package.content_id or folder.name,
+                                     role=role, side=side)
+    chosen, why = pick_variation(direction, layout, catalog,
+                                 seed=package.content_id or folder.name,
+                                 recent=recent_variations(settings.packages_dir,
+                                                          package.platform or "",
+                                                          exclude=folder))
+    return chosen.key, why
 
 
 def _service_fit(topic: str, articles: list[SourceArticle],
@@ -1340,6 +1368,12 @@ def _planned_roman(folder: Path) -> bool | None:
     return value if isinstance(value, bool) else None
 
 
+def _planned_variation(folder: Path) -> str | None:
+    """package.json variation, set at stage 1 (None: an older package, the stored layout)."""
+    value = _planned(folder, "variation")
+    return value if isinstance(value, str) and value else None
+
+
 def _planned_combination(folder: Path) -> str | None:
     """package.json romanCombination, set at stage 1 (None: no Higgsfield image of Roman)."""
     value = _planned(folder, "romanCombination")
@@ -1409,6 +1443,7 @@ def _slot_inputs(
         direction_platform=brief.platform,
         requires_roman=_planned_roman(folder) if slot.direction else None,
         roman_combination=_planned_combination(folder) if slot.direction else None,
+        variation=_planned_variation(folder) if slot.direction else None,
     )
     if slot.templated and slot.slides:  # a static carousel: one image per slide
         total = len(slot.slides)

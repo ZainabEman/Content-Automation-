@@ -1,0 +1,69 @@
+{
+  "source": "outputs/jobs/2026-10-20/0301_ki-in-der-pflege-vor-dem-roll-out-im-pil/image-1.png (generated, rejected: PRD v6 §2)",
+  "category": "facebook_post",
+  "provider": "openrouter",
+  "website": true,
+  "logoBox": [
+    0.729,
+    0.061,
+    0.923,
+    0.112
+  ],
+  "read": [
+    {
+      "text": "x 66-94%",
+      "box": [
+        0.73,
+        0.02,
+        0.86,
+        0.05
+      ]
+    },
+    {
+      "text": "y 5-12%",
+      "box": [
+        0.79,
+        0.07,
+        0.87,
+        0.1
+      ]
+    },
+    {
+      "text": "BRANDED GENIUS",
+      "box": [
+        0.73,
+        0.06,
+        0.92,
+        0.11
+      ]
+    },
+    "KI IN DER PFLEGE SICHER TESTEN",
+    "Aufwand, Datenqualität und Sicherheit vor dem Regelbetrieb prüfen.",
+    "y 47-60%",
+    "x 6-58%",
+    "y 47-60%",
+    "y 66-80%",
+    "Aufwand",
+    "Datenschutz",
+    "Praxis-Test",
+    "x 50-94%",
+    "y 83-90%",
+    "Pilot zuerst",
+    "x 6-60%, y 47-60%",
+    "brandedgenius.de"
+  ],
+  "intended": [
+    "KI IN DER PFLEGE SICHER TESTEN",
+    "Aufwand, Datenqualität und Sicherheit vor dem Regelbetrieb prüfen.",
+    "Aufwand",
+    "Datenschutz",
+    "Praxis-Test",
+    "Pilot zuerst"
+  ],
+  "pattern": "R3.1-1 layout coordinates printed in the image; R3.1-6 the logo overlapped; R3.1-3 bright-blue base",
+  "expect": [
+    "coordinates",
+    "logo_overlap",
+    "flat_blue"
+  ]
+}

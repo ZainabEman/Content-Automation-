@@ -1,0 +1,35 @@
+{
+  "source": "outputs/jobs/2026-10-20/0301_vier-pr-fungen-f-r-ki-anlagewerbung-bevo/image-1.png (generated, rejected: PRD v6 §2)",
+  "category": "facebook_post",
+  "provider": "openrouter",
+  "website": false,
+  "logoBox": [
+    0.729,
+    0.061,
+    0.923,
+    0.112
+  ],
+  "read": [
+    "VIER PRÜFUNGEN VOR DER ÜBERWEISUNG",
+    "Quelle, Anbieter, Kontaktweg und Zahlungsdruck getrennt prüfen.",
+    "BRANDED GENIUS",
+    "Investment Promotion Tile",
+    "TD-DO LIST",
+    "ANFRAGE!",
+    "Aa Bb Cc Dd Ee Ff Gg Hh Ii Jj Kk Ll Mm",
+    "Nn Oo Pp Qq Rr Ss Tt Uu Vv Ww",
+    "Xx Yy Zz",
+    "Futura Medium",
+    "Vorher prüfen"
+  ],
+  "intended": [
+    "VIER PRÜFUNGEN VOR DER ÜBERWEISUNG",
+    "Quelle, Anbieter, Kontaktweg und Zahlungsdruck getrennt prüfen.",
+    "Vorher prüfen"
+  ],
+  "pattern": "the style guide's type specimen copied into the image; English fake labels; R3.1-4 a large empty panel",
+  "expect": [
+    "placeholder",
+    "stray_text"
+  ]
+}

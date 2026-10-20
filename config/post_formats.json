@@ -1,12 +1,73 @@
 {
-  "_note": "Post formats (2026-10-16, template-first). Every layout is a solid theme panel with the text plus a separate image slot (the picture is cropped into it; text never sits on the picture); zones may not overlap each other or the image slot (checked at load). provider is fixed per format and never swapped: Roman formats comfyui (RunPod, Roman's LoRA), the rest openrouter; a slide or format without an image slot is rendered by the app alone (free). content/formats.py picks: never the format or theme of the previous post on that platform; Roman formats only on the calendar's weekly Roman row ('roman') or 'as <format>'. Titles shrink within their size range; a title that still does not fit fails the dry run.",
+  "_note": "Post formats (2026-10-16, template-first). Every layout is a solid theme panel with the text plus a separate image slot (the picture is cropped into it; text never sits on the picture); zones may not overlap each other or the image slot (checked at load). provider is fixed per format and never swapped: Roman formats comfyui (RunPod, Roman's LoRA), the rest openrouter; a slide or format without an image slot is rendered by the app alone (free). content/formats.py picks: never the format or theme of the previous post on that platform; Roman formats only on the calendar's weekly Roman row ('roman') or 'as <format>'. Titles shrink within their size range; a title that still does not fit fails the dry run. v6 (PRD R3.1 pattern 3): the light and bright-blue themes produced rejected images; all three themes are now the dark bases sampled from the approved references (config/brand.json sampledColors): navy, panel navy and carousel black.",
   "themes": {
-    "dark": {"background": "#06122E", "text": "#FFFFFF", "highlight": "#0970EB", "muted": "#A9B8D6"},
-    "light": {"background": "#F2F2F2", "text": "#06122E", "highlight": "#0970EB", "muted": "#3B4A66"},
-    "blue": {"background": "#0970EB", "text": "#FFFFFF", "highlight": "#06122E", "muted": "#FFFFFF"}
+    "navy": {
+      "background": "#000514",
+      "text": "#FFFFFF",
+      "highlight": "#69BFF8",
+      "muted": "#A9B8D6"
+    },
+    "panel": {
+      "background": "#00081B",
+      "text": "#FFFFFF",
+      "highlight": "#69BFF8",
+      "muted": "#A9B8D6"
+    },
+    "black": {
+      "background": "#000000",
+      "text": "#FFFFFF",
+      "highlight": "#0A6EE8",
+      "muted": "#A9B8D6"
+    }
   },
   "noText": "no text, no letters, no numbers, no words, no labels, no UI, no charts, no screens, no logos, no signage, no documents, no placeholder boxes",
-  "blockedVisualWords": ["text", "texts", "word", "words", "letter", "letters", "number", "numbers", "label", "labels", "logo", "logos", "brand", "sign", "signs", "signage", "screen", "screens", "monitor", "monitors", "display", "displays", "dashboard", "dashboards", "chart", "charts", "graph", "graphs", "document", "documents", "whiteboard", "poster", "posters", "banner", "banners", "ui", "interface", "website", "app", "spreadsheet", "infographic", "headline", "caption", "quote", "slide"],
+  "blockedVisualWords": [
+    "text",
+    "texts",
+    "word",
+    "words",
+    "letter",
+    "letters",
+    "number",
+    "numbers",
+    "label",
+    "labels",
+    "logo",
+    "logos",
+    "brand",
+    "sign",
+    "signs",
+    "signage",
+    "screen",
+    "screens",
+    "monitor",
+    "monitors",
+    "display",
+    "displays",
+    "dashboard",
+    "dashboards",
+    "chart",
+    "charts",
+    "graph",
+    "graphs",
+    "document",
+    "documents",
+    "whiteboard",
+    "poster",
+    "posters",
+    "banner",
+    "banners",
+    "ui",
+    "interface",
+    "website",
+    "app",
+    "spreadsheet",
+    "infographic",
+    "headline",
+    "caption",
+    "quote",
+    "slide"
+  ],
   "roman": {
     "prefix": "r0man_bg, a man",
     "outfits": [
@@ -33,12 +94,22 @@
     {
       "id": "li_split",
       "platform": "linkedin",
-      "size": [1080, 1080],
+      "size": [
+        1080,
+        1080
+      ],
       "person": "none",
       "provider": "openrouter",
-      "theme": "light",
+      "theme": "panel",
       "weight": 3,
-      "image": {"box": [0.0, 0.0, 1.0, 0.30]},
+      "image": {
+        "box": [
+          0.0,
+          0.0,
+          1.0,
+          0.3
+        ]
+      },
       "fields": {
         "headline": "the decision, at most 8 words, with a concrete detail",
         "mistakes": "2-3 common mistakes, at most 7 words each",
@@ -46,20 +117,71 @@
         "illustration": "a calm wide photo strip: a place or objects only (e.g. a tidy desk with a coffee cup and a notebook); no people, nothing written"
       },
       "zones": [
-        {"kind": "headline", "field": "headline", "box": [0.07, 0.34, 0.93, 0.50], "maxLines": 2, "size": [34, 58], "weight": "bold"},
-        {"kind": "two_column", "fields": ["mistakes", "fixes"], "labels": ["Mistake", "Fix"], "items": [2, 3], "box": [0.07, 0.54, 0.93, 0.94], "maxLines": 7, "size": [20, 30], "weight": "medium"}
+        {
+          "kind": "headline",
+          "field": "headline",
+          "box": [
+            0.07,
+            0.34,
+            0.93,
+            0.5
+          ],
+          "maxLines": 2,
+          "size": [
+            34,
+            58
+          ],
+          "weight": "bold"
+        },
+        {
+          "kind": "two_column",
+          "fields": [
+            "mistakes",
+            "fixes"
+          ],
+          "labels": [
+            "Mistake",
+            "Fix"
+          ],
+          "items": [
+            2,
+            3
+          ],
+          "box": [
+            0.07,
+            0.54,
+            0.93,
+            0.94
+          ],
+          "maxLines": 7,
+          "size": [
+            20,
+            30
+          ],
+          "weight": "medium"
+        }
       ],
       "imagePrompt": "Wide realistic photo strip: {illustration}. Soft daylight, light neutral tones with a touch of blue, calm and uncluttered, shallow depth of field."
     },
     {
       "id": "li_framework",
       "platform": "linkedin",
-      "size": [1080, 1080],
+      "size": [
+        1080,
+        1080
+      ],
       "person": "none",
       "provider": "openrouter",
-      "theme": "dark",
+      "theme": "navy",
       "weight": 3,
-      "image": {"box": [0.60, 0.0, 1.0, 1.0]},
+      "image": {
+        "box": [
+          0.6,
+          0.0,
+          1.0,
+          1.0
+        ]
+      },
       "fields": {
         "headline": "the framework's promise, at most 8 words",
         "subline": "who it is for and when, one line, at most 18 words",
@@ -67,19 +189,73 @@
         "illustration": "a tall calm photo: a place or objects only (e.g. a workbench with neatly sorted tools); no people, nothing written"
       },
       "zones": [
-        {"kind": "headline", "field": "headline", "box": [0.07, 0.10, 0.55, 0.30], "maxLines": 3, "size": [32, 52], "weight": "bold"},
-        {"kind": "subline", "field": "subline", "box": [0.07, 0.32, 0.55, 0.42], "maxLines": 3, "size": [18, 24], "weight": "medium", "color": "muted"},
-        {"kind": "list", "field": "steps", "items": [3, 5], "numbered": true, "box": [0.07, 0.46, 0.55, 0.94], "maxLines": 10, "size": [18, 28], "weight": "medium"}
+        {
+          "kind": "headline",
+          "field": "headline",
+          "box": [
+            0.07,
+            0.1,
+            0.55,
+            0.3
+          ],
+          "maxLines": 3,
+          "size": [
+            32,
+            52
+          ],
+          "weight": "bold"
+        },
+        {
+          "kind": "subline",
+          "field": "subline",
+          "box": [
+            0.07,
+            0.32,
+            0.55,
+            0.42
+          ],
+          "maxLines": 3,
+          "size": [
+            18,
+            24
+          ],
+          "weight": "medium",
+          "color": "muted"
+        },
+        {
+          "kind": "list",
+          "field": "steps",
+          "items": [
+            3,
+            5
+          ],
+          "numbered": true,
+          "box": [
+            0.07,
+            0.46,
+            0.55,
+            0.94
+          ],
+          "maxLines": 10,
+          "size": [
+            18,
+            28
+          ],
+          "weight": "medium"
+        }
       ],
       "imagePrompt": "Tall realistic photo: {illustration}. Deep navy and cool blue tones, low-key light, calm and uncluttered, shallow depth of field."
     },
     {
       "id": "li_stat",
       "platform": "linkedin",
-      "size": [1080, 1080],
+      "size": [
+        1080,
+        1080
+      ],
       "person": "none",
       "provider": "openrouter",
-      "theme": "blue",
+      "theme": "black",
       "weight": 3,
       "needsNumber": true,
       "fields": {
@@ -89,157 +265,521 @@
         "subline": "what to do about it plus the publisher, at most 18 words, e.g. (Source: Zillow)"
       },
       "zones": [
-        {"kind": "big_number", "field": "big_number", "box": [0.07, 0.18, 0.93, 0.50], "size": [140, 300], "weight": "extrabold", "color": "text"},
-        {"kind": "headline", "field": "headline", "box": [0.07, 0.53, 0.93, 0.74], "maxLines": 3, "size": [36, 60], "weight": "bold", "color": "highlight"},
-        {"kind": "subline", "field": "subline", "box": [0.07, 0.78, 0.93, 0.93], "maxLines": 3, "size": [20, 30], "weight": "medium"}
+        {
+          "kind": "big_number",
+          "field": "big_number",
+          "box": [
+            0.07,
+            0.18,
+            0.93,
+            0.5
+          ],
+          "size": [
+            140,
+            300
+          ],
+          "weight": "extrabold",
+          "color": "text"
+        },
+        {
+          "kind": "headline",
+          "field": "headline",
+          "box": [
+            0.07,
+            0.53,
+            0.93,
+            0.74
+          ],
+          "maxLines": 3,
+          "size": [
+            36,
+            60
+          ],
+          "weight": "bold",
+          "color": "highlight"
+        },
+        {
+          "kind": "subline",
+          "field": "subline",
+          "box": [
+            0.07,
+            0.78,
+            0.93,
+            0.93
+          ],
+          "maxLines": 3,
+          "size": [
+            20,
+            30
+          ],
+          "weight": "medium"
+        }
       ]
     },
     {
       "id": "li_quote_card",
       "platform": "linkedin",
-      "size": [1080, 1080],
+      "size": [
+        1080,
+        1080
+      ],
       "person": "none",
       "provider": "openrouter",
-      "theme": "light",
+      "theme": "panel",
       "weight": 2,
       "fields": {
         "quote": "one sharp sentence with a concrete example, at most 18 words, no quotation marks",
         "subline": "who said it or where it comes from, e.g. Branded Genius"
       },
-      "bars": [{"box": [0.07, 0.18, 0.22, 0.195], "color": "highlight"}],
+      "bars": [
+        {
+          "box": [
+            0.07,
+            0.18,
+            0.22,
+            0.195
+          ],
+          "color": "highlight"
+        }
+      ],
       "zones": [
-        {"kind": "quote", "field": "quote", "box": [0.07, 0.24, 0.93, 0.76], "maxLines": 6, "size": [40, 72], "weight": "bold", "valign": "middle"},
-        {"kind": "subline", "field": "subline", "box": [0.07, 0.80, 0.93, 0.88], "maxLines": 1, "size": [24, 30], "weight": "medium", "color": "highlight"}
+        {
+          "kind": "quote",
+          "field": "quote",
+          "box": [
+            0.07,
+            0.24,
+            0.93,
+            0.76
+          ],
+          "maxLines": 6,
+          "size": [
+            40,
+            72
+          ],
+          "weight": "bold",
+          "valign": "middle"
+        },
+        {
+          "kind": "subline",
+          "field": "subline",
+          "box": [
+            0.07,
+            0.8,
+            0.93,
+            0.88
+          ],
+          "maxLines": 1,
+          "size": [
+            24,
+            30
+          ],
+          "weight": "medium",
+          "color": "highlight"
+        }
       ]
     },
     {
       "id": "fb_question",
       "platform": "facebook",
-      "size": [1080, 1350],
+      "size": [
+        1080,
+        1350
+      ],
       "person": "none",
       "provider": "openrouter",
-      "theme": "blue",
+      "theme": "black",
       "weight": 3,
-      "image": {"box": [0.0, 0.65, 1.0, 1.0]},
+      "image": {
+        "box": [
+          0.0,
+          0.65,
+          1.0,
+          1.0
+        ]
+      },
       "fields": {
         "question": "one question the reader asks themselves, at most 8 words",
         "subline": "one line that hints at the answer with a concrete detail, at most 18 words",
         "illustration": "a calm wide photo: a place or objects only (e.g. a cafe counter with a card reader); no people, nothing written"
       },
       "zones": [
-        {"kind": "question", "field": "question", "box": [0.08, 0.17, 0.92, 0.50], "maxLines": 4, "size": [52, 92], "weight": "extrabold", "align": "center", "valign": "middle"},
-        {"kind": "subline", "field": "subline", "box": [0.08, 0.52, 0.92, 0.62], "maxLines": 3, "size": [22, 32], "weight": "medium", "align": "center"}
+        {
+          "kind": "question",
+          "field": "question",
+          "box": [
+            0.08,
+            0.17,
+            0.92,
+            0.5
+          ],
+          "maxLines": 4,
+          "size": [
+            52,
+            92
+          ],
+          "weight": "extrabold",
+          "align": "center",
+          "valign": "middle"
+        },
+        {
+          "kind": "subline",
+          "field": "subline",
+          "box": [
+            0.08,
+            0.52,
+            0.92,
+            0.62
+          ],
+          "maxLines": 3,
+          "size": [
+            22,
+            32
+          ],
+          "weight": "medium",
+          "align": "center"
+        }
       ],
       "imagePrompt": "Wide realistic photo: {illustration}. Natural light, real materials, calm and uncluttered, shallow depth of field."
     },
     {
       "id": "fb_tip",
       "platform": "facebook",
-      "size": [1080, 1350],
+      "size": [
+        1080,
+        1350
+      ],
       "person": "none",
       "provider": "openrouter",
-      "theme": "light",
+      "theme": "panel",
       "weight": 3,
-      "image": {"box": [0.0, 0.0, 1.0, 0.55]},
+      "image": {
+        "box": [
+          0.0,
+          0.0,
+          1.0,
+          0.55
+        ]
+      },
       "fields": {
         "headline": "one tip the reader can use today, at most 8 words",
         "subline": "how to do it: tool or channel and timing, at most 18 words",
         "illustration": "a calm photo: a place or objects only (e.g. a smartphone face down next to a calendar book); no people, nothing written"
       },
       "zones": [
-        {"kind": "headline", "field": "headline", "box": [0.08, 0.59, 0.92, 0.77], "maxLines": 3, "size": [40, 68], "weight": "extrabold"},
-        {"kind": "subline", "field": "subline", "box": [0.08, 0.79, 0.92, 0.94], "maxLines": 3, "size": [22, 32], "weight": "medium", "color": "muted"}
+        {
+          "kind": "headline",
+          "field": "headline",
+          "box": [
+            0.08,
+            0.59,
+            0.92,
+            0.77
+          ],
+          "maxLines": 3,
+          "size": [
+            40,
+            68
+          ],
+          "weight": "extrabold"
+        },
+        {
+          "kind": "subline",
+          "field": "subline",
+          "box": [
+            0.08,
+            0.79,
+            0.92,
+            0.94
+          ],
+          "maxLines": 3,
+          "size": [
+            22,
+            32
+          ],
+          "weight": "medium",
+          "color": "muted"
+        }
       ],
       "imagePrompt": "Realistic photo: {illustration}. Soft daylight, bright and clean, calm and uncluttered, shallow depth of field."
     },
     {
       "id": "fb_scene",
       "platform": "facebook",
-      "size": [1080, 1350],
+      "size": [
+        1080,
+        1350
+      ],
       "person": "none",
       "provider": "openrouter",
-      "theme": "dark",
+      "theme": "navy",
       "weight": 3,
-      "image": {"box": [0.0, 0.0, 1.0, 0.80]},
+      "image": {
+        "box": [
+          0.0,
+          0.0,
+          1.0,
+          0.8
+        ]
+      },
       "fields": {
         "headline": "the scene's problem or gain, at most 8 words",
         "illustration": "a realistic everyday business place for the topic: objects and light only (e.g. an empty bakery counter at 7 am); no people, nothing written"
       },
       "zones": [
-        {"kind": "headline", "field": "headline", "box": [0.06, 0.83, 0.94, 0.97], "maxLines": 2, "size": [34, 56], "weight": "bold", "valign": "middle"}
+        {
+          "kind": "headline",
+          "field": "headline",
+          "box": [
+            0.06,
+            0.83,
+            0.94,
+            0.97
+          ],
+          "maxLines": 2,
+          "size": [
+            34,
+            56
+          ],
+          "weight": "bold",
+          "valign": "middle"
+        }
       ],
       "imagePrompt": "Portrait realistic photo: {illustration}. Natural light, real materials, shallow depth of field."
     },
     {
       "id": "roman_quote",
-      "platform": ["linkedin", "facebook"],
-      "size": [1080, 1350],
+      "platform": [
+        "linkedin",
+        "facebook"
+      ],
+      "size": [
+        1080,
+        1350
+      ],
       "person": "roman",
       "provider": "comfyui",
-      "theme": "light",
+      "theme": "panel",
       "weight": 1,
-      "image": {"box": [0.0, 0.0, 0.45, 1.0]},
+      "image": {
+        "box": [
+          0.0,
+          0.0,
+          0.45,
+          1.0
+        ]
+      },
       "fields": {
         "quote": "one sentence Roman would say, with a concrete example, at most 18 words, no quotation marks",
         "subline": "Roman, Branded Genius"
       },
       "zones": [
-        {"kind": "quote", "field": "quote", "box": [0.51, 0.18, 0.94, 0.72], "maxLines": 8, "size": [34, 58], "weight": "bold", "valign": "middle"},
-        {"kind": "subline", "field": "subline", "box": [0.51, 0.76, 0.94, 0.84], "maxLines": 2, "size": [24, 30], "weight": "medium", "color": "highlight"}
+        {
+          "kind": "quote",
+          "field": "quote",
+          "box": [
+            0.51,
+            0.18,
+            0.94,
+            0.72
+          ],
+          "maxLines": 8,
+          "size": [
+            34,
+            58
+          ],
+          "weight": "bold",
+          "valign": "middle"
+        },
+        {
+          "kind": "subline",
+          "field": "subline",
+          "box": [
+            0.51,
+            0.76,
+            0.94,
+            0.84
+          ],
+          "maxLines": 2,
+          "size": [
+            24,
+            30
+          ],
+          "weight": "medium",
+          "color": "highlight"
+        }
       ],
-      "settings": ["plain light-grey seamless studio background", "warm beige seamless studio background", "soft white studio background with a gentle shadow"],
+      "settings": [
+        "plain light-grey seamless studio background",
+        "warm beige seamless studio background",
+        "soft white studio background with a gentle shadow"
+      ],
       "imagePrompt": "standing alone, waist-up portrait, centered, {outfit}, {angle}, {expression}, {setting}, soft even studio light, realistic professional photo, sharp focus on the face"
     },
     {
       "id": "roman_headshot_take",
-      "platform": ["linkedin", "facebook"],
-      "size": [1080, 1350],
+      "platform": [
+        "linkedin",
+        "facebook"
+      ],
+      "size": [
+        1080,
+        1350
+      ],
       "person": "roman",
       "provider": "comfyui",
-      "theme": "dark",
+      "theme": "navy",
       "weight": 1,
-      "image": {"box": [0.30, 0.08, 0.70, 0.40], "shape": "circle"},
+      "image": {
+        "box": [
+          0.3,
+          0.08,
+          0.7,
+          0.4
+        ],
+        "shape": "circle"
+      },
       "fields": {
         "headline": "Roman's bold opinion, at most 8 words",
         "subline": "the reason with a concrete example, at most 18 words"
       },
       "zones": [
-        {"kind": "headline", "field": "headline", "box": [0.08, 0.46, 0.92, 0.76], "maxLines": 4, "size": [44, 76], "weight": "extrabold", "align": "center", "valign": "middle"},
-        {"kind": "subline", "field": "subline", "box": [0.08, 0.79, 0.92, 0.93], "maxLines": 3, "size": [22, 30], "weight": "medium", "align": "center", "color": "muted"}
+        {
+          "kind": "headline",
+          "field": "headline",
+          "box": [
+            0.08,
+            0.46,
+            0.92,
+            0.76
+          ],
+          "maxLines": 4,
+          "size": [
+            44,
+            76
+          ],
+          "weight": "extrabold",
+          "align": "center",
+          "valign": "middle"
+        },
+        {
+          "kind": "subline",
+          "field": "subline",
+          "box": [
+            0.08,
+            0.79,
+            0.92,
+            0.93
+          ],
+          "maxLines": 3,
+          "size": [
+            22,
+            30
+          ],
+          "weight": "medium",
+          "align": "center",
+          "color": "muted"
+        }
       ],
-      "settings": ["dark navy studio background", "deep blue gradient studio background", "dark charcoal studio background"],
+      "settings": [
+        "dark navy studio background",
+        "deep blue gradient studio background",
+        "dark charcoal studio background"
+      ],
       "imagePrompt": "alone, head-and-shoulders headshot, face centered and filling the frame, {outfit}, {angle}, {expression}, {setting}, soft key light, realistic professional photo, sharp focus on the face"
     },
     {
       "id": "roman_at_work",
-      "platform": ["linkedin", "facebook"],
-      "size": [1080, 1350],
+      "platform": [
+        "linkedin",
+        "facebook"
+      ],
+      "size": [
+        1080,
+        1350
+      ],
       "person": "roman",
       "provider": "comfyui",
-      "theme": "blue",
+      "theme": "black",
       "weight": 1,
-      "image": {"box": [0.0, 0.0, 1.0, 0.60]},
+      "image": {
+        "box": [
+          0.0,
+          0.0,
+          1.0,
+          0.6
+        ]
+      },
       "fields": {
         "headline": "one tip from Roman's work, at most 8 words",
         "subline": "how to apply it: tool or channel and timing, at most 18 words"
       },
       "zones": [
-        {"kind": "headline", "field": "headline", "box": [0.07, 0.64, 0.93, 0.80], "maxLines": 3, "size": [36, 60], "weight": "bold"},
-        {"kind": "subline", "field": "subline", "box": [0.07, 0.82, 0.93, 0.95], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+        {
+          "kind": "headline",
+          "field": "headline",
+          "box": [
+            0.07,
+            0.64,
+            0.93,
+            0.8
+          ],
+          "maxLines": 3,
+          "size": [
+            36,
+            60
+          ],
+          "weight": "bold"
+        },
+        {
+          "kind": "subline",
+          "field": "subline",
+          "box": [
+            0.07,
+            0.82,
+            0.93,
+            0.95
+          ],
+          "maxLines": 3,
+          "size": [
+            22,
+            30
+          ],
+          "weight": "medium",
+          "color": "muted"
+        }
       ],
-      "settings": ["a bright German office with oak desks and large windows", "a small German carpentry workshop with wood shelves", "a German bakery back room with steel tables", "a German car repair workshop with a tidy tool wall"],
+      "settings": [
+        "a bright German office with oak desks and large windows",
+        "a small German carpentry workshop with wood shelves",
+        "a German bakery back room with steel tables",
+        "a German car repair workshop with a tidy tool wall"
+      ],
       "imagePrompt": "alone, waist-up, working in {setting}, {outfit}, {angle}, {expression}, natural daylight, realistic documentary photo, sharp focus on the face, plain walls"
     },
     {
       "id": "roman_portrait_stat",
-      "platform": ["linkedin", "facebook"],
-      "size": [1080, 1350],
+      "platform": [
+        "linkedin",
+        "facebook"
+      ],
+      "size": [
+        1080,
+        1350
+      ],
       "person": "roman",
       "provider": "comfyui",
-      "theme": "dark",
+      "theme": "navy",
       "weight": 1,
       "needsNumber": true,
-      "image": {"box": [0.55, 0.0, 1.0, 1.0]},
+      "image": {
+        "box": [
+          0.55,
+          0.0,
+          1.0,
+          1.0
+        ]
+      },
       "fields": {
         "big_number": "the one number, exactly as a cited research article writes it",
         "source": "the ID of that article (research.md)",
@@ -247,46 +787,245 @@
         "subline": "the publisher, e.g. Source: Bitkom"
       },
       "zones": [
-        {"kind": "big_number", "field": "big_number", "box": [0.07, 0.18, 0.50, 0.44], "size": [90, 200], "weight": "extrabold", "color": "highlight"},
-        {"kind": "headline", "field": "headline", "box": [0.07, 0.47, 0.50, 0.75], "maxLines": 5, "size": [30, 50], "weight": "bold"},
-        {"kind": "subline", "field": "subline", "box": [0.07, 0.78, 0.50, 0.92], "maxLines": 3, "size": [18, 24], "weight": "medium", "color": "muted"}
+        {
+          "kind": "big_number",
+          "field": "big_number",
+          "box": [
+            0.07,
+            0.18,
+            0.5,
+            0.44
+          ],
+          "size": [
+            90,
+            200
+          ],
+          "weight": "extrabold",
+          "color": "highlight"
+        },
+        {
+          "kind": "headline",
+          "field": "headline",
+          "box": [
+            0.07,
+            0.47,
+            0.5,
+            0.75
+          ],
+          "maxLines": 5,
+          "size": [
+            30,
+            50
+          ],
+          "weight": "bold"
+        },
+        {
+          "kind": "subline",
+          "field": "subline",
+          "box": [
+            0.07,
+            0.78,
+            0.5,
+            0.92
+          ],
+          "maxLines": 3,
+          "size": [
+            18,
+            24
+          ],
+          "weight": "medium",
+          "color": "muted"
+        }
       ],
-      "settings": ["dark navy studio background", "dark modern office at dusk, softly blurred", "deep blue studio background with soft rim light"],
+      "settings": [
+        "dark navy studio background",
+        "dark modern office at dusk, softly blurred",
+        "deep blue studio background with soft rim light"
+      ],
       "imagePrompt": "standing alone, waist-up portrait, centered, {outfit}, {angle}, {expression}, {setting}, cinematic soft light, realistic professional photo, sharp focus on the face"
     },
     {
       "id": "ig_steps",
       "platform": "instagram",
-      "size": [1080, 1350],
+      "size": [
+        1080,
+        1350
+      ],
       "person": "none",
       "provider": "openrouter",
-      "theme": "dark",
+      "theme": "navy",
       "weight": 1,
-      "slides": [6, 8],
+      "slides": [
+        6,
+        8
+      ],
       "slideTypes": {
         "cover": {
-          "image": {"box": [0.0, 0.0, 1.0, 0.56]},
-          "fields": {"headline": "the result of the steps, at most 8 words", "subline": "who it is for, with a concrete detail, at most 18 words"},
+          "image": {
+            "box": [
+              0.0,
+              0.0,
+              1.0,
+              0.56
+            ]
+          },
+          "fields": {
+            "headline": "the result of the steps, at most 8 words",
+            "subline": "who it is for, with a concrete detail, at most 18 words"
+          },
           "zones": [
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [44, 76], "weight": "extrabold"},
-            {"kind": "subline", "field": "subline", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+            {
+              "kind": "headline",
+              "field": "headline",
+              "box": [
+                0.07,
+                0.6,
+                0.93,
+                0.8
+              ],
+              "maxLines": 3,
+              "size": [
+                44,
+                76
+              ],
+              "weight": "extrabold"
+            },
+            {
+              "kind": "subline",
+              "field": "subline",
+              "box": [
+                0.07,
+                0.82,
+                0.93,
+                0.94
+              ],
+              "maxLines": 3,
+              "size": [
+                22,
+                30
+              ],
+              "weight": "medium",
+              "color": "muted"
+            }
           ]
         },
         "body": {
-          "fields": {"headline": "this step, at most 8 words", "line": "how: tool or channel, timing or a number, at most 18 words", "icon": "one icon: check, clock, chat, euro, user, target, shield, bolt, calendar, mail, search or arrow"},
+          "fields": {
+            "headline": "this step, at most 8 words",
+            "line": "how: tool or channel, timing or a number, at most 18 words",
+            "icon": "one icon: check, clock, chat, euro, user, target, shield, bolt, calendar, mail, search or arrow"
+          },
           "zones": [
-            {"kind": "big_number", "auto": "step", "box": [0.07, 0.16, 0.50, 0.52], "size": [140, 260], "weight": "extrabold", "color": "highlight"},
-            {"kind": "icon", "field": "icon", "box": [0.62, 0.22, 0.90, 0.52]},
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [40, 68], "weight": "bold"},
-            {"kind": "subline", "field": "line", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+            {
+              "kind": "big_number",
+              "auto": "step",
+              "box": [
+                0.07,
+                0.16,
+                0.5,
+                0.52
+              ],
+              "size": [
+                140,
+                260
+              ],
+              "weight": "extrabold",
+              "color": "highlight"
+            },
+            {
+              "kind": "icon",
+              "field": "icon",
+              "box": [
+                0.62,
+                0.22,
+                0.9,
+                0.52
+              ]
+            },
+            {
+              "kind": "headline",
+              "field": "headline",
+              "box": [
+                0.07,
+                0.6,
+                0.93,
+                0.8
+              ],
+              "maxLines": 3,
+              "size": [
+                40,
+                68
+              ],
+              "weight": "bold"
+            },
+            {
+              "kind": "subline",
+              "field": "line",
+              "box": [
+                0.07,
+                0.82,
+                0.93,
+                0.94
+              ],
+              "maxLines": 3,
+              "size": [
+                22,
+                30
+              ],
+              "weight": "medium",
+              "color": "muted"
+            }
           ]
         },
         "final": {
-          "fields": {"headline": "the call to action, at most 8 words", "line": "the offer, at most 18 words"},
+          "fields": {
+            "headline": "the call to action, at most 8 words",
+            "line": "the offer, at most 18 words"
+          },
           "zones": [
-            {"kind": "icon", "auto": "arrow", "box": [0.30, 0.20, 0.70, 0.52]},
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [40, 68], "weight": "extrabold"},
-            {"kind": "subline", "field": "line", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+            {
+              "kind": "icon",
+              "auto": "arrow",
+              "box": [
+                0.3,
+                0.2,
+                0.7,
+                0.52
+              ]
+            },
+            {
+              "kind": "headline",
+              "field": "headline",
+              "box": [
+                0.07,
+                0.6,
+                0.93,
+                0.8
+              ],
+              "maxLines": 3,
+              "size": [
+                40,
+                68
+              ],
+              "weight": "extrabold"
+            },
+            {
+              "kind": "subline",
+              "field": "line",
+              "box": [
+                0.07,
+                0.82,
+                0.93,
+                0.94
+              ],
+              "maxLines": 3,
+              "size": [
+                22,
+                30
+              ],
+              "weight": "medium",
+              "color": "muted"
+            }
           ]
         }
       },
@@ -295,36 +1034,185 @@
     {
       "id": "ig_checklist",
       "platform": "instagram",
-      "size": [1080, 1350],
+      "size": [
+        1080,
+        1350
+      ],
       "person": "none",
       "provider": "openrouter",
-      "theme": "light",
+      "theme": "panel",
       "weight": 1,
-      "slides": [6, 8],
+      "slides": [
+        6,
+        8
+      ],
       "slideTypes": {
         "cover": {
-          "image": {"box": [0.0, 0.0, 1.0, 0.56]},
-          "fields": {"headline": "the promise of the checklist, at most 8 words", "subline": "who it is for, with a concrete detail, at most 18 words"},
+          "image": {
+            "box": [
+              0.0,
+              0.0,
+              1.0,
+              0.56
+            ]
+          },
+          "fields": {
+            "headline": "the promise of the checklist, at most 8 words",
+            "subline": "who it is for, with a concrete detail, at most 18 words"
+          },
           "zones": [
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [44, 76], "weight": "extrabold"},
-            {"kind": "subline", "field": "subline", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+            {
+              "kind": "headline",
+              "field": "headline",
+              "box": [
+                0.07,
+                0.6,
+                0.93,
+                0.8
+              ],
+              "maxLines": 3,
+              "size": [
+                44,
+                76
+              ],
+              "weight": "extrabold"
+            },
+            {
+              "kind": "subline",
+              "field": "subline",
+              "box": [
+                0.07,
+                0.82,
+                0.93,
+                0.94
+              ],
+              "maxLines": 3,
+              "size": [
+                22,
+                30
+              ],
+              "weight": "medium",
+              "color": "muted"
+            }
           ]
         },
         "body": {
-          "fields": {"headline": "this check, at most 8 words", "line": "how to check it: tool, timing or number, at most 18 words", "icon": "one icon: check, clock, chat, euro, user, target, shield, bolt, calendar, mail, search or arrow"},
+          "fields": {
+            "headline": "this check, at most 8 words",
+            "line": "how to check it: tool, timing or number, at most 18 words",
+            "icon": "one icon: check, clock, chat, euro, user, target, shield, bolt, calendar, mail, search or arrow"
+          },
           "zones": [
-            {"kind": "big_number", "auto": "step", "box": [0.07, 0.16, 0.50, 0.52], "size": [140, 260], "weight": "extrabold", "color": "highlight"},
-            {"kind": "icon", "field": "icon", "box": [0.62, 0.22, 0.90, 0.52]},
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [40, 68], "weight": "bold"},
-            {"kind": "subline", "field": "line", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+            {
+              "kind": "big_number",
+              "auto": "step",
+              "box": [
+                0.07,
+                0.16,
+                0.5,
+                0.52
+              ],
+              "size": [
+                140,
+                260
+              ],
+              "weight": "extrabold",
+              "color": "highlight"
+            },
+            {
+              "kind": "icon",
+              "field": "icon",
+              "box": [
+                0.62,
+                0.22,
+                0.9,
+                0.52
+              ]
+            },
+            {
+              "kind": "headline",
+              "field": "headline",
+              "box": [
+                0.07,
+                0.6,
+                0.93,
+                0.8
+              ],
+              "maxLines": 3,
+              "size": [
+                40,
+                68
+              ],
+              "weight": "bold"
+            },
+            {
+              "kind": "subline",
+              "field": "line",
+              "box": [
+                0.07,
+                0.82,
+                0.93,
+                0.94
+              ],
+              "maxLines": 3,
+              "size": [
+                22,
+                30
+              ],
+              "weight": "medium",
+              "color": "muted"
+            }
           ]
         },
         "final": {
-          "fields": {"headline": "the call to action, at most 8 words", "line": "the offer, at most 18 words"},
+          "fields": {
+            "headline": "the call to action, at most 8 words",
+            "line": "the offer, at most 18 words"
+          },
           "zones": [
-            {"kind": "icon", "auto": "arrow", "box": [0.30, 0.20, 0.70, 0.52]},
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [40, 68], "weight": "extrabold"},
-            {"kind": "subline", "field": "line", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+            {
+              "kind": "icon",
+              "auto": "arrow",
+              "box": [
+                0.3,
+                0.2,
+                0.7,
+                0.52
+              ]
+            },
+            {
+              "kind": "headline",
+              "field": "headline",
+              "box": [
+                0.07,
+                0.6,
+                0.93,
+                0.8
+              ],
+              "maxLines": 3,
+              "size": [
+                40,
+                68
+              ],
+              "weight": "extrabold"
+            },
+            {
+              "kind": "subline",
+              "field": "line",
+              "box": [
+                0.07,
+                0.82,
+                0.93,
+                0.94
+              ],
+              "maxLines": 3,
+              "size": [
+                22,
+                30
+              ],
+              "weight": "medium",
+              "color": "muted"
+            }
           ]
         }
       },
@@ -333,36 +1221,185 @@
     {
       "id": "ig_mistakes",
       "platform": "instagram",
-      "size": [1080, 1350],
+      "size": [
+        1080,
+        1350
+      ],
       "person": "none",
       "provider": "openrouter",
-      "theme": "blue",
+      "theme": "black",
       "weight": 1,
-      "slides": [6, 8],
+      "slides": [
+        6,
+        8
+      ],
       "slideTypes": {
         "cover": {
-          "image": {"box": [0.0, 0.0, 1.0, 0.56]},
-          "fields": {"headline": "the mistakes people make, at most 8 words", "subline": "who it is for, with a concrete detail, at most 18 words"},
+          "image": {
+            "box": [
+              0.0,
+              0.0,
+              1.0,
+              0.56
+            ]
+          },
+          "fields": {
+            "headline": "the mistakes people make, at most 8 words",
+            "subline": "who it is for, with a concrete detail, at most 18 words"
+          },
           "zones": [
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [44, 76], "weight": "extrabold"},
-            {"kind": "subline", "field": "subline", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+            {
+              "kind": "headline",
+              "field": "headline",
+              "box": [
+                0.07,
+                0.6,
+                0.93,
+                0.8
+              ],
+              "maxLines": 3,
+              "size": [
+                44,
+                76
+              ],
+              "weight": "extrabold"
+            },
+            {
+              "kind": "subline",
+              "field": "subline",
+              "box": [
+                0.07,
+                0.82,
+                0.93,
+                0.94
+              ],
+              "maxLines": 3,
+              "size": [
+                22,
+                30
+              ],
+              "weight": "medium",
+              "color": "muted"
+            }
           ]
         },
         "body": {
-          "fields": {"headline": "the mistake, at most 8 words", "line": "the fix: tool or channel, timing or a number, at most 18 words", "icon": "one icon: check, clock, chat, euro, user, target, shield, bolt, calendar, mail, search or arrow"},
+          "fields": {
+            "headline": "the mistake, at most 8 words",
+            "line": "the fix: tool or channel, timing or a number, at most 18 words",
+            "icon": "one icon: check, clock, chat, euro, user, target, shield, bolt, calendar, mail, search or arrow"
+          },
           "zones": [
-            {"kind": "big_number", "auto": "step", "box": [0.07, 0.16, 0.50, 0.52], "size": [140, 260], "weight": "extrabold", "color": "highlight"},
-            {"kind": "icon", "field": "icon", "box": [0.62, 0.22, 0.90, 0.52]},
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [40, 68], "weight": "bold"},
-            {"kind": "subline", "field": "line", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+            {
+              "kind": "big_number",
+              "auto": "step",
+              "box": [
+                0.07,
+                0.16,
+                0.5,
+                0.52
+              ],
+              "size": [
+                140,
+                260
+              ],
+              "weight": "extrabold",
+              "color": "highlight"
+            },
+            {
+              "kind": "icon",
+              "field": "icon",
+              "box": [
+                0.62,
+                0.22,
+                0.9,
+                0.52
+              ]
+            },
+            {
+              "kind": "headline",
+              "field": "headline",
+              "box": [
+                0.07,
+                0.6,
+                0.93,
+                0.8
+              ],
+              "maxLines": 3,
+              "size": [
+                40,
+                68
+              ],
+              "weight": "bold"
+            },
+            {
+              "kind": "subline",
+              "field": "line",
+              "box": [
+                0.07,
+                0.82,
+                0.93,
+                0.94
+              ],
+              "maxLines": 3,
+              "size": [
+                22,
+                30
+              ],
+              "weight": "medium",
+              "color": "muted"
+            }
           ]
         },
         "final": {
-          "fields": {"headline": "the call to action, at most 8 words", "line": "the offer, at most 18 words"},
+          "fields": {
+            "headline": "the call to action, at most 8 words",
+            "line": "the offer, at most 18 words"
+          },
           "zones": [
-            {"kind": "icon", "auto": "arrow", "box": [0.30, 0.20, 0.70, 0.52]},
-            {"kind": "headline", "field": "headline", "box": [0.07, 0.60, 0.93, 0.80], "maxLines": 3, "size": [40, 68], "weight": "extrabold"},
-            {"kind": "subline", "field": "line", "box": [0.07, 0.82, 0.93, 0.94], "maxLines": 3, "size": [22, 30], "weight": "medium", "color": "muted"}
+            {
+              "kind": "icon",
+              "auto": "arrow",
+              "box": [
+                0.3,
+                0.2,
+                0.7,
+                0.52
+              ]
+            },
+            {
+              "kind": "headline",
+              "field": "headline",
+              "box": [
+                0.07,
+                0.6,
+                0.93,
+                0.8
+              ],
+              "maxLines": 3,
+              "size": [
+                40,
+                68
+              ],
+              "weight": "extrabold"
+            },
+            {
+              "kind": "subline",
+              "field": "line",
+              "box": [
+                0.07,
+                0.82,
+                0.93,
+                0.94
+              ],
+              "maxLines": 3,
+              "size": [
+                22,
+                30
+              ],
+              "weight": "medium",
+              "color": "muted"
+            }
           ]
         }
       },

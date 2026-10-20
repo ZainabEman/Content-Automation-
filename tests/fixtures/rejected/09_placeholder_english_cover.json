@@ -1,0 +1,32 @@
+{
+  "source": "outputs/design/preview/CS-1_cover.png (generated, rejected: PRD v6 §2)",
+  "category": "instagram_carousel",
+  "provider": "template",
+  "lastSlide": false,
+  "website": true,
+  "logoBox": [
+    0.72,
+    0.06,
+    0.94,
+    0.12
+  ],
+  "read": [
+    "BRANDED GENIUS",
+    "Too many repeat questions? Meet your AI chatbot",
+    "What it is, how it helps and who it is for",
+    "PLACEHOLDER · CS-1",
+    "brandedgenius.de",
+    "Swipe"
+  ],
+  "intended": [
+    "Too many repeat questions? Meet your AI chatbot",
+    "What it is, how it helps and who it is for"
+  ],
+  "pattern": "placeholder text; English copy; logo and website on a carousel cover; royal-blue base",
+  "expect": [
+    "placeholder",
+    "carousel_logo",
+    "not_german",
+    "flat_blue"
+  ]
+}

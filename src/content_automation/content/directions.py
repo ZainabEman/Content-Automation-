@@ -36,7 +36,8 @@ ZoneKind = Literal["logo", "text", "items", "visual", "shape", "footer", "swipe"
 TextRole = Literal["eyebrow", "headline", "sub", "body", "cta", "tagline", "badge", "number"]
 ItemsLayout = Literal["icon_list", "bullets", "pairs", "zigzag", "cycle", "orbit", "value_map",
                       "numbered_cards", "floating_cards"]
-ShapeKind = Literal["panel", "glass", "rule", "bar", "glow", "scrim", "ring", "pill", "dots"]
+ShapeKind = Literal["panel", "glass", "rule", "bar", "glow", "scrim", "ring", "pill", "dots",
+                    "chevrons", "bars", "wave", "arcs", "frame"]  # v6 decorations (R3.2)
 VisualShape = Literal["rect", "circle", "cutout", "full"]
 Weight = Literal["regular", "medium", "semibold", "bold", "extrabold"]
 Box = tuple[float, float, float, float]
@@ -120,7 +121,9 @@ class Zone(_Model):
     pill: Pill | None = None
     underline: bool = False
     vertical: bool = False  # rotated 90°, read bottom to top
-    icon: str | None = None  # a Tabler icon before the text
+    icon: str | None = None  # a Tabler icon in the CTA button (v6: drawn clear of the text)
+    icon_side: Literal["left", "right"] = "right"  # v6: circle-arrow right, calendar/play left
+    cut: float = Field(default=0.0, ge=0, le=0.3)  # v6 panel: one angled cut corner (share)
     # items
     layout: ItemsLayout | None = None
     count: tuple[int, int] | None = None  # fewest and most items
@@ -144,10 +147,11 @@ class Zone(_Model):
         default_factory=list)
     divider: bool = False
     # swipe / icons / arrow
-    style: Literal["pill", "arrow_circle", "chevrons", "hand_drawn"] | None = None
+    style: Literal["pill", "arrow_circle", "chevrons", "hand_drawn", "engagement"] | None = None
     label: str | None = None
     names: list[str] = Field(default_factory=list)  # icons: fixed names
-    labels: list[str] = Field(default_factory=list)  # icons: fixed labels (Liken, Teilen, …)
+    labels: list[str] = Field(default_factory=list)  # icons: fixed labels (Liken, Teilen, …);
+    # "LIKEN|wenn du zustimmst": a label and the small line under it (the engagement bar)
 
     @model_validator(mode="after")
     def _check(self) -> Self:
@@ -198,6 +202,7 @@ class Background(_Model):
     angle: int = Field(default=180, ge=0, lt=360)  # 180: top to bottom
     glows: list[tuple[TokenRole, float, float, float, float]] = Field(default_factory=list)
     # glow: token, centre x, centre y, radius (shares), opacity
+    vignette: float = Field(default=0.0, ge=0, le=1)  # v6: darkened edges (R3.2 base)
 
 
 class Layout(_Model):
@@ -388,6 +393,9 @@ class DirectionCatalog(_Model):
     blocked_visual_words: list[str] = Field(default_factory=list)
     roman: RomanRules
     directions: list[Direction] = Field(min_length=1)
+    # v6 (R3.5): decoration sets a variation adds (content/design_variation.py), boxes for the
+    # text-left layout; mirrored with it
+    decorations: dict[str, list[Zone]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _check(self) -> Self:
@@ -420,7 +428,10 @@ class DirectionCatalog(_Model):
                              f"{sorted(set(layout.fields) - shown - {'illustration'})}")
         kinds = [zone.kind for zone in zones.values()]
         closing = direction.format != "carousel" or name == direction.last_layout()
-        if closing and "logo" not in kinds:
+        if direction.roman and ("logo" in kinds or "footer" in kinds):
+            raise ValueError(f"{where}: a Roman creative carries no logo and no website (PRD "
+                             "v6 R4.6)")
+        if closing and "logo" not in kinds and not direction.roman:
             raise ValueError(f"{where}: this layout places the official logo")
         if not closing and ("logo" in kinds or "footer" in kinds):
             raise ValueError(f"{where}: a carousel shows the logo and the website only on its "
@@ -428,7 +439,7 @@ class DirectionCatalog(_Model):
         if direction.format == "carousel" and any(
                 role.layout == name for role in direction.slide_roles[:-1]) and closing:
             raise ValueError(f"{where}: the last slide's layout is used by another slide too")
-        if direction.format == "li_single":
+        if direction.format == "li_single" and not direction.roman:
             logo = next(zone for zone in zones.values() if zone.kind == "logo")
             left, top, right, bottom = logo.box
             if not ((left <= CORNER or right >= 1 - CORNER)
@@ -473,6 +484,13 @@ class DirectionCatalog(_Model):
                         zone.pill and zone.pill.fill):
                     raise ValueError(f"{where}: {zone_name} sits on the picture without a "
                                      "panel or scrim behind it")
+
+    def check_layout(self, direction: Direction, name: str, layout: Layout) -> None:
+        """The layout rules for a derived layout (a v6 variation): DirectionError if broken."""
+        try:
+            self._check_layout(direction, name, layout)
+        except ValueError as error:
+            raise DirectionError(str(error)) from None
 
     def get(self, direction_id: str) -> Direction:
         wanted = direction_id.strip().upper()

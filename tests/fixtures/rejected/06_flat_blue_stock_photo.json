@@ -1,0 +1,25 @@
+{
+  "source": "outputs/jobs/2026-10-20/0311_turn-social-listening-into-timely-campai/image-1.png (generated, rejected: PRD v6 §2)",
+  "category": "facebook_post",
+  "provider": "openrouter",
+  "website": false,
+  "logoBox": [
+    0.75,
+    0.02,
+    0.95,
+    0.09
+  ],
+  "read": [
+    "BRANDED GENIUS",
+    "Welche Kundenfragen wiederholen sich?",
+    "Vergleichen Sie Facebook-Kommentare vor der nächsten Kampagne in einer Tabelle."
+  ],
+  "intended": [
+    "Welche Kundenfragen wiederholen sich?",
+    "Vergleichen Sie Facebook-Kommentare vor der nächsten Kampagne in einer Tabelle."
+  ],
+  "pattern": "R3.1-3 flat royal-blue text block over an unrelated stock photo",
+  "expect": [
+    "flat_blue"
+  ]
+}

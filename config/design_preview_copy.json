@@ -1,5 +1,5 @@
 {
-  "_note": "v5 sample copy for `ca design preview` and the tests: one entry per layout variant ('<ID>/<layout>'), German (PRD R1). Only verified services (config/services.json); no numbers, results, quotes or prices. Pictures are placeholders unless --photo is given.",
+  "_note": "v5 sample copy for `ca design preview` and the tests: one entry per layout variant ('<ID>/<layout>'), German (PRD R1). Only verified services (config/services.json); no numbers, results, quotes or prices. Pictures are placeholders unless --photo is given. v6 (R1): carousels use du.",
   "FB-1/post": {
     "headline": "Ihr Vertrieb schläft. *Unsere KI* nicht.",
     "sub": "Automatische Antworten, Terminbuchungen und Lead-Qualifizierung.",
@@ -129,13 +129,13 @@
     "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
   "CS-1/point": {
-    "headline": "Er kennt Ihre *Aufgaben*",
-    "body": "Er sortiert Termine, Projekte und Anfragen. Ihr Team sieht sofort, was wichtig ist.",
+    "headline": "Er kennt deine *Aufgaben*",
+    "body": "Er sortiert Termine, Projekte und Anfragen. Dein Team sieht sofort, was wichtig ist.",
     "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
   "CS-1/cta": {
-    "headline": "Welche Aufgabe würden Sie *zuerst* automatisieren?",
-    "sub": "Schreiben Sie es in die Kommentare.",
+    "headline": "Welche Aufgabe würdest du *zuerst* automatisieren?",
+    "sub": "Schreib es in die Kommentare.",
     "website": "ja",
     "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
@@ -151,8 +151,8 @@
     "number": "1."
   },
   "CS-2/cta": {
-    "headline": "Welche Aufgabe würden Sie *zuerst* automatisieren?",
-    "sub": "Schreiben Sie es in die Kommentare.",
+    "headline": "Welche Aufgabe würdest du *zuerst* automatisieren?",
+    "sub": "Schreib es in die Kommentare.",
     "website": "ja",
     "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
@@ -163,12 +163,12 @@
   },
   "CS-3/point": {
     "headline": "Routinen gehen an die *KI*",
-    "body": "Wiederkehrende Anfragen beantwortet der Chatbot. Ihr Team kümmert sich um die schwierigen Fälle.",
+    "body": "Wiederkehrende Anfragen beantwortet der Chatbot. Dein Team kümmert sich um die schwierigen Fälle.",
     "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
   "CS-3/cta": {
-    "headline": "Welche Aufgabe würden Sie *zuerst* automatisieren?",
-    "sub": "Schreiben Sie es in die Kommentare.",
+    "headline": "Welche Aufgabe würdest du *zuerst* automatisieren?",
+    "sub": "Schreib es in die Kommentare.",
     "website": "ja",
     "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
@@ -183,8 +183,8 @@
     "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   },
   "CS-4/cta": {
-    "headline": "Welche Aufgabe würden Sie *zuerst* automatisieren?",
-    "sub": "Schreiben Sie es in die Kommentare.",
+    "headline": "Welche Aufgabe würdest du *zuerst* automatisieren?",
+    "sub": "Schreib es in die Kommentare.",
     "website": "ja",
     "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
   }

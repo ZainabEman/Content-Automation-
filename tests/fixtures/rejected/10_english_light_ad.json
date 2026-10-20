@@ -1,0 +1,27 @@
+{
+  "source": "outputs/content/2026-10-01_ai-chatbots-for-lead-generation/images/ad-1.png (generated, rejected: PRD v6 §2)",
+  "category": "facebook_ad",
+  "provider": "openrouter",
+  "website": false,
+  "logoBox": [
+    0.62,
+    0.05,
+    0.94,
+    0.15
+  ],
+  "read": [
+    "BRANDED GENIUS",
+    "Make Every Chat Count",
+    "QUALIFIED LEAD",
+    "CRM FOLLOW-UP",
+    "Dashboard"
+  ],
+  "intended": [
+    "Make Every Chat Count"
+  ],
+  "pattern": "English copy and English UI labels drawn by the model; a white base",
+  "expect": [
+    "light_base",
+    "stray_text"
+  ]
+}

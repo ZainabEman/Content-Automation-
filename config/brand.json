@@ -28,16 +28,25 @@
       "usage": "Light end of the silver/metallic gradient in the \"GENIUS\" wordmark; backgrounds"
     }
   ],
+  "sampledColors": [
+    {"name": "Midnight Navy", "hex": "#000514", "usage": "base of feed posts, Facebook ads and LinkedIn (near-black navy)", "source": "sampled 2026-10-20: median of the darkest 40% of pixels of assets/reference/creative/facebook_ads/01-06 (10th-90th percentile #00020A-#020B1D)"},
+    {"name": "Panel Navy", "hex": "#00081B", "usage": "the dark-navy text panel", "source": "sampled 2026-10-20: panel interior of assets/reference/creative/facebook_ads/01.jpg (06.jpg: #010D22)"},
+    {"name": "Carousel Black", "hex": "#000000", "usage": "base of Instagram carousels", "source": "sampled 2026-10-20: assets/reference/creative/carousel_style/*.png (cover, point, list, stat, final: median #000000)"},
+    {"name": "Carousel Blue", "hex": "#0A6EE8", "usage": "keywords on carousel slides", "source": "sampled 2026-10-20: highlighted words of assets/reference/creative/carousel_style/point_1.png (cover_1.png #056CE7)"}
+  ],
   "tokens": {
-    "_note": "Colour roles for app-rendered designs (Phase D). Every token is one of the four guide colours above (checked at load): the guide defines no other colour, so dark designs are Royal Blue, never navy, charcoal or black. Medium Gray fails 4.5:1 on both backgrounds: decorative only (rules, dividers, icons, the silver gradient).",
-    "bg_dark": {"hex": "#004BA0", "source": "guide p.1 FARBAUSWAHL: Royal Blue HEX #004BA0 (darkest guide colour; user decision 2026-10-17: follow the guide strictly)"},
+    "_note": "Colour roles for app-rendered designs. Every token is a guide colour or a colour sampled from the approved references (sampledColors, file named; checked at load). v6 (PRD R3.2, the files win): the base is near-black midnight navy (carousels pure black), Royal Blue only as glow, lines and accents, never as a flat fill. Medium Gray fails 4.5:1: decorative only.",
+    "bg_dark": {"hex": "#000514", "source": "sampledColors Midnight Navy (assets/reference/creative/facebook_ads/01-06); replaces Royal Blue as the base (PRD v6 R3.1 pattern 3)"},
     "bg_light": {"hex": "#FFFFFF", "source": "guide p.1 FARBAUSWAHL: White HEX #FFFFFF"},
     "primary": {"hex": "#004BA0", "source": "guide p.1 FARBAUSWAHL: Royal Blue, \"BRANDED\" gradient"},
     "accent": {"hex": "#69BFF8", "source": "guide p.1 FARBAUSWAHL: Sky Blue HEX #69BFF8, \"BRANDED\" gradient"},
     "highlight": {"hex": "#69BFF8", "source": "guide p.1 FARBAUSWAHL: Sky Blue (pill fills, accent rules)"},
     "text_on_dark": {"hex": "#FFFFFF", "source": "guide p.1 LOGO-NUTZUNG: Dunkles Logo = white lettering on dark"},
     "text_on_light": {"hex": "#004BA0", "source": "guide p.1 FARBAUSWAHL: Royal Blue (8.4:1 on White)"},
-    "muted": {"hex": "#969595", "source": "guide p.1 FARBAUSWAHL: Medium Gray HEX #969595, \"GENIUS\" silver gradient"}
+    "muted": {"hex": "#969595", "source": "guide p.1 FARBAUSWAHL: Medium Gray HEX #969595, \"GENIUS\" silver gradient"},
+    "panel": {"hex": "#00081B", "source": "sampledColors Panel Navy (assets/reference/creative/facebook_ads/01.jpg)"},
+    "bg_black": {"hex": "#000000", "source": "sampledColors Carousel Black (assets/reference/creative/carousel_style/)"},
+    "accent_bright": {"hex": "#0A6EE8", "source": "sampledColors Carousel Blue (assets/reference/creative/carousel_style/point_1.png)"}
   },
   "gradients": {
     "blue": {"from": "primary", "to": "accent", "source": "guide p.1 FARBAUSWAHL: \"Blauer Farbverlauf (verwendet in BRANDED)\""},
@@ -91,6 +100,13 @@
       "derivedFrom": "full_colour",
       "backgrounds": ["dark", "photo"],
       "source": "guide p.1 LOGO-NUTZUNG: \"Dunkles Logo\" (white lettering); made by the app from the logo's own shape (workflows/logo.py white_version)"
+    },
+    {
+      "id": "emblem",
+      "file": "brand/logo/Flavicon.png",
+      "sha256": "e95307534145d7ffcc38528ea425f264f6c742bae86460626755616f4c690a3c",
+      "backgrounds": ["dark"],
+      "source": "the \"bg\" emblem (assets/reference/brand/logo/Flavicon.png); PRD v6 R3.2: above the wordmark on the last carousel slide only"
     }
   ],
   "logoSpec": {
@@ -126,9 +142,9 @@
     "Keep the bold lettering, the metallic effect and the colour gradients; they carry the professional, tech-forward look.",
     "The guide shows the logo on A4 and A5 letterhead, envelopes and business cards."
   ],
-  "imageStyle": "Clean, modern and tech-forward: light grey or white backgrounds, royal and sky blue accents, silver/metallic highlights, generous white space and bold, simple headlines.",
+  "imageStyle": "Premium, tech-forward ads on a near-black midnight-navy base (carousels: pure black) with a subtle vignette and soft blue glow; Royal Blue only as glow, lines and accents, Sky Blue keywords, white text; a rich photorealistic or 3D scene on the visual side; never a flat bright-blue fill and never a light grey or white base (PRD v6 R3.2, from the approved references).",
   "do": [
-    "Use only the four brand colours: Royal Blue, Sky Blue, Medium Gray and White.",
+    "Use the four brand colours (Royal Blue, Sky Blue, Medium Gray, White) on the dark base sampled from the approved references (sampledColors).",
     "Pair blue gradients with silver/metallic tones, as in the logo.",
     "Use Futura Bold for headings and Futura Medium for sub-headings.",
     "Use one of the approved logo versions that contrasts with the background.",

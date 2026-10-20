@@ -1,9 +1,11 @@
-"""`ca design compare` (PRD v5 R3.6): every layout variant next to the approved references.
+"""`ca design compare` (PRD v5 R3.6, v6 §5 check 2): every layout variant next to the approved
+references, in v6 at outputs/_system/previews/design_fix_vs_references.png.
 
 One row per variant, grouped by category: the approved company graphics the variant was derived
 from (config/brand_refs.json; a carousel shows its cover and last slide), then the variant's
 layouts drawn with the German sample copy and a dark stand-in picture (the same renders as
-`ca design preview`). The graphic designer's own outputs are added when files exist in
+`ca design preview`), plus one other variation of each feed variant (v6 R3.5: side, panel,
+decoration set, CTA style). The graphic designer's own outputs are added when files exist in
 REFERENCES_DIR/creative/designer/ (none were found on 2026-10-19). Free and local: no provider
 is called. Roman reviews this sheet before the first paid batch (acceptance criterion 3).
 """
@@ -15,18 +17,21 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from content_automation.content.design_preview import sample_copy, stand_in_picture
+from content_automation.content.design_variation import apply as apply_variation
+from content_automation.content.design_variation import variations
 from content_automation.content.designer_prompt import load_refs
 from content_automation.content.directions import CATEGORY, load_directions
 from content_automation.references import load_brand
 from content_automation.workflows.design_render import (
     Assets,
     design_fonts,
+    emblem_file,
     logo_file,
     render_layout,
     token_colors,
 )
 
-SHEET_FILE = Path("outputs/previews/design/v5_vs_references.png")
+SHEET_FILE = Path("outputs/_system/previews/design_fix_vs_references.png")
 DESIGNER_DIR = "creative/designer"  # the graphic designer's own outputs, if Roman adds them
 TILE = 300
 GAP = 16
@@ -52,7 +57,7 @@ def compare_sheet(references_dir: Path, out: Path = SHEET_FILE) -> list[str]:
     catalog = load_directions()
     brand = load_brand(references_dir)
     assets = Assets(brand=brand, logo_path=logo_file(brand, references_dir),
-                    fonts=design_fonts(brand))
+                    fonts=design_fonts(brand), emblem_path=emblem_file(brand, references_dir))
     colors = token_colors(brand)
     samples = sample_copy()
     refs = load_refs().get("refs", {})
@@ -75,6 +80,19 @@ def compare_sheet(references_dir: Path, out: Path = SHEET_FILE) -> list[str]:
                                          samples[f"{direction.id}/{layout_name}"], assets,
                                          picture=picture)
                 right.append((f"{direction.id} {layout_name}", _tile(rendered.image)))
+            if direction.format != "carousel":  # one other variation (v6 R3.5)
+                name = next(iter(direction.layouts))
+                options = [v for v in variations(direction, direction.layouts[name], catalog)
+                           if v.side == ("R" if not direction.roman else "L")
+                           and v.deco != "none"]
+                if options:
+                    varied = apply_variation(direction, direction.layouts[name], options[-1],
+                                             catalog)
+                    picture = stand_in_picture(direction, name, catalog, colors, None)
+                    rendered = render_layout(catalog, direction, name,
+                                             samples[f"{direction.id}/{name}"], assets,
+                                             picture=picture, layout=varied)
+                    right.append((f"{direction.id} {options[-1].key}", _tile(rendered.image)))
             rows.append((f"{category}: {direction.label} [{direction.treatment}]", left, right))
             lines.append(f"{direction.id}: {len(right)} layout(s) beside "
                          f"{', '.join(direction.reference_ids[:2])}")
@@ -106,8 +124,9 @@ def compare_sheet(references_dir: Path, out: Path = SHEET_FILE) -> list[str]:
             draw.text((x, y + LABEL + TILE + 4), label, fill=(80, 80, 80), font=small)
             x += TILE + GAP
         y += TILE + LABEL * 2 + GAP
-    note = ("Left: approved Branded Genius graphics (config/brand_refs.json). Right: v5 layout "
-            "variants with German sample copy and a dark stand-in picture (free, no provider). "
+    note = ("Left: approved Branded Genius graphics (config/brand_refs.json). Right: v6 layout "
+            "variants and one other variation each, with German sample copy and a text-free "
+            "stand-in scene (free, no provider). "
             + ("" if designer else "No designer outputs found in creative/designer/."))
     draw.text((GAP, y), note, fill=(80, 80, 80), font=small)
     out.parent.mkdir(parents=True, exist_ok=True)

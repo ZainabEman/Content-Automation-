@@ -1,0 +1,26 @@
+{
+  "source": "outputs/jobs/2026-10-20/0259_pflegedokumentation-was-das-bmg-struktur/image-1.png (generated, rejected: PRD v6 §2)",
+  "category": "facebook_post",
+  "provider": "openrouter",
+  "website": true,
+  "logoBox": [
+    0.076,
+    0.061,
+    0.27,
+    0.112
+  ],
+  "read": [
+    "BRANDED GENIUS",
+    "Weniger Routine. Mehr Pflegeblick.",
+    "Das Strukturmodell ordnet die Pflegedokumentation in nachvollziehbare Schritte.",
+    "brandedgenius.de"
+  ],
+  "intended": [
+    "Weniger Routine. Mehr Pflegeblick.",
+    "Das Strukturmodell ordnet die Pflegedokumentation in nachvollziehbare Schritte."
+  ],
+  "pattern": "a light grey/silver base (the old FB-4/LI-4 'Light Sweep' variants)",
+  "expect": [
+    "light_base"
+  ]
+}

@@ -163,6 +163,9 @@ class Rendered:
     footer: list[str] = field(default_factory=list)  # the footer texts drawn
     notes: list[str] = field(default_factory=list)
     fonts: list[str] = field(default_factory=list)  # v5: the font files used (brand check)
+    # v6 (R3.2/R3.6): each CTA button's text box, icon box and the gap between them
+    ctas: list[dict[str, Any]] = field(default_factory=list)
+    emblem: str | None = None  # v6: the "bg" emblem file on a carousel's last slide
 
     def manifest(self) -> dict[str, Any]:
         return {
@@ -172,6 +175,7 @@ class Rendered:
             "visualBoxes": [list(box) for box in self.visual_boxes],
             "logo": vars(self.logo) if self.logo else None,
             "footer": self.footer, "notes": self.notes, "fonts": self.fonts,
+            "ctas": self.ctas, "emblem": self.emblem,
         }
 
 
@@ -183,6 +187,7 @@ class Assets:
     brand: BrandProfile
     logo_path: Path  # the official logo file (brand.json logoVariants full colour)
     fonts: dict[str, Path]  # weight -> font file
+    emblem_path: Path | None = None  # v6: the "bg" emblem (brand.json logoVariants emblem)
 
     def token(self, role: str) -> RGB:
         if self.brand.tokens is None:
@@ -197,6 +202,18 @@ def design_fonts(brand: BrandProfile) -> dict[str, Path]:
     spec = OverlayFonts(folder=FONT_FOLDER, families=brand.typography.families(),
                         weights=WEIGHTS)
     return resolve_fonts(spec, set(WEIGHTS))
+
+
+def emblem_file(brand: BrandProfile, references_dir: Path) -> Path | None:
+    """v6: the official "bg" emblem (brand.json logoVariants id emblem), hash-checked; None when
+    the brand file names none or it is not on this machine (the wordmark alone is placed)."""
+    variant = next((v for v in brand.logo_variants if v.id == "emblem" and v.file), None)
+    if variant is None or not (references_dir / variant.file).is_file():
+        return None
+    path = references_dir / variant.file
+    if hashlib.sha256(path.read_bytes()).hexdigest() != variant.sha256:
+        raise DesignRenderError(f"{path.name} is not the official emblem (brand.json sha256)")
+    return path
 
 
 def logo_file(brand: BrandProfile, references_dir: Path) -> Path:
@@ -622,6 +639,49 @@ def paint_background(painter: Painter, background: Background) -> None:
     for role, x, y, radius, opacity in background.glows:
         painter.record.fills.append(("background", role))
         painter.paste(_glow(painter.size, (x, y), radius, painter.color(role), opacity))
+    if background.vignette:
+        painter.paste(_vignette(painter.size, background.vignette))
+
+
+def _vignette(size: tuple[int, int], strength: float) -> Image.Image:
+    """v6 (R3.2): the references' darkened edges, as a black layer stronger toward the corners."""
+    import numpy as np
+
+    width, height = size
+    xs = np.linspace(-1, 1, width)[None, :]
+    ys = np.linspace(-1, 1, height)[:, None]
+    distance = np.clip(np.sqrt(xs ** 2 + ys ** 2) / math.sqrt(2), 0, 1)
+    alpha = (np.clip((distance - 0.35) / 0.65, 0, 1) ** 1.6 * 255 * strength).astype(np.uint8)
+    layer = Image.new("RGBA", size, (0, 0, 0, 0))
+    layer.putalpha(Image.fromarray(alpha, "L"))
+    return layer
+
+
+def _glow_line(painter: "Painter", mask: Image.Image, zone: str, role: str,
+               alpha: float = 1.0) -> None:
+    """A thin line (`mask`) with a soft glow around it, in one token colour (R3.2 outlines)."""
+    color = painter.fill(zone, role)
+    glow = mask.filter(ImageFilter.GaussianBlur(painter.s(7)))
+    halo = Image.new("RGBA", painter.size, (*color, 0))
+    halo.putalpha(glow.point(lambda value: round(min(255, value * 1.6) * 0.75 * alpha)))
+    painter.paste(halo)
+    line = Image.new("RGBA", painter.size, (*color, 0))
+    line.putalpha(mask.point(lambda value: round(value * alpha)))
+    painter.paste(line)
+
+
+def _panel_mask(size: tuple[int, int], box: PixelBox, radius: int, cut: int,
+                cut_left: bool) -> Image.Image:
+    """A rounded panel with one angled cut corner at the top (toward the canvas centre)."""
+    mask = Image.new("L", size, 0)
+    draw = ImageDraw.Draw(mask)
+    draw.rounded_rectangle(box, radius=radius, fill=255)
+    if cut:
+        left, top, right, _ = box
+        corner = ([(left - 1, top - 1), (left + cut, top - 1), (left - 1, top + cut)] if cut_left
+                  else [(right + 1, top - 1), (right - cut, top - 1), (right + 1, top + cut)])
+        draw.polygon(corner, fill=0)
+    return mask
 
 
 def _fade_mask(size: tuple[int, int], edges: Sequence[str], share: float) -> Image.Image:
@@ -708,25 +768,46 @@ def place_picture(painter: Painter, name: str, zone: Zone, picture: Image.Image 
 
 
 def placeholder(size: tuple[int, int], label: str, painter_colors: Mapping[str, RGB],
-                person: bool = False) -> Image.Image:
-    """A free stand-in picture for previews: silver tones and an outline, marked PLACEHOLDER."""
+                person: bool = False, side: str = "right") -> Image.Image:
+    """A free stand-in picture for previews (v6): a dark navy scene with a glowing network of
+    rounded-square icon nodes on the visual side, like the approved references, and no text
+    (the v5 "PLACEHOLDER" label ended up in a rejected image). `label` only seeds the layout."""
+    import random
+
     width, height = size
-    image = Image.new("RGB", size, painter_colors["muted"])
-    draw = ImageDraw.Draw(image)
-    for n in range(8):
-        share = n / 8
-        draw.ellipse((width * (0.5 - 0.5 * (1 - share)), height * (0.5 - 0.5 * (1 - share)),
-                      width * (0.5 + 0.5 * (1 - share)), height * (0.5 + 0.5 * (1 - share))),
-                     fill=tuple(round(a + (b - a) * share) for a, b in zip(
-                         painter_colors["muted"], painter_colors["bg_light"], strict=True)))
-    if person:
-        draw.ellipse((width * 0.38, height * 0.12, width * 0.62, height * 0.42),
-                     fill=painter_colors["muted"])
-        draw.rounded_rectangle((width * 0.22, height * 0.44, width * 0.78, height * 1.1),
-                               radius=round(width * 0.2), fill=painter_colors["muted"])
-    font = _font(_path("assets/fonts/Jost-Medium.ttf"), max(14, width // 22))
-    draw.text((width / 2, height * (0.75 if person else 0.5)),
-              f"PLACEHOLDER · {label}", font=font, fill=painter_colors["primary"], anchor="mm")
+    image = Image.new("RGB", size, (0, 5, 20))
+    glow = Image.new("L", size, 0)
+    cx = width * (0.7 if side == "right" else 0.3)
+    ImageDraw.Draw(glow).ellipse((cx - width * 0.32, height * 0.2, cx + width * 0.32,
+                                  height * 0.85), fill=120)
+    glow = glow.filter(ImageFilter.GaussianBlur(max(4, width // 10)))
+    image.paste(Image.new("RGB", size, painter_colors["primary"]), (0, 0), glow)
+    rng = random.Random(label)
+    lines = Image.new("L", size, 0)
+    draw = ImageDraw.Draw(lines)
+    hub = (cx, height * 0.52)
+    node = max(12, round(min(width, height) * 0.075))
+    nodes = []
+    for n in range(6):
+        angle = n / 6 * 2 * math.pi + rng.uniform(-0.25, 0.25)
+        nodes.append((hub[0] + math.cos(angle) * width * 0.2,
+                      hub[1] + math.sin(angle) * height * 0.2))
+    for x, y in nodes:
+        draw.line((hub[0], hub[1], x, y), fill=255, width=max(1, width // 400))
+    for x, y in [hub, *nodes]:
+        r = node * (1.4 if (x, y) == hub else 1)
+        draw.rounded_rectangle((x - r, y - r, x + r, y + r), radius=round(r * 0.35), outline=255,
+                               width=max(2, width // 300))
+    halo = lines.filter(ImageFilter.GaussianBlur(max(2, width // 120)))
+    image.paste(Image.new("RGB", size, painter_colors["primary"]), (0, 0), halo)
+    image.paste(Image.new("RGB", size, painter_colors["accent"]), (0, 0), lines)
+    if person:  # an anonymous figure in a navy suit (previews only; Roman is never drawn here)
+        figure = ImageDraw.Draw(image)
+        px = width * (0.86 if side == "right" else 0.14)
+        figure.ellipse((px - width * 0.07, height * 0.18, px + width * 0.07, height * 0.36),
+                       fill=(40, 52, 80))
+        figure.rounded_rectangle((px - width * 0.16, height * 0.38, px + width * 0.16,
+                                  height * 1.05), radius=round(width * 0.08), fill=(22, 30, 56))
     return image
 
 
@@ -758,6 +839,23 @@ def _shape(painter: Painter, name: str, zone: Zone) -> None:
         painter.paste(layer, (left, top))
         return
     fill_role = zone.fill
+    if zone.shape in ("panel", "glass") and zone.outline is not None:
+        # v6 (R3.2): a dark-navy rounded panel, a thin glowing outline, one angled cut corner
+        cut = round(zone.cut * (box[2] - box[0]))
+        mask = _panel_mask(painter.size, box, radius, cut,
+                           cut_left=(zone.box[0] + zone.box[2]) / 2 > 0.5)
+        if fill_role is not None:
+            panel_color = painter.fill(name, fill_role)
+            layer = Image.new("RGBA", painter.size, (*panel_color, 0))
+            layer.putalpha(mask.point(lambda value: round(value * zone.alpha)))
+            painter.paste(layer)
+        edge = ImageChops.subtract(mask, mask.filter(ImageFilter.MinFilter(
+            2 * painter.s(1.5) + 1)))
+        _glow_line(painter, edge, name, zone.outline, 0.35 if zone.shape == "glass" else 1.0)
+        return
+    if zone.shape in ("chevrons", "bars", "wave", "arcs", "frame"):
+        _decoration(painter, name, zone, box)
+        return
     if zone.shape in ("panel", "glass", "bar", "pill") and fill_role is not None:
         role: str = fill_role
         painter.shape(lambda d, c: d.rounded_rectangle(box, radius=radius, fill=c), name, role,
@@ -794,6 +892,152 @@ def _shape(painter: Painter, name: str, zone: Zone) -> None:
         z_left, z_top, z_right, z_bottom = zone.box
         painter.paste(_glow(painter.size, ((z_left + z_right) / 2, (z_top + z_bottom) / 2),
                             (z_right - z_left) / 2, painter.fill(name, fill_role), zone.alpha))
+
+
+def _decoration(painter: Painter, name: str, zone: Zone, box: PixelBox) -> None:
+    """v6 (R3.2) decorations from the references: a chevron row, diagonal blue bars, a
+    particle-wave mesh, thin circle arcs touching the frame edges, thin frame corner lines."""
+    left, top, right, bottom = box
+    width, height = right - left, bottom - top
+    role: str = zone.fill or zone.outline or "primary"
+    if zone.shape == "chevrons":
+        arm = height * 0.42
+        step = max(painter.s(14), round(height * 0.62))
+        mid = (top + bottom) / 2
+        painter.shape(lambda d, c: [d.line((x - arm * 0.6, mid - arm, x, mid, x - arm * 0.6,
+                                            mid + arm), fill=c, width=painter.s(4))
+                                    for x in range(round(left + arm), right, step)],
+                      name, role, zone.alpha)
+    elif zone.shape == "bars":
+        slant = height
+        thick = max(painter.s(10), round(width * 0.09))
+
+        def bars(d: Any, c: Any) -> None:
+            for n in range(3):
+                x = left + n * thick * 2.1 - slant * 0.4
+                d.polygon([(x, bottom), (x + thick, bottom), (x + thick + slant, top),
+                           (x + slant, top)], fill=c)
+
+        painter.shape(bars, name, role, zone.alpha)
+    elif zone.shape == "wave":  # dots on stacked sine curves, brightest in the middle rows
+        layer = Image.new("RGBA", painter.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(layer)
+        color = painter.fill(name, role)
+        rows, columns = 14, max(24, width // painter.s(9))
+        for row in range(rows):
+            share = row / (rows - 1)
+            for column in range(columns):
+                t = column / (columns - 1)
+                x = left + t * width
+                y = top + height * (0.55 + 0.32 * math.sin(t * 5.2 + share * 2.4) * (
+                    0.4 + share * 0.6) - 0.35 * share + 0.25)
+                strength = (1 - abs(share - 0.5) * 1.4) * (0.35 + 0.65 * math.sin(t * math.pi))
+                dot = painter.s(1.4 + 1.2 * strength)
+                draw.ellipse((x - dot, y - dot, x + dot, y + dot),
+                             fill=(*color, round(255 * zone.alpha * max(0.15, strength))))
+        painter.paste(layer)
+    elif zone.shape == "arcs":  # big thin circles centred off the canvas, touching its edges
+        mask = Image.new("L", painter.size, 0)
+        draw = ImageDraw.Draw(mask)
+        w, h = painter.size
+        for cx, cy, r in ((w * 1.02, h * -0.02, w * 0.3), (w * -0.06, h * 1.04, w * 0.24),
+                          (w * 1.08, h * 0.98, w * 0.18)):
+            draw.ellipse((cx - r, cy - r, cx + r, cy + r), outline=255, width=painter.s(3))
+        _glow_line(painter, mask, name, role, zone.alpha)
+    elif zone.shape == "frame":  # corner brackets of thin lines
+        mask = Image.new("L", painter.size, 0)
+        draw = ImageDraw.Draw(mask)
+        arm_x, arm_y = round(width * 0.12), round(height * 0.09)
+        line = painter.s(2)
+        for x, y, dx, dy in ((left, top, 1, 1), (right, top, -1, 1), (left, bottom, 1, -1),
+                             (right, bottom, -1, -1)):
+            draw.line((x, y, x + dx * arm_x, y), fill=255, width=line)
+            draw.line((x, y, x, y + dy * arm_y), fill=255, width=line)
+        _glow_line(painter, mask, name, role, zone.alpha)
+
+
+def _cta(painter: Painter, name: str, zone: Zone, raw: str, layout: Layout,
+         limit: TextLimit) -> None:
+    """v6 (R3.2): the CTA as a wide rounded button: dark fill, glowing blue outline, white text
+    and its icon (a circle-arrow on the right, or a calendar or play icon on the left) with a
+    fixed gap, so the text never touches the icon. The geometry is recorded for the check."""
+    box = painter.px(zone.box)
+    left, top, right, bottom = box
+    height = bottom - top
+    radius = round(height * 0.32)
+    pill = zone.pill
+    if pill is not None and pill.fill is not None:
+        fill_role: str = pill.fill
+        painter.shape(lambda d, c: d.rounded_rectangle(box, radius=radius, fill=c), name,
+                      fill_role, pill.alpha)
+    mask = Image.new("L", painter.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle(box, radius=radius, outline=255, width=painter.s(2.5))
+    _glow_line(painter, mask, name, pill.outline if pill and pill.outline else "accent")
+    pad = round(height * 0.2)
+    side = round(height * 0.6)
+    gap = max(painter.s(16), round(height * 0.22))
+    middle = (top + bottom) // 2
+    if zone.icon_side == "left":
+        icon = (left + pad, middle - side // 2, left + pad + side, middle + side // 2)
+        text_box = (icon[2] + gap, top, right - pad - painter.s(8), bottom)
+    else:
+        icon = (right - pad - side, middle - side // 2, right - pad, middle + side // 2)
+        text_box = (left + pad + painter.s(8), top, icon[0] - gap, bottom)
+    color = painter.color("text_on_dark")
+    if zone.icon in ("arrow-right", "play"):
+        painter.shape(lambda d, c: d.ellipse(icon, outline=c, width=painter.s(2.5)), name,
+                      "text_on_dark")
+        cx, cy, arm = (icon[0] + icon[2]) / 2, (icon[1] + icon[3]) / 2, side * 0.22
+        if zone.icon == "play":
+            painter.shape(lambda d, c: d.polygon([(cx - arm * 0.6, cy - arm), (cx + arm, cy),
+                                                  (cx - arm * 0.6, cy + arm)], fill=c), name,
+                          "text_on_dark")
+        else:
+            painter.shape(lambda d, c: (d.line((cx - arm, cy, cx + arm, cy), fill=c,
+                                               width=painter.s(2.5)),
+                                        d.line((cx + arm * 0.15, cy - arm * 0.8, cx + arm, cy,
+                                                cx + arm * 0.15, cy + arm * 0.8), fill=c,
+                                               width=painter.s(2.5))), name, "text_on_dark")
+    elif zone.icon:
+        painter.icon(zone.icon, icon, color)
+    style = zone.model_copy(update={"pill": None, "align": "center", "valign": "middle"})
+    placed = painter.text(name, style, raw, layout, limit, box=text_box, color="text_on_dark")
+    room = icon[0] - placed[2] if zone.icon_side != "left" else placed[0] - icon[2]
+    painter.record.ctas.append({"zone": name, "text": list(placed), "icon": list(icon),
+                                "gapPx": round(room / painter.scale)})
+
+
+def _engagement(painter: Painter, name: str, zone: Zone, layout: Layout) -> None:
+    """v6 (R3.2): the carousel's last-slide bar: three columns (LIKEN / TEILEN / SPEICHERN),
+    each an outline icon, a bold label and a small line under it, divided by thin lines."""
+    left, top, right, bottom = painter.px(zone.box)
+    count = max(1, len(zone.labels))
+    cell = (right - left) / count
+    height = bottom - top
+    limit = layout.text_limits.get(name, TextLimit(max_chars=24, max_lines=1, min_font_px=14))
+    head = zone.model_copy(update={"kind": "text", "role": "body", "align": "center",
+                                   "valign": "middle", "pill": None, "weight": "bold",
+                                   "size": zone.size or 22})
+    small = head.model_copy(update={"weight": "regular", "size": max(14, (zone.size or 22) - 7)})
+    for index, label in enumerate(zone.labels):
+        x0, x1 = round(left + cell * index), round(left + cell * (index + 1))
+        side = round(height * 0.36)
+        center = (x0 + x1) // 2
+        icon = (center - side // 2, top, center + side // 2, top + side)
+        if index < len(zone.names):
+            painter.icon(zone.names[index], icon, painter.color("text_on_dark"))
+        title, _, line = label.partition("|")
+        painter.text(name, head, title.strip(), layout, limit,
+                     box=(x0 + painter.s(6), top + side + painter.s(4), x1 - painter.s(6),
+                          top + side + round(height * 0.32)), color="text_on_dark")
+        if line.strip():
+            painter.text(name, small, line.strip(), layout, limit,
+                         box=(x0 + painter.s(6), top + side + round(height * 0.33),
+                              x1 - painter.s(6), bottom), color="text_on_dark")
+        if index:
+            painter.shape(lambda d, c, x=x0: d.line((x, top + painter.s(6), x,
+                                                     bottom - painter.s(6)), fill=c,
+                                                    width=painter.s(1.5)), name, "primary")
 
 
 def _footer_texts(brand: BrandProfile, zone: Zone, copy: Mapping[str, object]) -> list[str]:
@@ -935,6 +1179,9 @@ def _arrow(painter: Painter, name: str, zone: Zone) -> None:
 
 def _icons(painter: Painter, name: str, zone: Zone, layout: Layout,
            copy: Mapping[str, object], catalog: DirectionCatalog) -> None:
+    if zone.style == "engagement":
+        _engagement(painter, name, zone, layout)
+        return
     labels = _lines(copy.get(zone.field)) if zone.field else list(zone.labels)
     names = _lines(copy.get(zone.icons_field)) if zone.icons_field else list(zone.names)
     count = max(len(labels), len(names))
@@ -955,11 +1202,12 @@ def _icons(painter: Painter, name: str, zone: Zone, layout: Layout,
     for index in range(count):
         x0 = round(left + cell * index)
         circle = (x0, top + (bottom - top - side) // 2, x0 + side, top + (bottom - top + side) // 2)
-        painter.shape(lambda d, c, b=circle: d.ellipse(b, fill=c), name, "accent")
+        painter.shape(lambda d, c, b=circle: d.ellipse(b, outline=c, width=painter.s(2.5)),
+                      name, "accent")  # v6 (R3.2): circular outline icons
         if index < len(names):
-            inset = round(side * 0.22)
+            inset = round(side * 0.24)
             painter.icon(names[index], (circle[0] + inset, circle[1] + inset, circle[2] - inset,
-                                        circle[3] - inset), painter.color("primary"))
+                                        circle[3] - inset), painter.color("text_on_dark"))
         if index < len(labels):
             painter.text(name, style, labels[index], layout, limit,
                          box=(x0 + side + painter.s(12), top, round(x0 + cell) - painter.s(10),
@@ -1325,8 +1573,9 @@ def _value_map(painter: Painter, name: str, zone: Zone, layout: Layout, items: l
 # --- The logo ----------------------------------------------------------------------------------
 
 
-def place_logo(painter: Painter, zone: Zone, layout: Layout) -> None:
-    """The official file: aspect kept, clear space inside its zone, white on dark or photo."""
+def place_logo(painter: Painter, zone: Zone, layout: Layout, emblem: bool = False) -> None:
+    """The official file: aspect kept, clear space inside its zone, white on dark or photo.
+    emblem (v6, the carousel's last slide): the "bg" emblem above the wordmark."""
     brand = painter.assets.brand
     spec = brand.logo_spec
     ratio = spec.clear_space_ratio if spec else 0.25
@@ -1334,6 +1583,14 @@ def place_logo(painter: Painter, zone: Zone, layout: Layout) -> None:
     logo = load_logo(painter.assets.logo_path)
     aspect = logo.width / logo.height
     left, top, right, bottom = painter.px(zone.box)
+    if emblem and painter.assets.emblem_path is not None:
+        mark = load_logo(painter.assets.emblem_path)
+        mark_h = round((bottom - top) * 0.3)
+        mark_w = round(mark_h * mark.width / mark.height)
+        x_mark = right - mark_w - round((right - left) * 0.18)
+        painter.paste(mark.resize((mark_w, mark_h), Image.Resampling.LANCZOS), (x_mark, top))
+        painter.record.emblem = painter.assets.emblem_path.name
+        top += mark_h + painter.s(4)
     width, height = right - left, bottom - top
     logo_h = min(height / (1 + 2 * ratio), width / (aspect + 2 * ratio))
     logo_w = logo_h * aspect
@@ -1384,9 +1641,11 @@ def render_layout(
     picture: Image.Image | None = None,
     step: int = 0,
     size: tuple[int, int] | None = None,
+    layout: Layout | None = None,
 ) -> Rendered:
-    """Draw one layout of a direction; DesignRenderError when a text does not fit."""
-    layout = direction.layouts[layout_name]
+    """Draw one layout of a direction; DesignRenderError when a text does not fit. layout: a
+    v6 variation of it (content/design_variation.py), drawn instead of the stored one."""
+    layout = layout or direction.layouts[layout_name]
     canvas = size or catalog.size(direction)
     record = Rendered(image=Image.new("RGB", canvas), direction=direction.id,
                       layout=layout_name, size=canvas)
@@ -1401,14 +1660,17 @@ def render_layout(
         elif zone.kind == "shape":
             _shape(painter, name, zone)
         elif zone.kind == "logo":
-            place_logo(painter, zone, layout)
+            place_logo(painter, zone, layout, emblem=direction.format == "carousel")
         elif zone.kind == "text":
             value = " ".join(_lines(copy.get(str(zone.field))))
             if not value:
                 if zone.optional:
                     continue
                 raise DesignRenderError(f"{direction.id} {name}: fill copy.{zone.field}")
-            painter.text(name, zone, value, layout, layout.text_limits[name])
+            if zone.role == "cta" and zone.icon:
+                _cta(painter, name, zone, value, layout, layout.text_limits[name])
+            else:
+                painter.text(name, zone, value, layout, layout.text_limits[name])
         elif zone.kind == "items":
             _items(painter, name, zone, layout, copy, catalog, step, visual_box)
         elif zone.kind == "footer":
@@ -1425,6 +1687,25 @@ def render_layout(
     return record
 
 
+def place_brand_marks(image: Image.Image, direction: Direction, layout_name: str, layout: Layout,
+                      assets: Assets, copy: Mapping[str, object] | None = None) -> Rendered:
+    """v6 designer mode (R3.4): the model drew the ad; the app adds only the official logo (with
+    the emblem on a carousel's last slide) and the website, in the layout's zones."""
+    record = Rendered(image=image, direction=direction.id, layout=layout_name, size=image.size)
+    painter = Painter(image.size, assets, record)
+    painter.image = image.convert("RGBA")
+    record.fonts = sorted({path.name for path in assets.fonts.values()})
+    for name, zone in layout.zones.items():
+        if zone.kind == "logo":
+            place_logo(painter, zone, layout, emblem=direction.format == "carousel")
+        elif zone.kind == "footer":
+            if zone.optional and zone.field and not _lines((copy or {}).get(zone.field)):
+                continue
+            _footer(painter, name, zone, layout, copy or {})
+    record.image = painter.image.convert("RGB")
+    return record
+
+
 def token_colors(brand: BrandProfile) -> dict[str, RGB]:
     if brand.tokens is None:
         raise DesignRenderError("brand.json has no tokens (Phase D)")
@@ -1433,5 +1714,6 @@ def token_colors(brand: BrandProfile) -> dict[str, RGB]:
 
 __all__ = [
     "Assets", "DesignRenderError", "Rendered", "TextRecord", "TokenRole", "design_fonts",
-    "logo_file", "parse", "placeholder", "plain", "render_layout", "rgb", "token_colors",
+    "emblem_file", "logo_file", "parse", "place_brand_marks", "placeholder", "plain",
+    "render_layout", "rgb", "token_colors",
 ]

@@ -1,0 +1,28 @@
+{
+  "source": "outputs/jobs/2026-10-20/0307_what-marketers-think-about-meta-s-enterp/image-1.png (generated, rejected: PRD v6 §2)",
+  "category": "linkedin_post",
+  "roman": true,
+  "provider": "comfyui",
+  "website": false,
+  "logoBox": [
+    0.75,
+    0.03,
+    0.96,
+    0.09
+  ],
+  "read": [
+    "BRANDED GENIUS",
+    "Zugriff zuerst, Automatisierung danach",
+    "Listen Sie Rechte in einer Tabelle auf, bevor Kundendaten verbunden werden."
+  ],
+  "intended": [
+    "Zugriff zuerst, Automatisierung danach",
+    "Listen Sie Rechte in einer Tabelle auf, bevor Kundendaten verbunden werden."
+  ],
+  "pattern": "R3.1-5 a photo-real image of Roman (RunPod LoRA, not Higgsfield) as the final image with a flat blue text block and the logo",
+  "expect": [
+    "real_photo",
+    "roman_logo",
+    "flat_blue"
+  ]
+}

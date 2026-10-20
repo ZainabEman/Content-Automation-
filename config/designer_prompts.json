@@ -1,9 +1,47 @@
 {
-  "_note": "PRD v5 R3: the graphic designer's prompt, kept as the core of every OpenRouter image prompt. Her original (verbatim, original spelling): \"Be my expert graphic designer and show your skill and generate for me a professional, creative, ad style post that I can post on LinkedIn using Brandit Genius brand style guide and logo should also be at the side corner. It must match the motive and aim of Branded Genius. Must be 3:4\" - given together with the logo and the brand style guide. Kept elements: (1) role and quality bar, (2) the brand style guide as an input image, (3) the real logo as an input with a placement rule, (4) purpose and audience (the motive and aim of Branded Genius), (5) creative latitude within the brand, (6) the explicit format. Added: the topic, the German headline as context, the layout variant and its free zones, the approved reference graphics. Text accuracy (R3.5): the app draws the exact German text and pastes the real logo afterwards, so the model keeps those zones free and draws no text or logo. Placeholders: {platform} {category} {format} {size} {purpose} {mission} {topic} {headline} {variant} {picture} {zones} {logoZone} {references} {referenceImages}.",
-  "core": "Be my expert graphic designer and show your skill: create a professional, creative, ad-style {category} visual for Branded Genius that I can post on {platform}. Use the attached Branded Genius brand style guide (image 1) and the attached official Branded Genius logo (image 2) as the brand reference: its colours (Royal Blue #004BA0, Sky Blue #69BFF8, Medium Gray #969595 silver and white), its metallic gradients and its clean, technology-forward look. The logo belongs at {logoZone}; the app places the real logo file there afterwards, so leave that corner empty and never draw, copy or imitate the logo. It must match the motive and aim of Branded Genius: {mission}. Purpose of this graphic: {purpose}. Match the look of the attached approved Branded Genius graphics ({referenceImages}): {references}. You have creative freedom within this brand: lighting, depth, objects and composition are yours.",
-  "brief": "Topic: {topic}. The post's message, for context only (do not write it anywhere): \"{headline}\". Layout variant {variant}. The picture: {picture}.",
-  "rules": "Keep these areas calm, dark and empty, because the app places the exact German text there afterwards: {zones}. Draw no text, letters, numbers, labels, slide numbers, logos, watermarks or UI writing anywhere in the image.",
-  "format": "Format: {format} ({size}).",
+  "_note": "PRD v6 R3.3/R3.4 (replaces v5 R3): the designer's prompt (brand/designer_prompt.md, verbatim, original spelling) is the core of every non-Roman OpenRouter prompt, adapted per category (designerAdapt: platform and format). designer mode (the default): the model draws the whole ad with the exact German strings; image inputs = the colour section of the brand guide (guidelineCrop in config/brand_refs.json; never the type specimen or the logo specimen), the official logo for recognition only, and 2-3 approved references with their logos masked; the app places the real logo (and the website) afterwards and reads the text back (textCheck): one automatic retry, then composite mode. composite mode (the fallback, and always for Roman): the model draws only the scene with the text side dark and empty, with no image inputs; the app draws everything else (workflows/design_render.py). Zones are described in words only, never as coordinates (the v5 prompt printed 'x 6-34%' into the images). Placeholders: {platform} {category} {format} {size} {purpose} {mission} {topic} {variant} {layout} {picture} {look} {texts} {logoCorner} {textSide} {references} {referenceImages}.",
+  "mode": "designer",
+  "designerPromptFile": "brand/designer_prompt.md",
+  "designerAdapt": {
+    "LinkedIn": "{platform}",
+    "Must be 3:4": "Must be {format}"
+  },
+  "mission": "KI-Automatisierung, die Ergebnisse schafft (AI automation that creates results; brandedgenius.de): AI agents and workflows, AI chatbots, AI callbots, AI marketing and sales automation and AI workshops for companies in Germany (the verified services of config/services.json)",
+  "maxReferences": 3,
+  "inputs": "Attached inputs: image 1 is the colour section of the Branded Genius brand style guide (use its colours; it is not a layout to copy). Image 2 is the official Branded Genius logo, for recognition only: never draw, copy or imitate it or its lettering anywhere; the app places the real logo file in the {logoCorner} afterwards, so keep that corner empty. {referenceImages} approved Branded Genius ads with their logos masked; match their look: {references}.",
+  "brief": "This is a {category} for {platform}. Purpose: {purpose}. It must match the motive and aim of Branded Genius: {mission}. Topic: {topic}. Layout variant {variant}: {layout}. The visual: {picture}.",
+  "look": {
+    "feed": "The look, as in the approved references: a near-black, deep midnight-navy base with a subtle vignette and a soft blue glow; royal blue #004BA0 only as glow, thin lines and accents, never as a flat fill; text in a heavy geometric sans-serif, the headline in white capitals on three to five short lines with the marked keywords in light sky blue #69BFF8, the body in white sentence case; a rich photorealistic or 3D scene that fills the visual side (glowing holographic UI, connected rounded-square icon nodes with thin blue lines, an AI brain or chip, a phone with a chat, or an anonymous professional in a navy suit in a dark modern office), never an empty box; a few decorations only; the call to action as a wide rounded button with a dark fill, a glowing blue outline, white text and its icon kept clear of the text.",
+    "carousel": "The look, as in the approved carousel slides: a pure black base, a small cyan dot grid in the upper left, thin glowing blue circle arcs touching the frame edges and a blue particle-wave mesh along the bottom; a bold geometric sans-serif headline in sentence case, left-aligned in the left half, white with the marked keywords in bright blue, optionally a short blue divider line; one visual on the right: neon blue line art, a glossy white 3D robot with glowing blue eyes, or a glowing chip; addressed with du; no slide number anywhere."
+  },
+  "texts": "Write exactly these German texts and nothing else, letter for letter with their umlauts, ß and punctuation: {texts}.",
+  "negatives": "Never write coordinates, percentages, zone names, sizes or any number that is not in these texts; no fake, garbled, placeholder or English text; no extra logos, wordmarks, brand names or watermarks; no slide numbers or counters; no flat bright-blue fill and no light grey or white background; never copy the style guide's type specimen, colour swatches or headings.",
+  "format": "Must be {format} ({size}).",
+  "composite": {
+    "core": "Create only the picture for a premium Branded Genius {category} on {platform}; the app adds all text, the logo, the buttons and the icons afterwards. {look} The visual: {picture}. {textSide} stays a calm, dark, empty midnight-navy area with no objects or light sources, so the text added later stays readable.",
+    "negatives": "No text, letters, numbers, labels, logos, watermarks, UI writing or slide numbers anywhere; no flat bright-blue fill and no light background."
+  },
+  "textCheck": {
+    "_note": "R3.4 text verification: the image is read back through OpenRouter (the configured image model when model is null, asked for text only) and compared exactly with the intended strings; any stray text fails. estimatedUsd is an estimate, not calibrated (PRD v6 §7: confirm on the first paid test). attempts: designer attempts before composite mode.",
+    "provider": "openrouter",
+    "model": null,
+    "estimatedUsd": 0.003,
+    "attempts": 2,
+    "prompt": "Transcribe every piece of text visible in this image exactly as written, including umlauts, ß, punctuation, capitalisation, small print, numbers and any text inside logos or interface elements. One text block per line, top to bottom. Do not translate, correct or add anything. If there is no text, answer NONE."
+  },
+  "checks": {
+    "_note": "R3.6 image checks (workflows/image_check.py), calibrated on the approved references (all pass) and tests/fixtures/rejected/ (all fail): base = median of the darkest 40% of the pixels.",
+    "base": {
+      "feedMax": 52,
+      "carouselMax": 52,
+      "brightBlueFrom": 110,
+      "blueShareFrom": 0.2,
+      "lightFrom": 100,
+      "medianLightFrom": 90,
+      "warmShareFrom": 0.15
+    },
+    "ctaGapPx": 12
+  },
   "categories": {
     "linkedin_post": {
       "category": "LinkedIn post",
@@ -25,7 +63,5 @@
       "platform": "Instagram",
       "purpose": "one slide of an informative carousel; every slide of the set shares the same look"
     }
-  },
-  "mission": "KI-Automatisierung, die Ergebnisse schafft (AI automation that creates results; brandedgenius.de): AI agents and workflows, AI chatbots, AI callbots, AI marketing and sales automation and AI workshops for companies in Germany (the verified services of config/services.json)",
-  "maxReferences": 3
+  }
 }

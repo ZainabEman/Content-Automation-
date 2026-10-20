@@ -221,7 +221,10 @@ def estimate_cost_usd(
     capabilities = get_provider(settings.image_provider, settings).capabilities
     per_image = capabilities.est_cost_usd_per_image.get(request.image_size, 0.0)
     per_request = capabilities.est_cost_usd_per_request if cold_start else 0.0
-    return round(per_image * request.count + per_request, 4)
+    # v6 R3.4: the text read back after each image (a vision check through OpenRouter)
+    check = float(request.options.get("textCheckUsd", 0) or 0) if (
+        settings.image_provider not in ("mock", "template")) else 0.0
+    return round((per_image + check) * request.count + per_request, 4)
 
 
 def model_for(settings: Settings) -> str:

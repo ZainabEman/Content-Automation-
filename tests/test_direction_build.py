@@ -88,18 +88,30 @@ def test_designer_prompt_keeps_the_designers_six_elements(mock_settings: Setting
                                                            direction_platform="linkedin"),
                                 mock_settings)
     prompt = prepared.request.prompt
-    for part in ("Be my expert graphic designer", "professional, creative, ad-style",
-                 "LinkedIn post", "brand style guide (image 1)", "official Branded Genius logo",
-                 "motive and aim of Branded Genius", "creative freedom", "Format: 3:4 (1080x1440)",
-                 ILLUSTRATION, "Keep these areas calm, dark and empty", "Draw no text"):
+    # v6 R3.3/R3.4: the designer's own prompt (brand/designer_prompt.md) adapted to the
+    # category, the exact German strings, the look in words, explicit negatives, the format
+    for part in ("Be my expert graphic designer and show your skill and generate for me a "
+                 "professional, creative, ad style post that I can post on LinkedIn using "
+                 "Brandit Genius brand style guide", "motive and aim of Branded Genius",
+                 "Must be 3:4", "colour section of the Branded Genius brand style guide",
+                 "official Branded Genius logo, for recognition only", "LinkedIn post",
+                 "near-black, deep midnight-navy base", ILLUSTRATION,
+                 '"EIN SYSTEM FÜR IHREN VERTRIEB" (the words "IHREN VERTRIEB" in light blue)',
+                 '"VON DER ERSTEN ANFRAGE BIS ZUM GEBUCHTEN TERMIN."', "Never write coordinates",
+                 "no flat bright-blue fill", "(1080x1440)"):
         assert part in prompt, part
-    assert "Ein System für Ihren Vertrieb" in prompt  # the headline as context only (R3.2)
-    assert "Von der ersten Anfrage" not in prompt  # never the rest of the copy
+    assert "%" not in prompt and "x 6-" not in prompt  # R3.1 pattern 1: zones in words only
+    assert prepared.inputs["designMode"] == "designer"
     assert "designerMissing" in prepared.inputs  # mock: no guide/refs in this folder
+    composite = prepare_workflow("social_creative", _inputs(
+        "LI-2", copy, direction_platform="linkedin", design_mode="composite"), mock_settings)
+    assert composite.request.object_refs == [] and composite.request.style_refs == []
+    assert "Create only the picture" in composite.request.prompt
+    assert "EIN SYSTEM" not in composite.request.prompt  # composite: never the copy
     refs = Path(mock_settings.references_dir)
     _guide_pdf(refs / "brand" / "guidelines" / "Branded Genius Brand Style Guide.pdf")
-    for name in ("01.jpg", "06.jpg"):
-        target = refs / "creative" / "facebook_ads" / name
+    for name in ("01.png", "06.png"):  # v6: the logo-masked copies are sent
+        target = refs / "creative" / "facebook_ads_masked" / name
         target.parent.mkdir(parents=True, exist_ok=True)
         Image.new("RGB", (64, 64), (3, 6, 18)).save(target)
     full = prepare_workflow("social_creative", _inputs("LI-2", copy,
@@ -108,7 +120,11 @@ def test_designer_prompt_keeps_the_designers_six_elements(mock_settings: Setting
     assert [ref.asset_id for ref in full.request.object_refs] == ["brand-style-guide",
                                                                   "brand-logo"]
     assert [ref.asset_id for ref in full.request.style_refs] == ["ref-A01", "ref-A06"]
-    assert "designerMissing" not in full.inputs and "images 3-4" in full.request.prompt
+    assert "designerMissing" not in full.inputs and "Images 3 to 4 are" in full.request.prompt
+    # the guide is sent as its colour section, the ads as their logo-masked copies (R3.4)
+    assert full.request.object_refs[0].path.name == "brand_style_guide_colours.jpg"
+    assert all("facebook_ads_masked" in ref.path.as_posix()
+               for ref in full.request.style_refs)
 
 
 def test_a_paid_job_never_runs_without_the_designer_inputs(mock_settings: Settings) -> None:

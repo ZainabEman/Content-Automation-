@@ -91,10 +91,14 @@ def test_repo_brand_tokens_are_the_guide_colours(tmp_path: Path) -> None:
     assert brand.tokens is not None and brand.typography is not None
     palette = {color.hex.upper() for color in brand.colors}
     assert palette == {"#004BA0", "#69BFF8", "#969595", "#FFFFFF"}
-    assert set(brand.tokens.hexes().values()) <= palette
-    assert brand.tokens.get("bg_dark").hex == "#004BA0"
+    sampled = {color.hex.upper(): color.source for color in brand.sampled_colors}
+    assert set(brand.tokens.hexes().values()) <= palette | set(sampled)
+    # v6 R3.2: the base is the midnight navy sampled from the approved ads, never Royal Blue
+    assert brand.tokens.get("bg_dark").hex == "#000514"
+    assert "creative/facebook_ads" in sampled["#000514"]
+    assert brand.tokens.get("bg_black").hex == "#000000"
     assert all(token.source for token in (brand.tokens.get(role) for role in
-                                          ("bg_dark", "accent", "muted")))
+                                          ("bg_dark", "accent", "muted", "panel")))
     assert brand.typography.families() == ["Futura", "Jost"]
     assert brand.logo_variant("dark").id == "white"
     assert brand.logo_variant("light").sha256.startswith("ff800645c78e")

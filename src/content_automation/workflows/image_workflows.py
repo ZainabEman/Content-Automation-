@@ -14,10 +14,14 @@ from content_automation.ai.image import (
     ReferenceImage,
     get_provider,
 )
+from content_automation.content.design_variation import Variation, can_mirror
+from content_automation.content.design_variation import apply as apply_variation
 from content_automation.content.designer_prompt import (
     DesignerInputs,
     DesignerPromptError,
+    default_mode,
     designer_inputs,
+    mirror_words,
 )
 from content_automation.content.directions import (
     CANVAS,
@@ -70,6 +74,7 @@ from content_automation.workflows.design_system import (
     resolve_design,
 )
 from content_automation.workflows.direction_job import (
+    DESIGNER_CHECK_FAILED,
     DirectionDesign,
     DirectionJobError,
     direction_layout,
@@ -97,6 +102,7 @@ from content_automation.workflows.text_overlay import (
     prepare_text_overlay,
     use_text_overlay,
 )
+from content_automation.workflows.text_reader import estimated_check_usd, text_check_config
 from content_automation.workflows.variety import (
     DesignLook,
     DesignPicks,
@@ -180,6 +186,11 @@ class WorkflowInputs:
     requires_roman: bool | None = None
     # 2026-10-20: Roman's combination (side/background/pose/hologram), chosen at stage 1
     roman_combination: str | None = None
+    # v6 (R3.4/R3.5): designer | composite (None: config/designer_prompts.json mode), the
+    # designer attempt (2 = the automatic retry), and the package's variation
+    design_mode: str | None = None
+    design_attempt: int = 1
+    variation: str | None = None
 
     def provided(self) -> set[InputName]:
         values: dict[InputName, str | bool | None] = {
@@ -830,6 +841,10 @@ def _prepare_direction(
         own = direction_settings(direction, picture, settings)
         capabilities = get_provider(own.image_provider, own).capabilities
         person = direction.roman and picture
+        mode = "composite" if person or not picture else (
+            "composite" if inputs.design_mode == "composite" else
+            "designer" if inputs.design_mode == "designer" else default_mode())
+        layout = _varied(direction, layout, catalog, inputs.variation)
         if not picture:
             prompt = f"{direction.id}: no picture generated; the app renders the design"
         elif person and combination is not None:
@@ -848,19 +863,29 @@ def _prepare_direction(
             recorded["identity"] = "trained LoRA (no identity photos sent)"
         else:
             picture_text = illustration_prompt(direction, catalog, copy, inputs.prompt or None)
+            if inputs.variation and Variation.parse(inputs.variation).side == "R" and (
+                    can_mirror(direction)):
+                picture_text = mirror_words(picture_text)
             designer = _designer(direction, layout, catalog, picture_text, copy, inputs, own,
-                                 role)
+                                 role, mode)
             prompt = designer.prompt
             recorded.update(designer.record())
     except (DirectionJobError, ReferenceLibraryError, DesignerPromptError,
-            RoutingError) as error:
+            RoutingError, DirectionError) as error:
         raise WorkflowError(str(error)) from None
     number = (inputs.slide or "").partition("/")[0].strip()
     design = DirectionDesign(direction=direction.id, layout=name, copy=copy,
                              platform=inputs.direction_platform,
-                             step=int(number) - 1 if number.isdigit() else 0)
+                             step=int(number) - 1 if number.isdigit() else 0, mode=mode,
+                             texts=designer.texts if designer is not None else [],
+                             variation=inputs.variation)
     recorded["personShown"] = person
     recorded["design"] = design.to_json()
+    recorded["designMode"] = mode
+    if mode == "designer" and inputs.design_attempt > 1:
+        recorded["designAttempt"] = str(inputs.design_attempt)
+    if inputs.variation:
+        recorded["variation"] = inputs.variation
     if inputs.slide:
         recorded["slide"] = inputs.slide
     aspect: AspectRatio = picture_aspect(direction, layout, catalog) if picture else "4:5"
@@ -871,7 +896,10 @@ def _prepare_direction(
         object_refs=designer.object_refs if designer is not None else [],
         style_refs=designer.style_refs if designer is not None else [],
         options=({"combination": combination.id, "side": combination.side}
-                 if combination is not None else {}),
+                 if combination is not None else
+                 # v6 R3.4: the text read back costs one vision check (in the estimate)
+                 {"designMode": mode, "textCheckUsd": f"{estimated_check_usd():.4f}"}
+                 if picture else {}),
         aspect_ratio=aspect,
         image_size=settings.image_design_size if picture else "1K",
         count=inputs.count,
@@ -881,22 +909,30 @@ def _prepare_direction(
                             inputs=recorded, person_shown=person, settings=own, design=design)
 
 
+def _varied(direction: Direction, layout: Layout, catalog: DirectionCatalog,
+            variation: str | None) -> Layout:
+    """v6 R3.5: the layout in the package's variation (unchanged without one)."""
+    if not variation:
+        return layout
+    return apply_variation(direction, layout, Variation.parse(variation), catalog)
+
+
 def _designer(direction: Direction, layout: Layout, catalog: DirectionCatalog, picture: str,
               copy: dict[str, Any], inputs: WorkflowInputs, settings: Settings,
-              role: str | None) -> DesignerInputs:
-    """v5 R3: the designer's prompt with the guide, the logo and the approved references."""
+              role: str | None, mode: str = "designer") -> DesignerInputs:
+    """v6 R3.3/R3.4: the designer's prompt (designer mode: with the guide's colours, the logo
+    and the masked references; composite mode: the scene only, no image inputs)."""
     brand = load_brand(settings.references_dir)
     try:
         logo: Path | None = logo_file(brand, settings.references_dir)
     except DesignRenderError:
         logo = None  # named as missing; a paid job then stops
-    headline = " ".join(str(copy.get(name) or "") for name in ("headline", "main")).strip()
     return designer_inputs(
-        direction, layout, catalog, picture=picture, topic=inputs.topic or "",
-        headline=headline.replace("*", "").replace("[[", "").replace("]]", ""),
+        direction, layout, catalog, picture=picture, topic=inputs.topic or "", copy=copy,
         references_dir=settings.references_dir, logo_path=logo,
         cache_dir=settings.output_dir.parent / "cache", role=role,
-        mock=settings.image_provider == "mock")
+        mock=settings.image_provider == "mock",
+        mode="composite" if mode == "composite" else "designer")
 
 
 def run_workflow(
@@ -904,8 +940,35 @@ def run_workflow(
 ) -> Job:
     """Prepare the workflow (fails early on bad inputs), then run it as an image job.
 
-    cold_start=False: it follows another job of the same build on a warm worker."""
+    cold_start=False: it follows another job of the same build on a warm worker.
+    v6 R3.4: a designer-mode image that fails its text verification or image checks gets one
+    automatic retry (both attempts count toward the cost), then composite mode; the returned
+    job is the last one, with the earlier attempts named in its notes."""
     prepared = prepare_workflow(workflow_id, inputs, settings)
+    job = _run_prepared(prepared, inputs, settings, cold_start)
+    if prepared.design is None or prepared.design.mode != "designer":
+        return job
+    attempts = int(text_check_config().get("attempts", 2))
+    failed: list[str] = []
+    attempt = inputs.design_attempt
+    while job.status == "failed" and DESIGNER_CHECK_FAILED in (job.error or ""):
+        failed.append(f"designer attempt {attempt} ({job.job_id}): {job.error}")
+        attempt += 1
+        retry = (replace(inputs, design_attempt=attempt) if attempt <= attempts else
+                 replace(inputs, design_mode="composite"))
+        prepared = prepare_workflow(workflow_id, retry, settings)
+        job = _run_prepared(prepared, retry, settings, cold_start=False)
+        if retry.design_mode == "composite":
+            break
+    if failed:
+        job.notes.append("Designer mode: " + " | ".join(failed)
+                         + ("; composite mode used" if attempt > attempts else ""))
+        job.save()
+    return job
+
+
+def _run_prepared(prepared: PreparedWorkflow, inputs: WorkflowInputs, settings: Settings,
+                  cold_start: bool) -> Job:
     return run_image_job(
         prepared.request,
         prepared.settings or settings,

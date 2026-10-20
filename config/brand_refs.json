@@ -1,42 +1,68 @@
 {
-  "_note": "PRD v5 R2.3: the APPROVED company references (Branded Genius's own graphics: the Branded Genius logo is on every one of them). Files are under REFERENCES_DIR (assets/reference, git-ignored). Layout variants name these ids in referenceIds; the designer prompt attaches the chosen ones as style inputs. Competitor material is in the competitor archive, never listed here. Analysis: brand/reference-analysis.md.",
+  "_note": "PRD v5 R2.3: the APPROVED company references (Branded Genius's own graphics: the Branded Genius logo is on every one of them). Files are under REFERENCES_DIR (assets/reference, git-ignored). Layout variants name these ids in referenceIds; the designer prompt attaches the chosen ones as style inputs. Competitor material is in the competitor archive, never listed here. Analysis: brand/reference-analysis.md. v6 (PRD R3.4): the guide is sent as its colour section only (guidelineCrop: shares of the page; the logo and type specimens were copied into v5 images); ads are sent as their logo-masked copies (masked: creative/facebook_ads_masked/); carousel frames get their top corners masked (carouselMask: the logo and the old '01/07' counters) before they are sent. Third-party marks seen in the references (listed for Roman, not used as instructions): A01 shows a WhatsApp icon in the phone UI; carousel_07 shows a ChatGPT logo on a laptop and a Google search bar.",
   "guideline": "brand/guidelines/Branded Genius Brand Style Guide.pdf",
+  "guidelineCrop": [
+    0.42,
+    0.44,
+    0.95,
+    0.7
+  ],
+  "carouselMask": [
+    [
+      0.0,
+      0.0,
+      0.34,
+      0.2
+    ],
+    [
+      0.66,
+      0.0,
+      1.0,
+      0.2
+    ]
+  ],
   "refs": {
     "A01": {
       "file": "creative/facebook_ads/01.jpg",
       "kind": "facebook_ad",
       "use": "panel left with blue outline, uppercase headline with Sky Blue words, sub in capitals, phone + 3D robot right, CTA pill with arrow bottom right, chevrons bottom left, wordmark top left",
-      "sha256": "1c61fbdc2638916e08782d0c1e5b17303251fdd301550d361beadecad64c6776"
+      "sha256": "1c61fbdc2638916e08782d0c1e5b17303251fdd301550d361beadecad64c6776",
+      "masked": "creative/facebook_ads_masked/01.png"
     },
     "A02": {
       "file": "creative/facebook_ads/02.jpg",
       "kind": "facebook_ad",
       "use": "headline panel top left, before/after split picture (stressed vs relaxed man), light diagonal sweep bottom right, CTA pill with calendar icon, wordmark top right",
-      "sha256": "568db25df7d0966bda5243597539c0ae091fcaec1647e9841e489dd6a51bd057"
+      "sha256": "568db25df7d0966bda5243597539c0ae091fcaec1647e9841e489dd6a51bd057",
+      "masked": "creative/facebook_ads_masked/02.png"
     },
     "A03": {
       "file": "creative/facebook_ads/03.jpg",
       "kind": "facebook_ad",
       "use": "man right in a dark office with floating UI icons, headline right of centre, sub, play-icon CTA pill, wordmark top right",
-      "sha256": "c5a56206c2db5aba2c3414d860cbfbb554605a0baf54eeaa676cd7142a720e65"
+      "sha256": "c5a56206c2db5aba2c3414d860cbfbb554605a0baf54eeaa676cd7142a720e65",
+      "masked": "creative/facebook_ads_masked/03.png"
     },
     "A04": {
       "file": "creative/facebook_ads/04.png",
       "kind": "facebook_ad",
       "use": "text left (headline with a Sky Blue word), icon row of 4 circles with labels, dashboard visual right, CTA pill bottom right, wordmark top left",
-      "sha256": "a5a61737cc08e5a3c896bf9038187e9ad1f18fe767e5eb8c86a24098a87c7e9c"
+      "sha256": "a5a61737cc08e5a3c896bf9038187e9ad1f18fe767e5eb8c86a24098a87c7e9c",
+      "masked": "creative/facebook_ads_masked/04.png"
     },
     "A05": {
       "file": "creative/facebook_ads/05.jpg",
       "kind": "facebook_ad",
       "use": "text left, icon network right, icon row with labels, calendar CTA pill, wordmark top right",
-      "sha256": "a15a3832b44edffe0dcd9f7b5f48ecbc979e34115596d6da829e4d1aa330df0c"
+      "sha256": "a15a3832b44edffe0dcd9f7b5f48ecbc979e34115596d6da829e4d1aa330df0c",
+      "masked": "creative/facebook_ads_masked/05.png"
     },
     "A06": {
       "file": "creative/facebook_ads/06.jpg",
       "kind": "facebook_ad",
       "use": "glass panel left with headline and sub, man right with floating icons, CTA pill bottom right, wordmark top right",
-      "sha256": "919c5e26ebaf2e27d6830592a4951ed6bb9bec69ab85c320c6fc03006d84dcd0"
+      "sha256": "919c5e26ebaf2e27d6830592a4951ed6bb9bec69ab85c320c6fc03006d84dcd0",
+      "masked": "creative/facebook_ads_masked/06.png"
     },
     "K01": {
       "file": "creative/carousels/carousel_01/_frames/No 1__2.jpg",

@@ -78,7 +78,7 @@ def test_the_roman_row_rotates_the_four_roman_formats() -> None:
         chosen = pick_format("facebook", CATALOG, seed=str(seed), recent=["fb_tip"],
                              has_number=True, person_ok=True, override=ROMAN,
                              last_roman="roman_quote")
-        assert chosen.roman and chosen.id != "roman_quote" and chosen.theme != "light"
+        assert chosen.roman and chosen.id != "roman_quote" and chosen.theme != "panel"
     with pytest.raises(FormatError, match="never swapped"):
         pick_format("linkedin", CATALOG, seed="1", recent=[], has_number=True,
                     person_ok=False, override=ROMAN)
@@ -156,7 +156,7 @@ def test_template_keeps_text_off_the_picture() -> None:
     chosen = CATALOG.get("fb_tip")
     tile = render_tile(chosen, CATALOG, system, None, 1, None)
     assert tile.size == (1080, 1350)
-    panel = (0xF2, 0xF2, 0xF2)
+    panel = (0x00, 0x08, 0x1B)  # v6: the panel navy (no light theme)
     assert tile.getpixel((5, 5)) != panel and tile.getpixel((1075, 700)) != panel  # the picture
     assert tile.getpixel((5, 1340)) == panel and tile.getpixel((1075, 760)) == panel  # solid
 

@@ -11,6 +11,11 @@ identity (Roman from the LoRA needs a recorded person check; a real photo is ref
 v5 (PRD R2.7, R4): fonts from the brand set only; texts inside the 64 px margin; a carousel
 shows the logo and the website only on its last slide and never a slide number or counter
 ("01/07"); LinkedIn's logo sits at a side corner.
+v6 (PRD R3.6, R4.6): a Roman creative carries no logo and no website; each CTA keeps its text
+clear of its icon (checks.ctaGapPx); the image itself is checked by workflows/image_check.py
+(base colour, the text read back, logo rules), and an image with a facts sidecar
+(`<name>.facts.json`, or a rejected fixture's `<name>.json`) is checked from its pixels and its
+recorded reading alone.
 """
 
 from __future__ import annotations
@@ -28,6 +33,7 @@ from content_automation.content.directions import DirectionCatalog, DirectionErr
 from content_automation.content.relevance import unverified_claims
 from content_automation.references.brand import BrandProfile
 from content_automation.references.services import ServiceCatalog
+from content_automation.workflows.image_check import ImageFacts, check_image
 
 ASPECT_TOLERANCE = 0.01
 _NUMBER = re.compile(r"\d+(?:[.,]\d+)?\s*(?:%|x\b|€|eur\b|k\b)", re.IGNORECASE)
@@ -122,7 +128,10 @@ def check_manifest(
         if families and not any(str(font).lower().startswith(family.lower())
                                 for family in families):
             errors.append(f"font {font} is not a brand font ({', '.join(families)})")
-    if not logo and closing:
+    if direction.roman and (logo or manifest.get("footer")):
+        errors.append("[roman_logo] a Roman creative carries no logo and no website (PRD v6 "
+                      "R4.6)")
+    if not logo and closing and not direction.roman:
         errors.append("no logo: every design carries the official logo")
     elif logo:
         if logo.get("sha256") not in (official if official is not None else
@@ -175,6 +184,15 @@ def check_manifest(
         if len(str(text.get("text", ""))) > int(text.get("max_chars", 10_000)):
             warnings.append(f"{where}: longer than {text.get('max_chars')} characters")
 
+    gap_px = int(image_rules().get("ctaGapPx", 12))
+    for cta in manifest.get("ctas") or []:
+        text_box, icon_box = cta.get("text") or [], cta.get("icon") or []
+        if len(text_box) == 4 and len(icon_box) == 4 and (
+                _overlap((text_box[0], text_box[1], text_box[2], text_box[3]),
+                         (icon_box[0], icon_box[1], icon_box[2], icon_box[3]))
+                or int(cta.get("gapPx", 0)) < gap_px):
+            errors.append(f"[cta_collision] {cta.get('zone')}: the text comes within "
+                          f"{cta.get('gapPx')} px of its icon (at least {gap_px} px)")
     banned = [contact.value for contact in (brand.contact.email, brand.contact.phone)
               if contact is not None and not contact.on_graphics]
     texts = " ".join(str(text.get("text", "")) for text in manifest.get("texts") or [])
@@ -201,14 +219,51 @@ def check_manifest(
     return report
 
 
+def image_rules() -> dict[str, Any]:
+    """config/designer_prompts.json `checks` (the R3.6 thresholds)."""
+    from content_automation.content.designer_prompt import load_templates
+
+    rules = load_templates().get("checks", {})
+    return rules if isinstance(rules, dict) else {}
+
+
+def _facts_image(path: Path) -> Path | None:
+    """The image a facts sidecar describes: `<name>.facts.json` or a fixture's `<name>.json`
+    (it has a category and no render direction)."""
+    stem = path.name.removesuffix(".json").removesuffix(".facts")
+    if not path.name.endswith(".facts.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        if not isinstance(data, dict) or "category" not in data or "direction" in data:
+            return None
+    return next((path.parent / f"{stem}{suffix}" for suffix in (".png", ".jpg")
+                 if (path.parent / f"{stem}{suffix}").is_file()), None)
+
+
+def check_facts(image_path: Path, facts_file: Path) -> Report:
+    """A finished image checked against what it was meant to be (workflows/image_check.py)."""
+    data = json.loads(facts_file.read_text(encoding="utf-8"))
+    with Image.open(image_path) as opened:
+        image = opened.convert("RGB")
+    return Report(image_path.name,
+                  errors=check_image(image, ImageFacts.parse(data), image_rules()))
+
+
 def check_files(paths: list[Path], *, catalog: DirectionCatalog, brand: BrandProfile,
                 services: ServiceCatalog, person_check: str | None = None) -> list[Report]:
-    """Check every manifest given (a folder: each *.json manifest in it)."""
+    """Check every manifest given (a folder: each *.json manifest in it); an image with a facts
+    sidecar gets the v6 image checks."""
     manifests: list[Path] = []
     for path in paths:
         manifests += sorted(path.glob("*.json")) if path.is_dir() else [path]
     reports: list[Report] = []
     for path in manifests:
+        facts_image = _facts_image(path)
+        if facts_image is not None:
+            reports.append(check_facts(facts_image, path))
+            continue
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as error:
@@ -229,4 +284,4 @@ def check_files(paths: list[Path], *, catalog: DirectionCatalog, brand: BrandPro
     return reports
 
 
-__all__ = ["Report", "check_files", "check_manifest"]
+__all__ = ["Report", "check_facts", "check_files", "check_manifest", "image_rules"]

@@ -1,5 +1,5 @@
 {
-  "_note": "v5 layout variants (PRD R4/R5), derived from the APPROVED company references (config/brand_refs.json; analysis brand/reference-analysis.md). The Phase D directions were competitor-derived and are moved to the competitor archive (never read). Categories: carousel = Instagram carousel 1:1 (5-6 slides), fb_single = Facebook post 4:5, fb_ad = Facebook ad 4:5, li_single = LinkedIn post 3:4. Ids with R are founder variants (Roman by Higgsfield Soul 2.0 (his saved character)). treatment = background treatment; rotation never repeats the previous variant and never uses one treatment three times in a row on a platform. The image model draws the picture only (designer prompt: config/designer_prompts.json); the app draws the exact German text, the official logo and the website. Built by the v5 run 2026-10-19.",
+  "_note": "v5 layout variants (PRD R4/R5), derived from the APPROVED company references (config/brand_refs.json; analysis brand/reference-analysis.md). The Phase D directions were competitor-derived and are moved to the competitor archive (never read). Categories: carousel = Instagram carousel 1:1 (5-6 slides), fb_single = Facebook post 4:5, fb_ad = Facebook ad 4:5, li_single = LinkedIn post 3:4. Ids with R are founder variants (Roman by Higgsfield Soul 2.0 (his saved character)). treatment = background treatment; rotation never repeats the previous variant and never uses one treatment three times in a row on a platform. The image model draws the picture only (designer prompt: config/designer_prompts.json); the app draws the exact German text, the official logo and the website. Built by the v5 run 2026-10-19. v6 (PRD R3.2, R3.5): bases are the sampled midnight navy (feed: bg_dark + vignette + glow) and pure black (carousels: bg_black with a dot grid, edge arcs and a particle wave), panels the sampled panel navy with a glowing outline and one cut corner, the CTA a wide dark button with its icon clear of the text, the carousel's last slide the emblem + wordmark and the LIKEN/TEILEN/SPEICHERN bar; the Light Sweep variants are dark; Roman's founder layouts carry no logo and no website (R4.6); decorations = the sets a variation adds (content/design_variation.py).",
   "canvasPresets": {
     "1:1": [
       1080,
@@ -138,7 +138,8 @@
     "focus-2",
     "heart",
     "bookmark",
-    "share"
+    "share",
+    "play"
   ],
   "noText": "no text, no letters, no numbers, no words, no labels, no UI, no charts, no screens, no logos, no signage, no documents, no placeholder boxes",
   "blockedVisualWords": [
@@ -286,7 +287,17 @@
         "post": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_dark",
+            "vignette": 0.6,
+            "glows": [
+              [
+                "primary",
+                0.78,
+                0.42,
+                0.5,
+                0.32
+              ]
+            ]
           },
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
@@ -351,7 +362,10 @@
               ],
               "outline": "accent",
               "radius": 0.04,
-              "bleed": true
+              "bleed": true,
+              "fill": "panel",
+              "alpha": 0.9,
+              "cut": 0.07
             },
             "logo": {
               "kind": "logo",
@@ -419,9 +433,9 @@
               "valign": "middle",
               "icon": "arrow-right",
               "pill": {
-                "fill": "bg_dark",
+                "fill": "panel",
                 "outline": "accent",
-                "alpha": 0.92
+                "alpha": 0.95
               }
             },
             "footer": {
@@ -493,7 +507,17 @@
         "post": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_dark",
+            "vignette": 0.6,
+            "glows": [
+              [
+                "primary",
+                0.78,
+                0.42,
+                0.5,
+                0.32
+              ]
+            ]
           },
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
@@ -522,11 +546,12 @@
                 0.62,
                 0.36
               ],
-              "fill": "bg_dark",
+              "fill": "panel",
               "alpha": 0.9,
               "outline": "accent",
               "radius": 0.03,
-              "bleed": true
+              "bleed": true,
+              "cut": 0.07
             },
             "logo": {
               "kind": "logo",
@@ -581,9 +606,9 @@
               "valign": "middle",
               "icon": "arrow-right",
               "pill": {
-                "fill": "bg_dark",
+                "fill": "panel",
                 "outline": "accent",
-                "alpha": 0.92
+                "alpha": 0.95
               }
             }
           },
@@ -636,7 +661,17 @@
         "post": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_dark",
+            "vignette": 0.6,
+            "glows": [
+              [
+                "primary",
+                0.78,
+                0.42,
+                0.5,
+                0.32
+              ]
+            ]
           },
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
@@ -737,9 +772,9 @@
                 0.96,
                 0.79
               ],
-              "fill": "bg_dark",
+              "fill": "panel",
               "alpha": 0.9,
-              "outline": "accent",
+              "outline": "primary",
               "radius": 0.025,
               "bleed": true
             },
@@ -772,9 +807,9 @@
               "valign": "middle",
               "icon": "arrow-right",
               "pill": {
-                "fill": "bg_dark",
+                "fill": "panel",
                 "outline": "accent",
-                "alpha": 0.92
+                "alpha": 0.95
               }
             },
             "footer": {
@@ -844,16 +879,24 @@
       "provider": "openrouter",
       "visual": {
         "subject": "illustration",
-        "placement": "lower right, fading into the light background",
-        "prompt": "{illustration}, one clean 3D object with Royal Blue and Sky Blue glass accents on a white to light silver background, soft daylight, generous empty space at the top and left, premium tech look like the Branded Genius company graphics, no text, no letters, no numbers, no logos, no UI writing, no slide numbers"
+        "placement": "lower right, a soft diagonal light sweep fading into the dark navy base",
+        "prompt": "{illustration}, one premium 3D object with royal-blue glass accents in the lower right, a soft diagonal sweep of blue light behind it, the top and left calm and dark for text, deep near-black navy background with a subtle vignette, premium tech look like the Branded Genius company graphics, no text, no letters, no numbers, no logos, no UI writing, no slide numbers"
       },
       "layouts": {
         "post": {
-          "theme": "light",
+          "theme": "dark",
           "background": {
-            "fill": "bg_light",
-            "gradient": "silver",
-            "angle": 160
+            "fill": "bg_dark",
+            "vignette": 0.6,
+            "glows": [
+              [
+                "primary",
+                0.78,
+                0.42,
+                0.5,
+                0.32
+              ]
+            ]
           },
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
@@ -906,8 +949,8 @@
               ],
               "size": 70,
               "weight": "bold",
-              "accent": "text_on_light",
-              "color": "text_on_light"
+              "accent": "accent",
+              "color": "text_on_dark"
             },
             "sub": {
               "kind": "text",
@@ -921,7 +964,7 @@
               ],
               "size": 30,
               "weight": "medium",
-              "color": "text_on_light"
+              "color": "text_on_dark"
             },
             "footer": {
               "kind": "footer",
@@ -1020,8 +1063,8 @@
               "bleed": true,
               "gradient": {
                 "color": "bg_dark",
-                "start": 0.95,
-                "end": 0.9,
+                "start": 0.72,
+                "end": 0.6,
                 "toward": "right"
               }
             },
@@ -1037,19 +1080,10 @@
               "bleed": true,
               "gradient": {
                 "color": "bg_dark",
-                "start": 0.9,
+                "start": 0.6,
                 "end": 0.0,
                 "toward": "right"
               }
-            },
-            "logo": {
-              "kind": "logo",
-              "box": [
-                0.06,
-                0.048,
-                0.34,
-                0.125
-              ]
             },
             "headline": {
               "kind": "text",
@@ -1095,9 +1129,9 @@
               "valign": "middle",
               "icon": "arrow-right",
               "pill": {
-                "fill": "bg_dark",
+                "fill": "panel",
                 "outline": "accent",
-                "alpha": 0.92
+                "alpha": 0.95
               }
             }
           },
@@ -1153,8 +1187,8 @@
               "bleed": true,
               "gradient": {
                 "color": "bg_dark",
-                "start": 0.95,
-                "end": 0.9,
+                "start": 0.72,
+                "end": 0.6,
                 "toward": "left"
               }
             },
@@ -1170,19 +1204,10 @@
               "bleed": true,
               "gradient": {
                 "color": "bg_dark",
-                "start": 0.9,
+                "start": 0.6,
                 "end": 0.0,
                 "toward": "left"
               }
-            },
-            "logo": {
-              "kind": "logo",
-              "box": [
-                0.66,
-                0.048,
-                0.94,
-                0.125
-              ]
             },
             "headline": {
               "kind": "text",
@@ -1228,9 +1253,9 @@
               "valign": "middle",
               "icon": "arrow-right",
               "pill": {
-                "fill": "bg_dark",
+                "fill": "panel",
                 "outline": "accent",
-                "alpha": 0.92
+                "alpha": 0.95
               }
             }
           },
@@ -1284,7 +1309,17 @@
         "post": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_dark",
+            "vignette": 0.6,
+            "glows": [
+              [
+                "primary",
+                0.78,
+                0.42,
+                0.5,
+                0.32
+              ]
+            ]
           },
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
@@ -1349,7 +1384,10 @@
               ],
               "outline": "accent",
               "radius": 0.04,
-              "bleed": true
+              "bleed": true,
+              "fill": "panel",
+              "alpha": 0.9,
+              "cut": 0.07
             },
             "logo": {
               "kind": "logo",
@@ -1417,9 +1455,9 @@
               "valign": "middle",
               "icon": "arrow-right",
               "pill": {
-                "fill": "bg_dark",
+                "fill": "panel",
                 "outline": "accent",
-                "alpha": 0.92
+                "alpha": 0.95
               }
             }
           },
@@ -1471,7 +1509,17 @@
         "post": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_dark",
+            "vignette": 0.6,
+            "glows": [
+              [
+                "primary",
+                0.78,
+                0.42,
+                0.5,
+                0.32
+              ]
+            ]
           },
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
@@ -1500,11 +1548,12 @@
                 0.62,
                 0.36
               ],
-              "fill": "bg_dark",
+              "fill": "panel",
               "alpha": 0.9,
               "outline": "accent",
               "radius": 0.03,
-              "bleed": true
+              "bleed": true,
+              "cut": 0.07
             },
             "logo": {
               "kind": "logo",
@@ -1559,9 +1608,9 @@
               "valign": "middle",
               "icon": "arrow-right",
               "pill": {
-                "fill": "bg_dark",
+                "fill": "panel",
                 "outline": "accent",
-                "alpha": 0.92
+                "alpha": 0.95
               }
             }
           },
@@ -1613,7 +1662,17 @@
         "post": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_dark",
+            "vignette": 0.6,
+            "glows": [
+              [
+                "primary",
+                0.78,
+                0.42,
+                0.5,
+                0.32
+              ]
+            ]
           },
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
@@ -1714,9 +1773,9 @@
                 0.96,
                 0.79
               ],
-              "fill": "bg_dark",
+              "fill": "panel",
               "alpha": 0.9,
-              "outline": "accent",
+              "outline": "primary",
               "radius": 0.025,
               "bleed": true
             },
@@ -1749,9 +1808,9 @@
               "valign": "middle",
               "icon": "arrow-right",
               "pill": {
-                "fill": "bg_dark",
+                "fill": "panel",
                 "outline": "accent",
-                "alpha": 0.92
+                "alpha": 0.95
               }
             }
           },
@@ -1840,8 +1899,8 @@
               "bleed": true,
               "gradient": {
                 "color": "bg_dark",
-                "start": 0.95,
-                "end": 0.9,
+                "start": 0.72,
+                "end": 0.6,
                 "toward": "right"
               }
             },
@@ -1857,19 +1916,10 @@
               "bleed": true,
               "gradient": {
                 "color": "bg_dark",
-                "start": 0.9,
+                "start": 0.6,
                 "end": 0.0,
                 "toward": "right"
               }
-            },
-            "logo": {
-              "kind": "logo",
-              "box": [
-                0.06,
-                0.048,
-                0.34,
-                0.125
-              ]
             },
             "headline": {
               "kind": "text",
@@ -1915,9 +1965,9 @@
               "valign": "middle",
               "icon": "arrow-right",
               "pill": {
-                "fill": "bg_dark",
+                "fill": "panel",
                 "outline": "accent",
-                "alpha": 0.92
+                "alpha": 0.95
               }
             }
           },
@@ -1973,8 +2023,8 @@
               "bleed": true,
               "gradient": {
                 "color": "bg_dark",
-                "start": 0.95,
-                "end": 0.9,
+                "start": 0.72,
+                "end": 0.6,
                 "toward": "left"
               }
             },
@@ -1990,19 +2040,10 @@
               "bleed": true,
               "gradient": {
                 "color": "bg_dark",
-                "start": 0.9,
+                "start": 0.6,
                 "end": 0.0,
                 "toward": "left"
               }
-            },
-            "logo": {
-              "kind": "logo",
-              "box": [
-                0.66,
-                0.048,
-                0.94,
-                0.125
-              ]
             },
             "headline": {
               "kind": "text",
@@ -2048,9 +2089,9 @@
               "valign": "middle",
               "icon": "arrow-right",
               "pill": {
-                "fill": "bg_dark",
+                "fill": "panel",
                 "outline": "accent",
-                "alpha": 0.92
+                "alpha": 0.95
               }
             }
           },
@@ -2109,7 +2150,17 @@
         "post": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_dark",
+            "vignette": 0.6,
+            "glows": [
+              [
+                "primary",
+                0.78,
+                0.42,
+                0.5,
+                0.32
+              ]
+            ]
           },
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
@@ -2290,7 +2341,17 @@
         "post": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_dark",
+            "vignette": 0.6,
+            "glows": [
+              [
+                "primary",
+                0.78,
+                0.42,
+                0.5,
+                0.32
+              ]
+            ]
           },
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
@@ -2355,7 +2416,10 @@
               ],
               "outline": "accent",
               "radius": 0.04,
-              "bleed": true
+              "bleed": true,
+              "fill": "panel",
+              "alpha": 0.9,
+              "cut": 0.07
             },
             "logo": {
               "kind": "logo",
@@ -2423,9 +2487,9 @@
               "valign": "middle",
               "icon": "arrow-right",
               "pill": {
-                "fill": "bg_dark",
+                "fill": "panel",
                 "outline": "accent",
-                "alpha": 0.92
+                "alpha": 0.95
               }
             },
             "footer": {
@@ -2498,7 +2562,17 @@
         "post": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_dark",
+            "vignette": 0.6,
+            "glows": [
+              [
+                "primary",
+                0.78,
+                0.42,
+                0.5,
+                0.32
+              ]
+            ]
           },
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
@@ -2599,9 +2673,9 @@
                 0.96,
                 0.79
               ],
-              "fill": "bg_dark",
+              "fill": "panel",
               "alpha": 0.9,
-              "outline": "accent",
+              "outline": "primary",
               "radius": 0.025,
               "bleed": true
             },
@@ -2634,9 +2708,9 @@
               "valign": "middle",
               "icon": "arrow-right",
               "pill": {
-                "fill": "bg_dark",
+                "fill": "panel",
                 "outline": "accent",
-                "alpha": 0.92
+                "alpha": 0.95
               }
             },
             "footer": {
@@ -2706,16 +2780,24 @@
       "provider": "openrouter",
       "visual": {
         "subject": "illustration",
-        "placement": "lower right, fading into the light background",
-        "prompt": "{illustration}, one clean 3D object with Royal Blue and Sky Blue glass accents on a white to light silver background, soft daylight, generous empty space at the top and left, premium tech look like the Branded Genius company graphics, no text, no letters, no numbers, no logos, no UI writing, no slide numbers"
+        "placement": "lower right, a soft diagonal light sweep fading into the dark navy base",
+        "prompt": "{illustration}, one premium 3D object with royal-blue glass accents in the lower right, a soft diagonal sweep of blue light behind it, the top and left calm and dark for text, deep near-black navy background with a subtle vignette, premium tech look like the Branded Genius company graphics, no text, no letters, no numbers, no logos, no UI writing, no slide numbers"
       },
       "layouts": {
         "post": {
-          "theme": "light",
+          "theme": "dark",
           "background": {
-            "fill": "bg_light",
-            "gradient": "silver",
-            "angle": 160
+            "fill": "bg_dark",
+            "vignette": 0.6,
+            "glows": [
+              [
+                "primary",
+                0.78,
+                0.42,
+                0.5,
+                0.32
+              ]
+            ]
           },
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
@@ -2768,8 +2850,8 @@
               ],
               "size": 70,
               "weight": "bold",
-              "accent": "text_on_light",
-              "color": "text_on_light"
+              "accent": "accent",
+              "color": "text_on_dark"
             },
             "sub": {
               "kind": "text",
@@ -2783,7 +2865,7 @@
               ],
               "size": 30,
               "weight": "medium",
-              "color": "text_on_light"
+              "color": "text_on_dark"
             },
             "footer": {
               "kind": "footer",
@@ -2882,8 +2964,8 @@
               "bleed": true,
               "gradient": {
                 "color": "bg_dark",
-                "start": 0.95,
-                "end": 0.9,
+                "start": 0.72,
+                "end": 0.6,
                 "toward": "right"
               }
             },
@@ -2899,19 +2981,10 @@
               "bleed": true,
               "gradient": {
                 "color": "bg_dark",
-                "start": 0.9,
+                "start": 0.6,
                 "end": 0.0,
                 "toward": "right"
               }
-            },
-            "logo": {
-              "kind": "logo",
-              "box": [
-                0.06,
-                0.048,
-                0.34,
-                0.125
-              ]
             },
             "headline": {
               "kind": "text",
@@ -2957,9 +3030,9 @@
               "valign": "middle",
               "icon": "arrow-right",
               "pill": {
-                "fill": "bg_dark",
+                "fill": "panel",
                 "outline": "accent",
-                "alpha": 0.92
+                "alpha": 0.95
               }
             }
           },
@@ -3015,8 +3088,8 @@
               "bleed": true,
               "gradient": {
                 "color": "bg_dark",
-                "start": 0.95,
-                "end": 0.9,
+                "start": 0.72,
+                "end": 0.6,
                 "toward": "left"
               }
             },
@@ -3032,19 +3105,10 @@
               "bleed": true,
               "gradient": {
                 "color": "bg_dark",
-                "start": 0.9,
+                "start": 0.6,
                 "end": 0.0,
                 "toward": "left"
               }
-            },
-            "logo": {
-              "kind": "logo",
-              "box": [
-                0.66,
-                0.048,
-                0.94,
-                0.125
-              ]
             },
             "headline": {
               "kind": "text",
@@ -3090,9 +3154,9 @@
               "valign": "middle",
               "icon": "arrow-right",
               "pill": {
-                "fill": "bg_dark",
+                "fill": "panel",
                 "outline": "accent",
-                "alpha": 0.92
+                "alpha": 0.95
               }
             }
           },
@@ -3150,7 +3214,7 @@
         "cover": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_black"
           },
           "fields": {
             "headline": "the cover hook in German, at most 9 words; key words *like this*",
@@ -3180,7 +3244,7 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.95,
                 "end": 0.88,
                 "toward": "right"
@@ -3197,23 +3261,49 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.88,
                 "end": 0.0,
                 "toward": "right"
               }
             },
-            "dots": {
+            "grid": {
               "kind": "shape",
               "shape": "dots",
               "box": [
                 0.06,
                 0.06,
                 0.2,
-                0.12
+                0.13
               ],
               "fill": "accent",
-              "alpha": 0.55
+              "alpha": 0.75
+            },
+            "arcs": {
+              "kind": "shape",
+              "shape": "arcs",
+              "box": [
+                0.0,
+                0.0,
+                1.0,
+                1.0
+              ],
+              "outline": "primary",
+              "alpha": 0.9,
+              "bleed": true
+            },
+            "wave": {
+              "kind": "shape",
+              "shape": "wave",
+              "box": [
+                0.0,
+                0.8,
+                1.0,
+                1.0
+              ],
+              "fill": "primary",
+              "alpha": 0.95,
+              "bleed": true
             },
             "headline": {
               "kind": "text",
@@ -3226,7 +3316,8 @@
                 0.62
               ],
               "size": 76,
-              "weight": "bold"
+              "weight": "bold",
+              "accent": "accent_bright"
             },
             "rule": {
               "kind": "shape",
@@ -3270,7 +3361,7 @@
         "point": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_black"
           },
           "fields": {
             "headline": "the slide headline in German, at most 9 words; key words *like this*",
@@ -3300,7 +3391,7 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.95,
                 "end": 0.88,
                 "toward": "right"
@@ -3317,23 +3408,49 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.88,
                 "end": 0.0,
                 "toward": "right"
               }
             },
-            "dots": {
+            "grid": {
               "kind": "shape",
               "shape": "dots",
               "box": [
                 0.06,
                 0.06,
                 0.2,
-                0.12
+                0.13
               ],
               "fill": "accent",
-              "alpha": 0.55
+              "alpha": 0.75
+            },
+            "arcs": {
+              "kind": "shape",
+              "shape": "arcs",
+              "box": [
+                0.0,
+                0.0,
+                1.0,
+                1.0
+              ],
+              "outline": "primary",
+              "alpha": 0.9,
+              "bleed": true
+            },
+            "wave": {
+              "kind": "shape",
+              "shape": "wave",
+              "box": [
+                0.0,
+                0.8,
+                1.0,
+                1.0
+              ],
+              "fill": "primary",
+              "alpha": 0.95,
+              "bleed": true
             },
             "headline": {
               "kind": "text",
@@ -3346,7 +3463,8 @@
                 0.46
               ],
               "size": 62,
-              "weight": "bold"
+              "weight": "bold",
+              "accent": "accent_bright"
             },
             "body": {
               "kind": "text",
@@ -3378,7 +3496,7 @@
         "cta": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_black"
           },
           "fields": {
             "headline": "the closing question or call in German, at most 9 words",
@@ -3409,7 +3527,7 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.95,
                 "end": 0.88,
                 "toward": "right"
@@ -3426,11 +3544,49 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.88,
                 "end": 0.0,
                 "toward": "right"
               }
+            },
+            "grid": {
+              "kind": "shape",
+              "shape": "dots",
+              "box": [
+                0.06,
+                0.06,
+                0.2,
+                0.13
+              ],
+              "fill": "accent",
+              "alpha": 0.75
+            },
+            "arcs": {
+              "kind": "shape",
+              "shape": "arcs",
+              "box": [
+                0.0,
+                0.0,
+                1.0,
+                1.0
+              ],
+              "outline": "primary",
+              "alpha": 0.9,
+              "bleed": true
+            },
+            "wave": {
+              "kind": "shape",
+              "shape": "wave",
+              "box": [
+                0.0,
+                0.8,
+                1.0,
+                1.0
+              ],
+              "fill": "primary",
+              "alpha": 0.95,
+              "bleed": true
             },
             "logo": {
               "kind": "logo",
@@ -3438,7 +3594,7 @@
                 0.64,
                 0.06,
                 0.94,
-                0.16
+                0.29
               ]
             },
             "headline": {
@@ -3452,7 +3608,8 @@
                 0.5
               ],
               "size": 64,
-              "weight": "bold"
+              "weight": "bold",
+              "accent": "accent_bright"
             },
             "sub": {
               "kind": "text",
@@ -3477,9 +3634,9 @@
                 0.955,
                 0.86
               ],
-              "fill": "bg_dark",
+              "fill": "bg_black",
               "alpha": 0.9,
-              "outline": "accent",
+              "outline": "primary",
               "radius": 0.03,
               "bleed": true
             },
@@ -3498,10 +3655,11 @@
                 "bookmark"
               ],
               "labels": [
-                "Liken",
-                "Teilen",
-                "Speichern"
-              ]
+                "LIKEN|wenn du zustimmst",
+                "TEILEN|mit deinem Netzwerk",
+                "SPEICHERN|für später"
+              ],
+              "style": "engagement"
             },
             "footer": {
               "kind": "footer",
@@ -3531,9 +3689,9 @@
               "minFontPx": 22
             },
             "engage": {
-              "maxChars": 12,
+              "maxChars": 24,
               "maxLines": 1,
-              "minFontPx": 16
+              "minFontPx": 14
             },
             "footer": {
               "maxChars": 30,
@@ -3608,7 +3766,7 @@
         "cover": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_black"
           },
           "fields": {
             "headline": "the cover hook in German, at most 9 words; key words *like this*",
@@ -3638,7 +3796,7 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.95,
                 "end": 0.88,
                 "toward": "right"
@@ -3655,11 +3813,49 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.88,
                 "end": 0.0,
                 "toward": "right"
               }
+            },
+            "grid": {
+              "kind": "shape",
+              "shape": "dots",
+              "box": [
+                0.06,
+                0.06,
+                0.2,
+                0.13
+              ],
+              "fill": "accent",
+              "alpha": 0.75
+            },
+            "arcs": {
+              "kind": "shape",
+              "shape": "arcs",
+              "box": [
+                0.0,
+                0.0,
+                1.0,
+                1.0
+              ],
+              "outline": "primary",
+              "alpha": 0.9,
+              "bleed": true
+            },
+            "wave": {
+              "kind": "shape",
+              "shape": "wave",
+              "box": [
+                0.0,
+                0.8,
+                1.0,
+                1.0
+              ],
+              "fill": "primary",
+              "alpha": 0.95,
+              "bleed": true
             },
             "headline": {
               "kind": "text",
@@ -3673,7 +3869,8 @@
               ],
               "size": 76,
               "weight": "bold",
-              "upper": true
+              "upper": false,
+              "accent": "accent_bright"
             },
             "sub": {
               "kind": "text",
@@ -3706,7 +3903,7 @@
         "point": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_black"
           },
           "fields": {
             "headline": "the slide headline in German, at most 9 words; key words *like this*",
@@ -3737,7 +3934,7 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.95,
                 "end": 0.88,
                 "toward": "right"
@@ -3754,11 +3951,49 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.88,
                 "end": 0.0,
                 "toward": "right"
               }
+            },
+            "grid": {
+              "kind": "shape",
+              "shape": "dots",
+              "box": [
+                0.06,
+                0.06,
+                0.2,
+                0.13
+              ],
+              "fill": "accent",
+              "alpha": 0.75
+            },
+            "arcs": {
+              "kind": "shape",
+              "shape": "arcs",
+              "box": [
+                0.0,
+                0.0,
+                1.0,
+                1.0
+              ],
+              "outline": "primary",
+              "alpha": 0.9,
+              "bleed": true
+            },
+            "wave": {
+              "kind": "shape",
+              "shape": "wave",
+              "box": [
+                0.0,
+                0.8,
+                1.0,
+                1.0
+              ],
+              "fill": "primary",
+              "alpha": 0.95,
+              "bleed": true
             },
             "number": {
               "kind": "text",
@@ -3772,7 +4007,8 @@
               ],
               "size": 104,
               "weight": "bold",
-              "color": "accent"
+              "color": "accent",
+              "accent": "accent_bright"
             },
             "headline": {
               "kind": "text",
@@ -3786,7 +4022,8 @@
               ],
               "size": 54,
               "weight": "bold",
-              "upper": true
+              "upper": false,
+              "accent": "accent_bright"
             },
             "body": {
               "kind": "text",
@@ -3823,7 +4060,7 @@
         "cta": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_black"
           },
           "fields": {
             "headline": "the closing question or call in German, at most 9 words",
@@ -3854,7 +4091,7 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.95,
                 "end": 0.88,
                 "toward": "right"
@@ -3871,11 +4108,49 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.88,
                 "end": 0.0,
                 "toward": "right"
               }
+            },
+            "grid": {
+              "kind": "shape",
+              "shape": "dots",
+              "box": [
+                0.06,
+                0.06,
+                0.2,
+                0.13
+              ],
+              "fill": "accent",
+              "alpha": 0.75
+            },
+            "arcs": {
+              "kind": "shape",
+              "shape": "arcs",
+              "box": [
+                0.0,
+                0.0,
+                1.0,
+                1.0
+              ],
+              "outline": "primary",
+              "alpha": 0.9,
+              "bleed": true
+            },
+            "wave": {
+              "kind": "shape",
+              "shape": "wave",
+              "box": [
+                0.0,
+                0.8,
+                1.0,
+                1.0
+              ],
+              "fill": "primary",
+              "alpha": 0.95,
+              "bleed": true
             },
             "logo": {
               "kind": "logo",
@@ -3883,7 +4158,7 @@
                 0.64,
                 0.06,
                 0.94,
-                0.16
+                0.29
               ]
             },
             "headline": {
@@ -3897,7 +4172,8 @@
                 0.5
               ],
               "size": 64,
-              "weight": "bold"
+              "weight": "bold",
+              "accent": "accent_bright"
             },
             "sub": {
               "kind": "text",
@@ -3922,9 +4198,9 @@
                 0.955,
                 0.86
               ],
-              "fill": "bg_dark",
+              "fill": "bg_black",
               "alpha": 0.9,
-              "outline": "accent",
+              "outline": "primary",
               "radius": 0.03,
               "bleed": true
             },
@@ -3943,10 +4219,11 @@
                 "bookmark"
               ],
               "labels": [
-                "Liken",
-                "Teilen",
-                "Speichern"
-              ]
+                "LIKEN|wenn du zustimmst",
+                "TEILEN|mit deinem Netzwerk",
+                "SPEICHERN|für später"
+              ],
+              "style": "engagement"
             },
             "footer": {
               "kind": "footer",
@@ -3976,9 +4253,9 @@
               "minFontPx": 22
             },
             "engage": {
-              "maxChars": 12,
+              "maxChars": 24,
               "maxLines": 1,
-              "minFontPx": 16
+              "minFontPx": 14
             },
             "footer": {
               "maxChars": 30,
@@ -4052,7 +4329,7 @@
         "cover": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_black"
           },
           "fields": {
             "headline": "the cover hook in German, at most 9 words; key words *like this*",
@@ -4082,7 +4359,7 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.95,
                 "end": 0.88,
                 "toward": "down"
@@ -4099,11 +4376,49 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.88,
                 "end": 0.0,
                 "toward": "down"
               }
+            },
+            "grid": {
+              "kind": "shape",
+              "shape": "dots",
+              "box": [
+                0.06,
+                0.06,
+                0.2,
+                0.13
+              ],
+              "fill": "accent",
+              "alpha": 0.75
+            },
+            "arcs": {
+              "kind": "shape",
+              "shape": "arcs",
+              "box": [
+                0.0,
+                0.0,
+                1.0,
+                1.0
+              ],
+              "outline": "primary",
+              "alpha": 0.9,
+              "bleed": true
+            },
+            "wave": {
+              "kind": "shape",
+              "shape": "wave",
+              "box": [
+                0.0,
+                0.8,
+                1.0,
+                1.0
+              ],
+              "fill": "primary",
+              "alpha": 0.95,
+              "bleed": true
             },
             "headline": {
               "kind": "text",
@@ -4118,7 +4433,8 @@
               "size": 80,
               "weight": "bold",
               "align": "center",
-              "upper": true
+              "upper": false,
+              "accent": "accent_bright"
             },
             "rule": {
               "kind": "shape",
@@ -4163,7 +4479,7 @@
         "point": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_black"
           },
           "fields": {
             "headline": "the slide headline in German, at most 9 words; key words *like this*",
@@ -4193,7 +4509,7 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.95,
                 "end": 0.88,
                 "toward": "right"
@@ -4210,11 +4526,49 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.88,
                 "end": 0.0,
                 "toward": "right"
               }
+            },
+            "grid": {
+              "kind": "shape",
+              "shape": "dots",
+              "box": [
+                0.06,
+                0.06,
+                0.2,
+                0.13
+              ],
+              "fill": "accent",
+              "alpha": 0.75
+            },
+            "arcs": {
+              "kind": "shape",
+              "shape": "arcs",
+              "box": [
+                0.0,
+                0.0,
+                1.0,
+                1.0
+              ],
+              "outline": "primary",
+              "alpha": 0.9,
+              "bleed": true
+            },
+            "wave": {
+              "kind": "shape",
+              "shape": "wave",
+              "box": [
+                0.0,
+                0.8,
+                1.0,
+                1.0
+              ],
+              "fill": "primary",
+              "alpha": 0.95,
+              "bleed": true
             },
             "headline": {
               "kind": "text",
@@ -4228,7 +4582,8 @@
               ],
               "size": 60,
               "weight": "bold",
-              "upper": true
+              "upper": false,
+              "accent": "accent_bright"
             },
             "body": {
               "kind": "text",
@@ -4260,7 +4615,7 @@
         "cta": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_black"
           },
           "fields": {
             "headline": "the closing question or call in German, at most 9 words",
@@ -4291,7 +4646,7 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.95,
                 "end": 0.88,
                 "toward": "right"
@@ -4308,11 +4663,49 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.88,
                 "end": 0.0,
                 "toward": "right"
               }
+            },
+            "grid": {
+              "kind": "shape",
+              "shape": "dots",
+              "box": [
+                0.06,
+                0.06,
+                0.2,
+                0.13
+              ],
+              "fill": "accent",
+              "alpha": 0.75
+            },
+            "arcs": {
+              "kind": "shape",
+              "shape": "arcs",
+              "box": [
+                0.0,
+                0.0,
+                1.0,
+                1.0
+              ],
+              "outline": "primary",
+              "alpha": 0.9,
+              "bleed": true
+            },
+            "wave": {
+              "kind": "shape",
+              "shape": "wave",
+              "box": [
+                0.0,
+                0.8,
+                1.0,
+                1.0
+              ],
+              "fill": "primary",
+              "alpha": 0.95,
+              "bleed": true
             },
             "logo": {
               "kind": "logo",
@@ -4320,7 +4713,7 @@
                 0.64,
                 0.06,
                 0.94,
-                0.16
+                0.29
               ]
             },
             "headline": {
@@ -4334,7 +4727,8 @@
                 0.5
               ],
               "size": 64,
-              "weight": "bold"
+              "weight": "bold",
+              "accent": "accent_bright"
             },
             "sub": {
               "kind": "text",
@@ -4359,9 +4753,9 @@
                 0.955,
                 0.86
               ],
-              "fill": "bg_dark",
+              "fill": "bg_black",
               "alpha": 0.9,
-              "outline": "accent",
+              "outline": "primary",
               "radius": 0.03,
               "bleed": true
             },
@@ -4380,10 +4774,11 @@
                 "bookmark"
               ],
               "labels": [
-                "Liken",
-                "Teilen",
-                "Speichern"
-              ]
+                "LIKEN|wenn du zustimmst",
+                "TEILEN|mit deinem Netzwerk",
+                "SPEICHERN|für später"
+              ],
+              "style": "engagement"
             },
             "footer": {
               "kind": "footer",
@@ -4413,9 +4808,9 @@
               "minFontPx": 22
             },
             "engage": {
-              "maxChars": 12,
+              "maxChars": 24,
               "maxLines": 1,
-              "minFontPx": 16
+              "minFontPx": 14
             },
             "footer": {
               "maxChars": 30,
@@ -4489,7 +4884,7 @@
         "cover": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_black"
           },
           "fields": {
             "headline": "the cover hook in German, at most 9 words; key words *like this*",
@@ -4519,7 +4914,7 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.95,
                 "end": 0.88,
                 "toward": "right"
@@ -4536,48 +4931,49 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.88,
                 "end": 0.0,
                 "toward": "right"
               }
             },
-            "dots": {
+            "grid": {
               "kind": "shape",
               "shape": "dots",
               "box": [
                 0.06,
                 0.06,
                 0.2,
-                0.12
+                0.13
               ],
               "fill": "accent",
-              "alpha": 0.55
+              "alpha": 0.75
             },
-            "arc": {
+            "arcs": {
               "kind": "shape",
-              "shape": "ring",
+              "shape": "arcs",
               "box": [
-                0.38,
-                0.02,
+                0.0,
+                0.0,
                 1.0,
-                0.64
+                1.0
               ],
-              "bleed": true,
-              "outline": "accent",
-              "alpha": 0.45
+              "outline": "primary",
+              "alpha": 0.9,
+              "bleed": true
             },
-            "dots2": {
+            "wave": {
               "kind": "shape",
-              "shape": "dots",
+              "shape": "wave",
               "box": [
+                0.0,
                 0.8,
-                0.86,
-                0.94,
-                0.94
+                1.0,
+                1.0
               ],
-              "fill": "accent",
-              "alpha": 0.55
+              "fill": "primary",
+              "alpha": 0.95,
+              "bleed": true
             },
             "headline": {
               "kind": "text",
@@ -4591,7 +4987,8 @@
               ],
               "size": 72,
               "weight": "bold",
-              "upper": true
+              "upper": false,
+              "accent": "accent_bright"
             },
             "sub": {
               "kind": "text",
@@ -4624,7 +5021,7 @@
         "point": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_black"
           },
           "fields": {
             "headline": "the slide headline in German, at most 9 words; key words *like this*",
@@ -4654,7 +5051,7 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.95,
                 "end": 0.88,
                 "toward": "right"
@@ -4671,35 +5068,49 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.88,
                 "end": 0.0,
                 "toward": "right"
               }
             },
-            "dots": {
+            "grid": {
               "kind": "shape",
               "shape": "dots",
               "box": [
                 0.06,
                 0.06,
                 0.2,
-                0.12
+                0.13
               ],
               "fill": "accent",
-              "alpha": 0.55
+              "alpha": 0.75
             },
-            "dots2": {
+            "arcs": {
               "kind": "shape",
-              "shape": "dots",
+              "shape": "arcs",
               "box": [
-                0.8,
-                0.86,
-                0.94,
-                0.94
+                0.0,
+                0.0,
+                1.0,
+                1.0
               ],
-              "fill": "accent",
-              "alpha": 0.55
+              "outline": "primary",
+              "alpha": 0.9,
+              "bleed": true
+            },
+            "wave": {
+              "kind": "shape",
+              "shape": "wave",
+              "box": [
+                0.0,
+                0.8,
+                1.0,
+                1.0
+              ],
+              "fill": "primary",
+              "alpha": 0.95,
+              "bleed": true
             },
             "headline": {
               "kind": "text",
@@ -4713,7 +5124,8 @@
               ],
               "size": 58,
               "weight": "bold",
-              "upper": true
+              "upper": false,
+              "accent": "accent_bright"
             },
             "body": {
               "kind": "text",
@@ -4745,7 +5157,7 @@
         "cta": {
           "theme": "dark",
           "background": {
-            "fill": "bg_dark"
+            "fill": "bg_black"
           },
           "fields": {
             "headline": "the closing question or call in German, at most 9 words",
@@ -4776,7 +5188,7 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.95,
                 "end": 0.88,
                 "toward": "right"
@@ -4793,11 +5205,49 @@
               ],
               "bleed": true,
               "gradient": {
-                "color": "bg_dark",
+                "color": "bg_black",
                 "start": 0.88,
                 "end": 0.0,
                 "toward": "right"
               }
+            },
+            "grid": {
+              "kind": "shape",
+              "shape": "dots",
+              "box": [
+                0.06,
+                0.06,
+                0.2,
+                0.13
+              ],
+              "fill": "accent",
+              "alpha": 0.75
+            },
+            "arcs": {
+              "kind": "shape",
+              "shape": "arcs",
+              "box": [
+                0.0,
+                0.0,
+                1.0,
+                1.0
+              ],
+              "outline": "primary",
+              "alpha": 0.9,
+              "bleed": true
+            },
+            "wave": {
+              "kind": "shape",
+              "shape": "wave",
+              "box": [
+                0.0,
+                0.8,
+                1.0,
+                1.0
+              ],
+              "fill": "primary",
+              "alpha": 0.95,
+              "bleed": true
             },
             "logo": {
               "kind": "logo",
@@ -4805,7 +5255,7 @@
                 0.64,
                 0.06,
                 0.94,
-                0.16
+                0.29
               ]
             },
             "headline": {
@@ -4819,7 +5269,8 @@
                 0.5
               ],
               "size": 64,
-              "weight": "bold"
+              "weight": "bold",
+              "accent": "accent_bright"
             },
             "sub": {
               "kind": "text",
@@ -4844,9 +5295,9 @@
                 0.955,
                 0.86
               ],
-              "fill": "bg_dark",
+              "fill": "bg_black",
               "alpha": 0.9,
-              "outline": "accent",
+              "outline": "primary",
               "radius": 0.03,
               "bleed": true
             },
@@ -4865,10 +5316,11 @@
                 "bookmark"
               ],
               "labels": [
-                "Liken",
-                "Teilen",
-                "Speichern"
-              ]
+                "LIKEN|wenn du zustimmst",
+                "TEILEN|mit deinem Netzwerk",
+                "SPEICHERN|für später"
+              ],
+              "style": "engagement"
             },
             "footer": {
               "kind": "footer",
@@ -4898,9 +5350,9 @@
               "minFontPx": 22
             },
             "engage": {
-              "maxChars": 12,
+              "maxChars": 24,
               "maxLines": 1,
-              "minFontPx": 16
+              "minFontPx": 14
             },
             "footer": {
               "maxChars": 30,
@@ -4945,5 +5397,80 @@
         "the picture per slide"
       ]
     }
-  ]
+  ],
+  "decorations": {
+    "dots": [
+      {
+        "kind": "shape",
+        "shape": "dots",
+        "box": [
+          0.06,
+          0.875,
+          0.3,
+          0.93
+        ],
+        "fill": "accent",
+        "alpha": 0.5
+      }
+    ],
+    "chevrons": [
+      {
+        "kind": "shape",
+        "shape": "chevrons",
+        "box": [
+          0.06,
+          0.88,
+          0.34,
+          0.925
+        ],
+        "fill": "accent",
+        "alpha": 0.85
+      }
+    ],
+    "bars": [
+      {
+        "kind": "shape",
+        "shape": "bars",
+        "box": [
+          0.0,
+          0.0,
+          0.2,
+          0.12
+        ],
+        "fill": "primary",
+        "alpha": 0.9,
+        "bleed": true
+      }
+    ],
+    "wave": [
+      {
+        "kind": "shape",
+        "shape": "wave",
+        "box": [
+          0.45,
+          0.8,
+          1.0,
+          1.0
+        ],
+        "fill": "primary",
+        "alpha": 0.9,
+        "bleed": true
+      }
+    ],
+    "frame": [
+      {
+        "kind": "shape",
+        "shape": "frame",
+        "box": [
+          0.025,
+          0.02,
+          0.975,
+          0.98
+        ],
+        "outline": "primary",
+        "alpha": 0.55,
+        "bleed": true
+      }
+    ]
+  }
 }

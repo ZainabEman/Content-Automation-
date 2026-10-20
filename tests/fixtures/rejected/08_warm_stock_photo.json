@@ -1,0 +1,23 @@
+{
+  "source": "outputs/jobs/2026-10-20/0307_make-ai-assisted-content-more-trustworth/image-1.png (generated, rejected: PRD v6 §2)",
+  "category": "facebook_post",
+  "provider": "openrouter",
+  "website": false,
+  "logoBox": [
+    0.75,
+    0.02,
+    0.95,
+    0.09
+  ],
+  "read": [
+    "BRANDED GENIUS",
+    "Quelle heute in Tabelle prüfen."
+  ],
+  "intended": [
+    "Quelle heute in Tabelle prüfen."
+  ],
+  "pattern": "an off-brand warm daylight stock photo instead of the dark navy look",
+  "expect": [
+    "light_base"
+  ]
+}

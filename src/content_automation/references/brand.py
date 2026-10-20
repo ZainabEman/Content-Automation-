@@ -40,9 +40,10 @@ class BrandCarousel(_BrandModel):
 
 HEX = r"^#[0-9A-Fa-f]{6}$"
 TOKEN_ROLES = ("bg_dark", "bg_light", "primary", "accent", "highlight", "text_on_dark",
-               "text_on_light", "muted")
+               "text_on_light", "muted", "panel", "bg_black", "accent_bright")
 TokenRole = Literal["bg_dark", "bg_light", "primary", "accent", "highlight", "text_on_dark",
-                    "text_on_light", "muted"]
+                    "text_on_light", "muted", "panel", "bg_black", "accent_bright"]
+# v6 (PRD R3.2): the base, panel and carousel colours sampled from the approved references
 
 
 class Sourced(_BrandModel):
@@ -53,8 +54,15 @@ class BrandToken(Sourced):
     hex: str = Field(pattern=HEX)
 
 
+class SampledColor(BrandColor):
+    """v6 (PRD R3.2): a colour measured in the approved reference files, never guessed."""
+
+    source: str = Field(min_length=1)  # the reference file(s) it was sampled from
+
+
 class BrandTokens(_BrandModel):
-    """Colour roles of app-rendered designs; each one is a guide colour (checked below)."""
+    """Colour roles of app-rendered designs; each one is a guide colour or a colour sampled
+    from the approved references (checked below)."""
 
     note: str = Field(default="", alias="_note")
     bg_dark: BrandToken
@@ -65,12 +73,19 @@ class BrandTokens(_BrandModel):
     text_on_dark: BrandToken
     text_on_light: BrandToken
     muted: BrandToken
+    panel: BrandToken | None = None  # v6: the dark-navy text panel
+    bg_black: BrandToken | None = None  # v6: the carousel base
+    accent_bright: BrandToken | None = None  # v6: the carousel keyword blue
 
     def get(self, role: str) -> BrandToken:
         if role not in TOKEN_ROLES:
             raise KeyError(f"unknown colour token {role!r} (brand.json tokens: "
                            f"{', '.join(TOKEN_ROLES)})")
-        token: BrandToken = getattr(self, role)
+        token: BrandToken | None = getattr(self, role)
+        if token is None:  # an older brand file: the v6 roles fall back to bg_dark / accent
+            fallback = {"panel": self.bg_dark, "bg_black": self.bg_dark,
+                        "accent_bright": self.accent}
+            return fallback[role]
         return token
 
     def hexes(self) -> dict[str, str]:
@@ -162,6 +177,7 @@ class BrandProfile(_BrandModel):
     status: Literal["draft", "approved"] = "draft"
     sources: list[str] = Field(default_factory=list)
     colors: list[BrandColor] = Field(min_length=1)
+    sampled_colors: list[SampledColor] = Field(default_factory=list)  # v6, from the references
     fonts: list[BrandFont] = Field(default_factory=list)
     language: str = "de"  # v5 (PRD R1.4)
     carousel: BrandCarousel = Field(default_factory=BrandCarousel)
@@ -190,10 +206,11 @@ class BrandProfile(_BrandModel):
 
     @model_validator(mode="after")
     def _tokens_are_guide_colours(self) -> "BrandProfile":
-        """Never a colour outside the guide: every token is one of the brand colours."""
+        """Never a guessed colour: every token is a guide colour or one sampled from the
+        approved references (sampledColors, with the file named)."""
         if self.tokens is None:
             return self
-        palette = {color.hex.upper() for color in self.colors}
+        palette = {color.hex.upper() for color in [*self.colors, *self.sampled_colors]}
         for role, value in self.tokens.hexes().items():
             if value not in palette:
                 raise ValueError(f"tokens.{role} {value} is not a brand colour "

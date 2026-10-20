@@ -68,12 +68,15 @@ def test_every_layout_renders_brand_only(assets: Assets) -> None:
             if direction.format == "carousel" and name != direction.last_layout():
                 assert rendered.logo is None and not rendered.footer  # R4: last slide only
                 continue
+            if direction.roman:  # v6 R4.6: no logo and no website on a Roman creative
+                assert rendered.logo is None and not rendered.footer
+                continue
             assert rendered.logo is not None and rendered.logo.aspect_error < 0.01
             assert rendered.logo.width_px >= rendered.logo.min_width_px
     assert count == 29  # 14 post/ad variants (3 founders x 2 sides) + 4 carousels x 3
 
 
-def test_light_variant_and_engagement_row_keep_contrast(assets: Assets) -> None:
+def test_sweep_variant_and_engagement_row_keep_contrast(assets: Assets) -> None:
     catalog = load_directions()
     light = render_layout(catalog, catalog.get("LI-4"), "post", sample_copy()["LI-4/post"],
                           assets)
@@ -81,7 +84,8 @@ def test_light_variant_and_engagement_row_keep_contrast(assets: Assets) -> None:
     closing = render_layout(catalog, catalog.get("CS-2"), "cta", sample_copy()["CS-2/cta"],
                             assets)
     labels = [t.text for t in closing.texts if t.zone == "engage"]
-    assert labels == ["Liken", "Teilen", "Speichern"]
+    assert labels == ["LIKEN", "wenn du zustimmst", "TEILEN", "mit deinem Netzwerk",
+                      "SPEICHERN", "für später"]  # v6 R3.2: the engagement bar
     assert closing.footer == ["brandedgenius.de"]  # website: "ja"
     no_site = dict(sample_copy()["CS-2/cta"], website="")
     assert not render_layout(catalog, catalog.get("CS-2"), "cta", no_site, assets).footer

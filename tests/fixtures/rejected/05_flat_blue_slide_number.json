@@ -1,0 +1,21 @@
+{
+  "source": "outputs/jobs/2026-10-20/0312_refresh-familiar-topics-with-audience-pa-2/image-1.png (generated, rejected: PRD v6 §2)",
+  "category": "instagram_carousel",
+  "provider": "template",
+  "lastSlide": false,
+  "website": false,
+  "read": [
+    "01",
+    "Nur wiederholen",
+    "Fragen Sie vor der Planung auf Instagram, welche Alltagssituation Ihre Zielgruppe beschäftigt."
+  ],
+  "intended": [
+    "Nur wiederholen",
+    "Fragen Sie vor der Planung auf Instagram, welche Alltagssituation Ihre Zielgruppe beschäftigt."
+  ],
+  "pattern": "R3.1-3 flat bright royal-blue fill; a slide number on a carousel slide; R3.1-4 an empty visual side with one tiny icon",
+  "expect": [
+    "flat_blue",
+    "slide_number"
+  ]
+}

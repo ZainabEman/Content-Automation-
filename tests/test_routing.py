@@ -70,7 +70,7 @@ def _designer_files(refs: Path, direction_id: str) -> None:
     known = json.loads((Path(__file__).resolve().parents[1] / "config" / "brand_refs.json")
                        .read_text(encoding="utf-8"))["refs"]
     for ref_id in load_directions().get(direction_id).reference_ids:
-        target = refs / known[ref_id]["file"]
+        target = refs / known[ref_id].get("masked", known[ref_id]["file"])  # v6: masked
         target.parent.mkdir(parents=True, exist_ok=True)
         Image.new("RGB", (32, 32), (3, 6, 18)).save(target)
 

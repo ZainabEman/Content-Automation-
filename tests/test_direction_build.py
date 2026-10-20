@@ -153,7 +153,7 @@ def test_every_roman_image_is_a_higgsfield_job(mock_settings: Settings) -> None:
                                        direction_platform=platform,
                                        roman_combination="S-R/BG-1/P-1/H-1"), mock_settings)
         assert prepared.person_shown and prepared.request.person
-        assert prepared.request.prompt.startswith("@Roman Traenkle")
+        assert prepared.request.prompt.startswith("@Roman Traenkle 2")
         assert prepared.request.aspect_ratio == aspect  # the canvas; the provider maps it
         assert not prepared.request.style_refs and not prepared.request.identity_refs
         assert prepared.settings is not None and prepared.settings.image_provider == "mock"

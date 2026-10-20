@@ -7,9 +7,9 @@ RunPod/ComfyUI LoRA route, now disabled) are archived in `config/_archive/`.
 ## Who makes the image
 
 - Codex makes the image with the **Higgsfield plugin**, model **Soul 2.0**, from the saved
-  Higgsfield character **Roman Traenkle** (`higgsfield.characterName`).
+  Higgsfield character **Roman Traenkle 2** (`higgsfield.characterName`).
 - Every prompt opens with the character token (`higgsfield.characterToken`, default
-  `@{name}`, so `@Roman Traenkle`).
+  `@{name}`, so `@Roman Traenkle 2`).
 - `ca` never calls Higgsfield. It writes a job file; Codex runs the plugin and records the
   result (`ca higgsfield record`).
 - Never use a real photo, never use another provider, and never fall back silently.
@@ -25,7 +25,7 @@ RunPod/ComfyUI LoRA route, now disabled) are archived in `config/_archive/`.
 - **Lighting:** a soft, even frontal key light, with a subtle blue rim light on his shoulders
   and hair.
 - **Negative space:** the other two-thirds stay calm, dark and empty, ready for the German
-  text, the logo and the CTA.
+  text and the CTA (no logo or website on a Roman creative, PRD v6).
 - **Finish:** photographic, with no text, letters, logos or watermarks in the image.
 
 ## B) Backgrounds
@@ -60,14 +60,14 @@ left third.
 
 ## E) Sides
 
-| ID | Roman | Text, logo and CTA |
+| ID | Roman | Text and CTA |
 |---|---|---|
 | S-R | Right edge | Left two-thirds (layout `roman_right`) |
 | S-L | Left edge | Right two-thirds (layout `roman_left`, mirrored) |
 
 - The side is mirrored **in the words of the prompt**, never by flipping the image. An S-L
   prompt never says "right edge" or "rightmost" about Roman.
-- The text, logo and CTA layout mirrors with the side.
+- The text and CTA layout mirrors with the side.
 
 ## F) Rotation (54 combinations)
 
@@ -108,12 +108,12 @@ How the person-safe crop works:
 1. **Person zone:** Roman stays within the outer 25% of the width on his side, and nothing
    person-like appears in the empty two-thirds. A failure gets one regeneration, which is the
    second of at most 2 attempts.
-2. **No overlap:** the text, the CTA and the logo (with its clear space) stay at least 48 px
+2. **No overlap:** the text and the CTA stay at least 48 px
    (at 1080 px width) from Roman's third.
 3. **Calm text zones:** behind each text box the picture's brightness spread is at most 30 and
    its detail at most 12.
-4. **Contrast, sizes, margins and logo:** the `ca design check` thresholds, with 64 px
-   margins, the official logo hash and the logo's clear space.
+4. **Contrast, sizes and margins:** the `ca design check` thresholds, with 64 px
+   margins (no logo on a Roman creative).
 5. **German:** the German quality pass, noun capitalisation after an article, no broken
    hyphenation, and spelling. Spelling uses Hunspell de_DE when it is installed; otherwise
    Codex checks it in the visual review.

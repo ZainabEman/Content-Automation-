@@ -1,9 +1,9 @@
 """The strict checks of a Roman image made with Higgsfield (2026-10-20), after the app drew the
-German text, the official logo and the CTA. Any failure blocks the item.
+German text and the CTA (no logo or website, PRD v6). Any failure blocks the item.
 
 1. person zone: done on the delivered picture (providers/higgsfield_soul.zone_problems): Roman
    within the outer 25% of the width on his side, nothing person-like in the empty two-thirds.
-2. no overlap: every text, CTA and the logo (with its clear space) stays at least 48 px (at
+2. no overlap: every text and CTA (and a logo, if a manifest has one) stays at least 48 px (at
    1080 px width) away from the hologram third, which holds Roman.
 3. calm text zones: behind each text box the picture's brightness spread and detail stay low.
 4. contrast, sizes, 64 px margins, logo hash and clear space: workflows/design_check.py (the

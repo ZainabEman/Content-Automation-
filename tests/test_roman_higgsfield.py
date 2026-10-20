@@ -148,7 +148,7 @@ def test_job_file_has_everything_codex_needs(make_settings: Callable[..., Settin
         provider.generate(request, "soul")
     data = json.loads(waiting.value.job_file.read_text(encoding="utf-8"))
     assert data["prompt"] == request.prompt and data["model"] == "Soul 2.0"
-    assert data["characterName"] == "Roman Traenkle" and data["aspectRatio"] == "3:4"
+    assert data["characterName"] == "Roman Traenkle 2" and data["aspectRatio"] == "3:4"
     assert data["targetAspect"] == "4:5" and data["cropToTarget"] and data["images"] == 1
     assert data["maxAttempts"] == 2 and data["estimate"]["creditsPerImage"] > 0
     assert data["expectedOutput"].endswith("attempt-1.png")

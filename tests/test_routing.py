@@ -93,7 +93,7 @@ def test_roman_goes_to_higgsfield_others_to_openrouter(mock_settings: Settings) 
     assert roman.settings.image_provider == "higgsfield_soul"
     assert roman.inputs["romanCombination"] == "S-L/BG-2/P-3/H-1"
     assert roman.inputs["layout"] == "roman_left"
-    assert roman.request.prompt.startswith("@Roman Traenkle")
+    assert roman.request.prompt.startswith("@Roman Traenkle 2")
     assert roman.request.aspect_ratio == "3:4" and not roman.request.identity_refs
     assert roman.request.options == {"combination": "S-L/BG-2/P-3/H-1", "side": "S-L"}
     _designer_files(Path(live.references_dir), "LI-1")

@@ -1,8 +1,8 @@
 {
-  "_note": "Roman image guidelines (2026-10-20, replaces the LoRA prompt pools; the old LoRA prompt pools are in the archive). Every image of Roman is made by Codex with the Higgsfield plugin, model Soul 2.0, from the saved Higgsfield character (content/roman_prompt.py builds the prompt from the parts below; workflows/roman_check.py checks the result; the app adds the German text, the logo and the CTA). {side} = the edge Roman stands at (right for S-R, left for S-L), {other} = the opposite side. A combination is <side>/<background>/<pose>/<hologram>, e.g. S-L/BG-2/P-3/H-1: 2 x 3 x 3 x 3 = 54.",
+  "_note": "Roman image guidelines (2026-10-20, replaces the LoRA prompt pools; the old LoRA prompt pools are in the archive). Every image of Roman is made by Codex with the Higgsfield plugin, model Soul 2.0, from the saved Higgsfield character (content/roman_prompt.py builds the prompt from the parts below; workflows/roman_check.py checks the result; the app adds the German text and the CTA, no logo or website). {side} = the edge Roman stands at (right for S-R, left for S-L), {other} = the opposite side. A combination is <side>/<background>/<pose>/<hologram>, e.g. S-L/BG-2/P-3/H-1: 2 x 3 x 3 x 3 = 54.",
   "higgsfield": {
     "_note": "UNKNOWN until checked in Codex: the exact way the plugin references a saved character (this token, a character id parameter, or both), the Soul 2.0 model id, and the credits per image. aspectRatios is the user's list for Soul 2.0 (2026-10-20); every job is validated against it.",
-    "characterName": "Roman Traenkle",
+    "characterName": "Roman Traenkle 2",
     "characterToken": "@{name}",
     "subjectName": "Roman",
     "model": "Soul 2.0",

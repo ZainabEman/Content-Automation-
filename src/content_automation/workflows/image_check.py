@@ -102,7 +102,15 @@ class TextMatch:
 
 def normalise(text: str) -> str:
     """NFC, one space between words; characters, case and punctuation are kept (exact)."""
-    return " ".join(unicodedata.normalize("NFC", text).replace("­", "").split())
+    return " ".join(unicodedata.normalize("NFC", text).replace("\u00ad", "").split())
+
+
+def _letters(words: Iterable[str]) -> str:
+    """The tolerant form (2026-10-21): NFC, case-folded (ALL-CAPS headlines, ß = SS), only
+    letters and digits, so line breaks, line-end hyphenation, spaces and punctuation never
+    count; umlauts, ß and spelling still do ("BEHÄLT" is not "BEHALT")."""
+    folded = unicodedata.normalize("NFC", " ".join(words)).casefold()
+    return re.sub(r"[\W_]+", "", folded)
 
 
 def _words(text: str) -> list[str]:
@@ -121,40 +129,45 @@ def _joined_words(read: Sequence[ReadText]) -> list[str]:
     return words
 
 
-def _same_word(read: str, intended: str) -> bool:
-    """Spelling, umlauts and ß must match; edge punctuation and quote style do not, and a word
-    the model set in capitals matches its capitalised form (ß -> SS in capitals)."""
-    first, second = read.strip(_EDGE_PUNCT + ".,:;!?"), intended.strip(_EDGE_PUNCT + ".,:;!?")
-    if first == second:
-        return True
-    return bool(first) and first.replace("ẞ", "SS").isupper() and (
-        first.replace("ẞ", "SS") == second.upper())
-
-
 def match_text(read: Sequence[ReadText], intended: Iterable[str],
                allowed: Iterable[str] = (), *, tolerant: bool = False) -> TextMatch:
     """Find every intended string, word for word and in order, in the text read; what is left
     is stray text. `allowed`: strings the app drew itself (the wordmark once, the website).
-    tolerant (a build's own check): line breaks, hyphenation at a line end, edge punctuation
-    and capitals are normalised; the letters themselves must match."""
+    tolerant (a build's own check): line breaks, hyphenation at a line end, spaces,
+    punctuation and capitals are normalised (`_letters`); the letters themselves must match."""
     words = (_joined_words(read) if tolerant else
              [word for item in read for word in _words(item.text)])
     used = [False] * len(words)
     result = TextMatch()
 
-    def same(found: list[str], target: list[str]) -> bool:
-        if not tolerant:
-            return found == target
-        return all(_same_word(a, b) for a, b in zip(found, target, strict=True))
-
-    def take(target: list[str]) -> bool:
+    def exact(target: list[str]) -> bool:
         size = len(target)
         for start in range(len(words) - size + 1):
-            if not any(used[start:start + size]) and same(words[start:start + size], target):
+            if not any(used[start:start + size]) and words[start:start + size] == target:
                 for index in range(start, start + size):
                     used[index] = True
                 return True
         return False
+
+    def loose(target: list[str]) -> bool:
+        goal = _letters(target)
+        if not goal:  # punctuation only: nothing to read
+            return True
+        for start in range(len(words)):
+            joined = ""
+            for end in range(start, len(words)):
+                if used[end]:
+                    break
+                joined += _letters([words[end]])
+                if not goal.startswith(joined):
+                    break
+                if joined == goal:
+                    for index in range(start, end + 1):
+                        used[index] = True
+                    return True
+        return False
+
+    take = loose if tolerant else exact
 
     for text in intended:
         target = _words(text)

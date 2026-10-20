@@ -6,15 +6,17 @@ Roman = Higgsfield Soul 2.0 with his saved character (a real photo is never the 
 
 v6 (PRD R3.4-R3.6), two modes for a non-Roman picture:
 - designer (the default): the model drew the whole ad with the exact German strings; the app
-  places the official logo (and the website) in the layout's zones, reads the text back once
+  covers the logo corner with a small plate sampled from the background around it and places the
+  official logo (and the website) in the layout's zones, reads the text back once
   (workflows/text_reader.py) and runs the image checks (workflows/image_check.py). It fails only
-  for a wrong or missing intended string, a logo or wordmark, or something drawn in the empty
-  logo corner (2026-10-21); other glyphs in the illustration are warnings. A failure raises
+  for a wrong or missing intended string or a logo or wordmark that still shows outside the
+  plate (2026-10-21; decoration in the corner is covered, never a failure); other glyphs in the
+  illustration are warnings. A failure raises
   DesignerCheckError: run_workflow makes one regeneration; when that fails too, the scene is
   reused in composite mode with no model call where the layout covers the model's text (the
   text outside the picture's zone or under a filled panel), else one composite generation.
-  A text-check service error retries the check once and never fails the image: it then passes
-  with a warning for Codex's visual review.
+  A text-check service error retries the check NETWORK_RETRIES times with backoff and never
+  fails the image: it then passes with a warning for Codex's visual review.
 - composite (the fallback, and always for Roman): the model drew the scene only; the app draws the
   whole design (workflows/design_render.py: text, logo, footer, icons, CTA, decorations) in the
   package's variation (content/design_variation.py) and checks it.
@@ -25,12 +27,18 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
 from PIL import Image, ImageOps
 
-from content_automation.ai.image import ASPECT_RATIOS, AspectRatio
+from content_automation.ai.image import (
+    ASPECT_RATIOS,
+    NETWORK_BACKOFF_S,
+    NETWORK_RETRIES,
+    AspectRatio,
+)
 from content_automation.content.design_variation import Variation
 from content_automation.content.design_variation import apply as apply_variation
 from content_automation.content.directions import (
@@ -42,6 +50,7 @@ from content_automation.content.directions import (
     load_directions,
 )
 from content_automation.core.config import Settings
+from content_automation.core.parallel import released
 from content_automation.references import load_brand
 from content_automation.references.services import load_services
 from content_automation.workflows.cutout import CutoutError, cut_out
@@ -75,29 +84,6 @@ class DirectionJobError(ValueError):
 
 class DesignerCheckError(DirectionJobError):
     """A designer-mode image failed the text verification or the image checks (R3.4)."""
-
-
-def corner_problems(canvas: Image.Image, layout: Layout, max_detail: float = 12.0) -> list[str]:
-    """Designer mode: the logo corner must be plain dark space before the app places the logo;
-    edges there (mean edge strength above max_detail, the calm-zone limit of the Roman checks)
-    mean the model drew text or a symbol into it."""
-    import numpy as np
-    from PIL import ImageFilter
-
-    zone = next((z for z in layout.zones.values() if z.kind == "logo"), None)
-    if zone is None:
-        return []
-    width, height = canvas.size
-    box = (round(zone.box[0] * width), round(zone.box[1] * height),
-           round(zone.box[2] * width), round(zone.box[3] * height))
-    if box[2] - box[0] < 4 or box[3] - box[1] < 4:
-        return []
-    edges = canvas.crop(box).convert("L").filter(ImageFilter.FIND_EDGES)
-    detail = float(np.asarray(edges, dtype=np.float64)[1:-1, 1:-1].mean())
-    if detail <= max_detail:
-        return []
-    return [f"[logo_corner] something is drawn in the empty logo corner (detail {detail:.1f} > "
-            f"{max_detail:g}); it must stay plain dark space for the real logo"]
 
 
 def reusable_box(layout: Layout, size: tuple[int, int]) -> tuple[int, int, int, int] | None:
@@ -299,9 +285,8 @@ class DirectionDesign:
             report.errors += roman.errors
             report.checks = roman.results
         if generated is not None and settings.image_provider != "template":
-            corner = corner_problems(canvas, layout) if canvas is not None and not mock else []
             try:
-                self._check_image(rendered, report, direction, settings, designer, corner)
+                self._check_image(rendered, report, direction, settings, designer)
             except DesignerCheckError as error:
                 box = reusable_box(layout, rendered.size)
                 if not self.reuse_scene or canvas is None or box is None:
@@ -313,7 +298,7 @@ class DirectionDesign:
         return rendered, report
 
     def _check_image(self, rendered: Rendered, report: Report, direction: Direction,
-                     settings: Settings, designer: bool, corner: list[str] | None = None) -> None:
+                     settings: Settings, designer: bool) -> None:
         """v6 R3.6: the image checks and the exact-text verification (designer: the model's
         strings; composite: the app's own text, so any stray text from the scene fails)."""
         from content_automation.workflows.design_check import image_rules
@@ -335,7 +320,7 @@ class DirectionDesign:
             return
         reader = reader_for(settings)
         read, problem = None, ""
-        for _ in range(2):  # once per attempt; a service error retries the check once
+        for retry in range(NETWORK_RETRIES + 1):  # a service error retries the same check
             try:
                 read = reader.read(rendered.image, intended)
                 break
@@ -344,18 +329,17 @@ class DirectionDesign:
                     report.errors.append(f"[text_mismatch] {error}")
                     return
                 problem = str(error)
+            if retry < NETWORK_RETRIES:
+                with released():  # a parallel build: the others run meanwhile
+                    time.sleep(NETWORK_BACKOFF_S * 2**retry)
         if read is None:  # never an image attempt: Codex's visual review checks the text
-            report.warnings.append(f"[text_check_unavailable] {problem} (retried once); the "
-                                   "text was not read: the visual review must confirm it")
-            found = list(corner or [])
-            report.errors += found
-            if designer and found:
-                raise DesignerCheckError(f"{DESIGNER_CHECK_FAILED}: " + "; ".join(found))
+            report.warnings.append(f"[text_check_unavailable] {problem} (retried "
+                                   f"{NETWORK_RETRIES} times); the text was not read: the "
+                                   "visual review must confirm it")
             return
         self.check_cost_usd += read.cost_usd or 0.0
         facts.read = read.texts
         found = check_image(rendered.image, facts, image_rules(), warnings=report.warnings)
-        found += corner or []
         if settings.image_provider == "mock":  # a mock picture is a stand-in: only its text
             report.warnings += [f"mock picture: {error}" for error in found
                                 if error[1:].split("]")[0] not in _TEXT_CODES]
@@ -367,6 +351,6 @@ class DirectionDesign:
 
 
 __all__ = ["CODES", "DESIGNER_CHECK_FAILED", "MANIFEST_SUFFIX", "DesignerCheckError",
-           "DirectionDesign", "DirectionJobError", "corner_problems", "direction_layout",
+           "DirectionDesign", "DirectionJobError", "direction_layout",
            "direction_settings", "has_picture", "illustration_prompt",
            "picture_aspect", "reusable_box"]

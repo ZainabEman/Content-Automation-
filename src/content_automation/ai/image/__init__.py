@@ -71,6 +71,21 @@ class ImageTimeoutError(ImageProviderError, TimeoutError):
     """The provider did not respond in time."""
 
 
+# A network or service error (connection, timeout, 429, 5xx) retries the same call this often,
+# with backoff, before it fails the image (2026-10-21).
+NETWORK_RETRIES = 2
+NETWORK_BACKOFF_S = 5.0  # the first wait; doubled for the next
+
+
+class ImageNetworkError(ImageProviderError):
+    """A network or service error that stayed after NETWORK_RETRIES retries of the same call:
+    never an image attempt (the registry does not count it) and nothing was made."""
+
+
+class ImageCreditsError(ImageProviderError):
+    """The provider has no credits left (HTTP 402): the whole batch stops at once."""
+
+
 class ReferenceImage(BaseModel):
     """A reference file plus its stable asset ID from the reference library."""
 

@@ -389,25 +389,37 @@ def succeed_job(
 
 def fail_job(
     conn: sqlite3.Connection, job_id: int, error: str, *, actual: float | None = None,
-    actor: Actor = "system", command: str | None = None,
+    billed: bool = False, count_attempt: bool = True, actor: Actor = "system",
+    command: str | None = None,
 ) -> JobRecord:
-    """queued or running -> failed (an amount the provider still charged is counted)."""
+    """queued or running -> failed (an amount the provider still charged is counted).
+
+    billed (2026-10-21): the provider made and charged the output before it failed a check, so
+    the attempt is charged like a success (the estimate when no amount was reported, marked as
+    such). count_attempt=False (a network error after the provider's own retries): the attempt
+    is given back, so it never uses up one of the job's attempts."""
     with transaction(conn):
         job = get_job(conn, job_id)
         if job.status not in ("queued", "running"):
             raise JobStateError(f"Job #{job.id} is {job.status}; it cannot fail.")
-        counted = None
-        if actual and job.authorization_id is not None:
+        counted: float | None = None
+        basis = "actual"
+        if billed:
+            counted, basis = _charge(conn, job, actual, command)
+        elif actual and job.authorization_id is not None:
             charge(conn, job.authorization_id, actual, job_id=job.id, command=command)
             counted = actual
         stamp = now()
+        attempts = "MAX(attempts, 1)" if count_attempt else "MAX(attempts - 1, 0)"
         conn.execute(
             "UPDATE jobs SET status = 'failed', actual = ?, error = ?, finished_at = ?, "
-            "attempts = MAX(attempts, 1), updated_at = ? WHERE id = ?",
-            (actual, error, stamp, stamp, job.id),
+            f"attempts = {attempts}, updated_at = ? WHERE id = ?",
+            (actual if actual is not None or not billed else counted, error, stamp, stamp,
+             job.id),
         )
         job = get_job(conn, job.id)
-        _event(conn, "job_failed", job, command, actor, error=error, charged=counted)
+        _event(conn, "job_failed", job, command, actor, error=error, charged=counted,
+               basis=basis, attempt_counted=count_attempt)
         return job
 
 

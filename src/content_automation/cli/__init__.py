@@ -115,7 +115,7 @@ from content_automation.core.config import ConfigurationError, Settings, load_se
 from content_automation.core.files import atomic_write_text
 from content_automation.core.jobs import DETAILS_FILE, Job, JobStateError, ReviewCheck
 from content_automation.core.limits import DailyLimitError
-from content_automation.core.log import configure_logging
+from content_automation.core.log import configure_logging, utf8_streams
 from content_automation.doctor import run_checks
 from content_automation.references import (
     REF_TYPES,
@@ -280,6 +280,7 @@ StepOption = Annotated[str, typer.Option("--step", help="Step ID, e.g. scene-1."
 @app.callback()
 def _root() -> None:
     """Root command for the Content Automation CLI."""
+    utf8_streams()  # umlauts and ß print correctly on Windows (stdout and stderr)
 
 
 @contextmanager
@@ -1708,14 +1709,23 @@ def calendar_generate(
         ),
     ] = False,
     authorize_id: AuthorizeOption = None,
+    parallel: Annotated[
+        int | None,
+        typer.Option("--parallel", min=1, max=8,
+                     help="Rows built at once in the one --build run (default IMAGE_PARALLEL, 4)."),
+    ] = None,
 ) -> None:
-    """Approved rows: stage 1 (free) and one combined dry run; --build makes them.
+    """Approved rows: stage 1 (free) and one combined dry run; --build makes them all in one run.
 
+    --build builds every ready row and every failed row the dry run retried in ONE run, with
+    the parallel image pool; HTTP 402 (no credits) stops the whole batch at once.
     Failed rows stay Approved, are listed at the end and are never retried by themselves.
     Each package the build finishes is uploaded (Drive sync), then the calendar copy.
     """
     _utf8_output()
     settings = _settings(check_keys=False)
+    if parallel is not None:
+        settings = settings.model_copy(update={"image_parallel": parallel})
     if build:
         configure_logging(settings)
     try:

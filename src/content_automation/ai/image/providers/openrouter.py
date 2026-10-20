@@ -2,8 +2,12 @@
 
 One call per image (n=1). Reference images go in ``input_references`` as base64 data URLs,
 in the order the prompt numbers them: identity, objects (the guide's colour section), style.
-The image is read from ``data[0].b64_json``; ``usage.cost`` is the USD actually charged.
-A 502 means the generation failed and was not billed.
+The image is read from ``data[0].b64_json``; ``usage.cost`` is the USD actually charged (kept
+even when the image is unusable; None when OpenRouter reports no amount, so the registry charges
+the estimate). A 502 means the generation failed and was not billed.
+Network and service errors (connection, timeout, 429, 5xx) retry the same call NETWORK_RETRIES
+times with backoff, then fail as ImageNetworkError, which is never an image attempt; HTTP 402
+(no credits) is ImageCreditsError and stops the whole batch (2026-10-21).
 
 The model (2026-10-21): openai/gpt-image-2 (the default). OpenAI's image models take a pixel
 ``size`` and a ``quality`` instead of aspect_ratio/resolution: three sizes, 1024x1024,
@@ -20,6 +24,7 @@ See https://openrouter.ai/docs/features/multimodal/image-generation.
 import base64
 import binascii
 import io
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -31,7 +36,11 @@ from content_automation.ai.image import (
     ALL_ASPECT_RATIOS,
     ASPECT_RATIOS,
     IMAGE_SIZES,
+    NETWORK_BACKOFF_S,
+    NETWORK_RETRIES,
     GeneratedImage,
+    ImageCreditsError,
+    ImageNetworkError,
     ImageProviderError,
     ImageRequest,
     ImageResult,
@@ -39,7 +48,7 @@ from content_automation.ai.image import (
     ProviderCapabilities,
 )
 from content_automation.core.config import Settings
-from content_automation.core.retry import OperationTimeoutError, call_with_retry
+from content_automation.core.retry import OperationTimeoutError, run_with_timeout
 
 API_URL = "https://openrouter.ai/api/v1/images"
 MAX_INPUT_REFERENCES = 14
@@ -125,16 +134,21 @@ class OpenRouterImageProvider:
         images: list[GeneratedImage] = []
         request_ids: list[str] = []
         cost: float | None = None
+        unreported = False  # an amount missing: the registry charges the estimate instead
         with httpx.Client(timeout=self._timeout_s, transport=self._transport) as client:
             for index in range(1, request.count + 1):
                 try:
                     payload = self._call_once(client, headers, body)
+                    charged = _usage_cost(payload)  # billed even if the image is unusable
+                    if charged is None:
+                        unreported = True
+                    else:
+                        cost = round((cost or 0.0) + charged, 6)
                     images.append(_extract_image(payload))
                 except ImageProviderError as error:
                     error.args = (f"Image {index} of {request.count}: {error}",)
-                    error.cost_usd = cost  # earlier images were billed
+                    error.cost_usd = None if unreported else cost  # what was billed so far
                     raise
-                cost = round((cost or 0.0) + _usage_cost(payload), 6)
                 if isinstance(payload.get("id"), str):
                     request_ids.append(payload["id"])
         return ImageResult(
@@ -142,19 +156,22 @@ class OpenRouterImageProvider:
             provider=self.name,
             model=model,
             provider_request_ids=request_ids,
-            cost_usd=cost,
+            cost_usd=None if unreported else cost,
         )
 
     def _call_once(
         self, client: httpx.Client, headers: dict[str, str], body: dict[str, Any]
     ) -> dict[str, Any]:
-        """One API call, retried on its own so earlier (paid) images are never redone."""
+        """One API call, retried on its own so earlier (paid) images are never redone: a network
+        or service error retries the same call (at least NETWORK_RETRIES times, with backoff),
+        then ImageNetworkError (not retryable: the job retry must not repeat it)."""
 
         def call() -> dict[str, Any]:
             try:
                 response = client.post(API_URL, headers=headers, json=body)
             except httpx.TimeoutException:
-                raise ImageTimeoutError("OpenRouter did not respond in time.") from None
+                raise ImageTimeoutError("OpenRouter did not respond in time.",
+                                        retryable=True) from None
             except httpx.TransportError as error:
                 raise ImageProviderError(
                     f"Could not reach OpenRouter ({type(error).__name__}).", retryable=True
@@ -171,19 +188,23 @@ class OpenRouterImageProvider:
                 raise map_error(code if isinstance(code, int) else 0, _error_detail(payload, ""))
             return payload
 
-        kwargs: dict[str, Any] = {}
-        if self._sleep is not None:
-            kwargs["sleep"] = self._sleep
-        try:
-            return call_with_retry(
-                call, timeout_s=self._timeout_s + 5, max_retries=self._max_retries, **kwargs
-            )
-        except OperationTimeoutError as error:
-            raise ImageTimeoutError(f"OpenRouter did not respond in time: {error}") from None
-        except ImageProviderError as error:
-            # Already retried here; stop the outer job retry from repeating finished images.
-            error.retryable = False
-            raise
+        sleep = self._sleep or time.sleep
+        retries = max(self._max_retries, NETWORK_RETRIES)
+        failure: ImageProviderError | None = None
+        for attempt in range(retries + 1):
+            try:
+                return run_with_timeout(call, self._timeout_s + 5)
+            except OperationTimeoutError as error:
+                failure = ImageTimeoutError(f"OpenRouter did not respond in time: {error}")
+            except ImageProviderError as error:
+                if not error.retryable:
+                    raise
+                failure = error
+            if attempt < retries:
+                sleep(min(NETWORK_BACKOFF_S * 2**attempt, 30.0))
+        assert failure is not None
+        raise ImageNetworkError(f"{failure} (the same call was tried {retries + 1} times; a "
+                                "network error, not an image attempt)")
 
 
 def _input_references(request: ImageRequest) -> list[dict[str, Any]]:
@@ -227,7 +248,7 @@ def _error_detail(payload: object, fallback: str) -> str:
 def map_error(status: int, detail: str) -> ImageProviderError:
     """429 and 5xx are retryable (502 = the model failed, not billed); other errors are not."""
     if status == 402:
-        return ImageProviderError(
+        return ImageCreditsError(
             "OpenRouter needs more credits (HTTP 402): add credits at "
             f"https://openrouter.ai/settings/credits. Details: {detail}"
         )
@@ -253,10 +274,11 @@ def map_error(status: int, detail: str) -> ImageProviderError:
     return ImageProviderError(f"OpenRouter rejected the request ({label}): {detail}")
 
 
-def _usage_cost(payload: dict[str, Any]) -> float:
+def _usage_cost(payload: dict[str, Any]) -> float | None:
+    """The USD OpenRouter charged for this call (None: no amount in the response)."""
     usage = payload.get("usage")
     cost = usage.get("cost") if isinstance(usage, dict) else None
-    return float(cost) if isinstance(cost, int | float) else 0.0
+    return float(cost) if isinstance(cost, int | float) else None
 
 
 def _extract_image(payload: dict[str, Any]) -> GeneratedImage:

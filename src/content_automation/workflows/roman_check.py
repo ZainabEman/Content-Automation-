@@ -5,7 +5,9 @@ German text and the CTA (no logo or website, PRD v6). Any failure blocks the ite
    within the outer 40% of the width on his side (a shift crop first), nothing person-like in
    the text side; a failure stops the row for the operator (accept or retry).
 2. no overlap: every text and CTA (and a logo, if a manifest has one) stays at least 48 px (at
-   1080 px width) away from the hologram third, which holds Roman.
+   1080 px width) away from the hologram third, which holds Roman, and from every glowing
+   hologram or icon found on his side (manifest "holograms", 2026-10-21: one reached the
+   headline's last letter; the renderer rewraps or shrinks the text to clear them).
 3. calm text zones: behind each text box the picture's brightness spread and detail stay low.
 4. contrast, sizes, 64 px margins, logo hash and clear space: workflows/design_check.py (the
    `ca design check` thresholds), run on the same manifest.
@@ -89,6 +91,14 @@ def overlap_problems(manifest: Mapping[str, Any], side: str, *, share: float,
         if gap < need:
             state = "overlaps" if gap < 0 else f"is {gap:.0f} px from"
             problems.append(f"{where} {state} Roman's third (needs {need:.0f} px)")
+        for found in manifest.get("holograms") or []:
+            mark = [float(value) for value in found]
+            # the larger of the horizontal and vertical distance (negative: they overlap)
+            apart = max(mark[0] - box[2], box[0] - mark[2], mark[1] - box[3], box[1] - mark[3])
+            if apart < need:
+                state = "overlaps" if apart < 0 else f"is {apart:.0f} px from"
+                problems.append(f"{where} {state} a hologram or icon at "
+                                f"{[round(value) for value in mark]} (needs {need:.0f} px)")
     return problems
 
 

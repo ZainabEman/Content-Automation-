@@ -20,6 +20,7 @@ from typing import Any, Protocol
 import httpx
 from PIL import Image
 
+from content_automation.ai.image import ImageCreditsError
 from content_automation.core.config import Settings
 from content_automation.core.parallel import released
 from content_automation.workflows.image_check import ReadText
@@ -99,7 +100,11 @@ class OpenRouterTextReader:
                   released()):  # a parallel build: the others run meanwhile
                 response = client.post(API_URL, json=body,
                                        headers={"Authorization": f"Bearer {self._api_key}"})
-            payload = response.json()
+            if response.status_code == 402:  # no credits: the whole batch stops (image_job)
+                raise ImageCreditsError("OpenRouter needs more credits (HTTP 402, the text "
+                                        "check): add credits at "
+                                        "https://openrouter.ai/settings/credits")
+            payload = json.loads(response.content.decode("utf-8"))  # UTF-8: umlauts and ß
         except (httpx.HTTPError, ValueError) as error:
             raise TextReadError(f"the text check could not reach OpenRouter "
                                 f"({type(error).__name__})") from None

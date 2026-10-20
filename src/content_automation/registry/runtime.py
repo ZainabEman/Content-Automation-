@@ -149,11 +149,13 @@ def succeed(job_id: int, *, actual: float | None = None, result_path: str | None
                        command=scope.command)
 
 
-def fail(job_id: int, error: str, *, actual: float | None = None) -> JobRecord | None:
+def fail(job_id: int, error: str, *, actual: float | None = None, billed: bool = False,
+         count_attempt: bool = True) -> JobRecord | None:
     scope = current()
     if scope is None:
         return None
-    return fail_job(scope.conn, job_id, error, actual=actual, command=scope.command)
+    return fail_job(scope.conn, job_id, error, actual=actual, billed=billed,
+                    count_attempt=count_attempt, command=scope.command)
 
 
 def reject(job_id: int, reason: str) -> JobRecord | None:

@@ -433,6 +433,7 @@ Set these in `.env`:
 | `OpenRouter rate limit reached (HTTP 429)` | Wait a minute and try again (it is already retried once). |
 | `The image model failed (HTTP 502, not billed)` | A temporary failure with no charge; try again. |
 | `OpenRouter returned no image` | Often a safety block: reword the prompt or use other reference photos. |
+| `DesignerPromptError: the image prompt names a logo or brand` | Keep company names and logo or wordmark terms out of the layout's picture description. Describe the look in words instead: since 2026-10-21 designer mode sends no reference images and its prompt (negatives included) names no logo, wordmark or brand; the app covers the logo corner with a dark plate and adds the official logo. |
 | Extra text you did not ask for (for example a German button like "Mehr erfahren") | The style examples can bring in their own text. Check every post before use; pick the other version or run it again. |
 | `… did not respond within … seconds` / `did not respond in time` | The image took too long (more likely with many photos of the person). Try again, or raise `IMAGE_TIMEOUT_MS` (e.g. `300000`). |
 | `… identity photos are more than the 14 reference images the model accepts` | Lower `IMAGE_IDENTITY_REFS_MAX`. |

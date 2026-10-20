@@ -12,6 +12,13 @@ down to its textLimits minimum; text that still does not fit is an error, never 
 drawn, the canvas under it is measured (10th/90th percentile) and the contrast recorded:
 headlines and large text need 3:1, other text 4.5:1 (workflows/design_check.py reads the
 manifest). Diagrams, cards and UI panels are drawn here from the copy, never by an image model.
+
+Composite layout (2026-10-21): the sub or body sits STACK_GAP_PX under the text drawn above it
+(the headline), not at its zone's fixed place; on a Roman picture every text is narrowed (rewrapped
+or shrunk by the fit) until it clears his glowing holograms and icons by HOLOGRAM_GAP_PX (the
+boxes go into the manifest for the overlap check); the CTA icon follows its meaning (cta_icon).
+Designer mode (place_brand_marks) covers the logo zone with a soft-edged plate in the dark
+colour around it before the official logo goes on it.
 """
 
 import hashlib
@@ -57,6 +64,12 @@ _BOLDER = {"regular": "bold", "medium": "bold", "semibold": "extrabold", "bold":
 _MARK = re.compile(r"\*\*(.+?)\*\*|\*(.+?)\*|\[\[(.+?)\]\]")
 _DARK_BELOW = 0.55  # mean brightness under the logo below which the white version is used
 _FADE = 0.16  # share of a faded picture's box that blends into the background
+STACK_GAP_PX = 32  # the design kit: a sub or body this far under the headline (at 1080 px)
+HOLOGRAM_GAP_PX = 48  # every text this far from Roman's holograms and icons (at 1080 px)
+_STACKED = ("sub", "body")
+# a booking or an appointment: the only CTAs with the calendar icon (else the circle arrow)
+_BOOKING = re.compile(r"termin|buchen|buchung|vereinbar|kalender|erstgespräch|"
+                      r"beratungsgespräch|gespräch sichern|call sichern", re.IGNORECASE)
 
 
 class DesignRenderError(TextOverlayError):
@@ -166,6 +179,7 @@ class Rendered:
     # v6 (R3.2/R3.6): each CTA button's text box, icon box and the gap between them
     ctas: list[dict[str, Any]] = field(default_factory=list)
     emblem: str | None = None  # v6: the "bg" emblem file on a carousel's last slide
+    holograms: list[PixelBox] = field(default_factory=list)  # Roman's glowing holograms/icons
 
     def manifest(self) -> dict[str, Any]:
         return {
@@ -176,6 +190,7 @@ class Rendered:
             "logo": vars(self.logo) if self.logo else None,
             "footer": self.footer, "notes": self.notes, "fonts": self.fonts,
             "ctas": self.ctas, "emblem": self.emblem,
+            "holograms": [list(box) for box in self.holograms],
         }
 
 
@@ -956,12 +971,20 @@ def _decoration(painter: Painter, name: str, zone: Zone, box: PixelBox) -> None:
         _glow_line(painter, mask, name, role, zone.alpha)
 
 
+def cta_icon(text: str) -> tuple[str, str]:
+    """The CTA's icon and its side by meaning (2026-10-21): the calendar (left) only for a
+    booking or an appointment ("Termin buchen"), else the circle arrow (right)."""
+    return ("calendar", "left") if _BOOKING.search(plain(text)) else ("arrow-right", "right")
+
+
 def _cta(painter: Painter, name: str, zone: Zone, raw: str, layout: Layout,
-         limit: TextLimit) -> None:
+         limit: TextLimit, area: PixelBox | None = None) -> None:
     """v6 (R3.2): the CTA as a wide rounded button: dark fill, glowing blue outline, white text
-    and its icon (a circle-arrow on the right, or a calendar or play icon on the left) with a
+    and its icon (a circle-arrow on the right, or the calendar on the left for a booking) with a
     fixed gap, so the text never touches the icon. The geometry is recorded for the check."""
-    box = painter.px(zone.box)
+    icon_name, icon_side = cta_icon(raw)
+    zone = zone.model_copy(update={"icon": icon_name, "icon_side": icon_side})
+    box = area or painter.px(zone.box)
     left, top, right, bottom = box
     height = bottom - top
     radius = round(height * 0.32)
@@ -1628,6 +1651,78 @@ def place_logo(painter: Painter, zone: Zone, layout: Layout, emblem: bool = Fals
         min_width_px=spec.min_width_px if spec else 160, clear_space_px=clear)
 
 
+def _logo_plate(painter: Painter, zone: Zone) -> None:
+    """Designer mode (2026-10-21): a small plate over the logo zone in the dark colour sampled
+    around it (the darker half of the ring; the base token when that is not dark), with a soft
+    edge, so a decoration the model drew in the corner never shows behind the real logo. A
+    wordmark or text that reaches out of the plate is still read back and fails the image."""
+    import numpy as np
+
+    left, top, right, bottom = painter.px(zone.box)
+    soft = painter.s(18)
+    width, height = painter.size
+    ring = (max(0, left - 3 * soft), max(0, top - 3 * soft), min(width, right + 3 * soft),
+            min(height, bottom + 3 * soft))
+    pixels = np.asarray(painter.image.convert("RGB").crop(ring), dtype=np.float64)
+    inside = np.zeros(pixels.shape[:2], dtype=bool)
+    inside[max(0, top - ring[1]):bottom - ring[1], max(0, left - ring[0]):right - ring[0]] = True
+    around = pixels[~inside] if (~inside).any() else pixels.reshape(-1, 3)
+    light = around.sum(axis=1)
+    median = np.median(around[light <= np.median(light)], axis=0)
+    colour: RGB = (int(median[0]), int(median[1]), int(median[2]))
+    base = painter.color("bg_dark")
+    if max(colour) > max(base) + 40:  # not a dark navy there: the base token instead
+        colour = base
+    mask = Image.new("L", painter.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((left - soft, top - soft, right + soft, bottom + soft),
+                                           radius=soft, fill=255)
+    plate = Image.new("RGBA", painter.size, (*colour, 255))
+    painter.image = Image.composite(plate, painter.image,
+                                    mask.filter(ImageFilter.GaussianBlur(soft / 2)))
+    painter.record.notes.append(f"logo plate rgb{colour} over the logo zone")
+
+
+def hologram_boxes(image: Image.Image, person_right: bool) -> list[PixelBox]:
+    """Roman's glowing holograms and icons (bright blue or cyan regions reaching into his half
+    of the canvas, 2026-10-21): every text keeps HOLOGRAM_GAP_PX from them, not only from his
+    third. A region wider than 60% of the canvas is a background wash, not an icon."""
+    import cv2
+    import numpy as np
+
+    rgb = np.asarray(image.convert("RGB"))
+    height, width = rgb.shape[:2]
+    hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
+    hue, sat, val = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    raw = ((hue >= 85) & (hue <= 130) & (sat >= 80) & (val >= 140)).astype(np.uint8)
+    opened = cv2.morphologyEx(raw, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+    glow = cv2.dilate(opened, np.ones((9, 9), np.uint8))  # one box per icon, not per line
+    count, _, stats, _ = cv2.connectedComponentsWithStats(glow, connectivity=8)
+    min_area = max(30, round(width * height * 0.0004))
+    boxes: list[PixelBox] = []
+    for index in range(1, count):
+        x, y, w, h, area = (int(value) for value in stats[index])
+        if area < min_area or w > width * 0.6:
+            continue
+        if (x + w > width // 2) if person_right else (x < width // 2):
+            boxes.append((x, y, x + w, y + h))
+    return boxes
+
+
+def _clear_of(box: PixelBox, holograms: Sequence[PixelBox], gap: int,
+              person_right: bool) -> PixelBox:
+    """The box narrowed on Roman's side until it is `gap` px clear of every hologram beside it
+    (one above or below it by more than the gap is left alone)."""
+    left, top, right, bottom = box
+    for hologram in holograms:
+        if hologram[1] - gap >= bottom or hologram[3] + gap <= top:
+            continue
+        if person_right:
+            right = min(right, hologram[0] - gap)
+        else:
+            left = max(left, hologram[2] + gap)
+    return (left, top, right, bottom)
+
+
 # --- One layout --------------------------------------------------------------------------------
 
 
@@ -1653,10 +1748,15 @@ def render_layout(
     record.fonts = sorted({path.name for path in assets.fonts.values()})
     paint_background(painter, layout.background)
     visual_box: PixelBox | None = None
+    texts = [zone.box for zone in layout.zones.values() if zone.kind == "text"]
+    person_right = bool(texts) and sum(box[0] + box[2] for box in texts) / len(texts) < 1.0
+    stacked: PixelBox | None = None  # the last headline/sub drawn: the next sub goes under it
     for name, zone in layout.zones.items():
         if zone.kind == "visual":
             visual_box = painter.px(zone.box)
             place_picture(painter, name, zone, picture, person=direction.roman)
+            if direction.roman and picture is not None:
+                record.holograms = hologram_boxes(painter.image, person_right)
         elif zone.kind == "shape":
             _shape(painter, name, zone)
         elif zone.kind == "logo":
@@ -1667,10 +1767,21 @@ def render_layout(
                 if zone.optional:
                     continue
                 raise DesignRenderError(f"{direction.id} {name}: fill copy.{zone.field}")
+            area = painter.px(zone.box)
+            if (zone.role in _STACKED and stacked is not None and area[1] > stacked[1]
+                    and area[0] < stacked[2] and stacked[0] < area[2]):
+                area = (area[0], stacked[3] + painter.s(STACK_GAP_PX), area[2], area[3])
+                zone = zone.model_copy(update={"valign": "top"})
+            if record.holograms:
+                area = _clear_of(area, record.holograms, painter.s(HOLOGRAM_GAP_PX),
+                                 person_right)
             if zone.role == "cta" and zone.icon:
-                _cta(painter, name, zone, value, layout, layout.text_limits[name])
+                _cta(painter, name, zone, value, layout, layout.text_limits[name], area)
             else:
-                painter.text(name, zone, value, layout, layout.text_limits[name])
+                placed = painter.text(name, zone, value, layout, layout.text_limits[name],
+                                      box=area)
+                if zone.role == "headline" or zone.role in _STACKED:
+                    stacked = placed
         elif zone.kind == "items":
             _items(painter, name, zone, layout, copy, catalog, step, visual_box)
         elif zone.kind == "footer":
@@ -1697,6 +1808,7 @@ def place_brand_marks(image: Image.Image, direction: Direction, layout_name: str
     record.fonts = sorted({path.name for path in assets.fonts.values()})
     for name, zone in layout.zones.items():
         if zone.kind == "logo":
+            _logo_plate(painter, zone)
             place_logo(painter, zone, layout, emblem=direction.format == "carousel")
         elif zone.kind == "footer":
             if zone.optional and zone.field and not _lines((copy or {}).get(zone.field)):
@@ -1713,7 +1825,7 @@ def token_colors(brand: BrandProfile) -> dict[str, RGB]:
 
 
 __all__ = [
-    "Assets", "DesignRenderError", "Rendered", "TextRecord", "TokenRole", "design_fonts",
-    "emblem_file", "logo_file", "parse", "place_brand_marks", "placeholder", "plain",
-    "render_layout", "rgb", "token_colors",
+    "Assets", "DesignRenderError", "Rendered", "TextRecord", "TokenRole", "cta_icon",
+    "design_fonts", "emblem_file", "hologram_boxes", "logo_file", "parse", "place_brand_marks",
+    "placeholder", "plain", "render_layout", "rgb", "token_colors",
 ]

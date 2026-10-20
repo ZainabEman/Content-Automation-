@@ -11,8 +11,13 @@ from pathlib import Path
 from PIL import Image
 
 from content_automation.ai.image import (
+    NETWORK_BACKOFF_S,
+    NETWORK_RETRIES,
     ImageAwaitingAgent,
+    ImageCreditsError,
+    ImageNetworkError,
     ImageRequest,
+    ImageResult,
     ReferenceImage,
     estimate_cost_usd,
     generate_image,
@@ -24,6 +29,7 @@ from content_automation.core.files import atomic_write_text
 from content_automation.core.jobs import DETAILS_FILE, Job, JobParams, JobReference, create_job
 from content_automation.core.limits import check_daily_limit
 from content_automation.core.log import get_logger, mask_secrets, secret_values
+from content_automation.core.parallel import batch_stopped, stop_batch
 from content_automation.core.retry import call_with_retry
 from content_automation.references import asset_id_for
 from content_automation.registry import runtime
@@ -99,12 +105,20 @@ def run_image_job(
     Raises DailyLimitError before any job or provider call when the limit is hit.
     Mock images are free and do not count toward the limit.
 
+    Costs and attempts (2026-10-21): an image the provider made and charged counts even when
+    its check fails (the reported amount plus its text checks, or the estimate); a network
+    error after the provider's own retries is never an image attempt; HTTP 402 (no credits)
+    stops the whole batch (core/parallel.stop_batch) and no other paid image starts.
+
     Registry (§14 D-5, D-6): inside a `ca` command the image is a registry job of the current
     item (or of this run for a direct `ca image`). The same request made before is reused (no
     new call); a paid provider needs an open authorization with room, otherwise NotAuthorized or
     BudgetExceeded is raised before anything is made.
     """
     if settings.image_provider not in ("mock", "template"):  # free, no picture made
+        stopped = batch_stopped()
+        if stopped is not None:
+            raise ImageCreditsError(f"not started, the batch stopped: {stopped}")
         check_daily_limit(
             settings.output_dir, limit=settings.image_daily_limit, requested=request.count
         )
@@ -137,6 +151,8 @@ def run_image_job(
     logger.info("Job %s created in %s", job.job_id, job.folder)
 
     written: list[Path] = []
+    result: ImageResult | None = None  # set once the provider made (and charged) the images
+    network = False  # a network error after the adapter's retries: not an image attempt
     versions: list[str] = []  # which logo version each image got
     scrims: list[str] = []  # where the text overlay added a scrim
     try:
@@ -149,7 +165,9 @@ def run_image_job(
         if budget is not None:
             per_image_s = budget + 30
         else:
-            per_image_s = (settings.image_timeout_ms / 1000 + 5) * (settings.image_max_retries + 1)
+            # the adapter retries one call NETWORK_RETRIES times with backoff (OpenRouter)
+            tries = max(settings.image_max_retries, NETWORK_RETRIES) + 1
+            per_image_s = (settings.image_timeout_ms / 1000 + 5 + NETWORK_BACKOFF_S * 2) * tries
         result = call_with_retry(
             lambda: generate_image(request, settings=settings),
             timeout_s=(per_image_s + 30) * request.count,
@@ -222,6 +240,8 @@ def run_image_job(
                 f"Logo: {logo.describe()}; used: {', '.join(versions)}; the images without it "
                 f"are in {RAW_DIR}/."
             )
+        if design is not None and design.check_cost_usd and job.actual_cost_usd is not None:
+            job.actual_cost_usd = round(job.actual_cost_usd + design.check_cost_usd, 6)
         # Same ID scheme as reference photos, so a video plan can use it as startImageAssetId.
         job.output_asset_ids = [asset_id_for(path) for path in finals]
         job.complete([path.name for path in finals])
@@ -242,6 +262,20 @@ def run_image_job(
         _remove(written)
         message = mask_secrets(f"{type(error).__name__}: {error}", secret_values(settings))
         job.actual_cost_usd = getattr(error, "cost_usd", None)
+        if result is not None:  # made and charged, then its check failed: the attempt costs
+            checks = design.check_cost_usd if design is not None else 0.0
+            if result.cost_usd is not None:
+                job.actual_cost_usd = round(result.cost_usd + checks, 6)
+            elif job.est_cost_usd:
+                job.actual_cost_usd = round(job.est_cost_usd + checks, 6)
+                job.notes.append(f"Cost: the estimate ${job.actual_cost_usd:.3f} (the provider "
+                                 "reported no amount).")
+        network = isinstance(error, ImageNetworkError)
+        if network:
+            job.notes.append("A network error after the retries of the same call: not an "
+                             "image attempt.")
+        if isinstance(error, ImageCreditsError):
+            stop_batch(message)
         job.fail(message)
         logger.error("Job %s failed: %s", job.job_id, message)
     if registered is not None:
@@ -249,7 +283,11 @@ def run_image_job(
             runtime.succeed(registered.id, actual=job.actual_cost_usd,
                             result_path=job.folder.as_posix())
         else:
-            runtime.fail(registered.id, job.error or "failed", actual=job.actual_cost_usd)
+            reported = result.cost_usd if result is not None else job.actual_cost_usd
+            runtime.fail(registered.id, job.error or "failed",
+                         actual=job.actual_cost_usd if reported is not None else None,
+                         billed=result is not None,
+                         count_attempt=not network)
     return job
 
 

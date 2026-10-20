@@ -48,8 +48,18 @@ class _CurrentStderrHandler(logging.StreamHandler):  # type: ignore[type-arg]
         super().emit(record)
 
 
+def utf8_streams() -> None:
+    """Print UTF-8 on stdout and stderr (Windows defaults to its ANSI code page, so Codex read
+    the Ä of "BEHÄLT" in a log line as �); characters that cannot be written are replaced."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def configure_logging(settings: Settings, level: int = logging.INFO) -> logging.Logger:
-    """Attach one masking stderr handler to the application logger."""
+    """Attach one masking stderr handler (UTF-8) to the application logger."""
+    utf8_streams()
     logger = logging.getLogger(ROOT_LOGGER)
     for handler in [h for h in logger.handlers if getattr(h, "_ca_handler", False)]:
         logger.removeHandler(handler)

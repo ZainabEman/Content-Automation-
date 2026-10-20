@@ -5,14 +5,16 @@ category's platform and format (config/designer_prompts.json designerAdapt). Two
 
 - designer (the default for non-Roman feed posts, ads, LinkedIn and carousel slides): the model
   draws the whole ad, including the exact German headline, body, CTA and labels (quoted in the
-  prompt, their places in words), with the R3.2 look in words and explicit negatives. Image
-  inputs, in the adapter's numbering: object_refs = 1 the colour section of the style guide
-  (cropped from the JPEG inside the guide PDF: never its logo or type specimen, which v5 images
-  copied); style_refs = 2.. the variant's approved references with their logos masked (at most
-  maxReferences). The logo file is never sent (2026-10-21: models drew wordmarks after seeing
-  it), and the prompt names no logo, wordmark or brand outside its negatives
-  (`check_brand_free`); the logo corner is described as plain empty dark space. The app places
-  the real logo afterwards and reads the text back (workflows/text_reader.py).
+  prompt, their places in words), with the R3.2 look in words and explicit negatives. No image
+  inputs by default (config designerImages false, 2026-10-21: BG-124 and BG-128 drew the
+  "BRANDED" wordmark; the ready-made masked ad copies were never masked in the run and the
+  guide crop carries its headings). With designerImages true: object_refs = 1 the colour
+  section of the style guide, style_refs = 2.. the variant's references, each masked by the
+  app in this run (carouselMask and its own mask boxes; one without boxes is not sent). The
+  logo file is never sent, and no part of the prompt outside the quoted copy names a logo, a
+  wordmark or the brand (`check_brand_free`, its negatives included); the logo corner is
+  described as plain empty dark space. The app covers it with a plate, places the real logo
+  and reads the text back (workflows/text_reader.py). The CTA icon follows its meaning.
 - composite (the fallback after the designer attempts): the model draws only the scene, with the
   text side dark and empty, and gets no image inputs at all; the app draws everything else.
 
@@ -47,8 +49,9 @@ _COORDINATES = re.compile(r"\b[xy]\s*[:=]?\s*\d|\d+(?:[.,]\d+)?\s*%|\b\d+(?:\.\d
                           r"\d+(?:\.\d+)?\b(?!\s*(?:px|x\d))|\b(?:zone|box)\s*\d",
                           re.IGNORECASE)
 Mode = Literal["designer", "composite"]
-# what never reaches an image prompt outside its negatives: the logo, a wordmark, the brand's name
-_BRAND = re.compile(r"\blogos?\b|wordmark|brand(?:ed|it)\s*genius|brandedgenius|\bgenius\b",
+# what never reaches an image prompt outside the quoted copy: the logo, a wordmark, the brand's
+# name or a part of it (its negatives included: naming them made the model draw them)
+_BRAND = re.compile(r"\blogos?\b|wordmarks?|\bbrand(?:ed|it)\b|brandedgenius|\bgenius\b",
                     re.IGNORECASE)
 TEXT_ZONE_ORDER = ("eyebrow", "number", "headline", "sub", "body", "tagline", "badge", "cta")
 
@@ -65,6 +68,7 @@ class DesignerInputs:
     missing: list[str] = field(default_factory=list)  # inputs not found (mock only)
     mode: Mode = "designer"
     texts: list[str] = field(default_factory=list)  # designer mode: the strings the model writes
+    unsent: list[str] = field(default_factory=list)  # references the app could not mask
 
     def record(self) -> dict[str, str]:
         """What the job record shows: the mode, the inputs sent and the ones missing."""
@@ -74,6 +78,8 @@ class DesignerInputs:
             found["designerTexts"] = json.dumps(self.texts, ensure_ascii=False)
         if self.missing:
             found["designerMissing"] = "; ".join(self.missing)
+        if self.unsent:
+            found["designerUnsent"] = "; ".join(self.unsent)
         return found
 
 
@@ -141,8 +147,8 @@ def without_brand(text: str) -> str:
 
 
 def check_brand_free(prompt: str, allowed: list[str]) -> None:
-    """No logo, wordmark or brand name in an image prompt outside its negatives and the quoted
-    copy (2026-10-21: the model drew what it was told about)."""
+    """No logo, wordmark or brand name in an image prompt outside the quoted copy (`allowed`),
+    its negatives included (2026-10-21: the model drew what it was told about)."""
     rest = prompt
     for text in sorted(allowed, key=len, reverse=True):
         if text:
@@ -355,11 +361,64 @@ def _ref_files(direction: Direction, references_dir: Path, limit: int,
             raise DesignerPromptError(f"{direction.id}: reference {ref_id} is not in "
                                       f"{REFS_FILE} (approved company references only)")
         last = role == "cta" and bool(entry.get("last"))
-        name = str(entry["last"] if last else entry.get("masked") or entry["file"])
+        name = str(entry["last"] if last else entry["file"])  # masked by the app in this run
         boxes = [list(map(float, box)) for box in entry.get("lastMask" if last else "mask", [])]
         found.append((ref_id, references_dir / name, str(entry.get("use", "")),
                       str(entry.get("kind", "")), boxes))
     return found
+
+
+def _image_inputs(direction: Direction, references_dir: Path, cache_dir: Path, limit: int,
+                  role: str | None) -> tuple[list[ReferenceImage], list[ReferenceImage],
+                                             list[str], list[str], list[str]]:
+    """designerImages true: (the guide's colour section, the references, missing inputs, the
+    references' looks in words, the references not sent). Each reference is masked by the app
+    here (carouselMask, its own mask boxes); one without boxes is never sent unmasked."""
+    refs_config = load_refs()
+    guide_pdf = references_dir / str(refs_config.get("guideline", ""))
+    try:
+        guide = guide_image(guide_pdf, cache_dir, refs_config.get("guidelineCrop")) if (
+            guide_pdf.is_file()) else None
+    except (DesignerPromptError, OSError) as error:
+        raise DesignerPromptError(str(error)) from None
+    missing: list[str] = []
+    objects: list[ReferenceImage] = []
+    if guide is None:
+        missing.append(f"style guide {guide_pdf}")
+    else:
+        objects.append(ReferenceImage(asset_id="brand-style-guide", path=guide,
+                                      source=f"{guide_pdf.name} (colour section)", people=False,
+                                      logo=False))
+    styles: list[ReferenceImage] = []
+    uses: list[str] = []
+    unsent: list[str] = []
+    for ref_id, path, use, kind, own_boxes in _ref_files(direction, references_dir, limit, role):
+        if not path.is_file():
+            missing.append(f"reference {ref_id} {path}")
+            continue
+        boxes = list(refs_config.get("carouselMask", [])) if kind == "instagram_carousel" else []
+        boxes += own_boxes  # its logo and third-party marks (e.g. a search bar)
+        if not boxes:
+            unsent.append(f"{ref_id}: no mask boxes in {REFS_FILE} (its logo is not masked)")
+            continue
+        styles.append(ReferenceImage(asset_id=f"ref-{ref_id}",
+                                     path=masked_reference(path, boxes, cache_dir),
+                                     source=f"{ref_id} {path.name} (masked in this run)",
+                                     people=None, logo=False))
+        uses.append(f"{ref_id}: {without_brand(use)}")
+    return objects, styles, missing, uses, unsent
+
+
+def _cta_by_meaning(layout: Layout, copy: dict[str, Any]) -> Layout:
+    """The CTA's icon from its text, as the app draws it (design_render.cta_icon)."""
+    from content_automation.workflows.design_render import cta_icon
+
+    cta = layout.zones.get("cta")
+    if cta is None or cta.kind != "text" or not cta.icon or not cta.field:
+        return layout
+    icon, side = cta_icon(" ".join(_list(copy.get(cta.field))))
+    zones = {**layout.zones, "cta": cta.model_copy(update={"icon": icon, "icon_side": side})}
+    return layout.model_copy(update={"zones": zones})
 
 
 def _look(direction: Direction) -> str:
@@ -381,6 +440,7 @@ def designer_inputs(direction: Direction, layout: Layout, catalog: DirectionCata
     templates = load_templates()
     category = templates["categories"][direction.category]
     width, height = catalog.size(direction)
+    layout = _cta_by_meaning(layout, copy)
     words = layout_words(layout)
     values = {
         "category": category["category"], "platform": category["platform"],
@@ -397,37 +457,17 @@ def designer_inputs(direction: Direction, layout: Layout, catalog: DirectionCata
         prompt = " ".join([str(composite["core"]).format(**values),
                            str(composite["negatives"]), str(templates["format"]).format(**values)])
         check_clean(prompt, [picture])
-        check_brand_free(prompt, [str(composite["negatives"])])
+        check_brand_free(prompt, [])
         return DesignerInputs(prompt=prompt, mode="composite")
-    limit = int(templates.get("maxReferences", 3))
-    refs = _ref_files(direction, references_dir, limit, role)
-    missing: list[str] = []
     objects: list[ReferenceImage] = []
-    refs_config = load_refs()
-    guide_pdf = references_dir / str(refs_config.get("guideline", ""))
-    try:
-        guide = guide_image(guide_pdf, cache_dir, refs_config.get("guidelineCrop")) if (
-            guide_pdf.is_file()) else None
-    except (DesignerPromptError, OSError) as error:
-        raise DesignerPromptError(str(error)) from None
-    if guide is None:
-        missing.append(f"style guide {guide_pdf}")
-    else:
-        objects.append(ReferenceImage(asset_id="brand-style-guide", path=guide,
-                                      source=f"{guide_pdf.name} (colour section)", people=False,
-                                      logo=False))
-    del logo_path  # never sent: the app places the real logo afterwards (2026-10-21)
     styles: list[ReferenceImage] = []
-    for ref_id, path, _, kind, own_boxes in refs:
-        if not path.is_file():
-            missing.append(f"reference {ref_id} {path}")
-            continue
-        boxes = list(refs_config.get("carouselMask", [])) if kind == "instagram_carousel" else []
-        boxes += own_boxes  # third-party logos (e.g. a search bar) the model must never copy
-        sent = masked_reference(path, boxes, cache_dir) if boxes else path
-        styles.append(ReferenceImage(asset_id=f"ref-{ref_id}", path=sent,
-                                     source=f"{ref_id} {path.name} (logo masked)", people=None,
-                                     logo=False))
+    missing: list[str] = []
+    uses: list[str] = []
+    unsent: list[str] = []
+    if templates.get("designerImages", False):
+        objects, styles, missing, uses, unsent = _image_inputs(
+            direction, references_dir, cache_dir, int(templates.get("maxReferences", 3)), role)
+    del logo_path  # never sent: the app places the real logo afterwards (2026-10-21)
     if missing and not mock:
         raise DesignerPromptError(f"{direction.id}: the designer prompt needs its inputs; "
                                   f"missing: {'; '.join(missing)} (copy assets/reference onto "
@@ -436,13 +476,12 @@ def designer_inputs(direction: Direction, layout: Layout, catalog: DirectionCata
     values["referenceImages"] = (
         f"Images {first} to {first + len(styles) - 1} are" if len(styles) > 1
         else f"Image {first} is" if styles else "No images are attached as")
-    values["references"] = "; ".join(f"{ref_id}: {without_brand(use)}"
-                                     for ref_id, path, use, _, _ in refs
-                                     if path.is_file()) or "the dark look above"
+    values["references"] = "; ".join(uses) or "the dark look above"
     exact, described = designer_texts(layout, copy)
     values["texts"] = "; ".join(described) or "(no text on this image)"
     parts = [designer_text(category["platform"], direction.canvas),
-             str(templates["inputs"]).format(**values), str(templates["brief"]).format(**values),
+             str(templates["inputs"]).format(**values) if objects or styles else "",
+             str(templates["brief"]).format(**values),
              _look(direction), str(templates["texts"]).format(**values),
              str(templates["negatives"]), str(templates["format"]).format(**values)]
     if words.logo_corner:
@@ -450,9 +489,9 @@ def designer_inputs(direction: Direction, layout: Layout, catalog: DirectionCata
                          "drawn there, no text and no symbol.")
     prompt = " ".join(part for part in parts if part)
     check_clean(prompt, [*exact, topic, picture])
-    check_brand_free(prompt, [*exact, str(templates["negatives"])])
+    check_brand_free(prompt, exact)
     return DesignerInputs(prompt=prompt, object_refs=objects, style_refs=styles,
-                          missing=missing, mode="designer", texts=exact)
+                          missing=missing, mode="designer", texts=exact, unsent=unsent)
 
 
 __all__ = ["CONFIG_FILE", "DesignerInputs", "DesignerPromptError", "LayoutWords", "Mode",

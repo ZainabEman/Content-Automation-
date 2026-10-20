@@ -10,13 +10,14 @@ approve / reject: Proposed -> Approved or Rejected, and Approved <-> Rejected; a
 never changes.
 generate: stage 1 (free, `ca content start` unchanged) for every Approved row without a
 package, then one combined dry run with the cost per row and the total. generate --build
-(after the user's "ok") builds each ready row once with the normal build, IMAGE_PARALLEL rows
-at a time (core/parallel.py); person and set checks then go on per package with `ca content
-build`. A finished package makes its row Generated; a failed row stays Approved and is reported;
-the next generate puts every failed row in its one combined dry run (2026-10-21), except Roman's
-Higgsfield image, which waits for the operator (`ca higgsfield accept` or a new attempt).
-The row's Content ID and Research source are saved in its package.json (the package's
-Drive folder name and its Content Tracker row).
+(after the user's "ok") builds every ready and retryable row once in ONE run,
+IMAGE_PARALLEL rows at a time (core/parallel.py; `--parallel N`); HTTP 402 (no credits) stops
+the whole batch and no other row is tried (2026-10-21). Person and set checks then go on per
+package with `ca content build`. A finished package makes its row Generated; a failed row
+stays Approved and is reported; the next generate puts every failed row in its one combined
+dry run (2026-10-21), except Roman's Higgsfield image, which waits for the operator (`ca
+higgsfield accept` or a new attempt). The row's Content ID and Research source are saved in
+its package.json (the package's Drive folder name and its Content Tracker row).
 
 Inside a `ca` command the CSV is a view of the registry (PRD Phase 4 D10, §14 D-8, D-9, D-11,
 D-12): every row is an item (BG ID column), Status and Version come from the registry, and each
@@ -63,6 +64,7 @@ from content_automation.content.research_input import ResearchFile, ResearchIdea
 from content_automation.content.topic_pool import spread, theme_of, topic_memory
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
+from content_automation.core.parallel import batch_stopped
 from content_automation.references.services import ServicesError, load_services
 from content_automation.registry import runtime
 from content_automation.registry.approvals import approve, reject
@@ -783,8 +785,15 @@ def generate_rows(
             lines.append(f"{where}: about ${result.estimated_usd:.3f}")
             lines += [f"  {line}" for line in result.lines
                       if not line.startswith(("DRY RUN:", "Estimated image cost:"))]
-    for (where, row, folder), outcome in zip(queued, _build_all(
-            [folder for _, _, folder in queued], settings), strict=True):
+    if queued:
+        lines.append(f"Batch: {len(queued)} row(s) in one run, "
+                     f"{min(settings.image_parallel, len(queued))} at once (IMAGE_PARALLEL).")
+    outcomes = _build_all([folder for _, _, folder in queued], settings) if queued else []
+    stopped = batch_stopped()
+    if stopped is not None:
+        lines.insert(0, f"STOPPED: {stopped}. No other row was tried. Add credits, then say "
+                        "\"generate approved\" again (one combined dry run).")
+    for (where, row, folder), outcome in zip(queued, outcomes, strict=True):
         if isinstance(outcome, (OSError, ValueError)):
             failed.append(f"{where}: {outcome}")
             continue
@@ -826,6 +835,9 @@ def generate_rows(
             "stopped, then run uv run ca content build \"<folder>\" (never for a failed row "
             "without the user's yes)."
         )
+        lines.append(f"To view the passed images: uv run ca outputs collect --week {label} "
+                     f"(copies in outputs/_system/review/{label}/; never another folder such as "
+                     "outputs/combined/).")
     return lines, failed
 
 

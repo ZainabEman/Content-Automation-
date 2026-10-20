@@ -1,6 +1,6 @@
 ---
 name: manage-items
-description: Show and decide Branded Genius content items by their BG ID (BG-007) with the `ca item`, `ca audit`, `ca jobs` and `ca auth` commands: list items, show one item's status and history, approve, reject, revise or resubmit, show the audit log, failed or unfinished jobs and the authorizations. Use for "show items", "what's pending", "status BG-x", "approve BG-x [BG-y]", "reject BG-x <reason>", "revise BG-x <feedback>", "resubmit BG-x", "history of BG-x", "show audit log", "what failed", "unfinished jobs", "resume unfinished jobs", "show authorizations", "tracker conflicts", "retry failed jobs", "show costs", "resume everything", "monthly report", "report for <month>", "verification status" or "verify <integration>". Free; a retry spends money only after the user's "ok" to its dry run.
+description: Show and decide Branded Genius content items by their BG ID (BG-007) with the `ca item`, `ca audit`, `ca jobs` and `ca auth` commands: list items, show one item's status and history, approve, reject, revise or resubmit, show the audit log, failed or unfinished jobs and the authorizations. Use for "show items", "what's pending", "status BG-x", "approve BG-x [BG-y]", "reject BG-x <reason>", "delete BG-x <reason>", "revise BG-x <feedback>", "resubmit BG-x", "history of BG-x", "show audit log", "what failed", "unfinished jobs", "resume unfinished jobs", "show authorizations", "tracker conflicts", "retry failed jobs", "show costs", "resume everything", "monthly report", "report for <month>", "verification status" or "verify <integration>". Free; a retry spends money only after the user's "ok" to its dry run.
 ---
 
 # Manage items
@@ -16,6 +16,7 @@ Every item has a BG ID (BG-007). Accept a BG ID, a Content ID (2026-W42-03), a p
 | "status BG-x" | `uv run ca item status BG-x` |
 | "approve BG-x [BG-y …]" | `uv run ca item approve BG-x [BG-y …]` |
 | "reject BG-x <reason>" | `uv run ca item reject BG-x "<reason>"` |
+| "delete BG-x <reason>" | `uv run ca item delete BG-x "<reason>"`: soft delete (v6); the item and its planned rows leave every active list and the topic is never suggested or planned again; ask for the reason |
 | "revise BG-x <feedback>" | `uv run ca item revise BG-x "<feedback>" [--title "<new topic>"]` (see Revise) |
 | "resubmit BG-x" | `uv run ca item resubmit BG-x --title "<new topic>"` |
 | "history of BG-x" | `uv run ca item history BG-x` |

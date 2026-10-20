@@ -11,6 +11,12 @@ everything the audience sees; layout variants from the approved company graphics
 competitor archive is never read); 4 categories (Instagram carousel, Facebook post, Facebook ad,
 LinkedIn); requires_roman → Higgsfield Soul 2.0 (v6), else OpenRouter; `ca plan month`; `ca youtube` for
 research and production planning; UGC, podcast and finished-video generation removed.
+v6 (docs/PRD-v6-design-topics-cleanup.md, wins over v5): the designer's prompt
+(brand/designer_prompt.md) in designer mode with text read-back, composite fallback; dark
+tokens sampled from the approved references; Roman only via Higgsfield Soul 2.0 (no logo or
+website on his creatives); topic pool and topic memory (config/topic_pool.json); output tree
+outputs/<Platform>/<Kind>/… and outputs/_system/ (core/output_tree.py); RunPod/ComfyUI and HeyGen
+removed.
 
 ## Rules
 

@@ -219,3 +219,21 @@ Phase 3 – decided 2026-10-10 (details in `docs/PHASE3-DECISION.md`; these over
     German, design check), plus the visual review (`ca job review --visual`).
   - Preview: `scripts/roman_higgsfield_preview.py`.
   - Details and UNKNOWNs: `docs/v5-implementation-notes.md`.
+- PRD v6 (2026-10-20, `docs/PRD-v6-design-topics-cleanup.md`; decisions):
+  - Design (R3): zones reach the image model in words only (`check_clean` refuses coordinates);
+    designer mode by default (`brand/designer_prompt.md` + exact German strings; inputs: the
+    guide's colour section, the logo for recognition, logo-masked references), the text read back
+    through OpenRouter (estimate $0.003 per check, not calibrated), one retry, then composite mode
+    (scene only, no image inputs, the app draws everything). Dark tokens sampled from the
+    approved references (`brand.json` sampledColors); the light and bright-blue themes are gone.
+    Variation (side, panel, decoration, CTA) rotated per platform. Image checks with a rejected
+    sample in `tests/fixtures/rejected/` (10 images, each fails with its reason).
+  - Roman (R4): Higgsfield Soul 2.0 only; no logo or website on his creatives.
+  - Topics (R2/R6): `config/topic_pool.json`; no forced service; topic memory (generated,
+    rejected, deleted, close rewordings) in every plan, calendar and import; `ca item delete`.
+  - Providers (R5): OpenRouter + Higgsfield only; RunPod/ComfyUI/LoRA removed (history in
+    `docs/history/`); an old `.env` provider or path line still starts and `ca doctor` names it.
+  - YouTube (R7) and outputs (R8): `outputs/YouTube Long-Form/<Topic Name>/`, platform tree
+    `outputs/<Platform>/<Kind>/<YYYY-MM>/<date>_<BG-ID>_<slug>/` (final/, source/,
+    caption_de.txt, package.json), internal files in `outputs/_system/`; `ca outputs migrate`
+    (dry run; `--apply` not run). HeyGen avatar path removed (R9).

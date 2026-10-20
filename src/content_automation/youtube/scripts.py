@@ -4,11 +4,12 @@
   ranges (config/formulas.json youtube_longform), the style's approach, the verified facts with
   their [S#], and the rules (German only, "Sie", no citations or headings in the teleprompter,
   never an experience Roman did not have, style C scenarios framed as illustrative).
-- `teleprompter_problems`: teleprompter_DE.txt is spoken German only: no English (the German
+- `teleprompter_problems`: script_de_teleprompter.txt is spoken German only: no English (the German
   pass), no citations, URLs, notes or headings; no first-person experience; style C needs an
   illustrative marker ("Stellen Sie sich vor …"). Length outside 1,300-1,600 words is a warning
   (Q4 open).
-- `bilingual_text`: script_DE-EN.txt made FROM the teleprompter file: every German paragraph,
+- `bilingual_text`: script_de_en_bilingual.txt made FROM the teleprompter file: every German
+  paragraph,
   word for word, under "German:", its English under "English:" (kept from the previous file when
   the German paragraph is unchanged, else a placeholder for the agent). `bilingual_problems`
   checks the German is identical paragraph for paragraph and every English block is filled.
@@ -31,8 +32,9 @@ from content_automation.youtube.research import Research
 from content_automation.youtube.sources import fact_found
 from content_automation.youtube.topic import Style, load_config
 
-TELEPROMPTER = "teleprompter_DE.txt"
-BILINGUAL = "script_DE-EN.txt"
+TELEPROMPTER = "script_de_teleprompter.txt"  # PRD v6 R7 file names
+BILINGUAL = "script_de_en_bilingual.txt"
+STORYBOARD = "storyboard.txt"
 BRIEF = "brief.md"
 ENGLISH_PLACEHOLDER = "<English translation of the German paragraph above>"
 # TODO(PENDING, PRD R9.10): the brief was cut off at "Clear placeholders s…". The remaining
@@ -128,7 +130,8 @@ def teleprompter_problems(text: str, style_key: str) -> tuple[list[str], list[st
 
 
 def bilingual_text(teleprompter: str, previous: str | None = None) -> str:
-    """script_DE-EN.txt from the teleprompter: German word for word, English under each."""
+    """script_de_en_bilingual.txt from the teleprompter: German word for word, English under
+    each."""
     kept = dict(read_bilingual(previous)) if previous else {}
     out: list[str] = []
     for block in paragraphs(teleprompter):
@@ -252,7 +255,8 @@ def storyboard_text(style: Style, title: str, bg_id: str, teleprompter: str, bil
     return "\n".join(lines).rstrip() + "\n"
 
 
-__all__ = ["BILINGUAL", "BRIEF", "ENGLISH_PLACEHOLDER", "STORYBOARD_PENDING", "TELEPROMPTER",
+__all__ = ["BILINGUAL", "BRIEF", "ENGLISH_PLACEHOLDER", "STORYBOARD", "STORYBOARD_PENDING",
+           "TELEPROMPTER",
            "bilingual_problems", "bilingual_text", "brief_text", "paragraphs",
            "read_bilingual", "similarity_flags", "storyboard_text", "teleprompter_problems",
            "words"]

@@ -41,7 +41,7 @@ Use the project's normal setup in `docs/SETUP-CODEX.md`. Drive upload requires `
 
 ## Outputs
 
-Topic packages live under `outputs/youtube/<YYYY-MM>/<BG-ID>_<slug>/`. Drive stores the package under `Content Automation/YouTube/<YYYY-MM>/<BG-ID>_<slug>/`. Each topic has one tracker row with links to its research, six scripts, and three storyboards.
+Topic packages live under `outputs/YouTube Long-Form/<Topic Name>/` (PRD v6 R7): `research.txt` and `Style A/`, `Style B/`, `Style C/`, each with `script_de_teleprompter.txt`, `script_de_en_bilingual.txt` and `storyboard.txt`. The BG ID and the internal briefs are in `outputs/_system/youtube/`. A re-run reuses the folder and writes a changed file as `<name>_v2.txt`. New Drive uploads mirror the tree: `Content Automation/YouTube Long-Form/<Topic Name>/`; folders already on Drive are never moved or renamed. Each topic has one tracker row with links to its research, six scripts, and three storyboards.
 
 ## Settings
 

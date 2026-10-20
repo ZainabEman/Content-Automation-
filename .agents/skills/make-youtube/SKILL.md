@@ -6,7 +6,10 @@ description: Branded Genius YouTube research and production planning (PRD v5 R9)
 # Make YouTube (research and production planning)
 
 Everything here is free: `ca youtube` makes folders, templates and checks; you research and
-write. No paid model is called by `ca`. Topic folder: `outputs/youtube/<YYYY-MM>/<BG-ID>_<slug>/`.
+write. No paid model is called by `ca`. Topic folder (PRD v6 R7): `outputs/YouTube Long-Form/<Topic Name>/`
+with `research.txt` and `Style A/`, `Style B/`, `Style C/` (each: `script_de_teleprompter.txt`,
+`script_de_en_bilingual.txt`, `storyboard.txt`). The BG ID and the briefs are in
+`outputs/_system/youtube/`. A re-run never overwrites: a changed file is written as `<name>_v2.txt`.
 
 ## Rules (always)
 
@@ -31,7 +34,7 @@ write. No paid model is called by `ca`. Topic folder: `outputs/youtube/<YYYY-MM>
    Proposed items with BG IDs and folders. Show the list with one line of why each matters and
    its first sources; **stop** for "approve BG-x" / "reject BG-x <reason>" (manage-items:
    `uv run ca item approve|reject …`).
-2. **"research BG-x"** → `uv run ca youtube research BG-x` writes `research_<slug>.txt`. Fill
+2. **"research BG-x"** → `uv run ca youtube research BG-x` writes `research.txt`. Fill
    every section from the pages you opened: sources as `[S1] Title | Publisher | YYYY-MM-DD`
    (section 5) and `[S1] https://full-url` (section 6); facts as `- <fact exactly as the source
    states it> [S1]`; quotations as `- "<exact words>" — <name, role> [S2]` (or "none");
@@ -44,20 +47,19 @@ write. No paid model is called by `ca`. Topic folder: `outputs/youtube/<YYYY-MM>
    research (another source, the exact quotation, a corrected fact) and run it again. Only the
    user may override: `--override "<their reason>"` with their own words (logged).
 4. **"write scripts BG-x"** → `uv run ca youtube scripts BG-x` (refused until the check passed or
-   was overridden). Read the three briefs in `.briefs/` and write, per style folder,
-   `teleprompter_DE.txt`: spoken German only, clean paragraphs separated by one empty line, no
+   was overridden). Read the three briefs in `outputs/_system/youtube/BG-x/briefs/` and write, per style
+   folder, `script_de_teleprompter.txt`: spoken German only, clean paragraphs separated by one empty line, no
    headings, labels, notes, citations, URLs or English; about 1,300-1,600 words (Q4 default). The
    three styles must differ in hook, story, delivery and structure, and use only the verified
-   facts. Then `uv run ca youtube bilingual BG-x` makes `script_DE-EN.txt` from each teleprompter
+   facts. Then `uv run ca youtube bilingual BG-x` makes `script_de_en_bilingual.txt` from each teleprompter
    file; replace every "<English translation …>" under "English:" with a faithful translation
    (never change the German there). Then `uv run ca youtube check BG-x` until every style
    passes; length warnings are reported, the difference check flags styles that are too similar
    (rewrite one). Show the user the three openings, then create storyboards for all three styles;
    a style choice is not needed for storyboard creation.
 5. **"generate storyboards BG-x"** → `uv run ca youtube storyboards BG-x` writes
-   `storyboard_style-A_investigativ.md`, `storyboard_style-B_direkte-warnung.md` and
-   `storyboard_style-C_menschlich.md` from the checked scripts, without recording a production
-   style. Fill every `<…>` in all three files; factual visuals cite the research [S#]. The rest of
+   `storyboard.txt` in each style folder (Style A, B and C), each matching its own script,
+   without recording a production style. Fill every `<…>` in all three files; factual visuals cite the research [S#]. The rest of
    the storyboard spec is PENDING: do not invent extra sections.
 6. **"select style B for BG-x"** → `uv run ca youtube select-style BG-x B` records the style
    for production and ensures all three storyboards exist. It does not replace the other two.

@@ -6,8 +6,9 @@ A temp folder with a copy of config/ and a fresh registry; the source pages are 
 files in tests/fixtures/youtube/ served by an httpx.MockTransport (no internet). The flow:
 plan → approve → research template → research (fixture) → check-sources (a dead URL and a
 missing quotation fail first) → scripts → three teleprompter files (fixtures) → bilingual →
-English filled (fixture) → check → select style B → storyboard. The finished topic folder is
-copied to outputs/previews/youtube/ for Roman's review of the formats. The topic is a MOCK:
+English filled (fixture) → check → select style B → storyboards. The finished topic folder
+(PRD v6 R7: YouTube Long-Form/<Topic Name>/) is copied to outputs/_system/previews/youtube/ for
+Roman's review of the formats. The topic is a MOCK:
 its sources are invented test pages on example.org.
 """
 
@@ -27,7 +28,7 @@ import httpx
 
 REPO = Path(__file__).resolve().parents[1]
 FIXTURES = REPO / "tests" / "fixtures" / "youtube"
-PREVIEW = REPO / "outputs" / "previews" / "youtube"
+PREVIEW = REPO / "outputs" / "_system" / "previews" / "youtube"
 PAGES = {"https://example.org/artikel-1": "artikel-1.html",
          "https://example.org/artikel-2": "artikel-2.html"}
 TITLE = "Deepfake-Anrufe im Namen der Geschäftsführung"
@@ -85,8 +86,11 @@ def run(copy_to: Path | None = PREVIEW, keep: bool = False) -> dict[str, Any]:
             result["steps"]["plan"] = code
             result["steps"]["approve"] = ca("item", "approve", bg_id)[0]
             result["steps"]["template"] = ca("youtube", "research", bg_id)[0]
-            folder = next((work / "outputs" / "youtube" / "2026-11").glob(f"{bg_id}_*"))
-            research = next(folder.glob("research_*.txt"))
+            meta = json.loads((work / "outputs" / "_system" / "youtube" / f"{bg_id}.json")
+                              .read_text(encoding="utf-8"))
+            folder = work / "outputs" / "YouTube Long-Form" / meta["folder"]
+            result["meta"] = meta
+            research = folder / "research.txt"
             filled = (FIXTURES / "research.txt").read_text(encoding="utf-8")
             broken = filled.replace("https://example.org/artikel-2",
                                     "https://example.org/gibt-es-nicht").replace(
@@ -101,14 +105,13 @@ def run(copy_to: Path | None = PREVIEW, keep: bool = False) -> dict[str, Any]:
             result["passedCheck"] = out
             result["steps"]["scripts"] = ca("youtube", "scripts", bg_id)[0]
             english = json.loads((FIXTURES / "english.json").read_text(encoding="utf-8"))
-            folders = {"A": "style-A_investigativ", "B": "style-B_direkte-warnung",
-                       "C": "style-C_menschlich"}
+            folders = {"A": "Style A", "B": "Style B", "C": "Style C"}
             for key, name in folders.items():
                 shutil.copy(FIXTURES / f"teleprompter_{key}.txt",
-                            folder / name / "teleprompter_DE.txt")
+                            folder / name / "script_de_teleprompter.txt")
             result["steps"]["bilingual"] = ca("youtube", "bilingual", bg_id)[0]
             for key, name in folders.items():
-                path = folder / name / "script_DE-EN.txt"
+                path = folder / name / "script_de_en_bilingual.txt"
                 text = path.read_text(encoding="utf-8")
                 for translation in english[key]:
                     text = text.replace("<English translation of the German paragraph above>",
@@ -129,15 +132,35 @@ def run(copy_to: Path | None = PREVIEW, keep: bool = False) -> dict[str, Any]:
                                           for path in drive.rglob("*") if path.is_file())
             tracker = drive / "tracking.csv"
             result["tracker"] = tracker.read_text(encoding="utf-8") if tracker.is_file() else ""
+            result["meta"] = json.loads((work / "outputs" / "_system" / "youtube"
+                                         / f"{bg_id}.json").read_text(encoding="utf-8"))
             result["files"] = sorted(path.relative_to(folder).as_posix()
                                      for path in folder.rglob("*") if path.is_file())
             result["folderName"] = folder.name
+            # a second run of the same topic (R7): the same folder, nothing overwritten
+            before = {path.relative_to(folder).as_posix(): path.read_bytes()
+                      for path in folder.rglob("*") if path.is_file()}
+            rerun = [ca("youtube", "research", bg_id), ca("youtube", "bilingual", bg_id),
+                     ca("youtube", "storyboards", bg_id)]
+            after = {path.relative_to(folder).as_posix(): path.read_bytes()
+                     for path in folder.rglob("*") if path.is_file()}
+            result["rerun"] = {"codes": [code for code, _ in rerun],
+                               "topicFolders": sorted(path.name for path in folder.parent.iterdir()
+                                                      if path.is_dir()),
+                               "unchanged": before == after}
+            changed = folder / "Style A" / "script_de_teleprompter.txt"
+            changed.write_text(changed.read_text(encoding="utf-8") + "\nEin neuer Absatz.\n",
+                               encoding="utf-8")
+            code, out = ca("youtube", "bilingual", bg_id)
+            result["rerun"]["changedBilingual"] = (code, out)
+            result["rerun"]["versions"] = sorted(path.name for path in (folder / "Style A")
+                                                 .iterdir())
             if copy_to is not None:
                 target = copy_to / folder.name
                 shutil.rmtree(target, ignore_errors=True)
                 shutil.copytree(folder, target)
                 (copy_to / "README.txt").write_text(
-                    "MOCK YouTube topic package (PRD v5 R9.11), made offline by "
+                    "MOCK YouTube topic package (PRD v6 R7), made offline by "
                     "scripts/youtube_mock_package.py from tests/fixtures/youtube/. The sources "
                     "are invented test pages on example.org; the texts show the formats only.\n",
                     encoding="utf-8")

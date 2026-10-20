@@ -156,6 +156,12 @@ class DriveStorage:
     ) -> Uploaded:
         name = platform_folder(platform)
         parent = self._state.folders.get(name)
+        if not parent and self._state.root_id and self._state.folders:
+            # v6 (R8): a top folder added after setup (YouTube Long-Form) is created once under
+            # the main folder; nothing that exists is moved or renamed
+            parent = self._folder("", name, parent=self._state.root_id)
+            self._state.folders[name] = parent
+            self._save_state()
         if not parent:
             raise StorageNotSetUpError(NOT_SET_UP)
         key, folder = name, parent

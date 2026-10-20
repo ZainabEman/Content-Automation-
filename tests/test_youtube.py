@@ -144,42 +144,54 @@ def test_similarity_flags_near_copies() -> None:
 def test_slug_is_file_safe() -> None:
     assert slug("Deepfake-Anrufe im Namen der Geschäftsführung") == (
         "deepfake-anrufe-im-namen-der-geschaeftsfuehrung")
+    from content_automation.core.output_tree import safe_title
+
+    assert safe_title('KI: "Fehler" / Risiken?') == "KI Fehler Risiken"  # Windows and Drive
+    assert safe_title("CON") == "Thema CON"
 
 
 def test_one_topic_end_to_end(tmp_path: Path) -> None:
-    """§7.11: research TXT, 3 styles x 2 files and a storyboard in the R9.11 layout."""
+    """§7.11 / PRD v6 §5 check 7: exactly the R7 tree, one storyboard per style; a second run
+    makes no duplicate folder and overwrites nothing (a changed file becomes _v2)."""
     result = _mock().run(copy_to=tmp_path)
     steps = result["steps"]
     assert steps["blocked"] == 2 and result["failedCheck"]["code"] == 1  # the gate
     assert all(steps[name] == 0 for name in ("plan", "approve", "template", "check-sources",
                                              "scripts", "bilingual", "check", "select"))
     folder = tmp_path / result["folderName"]
-    assert folder.name.startswith(result["bgId"] + "_")
-    styles = ("style-A_investigativ", "style-B_direkte-warnung", "style-C_menschlich")
-    expected = {f"research_{folder.name.split('_', 1)[1]}.txt", "package.json"}
-    expected |= {f"storyboard_{name}.md" for name in styles}  # every style has one
-    expected |= {f"{name}/{file}" for name in styles
-                 for file in ("teleprompter_DE.txt", "script_DE-EN.txt")}
-    visible = {path for path in result["files"] if not path.startswith(".briefs/")}
-    assert visible == expected
-    for name in styles:
-        teleprompter = (folder / name / "teleprompter_DE.txt").read_text(encoding="utf-8")
-        assert teleprompter_problems(teleprompter, name[6])[0] == []  # no English, no citation
-        bilingual = (folder / name / "script_DE-EN.txt").read_text(encoding="utf-8")
+    assert result["folderName"] == "Deepfake-Anrufe im Namen der Geschäftsführung"  # readable
+    assert result["meta"]["bgId"] == result["bgId"]  # the BG ID is in the metadata
+    styles = ("Style A", "Style B", "Style C")
+    expected = {"research.txt"} | {f"{name}/{file}" for name in styles for file in (
+        "script_de_teleprompter.txt", "script_de_en_bilingual.txt", "storyboard.txt")}
+    assert set(result["files"]) == expected  # exactly the R7 tree, nothing else
+    for name in styles[1:]:  # Style A's teleprompter is changed by the re-run below
+        teleprompter = (folder / name / "script_de_teleprompter.txt").read_text(encoding="utf-8")
+        assert teleprompter_problems(teleprompter, name[-1])[0] == []  # no English, no citation
+        bilingual = (folder / name / "script_de_en_bilingual.txt").read_text(encoding="utf-8")
         assert bilingual_problems(teleprompter, bilingual) == []  # identical German
-    research = next(folder.glob("research_*.txt")).read_text(encoding="utf-8")
+    research = (folder / "research.txt").read_text(encoding="utf-8")
     assert "Result: PASSED" in research
-    board = (folder / "storyboard_style-B_direkte-warnung.md").read_text(encoding="utf-8")
+    boards = {name: (folder / name / "storyboard.txt").read_text(encoding="utf-8")
+              for name in styles}
+    assert len(set(boards.values())) == 3  # one per style, never shared
+    board = boards["Style B"]
     assert board.count("## Scene ") >= 3 and "PENDING" in board
     for field in ("German (spoken by Roman)", "English (translation)", "Visual direction",
                   "On-screen text (German, exact)", "On-screen text (English explanation)",
                   "Sources for factual visuals", "Transitions, pacing"):
         assert field in board
-    package = json.loads((folder / "package.json").read_text(encoding="utf-8"))
+    package = result["meta"]
     assert package["selectedStyle"] == "B" and package["sourceCheck"]["status"] == "passed"
-    assert steps["upload"] == 0  # mock Drive: YouTube/<YYYY-MM>/<BG-ID>_<slug>/ (R10.2)
-    base = f"YouTube/2026-11/{folder.name}/"
-    assert {base + path for path in visible - {"package.json"}} <= set(result["driveFiles"])
+    assert steps["upload"] == 0  # mock Drive mirrors YouTube Long-Form/<Topic Name>/ (R8)
+    base = f"YouTube Long-Form/{folder.name}/"
+    assert {base + path for path in expected} <= set(result["driveFiles"])
+    rerun = result["rerun"]
+    assert rerun["codes"] == [0, 0, 0] and rerun["unchanged"]
+    assert rerun["topicFolders"] == [folder.name]  # no duplicate folder
+    code, out = rerun["changedBilingual"]
+    assert code == 0 and "new version" in out
+    assert "script_de_en_bilingual_v2.txt" in rerun["versions"]  # the earlier one is kept
     tracker = result["tracker"]
     header = tracker.splitlines()[0]
     for column in ("Category", "Language", "Selected Script Style"):

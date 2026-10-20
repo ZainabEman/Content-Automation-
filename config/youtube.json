@@ -20,14 +20,29 @@
     ],
     "sourceRule": "Use current, opened sources and do not claim AI will solve a problem unless the evidence supports it."
   },
-  "outputDir": "outputs/youtube",
+  "outputDir": "outputs/YouTube Long-Form",
   "wordsPerMinute": 130,
-  "targetWords": [1300, 1600],
+  "targetWords": [
+    1300,
+    1600
+  ],
   "address": "Sie",
   "styles": {
-    "A": {"folder": "style-A_investigativ", "name": "Investigativ", "approach": "Start with a real, documented incident; uncover its causes and consequences step by step, like an investigation; end with what companies and people should do now."},
-    "B": {"folder": "style-B_direkte-warnung", "name": "Direkte Warnung", "approach": "Start with the immediate risk or a direct question to the viewer; give the evidence quickly; spend the most time on the practical response."},
-    "C": {"folder": "style-C_menschlich", "name": "Menschlich", "approach": "Start with a realistic everyday or workplace scenario, clearly framed as illustrative (\"Stellen Sie sich vor ...\"); tie it to the verified facts and end with solutions. Never present the scenario as a real event and never as something Roman experienced."}
+    "A": {
+      "folder": "Style A",
+      "name": "Investigativ",
+      "approach": "Start with a real, documented incident; uncover its causes and consequences step by step, like an investigation; end with what companies and people should do now."
+    },
+    "B": {
+      "folder": "Style B",
+      "name": "Direkte Warnung",
+      "approach": "Start with the immediate risk or a direct question to the viewer; give the evidence quickly; spend the most time on the practical response."
+    },
+    "C": {
+      "folder": "Style C",
+      "name": "Menschlich",
+      "approach": "Start with a realistic everyday or workplace scenario, clearly framed as illustrative (\"Stellen Sie sich vor ...\"); tie it to the verified facts and end with solutions. Never present the scenario as a real event and never as something Roman experienced."
+    }
   },
   "similarity": {
     "openingWords": 60,
@@ -35,7 +50,26 @@
     "maxTextOverlap": 0.45,
     "_note": "the free difference check between two styles: share of shared word trigrams in the openings and in the whole scripts; above the limit the pair is flagged as too similar"
   },
-  "firstPersonExperience": ["ich habe erlebt", "mir ist passiert", "ich wurde selbst", "als ich selbst", "ich war dabei", "bei mir im unternehmen ist", "ich habe selbst gesehen", "mein eigener fall"],
-  "illustrativeMarkers": ["stellen sie sich vor", "angenommen", "nehmen wir an", "ein beispiel:", "beispielhaft"],
-  "storyboardSecondsPerScene": [20, 60]
+  "firstPersonExperience": [
+    "ich habe erlebt",
+    "mir ist passiert",
+    "ich wurde selbst",
+    "als ich selbst",
+    "ich war dabei",
+    "bei mir im unternehmen ist",
+    "ich habe selbst gesehen",
+    "mein eigener fall"
+  ],
+  "illustrativeMarkers": [
+    "stellen sie sich vor",
+    "angenommen",
+    "nehmen wir an",
+    "ein beispiel:",
+    "beispielhaft"
+  ],
+  "storyboardSecondsPerScene": [
+    20,
+    60
+  ],
+  "_treeNote": "PRD v6 R7: outputs/YouTube Long-Form/<Topic Name>/ with research.txt and Style A|B|C/ (script_de_teleprompter.txt, script_de_en_bilingual.txt, storyboard.txt). The topic folder is the readable title (safe for Windows and Drive); the BG ID and the rest of the metadata live in outputs/_system/youtube/<BG-ID>.json. A re-run reuses the folder and writes a changed file as <name>_v2.txt (never overwrites)."
 }

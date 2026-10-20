@@ -30,6 +30,7 @@ from content_automation.youtube.research import (
 )
 from content_automation.youtube.scripts import (
     BILINGUAL,
+    STORYBOARD,
     TELEPROMPTER,
     bilingual_problems,
     bilingual_text,
@@ -41,7 +42,9 @@ from content_automation.youtube.scripts import (
 from content_automation.youtube.sources import check_sources
 from content_automation.youtube.topic import (
     YoutubeError,
+    briefs_dir,
     find_folder,
+    latest,
     load_config,
     read_package,
     research_file,
@@ -50,10 +53,10 @@ from content_automation.youtube.topic import (
     styles,
     topic_folder,
     write_package,
+    write_versioned,
 )
 
 DELIVERABLE = "youtube_longform"
-BRIEFS_DIR = ".briefs"  # the writer's internal style briefs (English)
 
 
 def _month_dates(month: str, count: int) -> list[date]:
@@ -173,7 +176,7 @@ def write_briefs(conn: sqlite3.Connection, bg_id: str, *, root: Path | None = No
     _gate(data, item.id)
     found = research_file_module.read(research_file(folder))
     lines = []
-    briefs = folder / BRIEFS_DIR  # internal: kept out of the R9.11 style folders
+    briefs = briefs_dir(folder)  # internal: kept out of the topic tree (R7)
     for key, style in styles().items():
         target = style_dir(folder, key)
         target.mkdir(parents=True, exist_ok=True)
@@ -187,21 +190,22 @@ def write_briefs(conn: sqlite3.Connection, bg_id: str, *, root: Path | None = No
 
 def make_bilingual(conn: sqlite3.Connection, bg_id: str, *,
                    root: Path | None = None) -> list[str]:
-    """R9.9: script_DE-EN.txt from each teleprompter file (English kept where unchanged)."""
+    """R9.9: the bilingual script from each teleprompter file (English kept where unchanged);
+    a changed one is a new version, never an overwrite (R7)."""
     item = _approved(conn, bg_id)
     folder = find_folder(item.id, root)
     lines = []
     for key in styles():
         target = style_dir(folder, key)
-        teleprompter = target / TELEPROMPTER
+        teleprompter = latest(target / TELEPROMPTER)
         if not teleprompter.exists():
             lines.append(f"Style {key}: no {TELEPROMPTER} yet")
             continue
-        bilingual = target / BILINGUAL
+        bilingual = latest(target / BILINGUAL)
         previous = bilingual.read_text(encoding="utf-8") if bilingual.exists() else None
-        atomic_write_text(bilingual, bilingual_text(teleprompter.read_text(encoding="utf-8"),
-                                                    previous))
-        lines.append(f"Style {key}: {bilingual.as_posix()} (fill every English block)")
+        written, how = write_versioned(target / BILINGUAL, bilingual_text(
+            teleprompter.read_text(encoding="utf-8"), previous))
+        lines.append(f"Style {key}: {written.as_posix()} ({how}; fill every English block)")
     return [*lines, f"Then: uv run ca youtube check {item.id}"]
 
 
@@ -216,7 +220,7 @@ def check_scripts(conn: sqlite3.Connection, bg_id: str, *,
     ok = True
     for key in styles():
         target = style_dir(folder, key)
-        teleprompter = target / TELEPROMPTER
+        teleprompter = latest(target / TELEPROMPTER)
         if not teleprompter.exists():
             lines.append(f"Style {key}: FAIL no {TELEPROMPTER}")
             ok = False
@@ -224,7 +228,7 @@ def check_scripts(conn: sqlite3.Connection, bg_id: str, *,
         text = teleprompter.read_text(encoding="utf-8")
         texts[key] = text
         errors, warnings = teleprompter_problems(text, key)
-        bilingual = target / BILINGUAL
+        bilingual = latest(target / BILINGUAL)
         errors += (bilingual_problems(text, bilingual.read_text(encoding="utf-8"))
                    if bilingual.exists() else [f"no {BILINGUAL}: uv run ca youtube bilingual"])
         ok = ok and not errors
@@ -232,8 +236,8 @@ def check_scripts(conn: sqlite3.Connection, bg_id: str, *,
         lines += [f"  error: {error}" for error in errors]
         lines += [f"  warning: {warning}" for warning in warnings]
         data.setdefault("styles", {})[key] = {
-            "teleprompter": (target / TELEPROMPTER).relative_to(folder).as_posix(),
-            "bilingual": (target / BILINGUAL).relative_to(folder).as_posix(),
+            "teleprompter": teleprompter.relative_to(folder).as_posix(),
+            "bilingual": bilingual.relative_to(folder).as_posix(),
             "check": "passed" if not errors else "failed", "warnings": warnings}
     flags = similarity_flags(texts)
     lines += [f"Difference check: {flag}" for flag in flags] or (
@@ -244,7 +248,8 @@ def check_scripts(conn: sqlite3.Connection, bg_id: str, *,
 
 def write_storyboards(conn: sqlite3.Connection, bg_id: str, *, root: Path | None = None,
                       command: str | None = None) -> list[str]:
-    """R9.10: write an editing storyboard for every checked script style, without selecting one."""
+    """R9.10 / v6 R7: one storyboard per style, in that style's folder and matching its script,
+    without selecting one; a changed storyboard is a new version, never an overwrite."""
     item = _approved(conn, bg_id)
     folder = find_folder(item.id, root)
     data = read_package(folder)
@@ -258,13 +263,12 @@ def write_storyboards(conn: sqlite3.Connection, bg_id: str, *, root: Path | None
     lines: list[str] = []
     for key, style in styles().items():
         target = style_dir(folder, key)
-        board = folder / f"storyboard_{style.folder}.md"
-        atomic_write_text(board, storyboard_text(
-            style, item.title, item.id, (target / TELEPROMPTER).read_text(encoding="utf-8"),
-            (target / BILINGUAL).read_text(encoding="utf-8"), found))
-        boards.append(board.name)
-        lines.append(f"Storyboard {key} {style.name}: {board.as_posix()} "
-                     "(fill every <…>; the rest of the spec is PENDING).")
+        board, how = write_versioned(target / STORYBOARD, storyboard_text(
+            style, item.title, item.id, latest(target / TELEPROMPTER).read_text(encoding="utf-8"),
+            latest(target / BILINGUAL).read_text(encoding="utf-8"), found))
+        boards.append(board.relative_to(folder).as_posix())
+        lines.append(f"Storyboard {key} {style.name}: {board.as_posix()} ({how}; "
+                     "fill every <…>; the rest of the spec is PENDING).")
     data["storyboards"] = boards
     write_package(folder, data)
     append_event(conn, "item_updated", command=command, item_id=item.id,
@@ -288,7 +292,8 @@ def select_style(conn: sqlite3.Connection, bg_id: str, key: str, *, root: Path |
     write_storyboards(conn, item.id, root=root, command=command)
     data = read_package(folder)
     data["selectedStyle"] = style.key
-    data["storyboard"] = f"storyboard_{style.folder}.md"
+    data["storyboard"] = latest(style_dir(folder, style.key) / STORYBOARD).relative_to(
+        folder).as_posix()
     write_package(folder, data)
     set_design(conn, item.id, script_style=style.key, command=command)
     return [f"{item.id}: style {style.key} {style.name} selected (registry and package.json).",

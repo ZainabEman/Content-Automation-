@@ -65,7 +65,9 @@ FOLDER_NAMES = {**PLATFORM_FOLDERS, "youtube": "YouTube", "shorts": "Shorts",
                 # v5 (PRD R10.2): new category folders; existing folders are never renamed or
                 # moved (the restructuring spec is PENDING, R10.3)
                 "instagram_carousels": "Instagram Carousels",
-                "facebook_posts": "Facebook Posts"}
+                "facebook_posts": "Facebook Posts",
+                # v6 (PRD R7/R8): YouTube packages mirror outputs/YouTube Long-Form/
+                "youtube_longform": "YouTube Long-Form"}
 # v5: a package's category (package.json `category`) -> its Drive folder key; a package
 # without a category (made before v5) keeps its platform folder
 CATEGORY_FOLDERS = {"instagram_carousel": "instagram_carousels",

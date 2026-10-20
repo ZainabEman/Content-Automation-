@@ -210,10 +210,12 @@ def run(keep: bool = False) -> list[tuple[str, bool, str]]:
         yt = _module("youtube_mock_package")
     result = yt.run(copy_to=None)  # its own sandbox; the teleprompter check is the German pass
     youtube_ok = all(code == 0 for name, code in result["steps"].items() if name != "blocked")
-    results.append(("§7.11 one YouTube topic: research, 3 styles x 2 files, storyboard (R9.11)",
-                    youtube_ok and sum(path.endswith(("teleprompter_DE.txt", "script_DE-EN.txt"))
-                                       for path in result["files"]) == 6
-                    and any(path.startswith("storyboard_") for path in result["files"]),
+    results.append(("§7.11 one YouTube topic: research, 3 styles x 3 files (v6 R7 tree)",
+                    youtube_ok and sum(path.endswith(("script_de_teleprompter.txt",
+                                                      "script_de_en_bilingual.txt",
+                                                      "storyboard.txt"))
+                                       for path in result["files"]) == 9
+                    and "research.txt" in result["files"],
                     ", ".join(f"{k} {v}" for k, v in result["steps"].items())))
     results.append(("§7.12 the source check catches a dead URL and a misquote",
                     "HTTP 404" in result["failedCheck"]["output"]

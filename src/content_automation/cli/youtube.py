@@ -115,7 +115,8 @@ def youtube_scripts(bg_id: BgId) -> None:
 
 @youtube_app.command("bilingual")
 def youtube_bilingual(bg_id: BgId) -> None:
-    """script_DE-EN.txt from each teleprompter file (German word for word, English below)."""
+    """script_de_en_bilingual.txt from each teleprompter file (German word for word, English
+    below)."""
     _echo(_run(f"ca youtube bilingual {bg_id}", "bilingual", bg_id))
 
 

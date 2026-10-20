@@ -6,7 +6,7 @@ by ``IMAGE_PROVIDER`` (adapter) and ``IMAGE_MODEL`` (model passed to the adapter
 
 import importlib
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Protocol
+from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -26,7 +26,6 @@ _ADAPTERS: dict[str, str] = {
     # Roman's images: Codex makes them with the Higgsfield plugin (Soul 2.0, his character)
     "higgsfield_soul": "content_automation.ai.image.providers.higgsfield_soul",
     "openrouter": "content_automation.ai.image.providers.openrouter",
-    "comfyui": "content_automation.ai.image.providers.comfyui",
     # No picture: a post format without an image slot is rendered by the app alone (free).
     "template": "content_automation.ai.image.providers.template",
 }
@@ -120,8 +119,7 @@ class ImageResult(BaseModel):
     model: str
     provider_request_ids: list[str] = Field(default_factory=list)
     cost_usd: float | None = None  # actual charge, when the provider reports it
-    # Provider-reported numbers kept in the job record, e.g. RunPod delayTimeMs and
-    # executionTimeMs, and the seed of each image.
+    # Provider-reported numbers kept in the job record (timings, the seed of each image).
     metrics: dict[str, float] = Field(default_factory=dict)
 
 
@@ -146,8 +144,8 @@ class ProviderCapabilities(BaseModel):
     # Added once per request on top of the per-image price (e.g. a GPU cold start).
     est_cost_usd_per_request: float = 0.0
     cost_basis: str = ""  # how the estimate is made, shown in the dry run; "" = provider price
-    # A trained identity (LoRA): the prompt text that calls it up. Then no identity photos
-    # are sent and max_identity_refs is 0.
+    # A provider-side identity (e.g. a saved character): the prompt text that calls it up.
+    # Then no identity photos are sent and max_identity_refs is 0.
     identity_prompt: str | None = None
     # The adapter's own time budget per image (a provider that is polled); None: the
     # IMAGE_TIMEOUT_MS based budget.
@@ -228,15 +226,10 @@ def estimate_cost_usd(
 
 
 def model_for(settings: Settings) -> str:
-    """The model the selected provider runs: IMAGE_MODEL; ComfyUI runs its own workflow
-    (IMAGE_MODEL only when it names a ComfyUI workflow, else config/comfyui.json
-    defaultWorkflow), so an OpenRouter model never blocks it."""
+    """The model the selected provider runs: IMAGE_MODEL ("template" for the free template)."""
     if settings.image_provider == "template":
         return "template"
-    if settings.image_provider != "comfyui":
-        return settings.image_model
-    workflow: str = importlib.import_module(_ADAPTERS["comfyui"]).workflow_for(settings)
-    return workflow
+    return settings.image_model
 
 
 def generate_image(request: ImageRequest, settings: Settings | None = None) -> ImageResult:
@@ -252,30 +245,3 @@ def generate_image(request: ImageRequest, settings: Settings | None = None) -> I
     return result
 
 
-# config/comfyui.json helpers for doctor and lora, so no app module imports the adapter itself.
-# The adapter imports this package, so it is loaded on first use, not here.
-_COMFYUI_EXPORTS = {
-    "ComfyUIConfig": "ComfyUIConfig",
-    "is_unset": "is_unset",
-    "load_comfyui_config": "load_config",
-    "load_comfyui_workflow": "load_workflow",
-    "comfyui_model_file_problems": "model_file_problems",
-    "comfyui_photo_prompt": "photo_prompt_for",
-}
-
-if TYPE_CHECKING:
-    from content_automation.ai.image.providers import comfyui as _comfyui
-
-    ComfyUIConfig = _comfyui.ComfyUIConfig
-    is_unset = _comfyui.is_unset
-    load_comfyui_config = _comfyui.load_config
-    load_comfyui_workflow = _comfyui.load_workflow
-    comfyui_model_file_problems = _comfyui.model_file_problems
-    comfyui_photo_prompt = _comfyui.photo_prompt_for
-else:
-
-    def __getattr__(name: str) -> Any:
-        if name in _COMFYUI_EXPORTS:
-            module = importlib.import_module(_ADAPTERS["comfyui"])
-            return getattr(module, _COMFYUI_EXPORTS[name])
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

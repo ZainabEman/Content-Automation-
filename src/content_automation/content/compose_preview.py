@@ -1,6 +1,6 @@
 """`ca compose preview BG-x [--mode scene|cutout|photo-crop] [--placeholder]` (live fixes): the
 raw checks, the composition and the overlay on the newest raw image already saved for the item,
-with its brief copy or placeholder copy. No model or RunPod call. Writes
+with its brief copy or placeholder copy. No model call. Writes
 `<package>/previews/<BG-x>-<mode>.png` and `<BG-x>-raw-checks.json`.
 """
 
@@ -12,7 +12,6 @@ from typing import Any
 
 from PIL import Image
 
-from content_automation.ai.image import comfyui_photo_prompt
 from content_automation.content.review import package_part
 from content_automation.core.config import Settings
 from content_automation.core.files import atomic_write_text
@@ -110,7 +109,7 @@ def preview(conn: sqlite3.Connection, settings: Settings, ref: str, mode: Mode |
     atomic_write_text(report, json.dumps({
         "item": item.id, "raw": raw.as_posix(), "rawChecks": checks, "passed": not checks,
         "copy": copy_issues, "mode": made.mode, "notes": made.notes,
-        "boxes": made.boxes, "photoPrompt": comfyui_photo_prompt(settings),
+        "boxes": made.boxes,
     }, indent=2, ensure_ascii=False) + "\n")
     return [
         f"{item.id}: preview {out.as_posix()} ({made.image.width}x{made.image.height}, mode "

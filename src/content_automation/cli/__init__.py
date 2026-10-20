@@ -117,22 +117,6 @@ from content_automation.core.jobs import DETAILS_FILE, Job, JobStateError, Revie
 from content_automation.core.limits import DailyLimitError
 from content_automation.core.log import configure_logging
 from content_automation.doctor import run_checks
-from content_automation.lora import (
-    LoraError,
-    ModelKey,
-    load_lora_config,
-    newest_dataset,
-    prepare_dataset,
-    set_lora,
-    set_lora_strength,
-    training_config,
-)
-from content_automation.lora_remote import plan as remote_plan
-from content_automation.lora_remote import result_lines
-from content_automation.lora_remote import start as remote_start
-from content_automation.lora_remote import status as remote_status
-from content_automation.lora_remote import stop as remote_stop
-from content_automation.lora_remote import watch as remote_watch
 from content_automation.references import (
     REF_TYPES,
     BrandProfileError,
@@ -151,7 +135,6 @@ from content_automation.references import (
     tag_assets,
 )
 from content_automation.registry import db_path
-from content_automation.registry.audit import append_event
 from content_automation.registry.db import RegistryError
 from content_automation.registry.dryruns import CostLine
 from content_automation.registry.ids import resolve
@@ -241,10 +224,6 @@ overlay_app = typer.Typer(
     no_args_is_help=True,
     help="Text the app renders for image providers that draw no text (local and free).",
 )
-lora_app = typer.Typer(
-    no_args_is_help=True,
-    help="The person's LoRA for ComfyUI: dataset, AI Toolkit config, trained file (local, free).",
-)
 app.add_typer(refs_app, name="refs")
 app.add_typer(brand_app, name="brand")
 app.add_typer(job_app, name="job")
@@ -255,7 +234,6 @@ app.add_typer(calendar_app, name="calendar")
 app.add_typer(drive_app, name="drive")
 app.add_typer(tracking_app, name="tracking")
 app.add_typer(overlay_app, name="overlay")
-app.add_typer(lora_app, name="lora")
 app.add_typer(env_app, name="env")
 app.add_typer(items_app, name="item")
 review_app = typer.Typer(no_args_is_help=True, help="The review gate: what waits, one item.")
@@ -1456,8 +1434,8 @@ def content_build(
     settings = _settings(dry_run=dry_run, check_keys=False)
     if not dry_run:
         configure_logging(settings)
-    if provider is not None and provider not in ("mock", "openrouter", "comfyui"):
-        typer.echo(f'--provider must be mock, openrouter or comfyui, not "{provider}"', err=True)
+    if provider is not None and provider not in ("mock", "openrouter"):
+        typer.echo(f'--provider must be mock or openrouter, not "{provider}"', err=True)
         raise typer.Exit(code=2)
     key = f"content build {folder.resolve().as_posix()}"
     command = f'ca content build "{folder}"' + (" --dry-run" if dry_run else "")
@@ -2071,164 +2049,6 @@ def overlay_sheet(
     typer.echo(f"Saved: {path.resolve()} ({count} formats and slides; no provider call)")
 
 
-LoraModel =Annotated[str, typer.Argument(help="qwen (Qwen-Image-2512) or zimage (Z-Image Turbo).")]
-
-
-def _lora_model(value: str) -> ModelKey:
-    if value not in ("qwen", "zimage"):
-        typer.echo("The model must be qwen or zimage.", err=True)
-        raise typer.Exit(code=2)
-    return "qwen" if value == "qwen" else "zimage"
-
-
-@lora_app.command("prepare")
-def lora_prepare(
-    keep: Annotated[
-        list[str] | None,
-        typer.Option(help="A photo (e.g. 7.jpg or extra/a.jpg) whose face the detector missed, "
-                     "checked by eye; repeat for more."),
-    ] = None,
-) -> None:
-    """Check consent and photos, write the training dataset zip to outputs/lora/ (free).
-
-    Refused without CONSENT.md in the identity folder, or with fewer than 9 usable photos.
-    """
-    _utf8_output()
-    settings = _settings(dry_run=True)
-    try:
-        result = prepare_dataset(settings, keep=keep)
-    except LoraError as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(code=1) from None
-    for line in result.lines:
-        typer.echo(line)
-
-
-@lora_app.command("config")
-def lora_config(
-    model: Annotated[str, typer.Option(help="qwen (Qwen-Image-2512) or zimage (Z-Image Turbo).")],
-    dataset: Annotated[
-        Path | None, typer.Option(help="The dataset zip (default: the newest in outputs/lora/).")
-    ] = None,
-) -> None:
-    """Write the AI Toolkit YAML for one model and show the Pod cost estimate (free)."""
-    _utf8_output()
-    settings = _settings(dry_run=True)
-    try:
-        _, lines = training_config(settings, _lora_model(model), dataset or newest_dataset())
-    except LoraError as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(code=1) from None
-    for line in lines:
-        typer.echo(line)
-
-
-@lora_app.command("set")
-def lora_set(
-    model: LoraModel,
-    filename: Annotated[str, typer.Argument(
-        help="The LoRA file name in models/loras/, or its local path (records the sha256).")],
-) -> None:
-    """Point config/comfyui.json at the trained LoRA, so images with the person are allowed."""
-    _utf8_output()
-    settings = _settings(dry_run=True)
-    try:
-        lines = set_lora(settings, _lora_model(model), filename)
-    except LoraError as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(code=1) from None
-    for line in lines:
-        typer.echo(line)
-
-
-@lora_app.command("strength")
-def lora_strength(
-    value: Annotated[float, typer.Argument(help="0.5-1.2 (1.0 default; group scenes use "
-                                           "groupLoraStrength).")],
-) -> None:
-    """Set the LoRA strength in config/comfyui.json for the likeness comparison (logged in the
-    audit)."""
-    _utf8_output()
-    settings = _settings(dry_run=True)
-    with _registry(settings, f"ca lora strength {value:g}") as scope:
-        try:
-            before, path = set_lora_strength(settings, value)
-        except LoraError as error:
-            typer.echo(str(error), err=True)
-            raise typer.Exit(code=1) from None
-        append_event(scope.conn, "config_changed", actor="user", command=scope.command,
-                     details={"file": path.as_posix(), "key": "loraStrength", "from": before,
-                              "to": value})
-    typer.echo(f"loraStrength: {before:g} -> {value:g} ({path.as_posix()}); logged in the audit.")
-
-
-@lora_app.command("train-remote")
-def lora_train_remote(
-    model: Annotated[str, typer.Option(help="qwen, zimage or both.")] = "both",
-    yes: Annotated[
-        bool, typer.Option("--yes", help="The user said ok to the estimate: start the Pod.")
-    ] = False,
-) -> None:
-    """Train the LoRA on a temporary RunPod Pod in one command (paid: needs --yes).
-
-    Without --yes: consent, dataset and the cost estimate only (free). With --yes: upload to
-    the network volume, create the Pod, watch it (samples to outputs/lora/<model>/samples/) and
-    terminate it at the hard limit, on Ctrl+C or on any error.
-    """
-    _utf8_output()
-    settings = _settings(dry_run=True)
-    try:
-        chosen = remote_plan(settings, model, typer.echo)
-        for line in chosen.lines:
-            typer.echo(line)
-        if not yes:
-            typer.echo(
-                "Nothing started. Show this estimate to the user; only after their \"ok\": "
-                f"uv run ca lora train-remote --model {model} --yes"
-            )
-            return
-        config = load_lora_config(settings.lora_config_file)
-        run, rest, store = remote_start(settings, chosen, typer.echo)
-        run = remote_watch(run, rest, store, typer.echo, config=config)
-    except KeyboardInterrupt:
-        typer.echo("Stopped with Ctrl+C; the Pod was terminated (`uv run ca lora status`).",
-                   err=True)
-        raise typer.Exit(code=130) from None
-    except LoraError as error:
-        typer.echo(str(error), err=True)
-        typer.echo("If a Pod was started it has been terminated; check: uv run ca lora status",
-                   err=True)
-        raise typer.Exit(code=1) from None
-    for line in result_lines(run):
-        typer.echo(line)
-    if not run.status.startswith("done"):
-        raise typer.Exit(code=1)
-
-
-@lora_app.command("status")
-def lora_status() -> None:
-    """The latest remote training run: Pod state, progress, new samples, cost so far."""
-    _utf8_output()
-    settings = _settings(dry_run=True)
-    try:
-        remote_status(settings, typer.echo)
-    except LoraError as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(code=1) from None
-
-
-@lora_app.command("stop")
-def lora_stop() -> None:
-    """Terminate this tool's training Pod now (billing stops) and record the run as stopped."""
-    _utf8_output()
-    settings = _settings(dry_run=True)
-    try:
-        remote_stop(settings, typer.echo)
-    except LoraError as error:
-        typer.echo(str(error), err=True)
-        raise typer.Exit(code=1) from None
-
-
 @app.command()
 def doctor() -> None:
     """Check the setup (keys are only shown as set yes/no) and say how to fix problems."""
@@ -2600,7 +2420,7 @@ def compose_preview_command(
         "--template", help="insight or stat (scene mode; default: personTemplates).")] = None,
 ) -> None:
     """Free preview: raw checks, cutout, composition and overlay on the newest raw photo of the
-    item (no RunPod call); writes the PNG and the raw-check results."""
+    item (no model call); writes the PNG and the raw-check results."""
     _utf8_output()
     if mode is not None and mode not in COMPOSE_MODES:
         typer.echo("--mode must be scene, cutout or photo-crop.", err=True)

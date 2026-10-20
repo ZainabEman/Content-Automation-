@@ -3,13 +3,13 @@
 Python CLI (`uv run ca …`) that turns research (Gmail newsletters and user topics) into
 social content: copy, branded images (Nano Banana 2 via OpenRouter) and videos (Higgsfield,
 HeyGen), with approval and cost-approval gates and one job folder per output. v2 adds a
-content calendar with approval, LinkedIn, Google Drive folders with a tracking CSV, ComfyUI
-images with Roman's identity, and Higgsfield animated Instagram carousels. Plan:
+content calendar with approval, LinkedIn, Google Drive folders with a tracking CSV and
+Instagram carousels. Plan:
 docs/ROADMAP-v3.md; spec per phase: docs/phases/PHASE-<n>-PRD.md (the v2 docs/PRD.md is replaced).
 v5 (docs/PRD-v5-german-brand-youtube.md, notes: docs/v5-implementation-notes.md): German for
 everything the audience sees; layout variants from the approved company graphics only (the
 competitor archive is never read); 4 categories (Instagram carousel, Facebook post, Facebook ad,
-LinkedIn); requires_roman → RunPod LoRA, else OpenRouter; `ca plan month`; `ca youtube` for
+LinkedIn); requires_roman → Higgsfield Soul 2.0 (v6), else OpenRouter; `ca plan month`; `ca youtube` for
 research and production planning; UGC, podcast and finished-video generation removed.
 
 ## Rules

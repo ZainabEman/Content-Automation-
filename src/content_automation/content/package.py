@@ -116,7 +116,6 @@ from content_automation.content.roman_prompt import (
     parse_combination,
     pick_combination,
 )
-from content_automation.content.routing import DISABLED
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
 from content_automation.core.jobs import DETAILS_FILE, Job, ReviewCheck, slugify
@@ -142,8 +141,6 @@ from content_automation.research.collectors import CollectorError
 from content_automation.research.models import SourceArticle, SourcesError
 from content_automation.research.run import collect, topic_digest, topic_note
 from content_automation.research.store import find_article, known_article_ids, load_articles
-from content_automation.workflows.card import Copy
-from content_automation.workflows.compose import compose_config, copy_problems, person_card
 from content_automation.workflows.design_system import (
     STEP_SEPARATOR,
     DesignSystem,
@@ -153,7 +150,6 @@ from content_automation.workflows.design_system import (
 )
 from content_automation.workflows.direction_job import MANIFEST_SUFFIX, direction_settings
 from content_automation.workflows.image_checks import image_problems
-from content_automation.workflows.image_job import raw_image
 from content_automation.workflows.image_workflows import (
     AD_VARIANTS,
     PreparedWorkflow,
@@ -280,7 +276,7 @@ class ContentPackage(CamelModel):
     treatment: str | None = None
     requires_roman: bool = False
     language: str | None = None
-    # v5 R6.7 (EU AI Act Art. 50): the label for images of Roman made by his LoRA; also on
+    # v5 R6.7 (EU AI Act Art. 50): the label for generated images of Roman; also on
     # Facebook ads (Q8 default yes). None: no generated person.
     ai_disclosure: str | None = None
     # 2026-10-20: Roman's combination for Higgsfield (e.g. "S-L/BG-2/P-3/H-1"), picked at
@@ -531,7 +527,7 @@ def _choose_format(
     try:
         catalog = load_formats(settings.post_formats_file)
         roman = next((item for item in catalog.formats if item.roman), None)
-        # Roman formats use their own provider (comfyui, Roman's LoRA); mock stays mock.
+        # v6 R5: no Roman post formats are left (Roman is a founder layout variant)
         person_ok = roman is not None and provider_shows_person(
             format_settings(roman, settings))
         last_roman = next((name for name in recent_formats(
@@ -576,8 +572,7 @@ def _choose_direction(
                 seed=package.content_id or folder.name,
                 recent=recent_directions(settings.packages_dir, catalog, format_name,
                                          item.platform, exclude=folder),
-                roman_ok=(settings.image_provider == "mock"
-                          or settings.roman_image_provider not in DISABLED),
+                roman_ok=True,  # Roman: Higgsfield Soul 2.0, always available (v6 R5)
                 override=override if is_direction_id(override) else None,
                 roman=roman,
             )
@@ -1124,7 +1119,6 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool,
         if isinstance(plan.error, WorkflowError)
     ]
     problems += _ad_claim_problems(brief, folder)
-    problems += _person_copy_problems(plans, settings)
     if problems:  # format rules, a stat without a research source, ...: nothing is made
         raise BriefError(problems)
     if dry_run:
@@ -1590,33 +1584,6 @@ def _check(
     return review.result if review is not None else None
 
 
-def _person_copy_problems(plans: dict[str, "_ImagePlan"], settings: Settings) -> list[str]:
-    """Live fix: a person post on ComfyUI is the app's branded card; its copy limits depend
-    on personImage.mode (scene: tag, headline 3-7 words with one highlight, German subtitle,
-    3 bullets with icons, CTA in English and German). Ads keep their own rules."""
-    if settings.image_provider != "comfyui":
-        return []
-    config = compose_config(settings)
-    allowed = tuple(person_card(settings)["icons"].get("allowed", ()))
-    problems = []
-    for kind, plan in plans.items():
-        if kind != "post" or plan.slot.templated or not any(
-                prepared.person_shown for prepared in plan.prepared):
-            continue
-        slot = plan.slot
-        card = slot.card
-        copy = Copy(slot.headline or "",
-                    (card.subtitle if card and card.subtitle else None) or slot.subheadline
-                    or slot.audience_line or "",
-                    bullets=tuple(slot.points), tag=card.tag or "" if card else "",
-                    icons=tuple(card.icons) if card else (),
-                    cta_en=card.cta_en or "" if card else "",
-                    cta_de=card.cta_de or "" if card else "", highlight=tuple(slot.highlight))
-        problems += [f"{kind}: {problem}" for problem in copy_problems(copy, config,
-                                                                       icons=allowed)]
-    return problems
-
-
 def _review_note(item: PackageItem, position: int, settings: Settings) -> str:
     found = _image_job(item, position, settings)
     review = found[0].review(found[1], "person") if found is not None else None
@@ -1754,7 +1721,7 @@ def _person_lines(
     redo = ((f"  Made again once already ({'; '.join(earlier)})." if earlier else "")
             + "  Only a failed automatic check (text, no face, face too small) is made again "
             "once; your look is reported to the user, never redone by itself.")
-    raw = raw_image(job.folder, name) if job.provider == "comfyui" else None
+    raw: Path | None = None  # v6 R5: no raw studio photos (the composed route is removed)
     checked = ("Raw checks (automatic: no text, one face, big enough): passed." if raw else
                "Face check (automatic): " + ("skipped (mock image, no face to find)."
                                              if job.provider == "mock" else "passed."))
@@ -1869,7 +1836,7 @@ def _set_lines(
 
 @dataclass
 class _Batch:
-    """One build's image jobs. warm (provider batch_images, ComfyUI): every image of the
+    """One build's image jobs. warm (provider batch_images): every image of the
     package is made back-to-back on one warm worker, then the person checks follow; only the
     first job counts the cold start."""
 
@@ -2320,7 +2287,7 @@ def _dry_run_lines(
             layouts = ", ".join(dict.fromkeys(str(p.inputs.get("layout")) for p in plan.prepared))
             who = ("no generated person" if not lead.person_shown else
                    _higgsfield_dry_line(lead.inputs) if part.image_provider == "higgsfield_soul"
-                   else "Roman via his LoRA (person check after)")
+                   else "Roman (person check after)")
             lines.append(
                 f"{names[kind]}: {images}, direction {slot.direction} ({layouts}), \"{title}\"; "
                 f"{source}; {who}; "
@@ -2398,7 +2365,7 @@ def _dry_run_lines(
         basis = get_provider(settings.image_provider, settings).capabilities.cost_basis
     except ImageError:  # already reported with the image parts above
         basis = ""
-    if basis:  # GPU time (ComfyUI): an estimate; the build shows estimate vs actual
+    if basis:  # a provider's own cost basis: an estimate; the build shows estimate vs actual
         lines.insert(-1, f"Image cost basis: {basis}")
     return lines, round(total, 6), costs, redos
 

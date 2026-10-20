@@ -63,7 +63,6 @@ from content_automation.references import (
     select_style_refs,
 )
 from content_automation.research.store import find_article, number_in_article
-from content_automation.workflows.compose import card_aspect_for
 from content_automation.workflows.design_render import DesignRenderError, logo_file
 from content_automation.workflows.design_system import (
     DEFAULT_FORMAT,
@@ -81,7 +80,6 @@ from content_automation.workflows.direction_job import (
     direction_settings,
     has_picture,
     illustration_prompt,
-    lora_prompt,
     picture_aspect,
 )
 from content_automation.workflows.image_job import job_references, raw_image, run_image_job
@@ -539,18 +537,7 @@ def prepare_workflow(
     want_logo = inputs.logo or spec.designed
 
     identity: list[ReferenceImage] = []
-    lora_identity = capabilities.identity_prompt is not None
-    if identity_set and lora_identity:
-        # A trained identity (LoRA): no photos are sent; the prompt names him by trigger word.
-        if not spec.designed:
-            raise WorkflowError(
-                f"{spec.workflow_id} describes the person through identity photos, but "
-                f"IMAGE_PROVIDER={settings.image_provider} uses a trained LoRA: use "
-                "--workflow social_creative or IMAGE_PROVIDER=openrouter."
-            )
-        recorded["identity"] = "trained LoRA (no identity photos sent)"
-        recorded["identitySet"] = load_set(identity_set, root).set_id
-    elif identity_set:
+    if identity_set:
         # Primary photos first, capped by IMAGE_IDENTITY_REFS_MAX and the provider's limit.
         identity_max = min(capabilities.max_identity_refs, settings.image_identity_refs_max)
         identity = _identity_refs(identity_set, identity_max, design, settings)
@@ -674,11 +661,6 @@ def prepare_workflow(
             spec, inputs.prompt, counts, brand, service=service, company=company,
             logo=logo is not None,
         )
-    if (inputs.card and person_shown and text is not None
-            and settings.image_provider == "comfyui"):
-        # Live fix: the app draws the card; the scene is generated at the card's canvas aspect.
-        recorded["card"] = inputs.card
-        aspect = card_aspect_for(settings, json.loads(inputs.card).get("platform"))
     request = ImageRequest(
         prompt=prompt,
         aspect_ratio=aspect,  # type: ignore[arg-type]
@@ -746,7 +728,6 @@ def _prepare_format(
     if not isinstance(copy, dict):
         raise WorkflowError(f"{chosen.id}: the copy must be an object of the format's fields")
     own = format_settings(chosen, settings, inputs.slide_type)
-    capabilities = get_provider(own.image_provider, own).capabilities
     number = (inputs.slide or "").partition("/")[0].strip()
     step = int(number) - 1 if inputs.slide_type == "body" and number.isdigit() else None
     text = format_overlay(chosen, copy, system, theme=catalog.themes[chosen.theme],
@@ -759,17 +740,6 @@ def _prepare_format(
         recorded["slideType"] = inputs.slide_type
     if inputs.slide:
         recorded["slide"] = inputs.slide
-    if chosen.roman:
-        set_id = (inputs.identity_set or inputs.fallback_identity_set
-                  or settings.default_identity_set)
-        try:
-            recorded["identitySet"] = load_set(set_id, settings.references_dir).set_id
-        except ReferenceLibraryError as error:
-            raise WorkflowError(f"{chosen.id} shows Roman: {error}") from None
-        if capabilities.identity_prompt is None and own.image_provider != "mock":
-            raise WorkflowError(f"{chosen.id} shows Roman: its provider {own.image_provider} has "
-                                "no trained LoRA; it is never swapped")
-        recorded["identity"] = "trained LoRA (no identity photos sent)"
     logo = _logo(settings, _load_brand_if_present(settings)) if inputs.logo else None
     if logo is not None:
         recorded["logo"] = logo.describe()
@@ -829,17 +799,14 @@ def _prepare_direction(
         raise WorkflowError(str(error)) from None
     picture = has_picture(direction, layout, role)
     designer: DesignerInputs | None = None
-    set_id = (inputs.identity_set or inputs.fallback_identity_set
-              or settings.default_identity_set)
     recorded: dict[str, str | bool] = {"direction": direction.id, "layout": name,
                                        "personShown": False}
     try:
         # Roman: Higgsfield Soul 2.0 (his saved character), never a real photo, never another
-        # provider; the RunPod LoRA route is disabled.
+        # provider (v6 R5: the only route for Roman).
         route = check_route(direction, settings, requires_roman=inputs.requires_roman)
         recorded["route"] = route
         own = direction_settings(direction, picture, settings)
-        capabilities = get_provider(own.image_provider, own).capabilities
         person = direction.roman and picture
         mode = "composite" if person or not picture else (
             "composite" if inputs.design_mode == "composite" else
@@ -854,13 +821,8 @@ def _prepare_direction(
                                     "(no identity photos sent)")
             recorded["aiDisclosure"] = AI_DISCLOSURE
         elif person:
-            if capabilities.identity_prompt is None and own.image_provider != "mock":
-                raise WorkflowError(f"{direction.id} shows Roman: its provider "
-                                    f"{own.image_provider} has no trained LoRA; it is never "
-                                    "swapped")
-            prompt = lora_prompt(direction, layout, seed)
-            recorded["identitySet"] = load_set(set_id, settings.references_dir).set_id
-            recorded["identity"] = "trained LoRA (no identity photos sent)"
+            raise WorkflowError(f"{direction.id} shows Roman without a Higgsfield combination "
+                                "(S-x/BG-x/P-x/H-x): plan it again")
         else:
             picture_text = illustration_prompt(direction, catalog, copy, inputs.prompt or None)
             if inputs.variation and Variation.parse(inputs.variation).side == "R" and (

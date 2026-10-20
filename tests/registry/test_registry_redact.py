@@ -10,7 +10,7 @@ from content_automation.registry.redact import (
     secret_values,
 )
 
-FAKE_KEY = "fake-runpod-key-0123456789"
+FAKE_KEY = "fake-example-key-0123456789"
 
 
 @pytest.fixture
@@ -20,7 +20,7 @@ def env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     path.write_text(
         "IMAGE_PROVIDER=openrouter\n"
         "HEYGEN_AVATAR_ID=avatar-123\n"
-        'RUNPOD_S3_SECRET_KEY="s3secret-abcdefgh"\n'
+        'EXAMPLE_S3_SECRET_KEY="s3secret-abcdefgh"\n'
         "DRIVE_SHARE_WITH=manager@example.com\n",
         encoding="utf-8",
     )
@@ -28,7 +28,7 @@ def env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def test_env_and_dotenv_secrets(env_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("RUNPOD_API_KEY", FAKE_KEY)
+    monkeypatch.setenv("EXAMPLE_API_KEY", FAKE_KEY)
     monkeypatch.setenv("SHORT_TOKEN", "abc")  # too short to replace everywhere
     secrets = secret_values()
     assert {FAKE_KEY, "s3secret-abcdefgh"} <= secrets

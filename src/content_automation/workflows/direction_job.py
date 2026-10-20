@@ -35,7 +35,6 @@ from content_automation.content.directions import (
     Layout,
     load_directions,
 )
-from content_automation.content.roman import RomanError, roman_prompt
 from content_automation.core.config import Settings
 from content_automation.references import load_brand
 from content_automation.references.services import load_services
@@ -186,8 +185,8 @@ class DirectionDesign:
                 from None
 
     def picture(self, generated: Image.Image | None, mock: bool = False) -> Image.Image | None:
-        """The generated picture; a cut-out zone (FD-1) keys out the LoRA image's green
-        backdrop. A failed cut-out fails the image (mock test images have no backdrop)."""
+        """The generated picture; a cut-out zone keys out a green backdrop. A failed cut-out
+        fails the image (mock test images have no backdrop)."""
         if generated is None:
             return None
         direction = load_directions().get(self.direction)
@@ -198,7 +197,7 @@ class DirectionDesign:
         try:
             return cut_out(generated)[0]
         except CutoutError as error:
-            raise DirectionJobError(f"{self.direction}: the LoRA image cannot be cut out "
+            raise DirectionJobError(f"{self.direction}: the image cannot be cut out "
                                     f"({error}); make it again, never a real photo") from None
 
     def render(self, generated: Image.Image | None, settings: Settings) -> tuple[Rendered, Report]:
@@ -286,14 +285,7 @@ class DirectionDesign:
             raise DesignerCheckError(f"{DESIGNER_CHECK_FAILED}: " + "; ".join(found))
 
 
-def lora_prompt(direction: Direction, layout: Layout, seed: str) -> str:
-    try:
-        return roman_prompt(direction, layout, load_directions().roman, seed=seed)
-    except (RomanError, DirectionError) as error:
-        raise DirectionJobError(str(error)) from None
-
-
 __all__ = ["CODES", "DESIGNER_CHECK_FAILED", "MANIFEST_SUFFIX", "DesignerCheckError",
            "DirectionDesign", "DirectionJobError", "direction_layout",
-           "direction_settings", "has_picture", "illustration_prompt", "lora_prompt",
+           "direction_settings", "has_picture", "illustration_prompt",
            "picture_aspect"]

@@ -34,13 +34,11 @@ def _raw() -> dict[str, object]:
     return data
 
 
-def test_every_format_has_a_fixed_provider_and_roman_is_comfyui() -> None:
-    for chosen in CATALOG.formats:
-        assert chosen.provider == ("comfyui" if chosen.roman else "openrouter"), chosen.id
-    roman = [item.id for item in CATALOG.formats if item.roman]
-    assert roman == ["roman_quote", "roman_headshot_take", "roman_at_work", "roman_portrait_stat"]
-    assert all(set(item.platforms) == {"linkedin", "facebook"} for item in CATALOG.formats
-               if item.roman)
+def test_every_format_is_openrouter_and_none_shows_roman() -> None:
+    """v6 R5: Roman's post formats (the removed LoRA route) are archived; Roman is a founder
+    layout variant made with Higgsfield Soul 2.0."""
+    assert all(chosen.provider == "openrouter" for chosen in CATALOG.formats)
+    assert not any(item.roman for item in CATALOG.formats)
 
 
 def test_text_zone_over_the_image_slot_is_refused_at_load() -> None:
@@ -73,23 +71,15 @@ def test_pick_never_repeats_the_previous_format_or_theme_and_no_roman_by_itself(
             assert chosen.theme != CATALOG.get(previous).theme
 
 
-def test_the_roman_row_rotates_the_four_roman_formats() -> None:
-    for seed in range(40):
-        chosen = pick_format("facebook", CATALOG, seed=str(seed), recent=["fb_tip"],
-                             has_number=True, person_ok=True, override=ROMAN,
-                             last_roman="roman_quote")
-        assert chosen.roman and chosen.id != "roman_quote" and chosen.theme != "panel"
-    with pytest.raises(FormatError, match="never swapped"):
+def test_the_roman_row_is_a_founder_variant_never_a_post_format() -> None:
+    with pytest.raises(FormatError, match="founder layout variant"):
         pick_format("linkedin", CATALOG, seed="1", recent=[], has_number=True,
-                    person_ok=False, override=ROMAN)
+                    person_ok=True, override=ROMAN)
 
 
 def test_image_prompts_carry_no_copy_and_end_with_the_no_text_rule() -> None:
-    roman = image_prompt(CATALOG.get("roman_at_work"), CATALOG, illustration=None, seed="a")
-    assert roman.startswith("r0man_bg, a man, ")
-    assert "no screens, no monitors, no signs, no whiteboards" in roman
-    for prompt in (roman, image_prompt(CATALOG.get("fb_tip"), CATALOG,
-                                       illustration="a cafe counter with a card reader")):
+    for prompt in (image_prompt(CATALOG.get("fb_tip"), CATALOG,
+                                illustration="a cafe counter with a card reader"),):
         assert prompt.endswith(f"{CATALOG.no_text}.")
         assert "logo" not in prompt.lower().replace(CATALOG.no_text.lower(), "")
     with pytest.raises(FormatError, match="mentions screen"):
@@ -113,11 +103,10 @@ def test_copy_rules_word_limits_banned_words_and_icons() -> None:
 
 def test_provider_routing_and_the_free_template() -> None:
     assert "template" in available_providers()
-    settings = Settings(image_provider="comfyui", image_model="z_image_turbo")
+    settings = Settings(image_provider="openrouter", image_model="google/gemini-3.1-flash-image")
     routed = format_settings(CATALOG.get("fb_tip"), settings)
     assert routed.image_provider == "openrouter"
     assert routed.image_model == settings.carousel_image_model
-    assert format_settings(CATALOG.get("roman_quote"), settings).image_provider == "comfyui"
     assert format_settings(CATALOG.get("li_stat"), settings).image_provider == "template"
     assert format_settings(CATALOG.get("ig_steps"), settings, "body").image_provider == "template"
     template = get_provider("template", settings)
@@ -166,6 +155,6 @@ def test_format_sheet_renders_every_format(tmp_path: Path) -> None:
                         design_system_file=ROOT / "config" / "design_system.json",
                         references_dir=tmp_path / "refs")
     path, count = format_sheet(settings, tmp_path / "sheet.png")
-    assert count == 11 + 3 * 4
+    assert count == 7 + 3 * 4  # v6 R5: the 4 Roman formats are archived
     with Image.open(path) as image:
         assert image.width > 1000

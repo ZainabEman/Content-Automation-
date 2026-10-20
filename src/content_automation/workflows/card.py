@@ -20,7 +20,7 @@ from typing import Any, Literal
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from content_automation.lora import face_boxes
+from content_automation.core.faces import face_boxes
 from content_automation.workflows.logo import LogoOverlay, load_logo, white_version
 from content_automation.workflows.registry import WorkflowError
 

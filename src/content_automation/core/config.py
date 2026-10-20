@@ -1,16 +1,18 @@
 """Validated application settings with secret-safe errors and summaries."""
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import Field, SecretStr, ValidationError
+from pydantic import Field, SecretStr, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# comfyui: ComfyUI on a RunPod Serverless endpoint (config/comfyui.json; IMAGE_MODEL = workflow).
-ImageProvider = Literal["mock", "openrouter", "comfyui", "template", "higgsfield_soul"]
-# Roman's images (2026-10-20): Higgsfield Soul 2.0 via Codex; the RunPod/ComfyUI LoRA route is
-# kept in the code but off (ROMAN_IMAGE_PROVIDER=comfyui is refused while it is disabled)
-RomanImageProvider = Literal["higgsfield_soul", "comfyui"]
+ImageProvider = Literal["mock", "openrouter", "template", "higgsfield_soul"]
+# Roman's images: Higgsfield Soul 2.0 via Codex (PRD v6 R5: the only route for Roman)
+RomanImageProvider = Literal["higgsfield_soul"]
+# PRD v6 R5: the retired image-server provider. Only an old .env still names it: it loads, runs as
+# openrouter with CAROUSEL_IMAGE_MODEL and `ca doctor` says which .env lines to change. Any other
+# unknown IMAGE_PROVIDER stays an error.
+RETIRED_IMAGE_PROVIDERS = frozenset({"comfyui"})
 # "none": no provider is set; a content package then keeps its video pending.
 # Agent providers are Codex plugins: Codex makes the clip, the app records it.
 VideoProvider = Literal["none", "mock", "higgsfield-plugin"]
@@ -20,7 +22,7 @@ VoiceProvider = Literal["none", "mock", "elevenlabs"]
 # "free" (default): our own scraper (RSS + article pages); no paid API, no account.
 ScraperProvider = Literal["free", "mock"]
 DesignSize = Literal["1K", "2K", "4K"]
-# Who renders on-image text: "auto" = the app, only for providers that draw no text (ComfyUI);
+# Who renders on-image text: "auto" = the app, only for providers that draw no text;
 # "always" = the app; "never" = the image model.
 TextOverlayMode = Literal["auto", "always", "never"]
 # "mock" (default): the Drive layout in a local folder; "drive": Google Drive (`ca drive setup`).
@@ -58,6 +60,10 @@ class Settings(BaseSettings):
 
     image_provider: ImageProvider = "mock"
     image_model: str = Field(default="google/gemini-3.1-flash-image", min_length=1)
+    # v6 (R5): an IMAGE_PROVIDER that no longer exists (the removed image-server route) still
+    # loads, runs as openrouter with CAROUSEL_IMAGE_MODEL, and `ca doctor` names the .env lines
+    # to change; never a crash at start-up because of an old .env.
+    removed_image_provider: str | None = None
     image_daily_limit: int = Field(default=10, gt=0)
     image_timeout_ms: int = Field(default=120_000, gt=0)
     image_max_retries: int = Field(default=1, ge=0, le=5)
@@ -73,15 +79,6 @@ class Settings(BaseSettings):
     roman_image_provider: RomanImageProvider = "higgsfield_soul"
     default_identity_set: str = Field(default="identity/person_01", min_length=1)
     openrouter_api_key: SecretStr | None = None
-    comfyui_config_file: Path = Path("config/comfyui.json")  # GPU price, workflows, LoRA
-    lora_config_file: Path = Path("config/lora.json")  # dataset checks, AI Toolkit training
-    runpod_api_key: SecretStr | None = None
-    runpod_endpoint_id: str | None = None  # the worker-comfyui Serverless endpoint
-    # `ca lora train-remote`: the network volume both the Pod and the endpoint use, and its
-    # S3 API key (RunPod console → Credentials → S3 API Keys).
-    runpod_network_volume_id: str | None = None
-    runpod_s3_access_key: SecretStr | None = None
-    runpod_s3_secret_key: SecretStr | None = None
 
     video_provider: VideoProvider = "mock"
     video_model: str = Field(default="mock", min_length=1)
@@ -122,6 +119,22 @@ class Settings(BaseSettings):
     clips_file: Path = Path("config/clips.json")  # Opus Pro clips (Phase 9)
     platforms_file: Path = Path("config/platforms.json")  # variant sizes (Phase 9)
     publishing_file: Path = Path("config/publishing.json")  # integrations (Phase 9: none)
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def _run_removed_as_openrouter(cls, data: Any, handler: Any) -> Any:
+        removed: str | None = None
+        if isinstance(data, dict):
+            for key in ("image_provider", "IMAGE_PROVIDER"):
+                value = data.get(key)
+                if isinstance(value, str) and value.strip().lower() in RETIRED_IMAGE_PROVIDERS:
+                    removed = value.strip()
+                    data = {**data, key: "openrouter"}
+        settings = handler(data)
+        if removed is not None:
+            settings.removed_image_provider = removed
+            settings.image_model = settings.carousel_image_model
+        return settings
 
     def summary_lines(self) -> tuple[str, ...]:
         """Return non-secret settings suitable for local CLI output."""
@@ -175,11 +188,6 @@ def load_settings(
         settings.openrouter_api_key
     ):
         missing.append("OPENROUTER_API_KEY")
-    if settings.image_provider == "comfyui":
-        if not _secret_is_set(settings.runpod_api_key):
-            missing.append("RUNPOD_API_KEY")
-        if not (settings.runpod_endpoint_id or "").strip():
-            missing.append("RUNPOD_ENDPOINT_ID")
     if settings.voice_provider == "elevenlabs" and not _secret_is_set(
         settings.elevenlabs_api_key
     ):

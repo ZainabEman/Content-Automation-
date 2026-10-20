@@ -14,7 +14,6 @@ from content_automation.ai.image import (
     ImageAwaitingAgent,
     ImageRequest,
     ReferenceImage,
-    comfyui_photo_prompt,
     estimate_cost_usd,
     generate_image,
     get_provider,
@@ -29,7 +28,6 @@ from content_automation.core.retry import call_with_retry
 from content_automation.references import asset_id_for
 from content_automation.registry import runtime
 from content_automation.registry.jobs import JobRecord, NotAuthorized, load_job_config
-from content_automation.workflows.compose import compose_post, copy_from_overlay
 from content_automation.workflows.direction_job import (
     MANIFEST_SUFFIX,
     DirectionDesign,
@@ -114,9 +112,6 @@ def run_image_job(
     registered, reused = _registry_job(request, settings, workflow_id, inputs, cold_start)
     if reused is not None:
         return reused
-    # Live fix: ComfyUI makes only a clean photo of the person; the app composes the post.
-    composed = (request.person and settings.image_provider == "comfyui" and text is not None
-                and not (inputs or {}).get("postFormat"))  # a post format draws its own zones
     object_ids = [ref.asset_id for ref in request.object_refs]
     job = create_job(
         settings.output_dir,
@@ -124,7 +119,7 @@ def run_image_job(
         workflow_version=workflow_version,
         requested_by=requested_by or settings.user_name,
         request=user_request or request.prompt,
-        prompt=comfyui_photo_prompt(settings) if composed else request.prompt,
+        prompt=request.prompt,
         provider=settings.image_provider,
         model=model_for(settings),
         params=JobParams(
@@ -149,7 +144,7 @@ def run_image_job(
         job.start()
         # A safety net above the adapter's own limits: each image may take a full
         # IMAGE_TIMEOUT_MS call per attempt, plus short waits between retries. A polled
-        # provider (ComfyUI on RunPod) brings its own budget and cancels the job itself.
+        # provider brings its own budget and cancels the job itself.
         budget = get_provider(settings.image_provider, settings).capabilities.timeout_s
         if budget is not None:
             per_image_s = budget + 30
@@ -169,21 +164,6 @@ def run_image_job(
         job.provider_metrics = result.metrics
         for index, image in enumerate(result.images, start=1):
             extension = _EXTENSIONS.get(image.mime_type, "png")
-            if composed and text is not None:  # raw photo kept; the post is designed here
-                raw = job.folder / RAW_DIR / f"image-{index}.{extension}"
-                raw.parent.mkdir(exist_ok=True)
-                raw.write_bytes(image.data)
-                written.append(raw)
-                card = json.loads(str((inputs or {}).get("card") or "{}"))
-                with Image.open(io.BytesIO(image.data)) as source:
-                    made = compose_post(source.convert("RGB"), settings, request.aspect_ratio,
-                                        copy_from_overlay(text, card), logo,
-                                        platform=card.get("platform"))
-                path = job.folder / f"image-{index}.png"
-                made.image.save(path, format="PNG", optimize=True)
-                job.notes += made.notes
-                written.append(path)
-                continue
             if design is not None:  # the raw picture kept; the design is drawn and checked
                 raw = job.folder / RAW_DIR / f"image-{index}.{extension}"
                 raw.parent.mkdir(exist_ok=True)
@@ -232,11 +212,11 @@ def run_image_job(
                 path.write_bytes(final)
             written.append(path)
         finals = [path for path in written if path.parent == job.folder]
-        if text is not None and not composed:
+        if text is not None:
             job.notes.append(
                 f"Text: {text.describe()}; scrims: {'; '.join(scrims) or 'none needed'}."
             )
-        if logo is not None and not composed:
+        if logo is not None:
             job.notes.append(
                 f"Logo: {logo.describe()}; used: {', '.join(versions)}; the images without it "
                 f"are in {RAW_DIR}/."

@@ -1,5 +1,6 @@
 {
-  "_note": "Live fixes: rules for person posts composed in the app. The look is config/comfyui.json personImage.mode: scene (default), cutout or photo-crop.",
+  "_note": "Live fixes: rules for person posts composed in the app. mode picks the look: scene (default), cutout or photo-crop (moved here from the removed image-server config, PRD v6 R5).",
+  "mode": "scene",
   "outputSizes": {
     "1:1": [
       1080,
@@ -74,5 +75,12 @@
     "bulletMaxWords": 6,
     "ctaEnMaxWords": 5,
     "ctaDeMaxWords": 3
-  }
+  },
+  "groupWords": [
+    "group",
+    "team",
+    "colleagues",
+    "audience",
+    "crowd"
+  ]
 }

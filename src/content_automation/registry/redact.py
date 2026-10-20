@@ -3,7 +3,7 @@
 Three layers, applied to every string (also inside lists and dicts):
 1. Secret values from the environment and .env: the value of every variable whose name has a
    KEY, TOKEN, SECRET, PASSWORD, CREDENTIAL(S), AUTH or COOKIE part (OPENROUTER_API_KEY,
-   RUNPOD_S3_SECRET_KEY ...). Other .env values (IMAGE_PROVIDER=openrouter) are not secret and
+   GOOGLE_* ...). Other .env values (IMAGE_PROVIDER=openrouter) are not secret and
    stay readable.
 2. Token- and key-like strings: sk-..., Bearer/Basic ..., known key prefixes (rpa_, hf_, ghp_,
    ya29., 1//0, GOCSPX-, AIza), JWTs, long hex (32+) and long random base64 (40+, mixed case

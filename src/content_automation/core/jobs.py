@@ -99,9 +99,9 @@ class Job(CamelModel):
     error: str | None = None
     provider_request_ids: list[str] = Field(default_factory=list)
     est_cost_usd: float | None = None
-    # As reported by the provider; ComfyUI: computed from RunPod's delay and execution times.
+    # As reported by the provider.
     actual_cost_usd: float | None = None
-    # Provider-reported numbers, e.g. RunPod delayTimeMs, executionTimeMs and the seeds.
+    # Provider-reported numbers, e.g. timings and the seeds.
     provider_metrics: dict[str, float] = Field(default_factory=dict)
     steps: list[JobStep] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)  # plain-language remarks, e.g. about text

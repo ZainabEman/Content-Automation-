@@ -69,7 +69,7 @@ def test_unknown_direction_is_named() -> None:
 
 
 @pytest.mark.parametrize(("change", "message"), [
-    (lambda d: _direction(d, "CS-1")["visual"].update(subject="roman_lora"),
+    (lambda d: _direction(d, "CS-1")["visual"].update(subject="roman_higgsfield"),
      "carousels never show Roman"),
     (lambda d: _direction(d, "FB-1")["layouts"]["post"]["zones"]["headline"].update(
         color="navy"), "headline.color"),
@@ -96,7 +96,7 @@ def test_unknown_direction_is_named() -> None:
     (lambda d: _direction(d, "LI-2")["layouts"]["post"]["zones"]["logo"].update(
         box=[0.38, 0.44, 0.62, 0.52]), "side corner"),
     (lambda d: _direction(d, "LI-1").update(id="LI-9", visual=_direction(d, "LI-R1")["visual"],
-                                            provider="comfyui"), "id with R"),
+                                            provider="higgsfield_soul"), "id with R"),
     (lambda d: (_direction(d, "CS-2")["layouts"]["point"]["zones"]["number"].update(
         field="counter"), _direction(d, "CS-2")["layouts"]["point"]["fields"].update(
         counter="01/05"), _direction(d, "CS-2")["layouts"]["point"]["fields"].pop("number"),

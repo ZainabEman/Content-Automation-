@@ -52,3 +52,16 @@ def test_live_image_provider_names_missing_key(
 
     with pytest.raises(ConfigurationError, match="OPENROUTER_API_KEY"):
         load_settings(env_file=None, create_directories=False)
+
+
+def test_a_removed_image_provider_in_an_old_env_still_loads(
+    isolated: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PRD v6 R5: the removed image-server provider in .env never stops start-up; the run uses
+    openrouter with the configured model and `ca doctor` names the lines to change."""
+    monkeypatch.setenv("IMAGE_PROVIDER", "comfyui")
+    monkeypatch.setenv("IMAGE_MODEL", "an_old_workflow")
+    settings = load_settings(env_file=None, require_credentials=False)
+    assert settings.image_provider == "openrouter"
+    assert settings.removed_image_provider == "comfyui"
+    assert settings.image_model == settings.carousel_image_model

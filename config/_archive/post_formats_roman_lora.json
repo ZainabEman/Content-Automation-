@@ -1,0 +1,324 @@
+{
+  "_note": "Archived 2026-10-20 (PRD v6 R5): the Roman post formats and the LoRA prompt pools (his RunPod/ComfyUI LoRA). Never read by the app; Roman is a founder layout variant made with Higgsfield Soul 2.0.",
+  "roman": {
+    "prefix": "r0man_bg, a man",
+    "outfits": [
+      "dark navy blazer over a white open-collar shirt",
+      "charcoal knit sweater over a light shirt collar",
+      "light-blue shirt with the sleeves rolled up",
+      "black crew-neck T-shirt under an unbuttoned grey overshirt",
+      "dark green quarter-zip pullover"
+    ],
+    "angles": [
+      "eye-level camera",
+      "camera slightly below eye level",
+      "three-quarter view from the left",
+      "three-quarter view from the right"
+    ],
+    "expressions": [
+      "calm confident expression",
+      "warm slight smile",
+      "focused thoughtful look",
+      "friendly open smile"
+    ]
+  },
+  "formats": [
+    {
+      "id": "roman_quote",
+      "platform": [
+        "linkedin",
+        "facebook"
+      ],
+      "size": [
+        1080,
+        1350
+      ],
+      "person": "roman",
+      "provider": "comfyui",
+      "theme": "panel",
+      "weight": 1,
+      "image": {
+        "box": [
+          0.0,
+          0.0,
+          0.45,
+          1.0
+        ]
+      },
+      "fields": {
+        "quote": "one sentence Roman would say, with a concrete example, at most 18 words, no quotation marks",
+        "subline": "Roman, Branded Genius"
+      },
+      "zones": [
+        {
+          "kind": "quote",
+          "field": "quote",
+          "box": [
+            0.51,
+            0.18,
+            0.94,
+            0.72
+          ],
+          "maxLines": 8,
+          "size": [
+            34,
+            58
+          ],
+          "weight": "bold",
+          "valign": "middle"
+        },
+        {
+          "kind": "subline",
+          "field": "subline",
+          "box": [
+            0.51,
+            0.76,
+            0.94,
+            0.84
+          ],
+          "maxLines": 2,
+          "size": [
+            24,
+            30
+          ],
+          "weight": "medium",
+          "color": "highlight"
+        }
+      ],
+      "settings": [
+        "plain light-grey seamless studio background",
+        "warm beige seamless studio background",
+        "soft white studio background with a gentle shadow"
+      ],
+      "imagePrompt": "standing alone, waist-up portrait, centered, {outfit}, {angle}, {expression}, {setting}, soft even studio light, realistic professional photo, sharp focus on the face"
+    },
+    {
+      "id": "roman_headshot_take",
+      "platform": [
+        "linkedin",
+        "facebook"
+      ],
+      "size": [
+        1080,
+        1350
+      ],
+      "person": "roman",
+      "provider": "comfyui",
+      "theme": "navy",
+      "weight": 1,
+      "image": {
+        "box": [
+          0.3,
+          0.08,
+          0.7,
+          0.4
+        ],
+        "shape": "circle"
+      },
+      "fields": {
+        "headline": "Roman's bold opinion, at most 8 words",
+        "subline": "the reason with a concrete example, at most 18 words"
+      },
+      "zones": [
+        {
+          "kind": "headline",
+          "field": "headline",
+          "box": [
+            0.08,
+            0.46,
+            0.92,
+            0.76
+          ],
+          "maxLines": 4,
+          "size": [
+            44,
+            76
+          ],
+          "weight": "extrabold",
+          "align": "center",
+          "valign": "middle"
+        },
+        {
+          "kind": "subline",
+          "field": "subline",
+          "box": [
+            0.08,
+            0.79,
+            0.92,
+            0.93
+          ],
+          "maxLines": 3,
+          "size": [
+            22,
+            30
+          ],
+          "weight": "medium",
+          "align": "center",
+          "color": "muted"
+        }
+      ],
+      "settings": [
+        "dark navy studio background",
+        "deep blue gradient studio background",
+        "dark charcoal studio background"
+      ],
+      "imagePrompt": "alone, head-and-shoulders headshot, face centered and filling the frame, {outfit}, {angle}, {expression}, {setting}, soft key light, realistic professional photo, sharp focus on the face"
+    },
+    {
+      "id": "roman_at_work",
+      "platform": [
+        "linkedin",
+        "facebook"
+      ],
+      "size": [
+        1080,
+        1350
+      ],
+      "person": "roman",
+      "provider": "comfyui",
+      "theme": "black",
+      "weight": 1,
+      "image": {
+        "box": [
+          0.0,
+          0.0,
+          1.0,
+          0.6
+        ]
+      },
+      "fields": {
+        "headline": "one tip from Roman's work, at most 8 words",
+        "subline": "how to apply it: tool or channel and timing, at most 18 words"
+      },
+      "zones": [
+        {
+          "kind": "headline",
+          "field": "headline",
+          "box": [
+            0.07,
+            0.64,
+            0.93,
+            0.8
+          ],
+          "maxLines": 3,
+          "size": [
+            36,
+            60
+          ],
+          "weight": "bold"
+        },
+        {
+          "kind": "subline",
+          "field": "subline",
+          "box": [
+            0.07,
+            0.82,
+            0.93,
+            0.95
+          ],
+          "maxLines": 3,
+          "size": [
+            22,
+            30
+          ],
+          "weight": "medium",
+          "color": "muted"
+        }
+      ],
+      "settings": [
+        "a bright German office with oak desks and large windows",
+        "a small German carpentry workshop with wood shelves",
+        "a German bakery back room with steel tables",
+        "a German car repair workshop with a tidy tool wall"
+      ],
+      "imagePrompt": "alone, waist-up, working in {setting}, {outfit}, {angle}, {expression}, natural daylight, realistic documentary photo, sharp focus on the face, plain walls"
+    },
+    {
+      "id": "roman_portrait_stat",
+      "platform": [
+        "linkedin",
+        "facebook"
+      ],
+      "size": [
+        1080,
+        1350
+      ],
+      "person": "roman",
+      "provider": "comfyui",
+      "theme": "navy",
+      "weight": 1,
+      "needsNumber": true,
+      "image": {
+        "box": [
+          0.55,
+          0.0,
+          1.0,
+          1.0
+        ]
+      },
+      "fields": {
+        "big_number": "the one number, exactly as a cited research article writes it",
+        "source": "the ID of that article (research.md)",
+        "headline": "what the number means, at most 8 words",
+        "subline": "the publisher, e.g. Source: Bitkom"
+      },
+      "zones": [
+        {
+          "kind": "big_number",
+          "field": "big_number",
+          "box": [
+            0.07,
+            0.18,
+            0.5,
+            0.44
+          ],
+          "size": [
+            90,
+            200
+          ],
+          "weight": "extrabold",
+          "color": "highlight"
+        },
+        {
+          "kind": "headline",
+          "field": "headline",
+          "box": [
+            0.07,
+            0.47,
+            0.5,
+            0.75
+          ],
+          "maxLines": 5,
+          "size": [
+            30,
+            50
+          ],
+          "weight": "bold"
+        },
+        {
+          "kind": "subline",
+          "field": "subline",
+          "box": [
+            0.07,
+            0.78,
+            0.5,
+            0.92
+          ],
+          "maxLines": 3,
+          "size": [
+            18,
+            24
+          ],
+          "weight": "medium",
+          "color": "muted"
+        }
+      ],
+      "settings": [
+        "dark navy studio background",
+        "dark modern office at dusk, softly blurred",
+        "deep blue studio background with soft rim light"
+      ],
+      "imagePrompt": "standing alone, waist-up portrait, centered, {outfit}, {angle}, {expression}, {setting}, cinematic soft light, realistic professional photo, sharp focus on the face"
+    }
+  ]
+}

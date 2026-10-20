@@ -1,7 +1,7 @@
 """Track L person check, part 1: the automatic face check (free and local, OpenCV Haar
 cascades from opencv-python-headless).
 
-Roman alone: exactly one face; a group scene (a groupWords word of config/comfyui.json in the
+Roman alone: exactly one face; a group scene (a groupWords word of config/compose.json in the
 prompt): at least one. No face may sit in the text-overlay zone (the job's textBoxes). Part 2 is
 Codex's visual check, recorded with `ca job review <job> --person pass|fail "<reason>"`. A fail
 of either part makes the image again once (content/package.py); a second fail stops.
@@ -14,9 +14,8 @@ from pathlib import Path
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from content_automation.core.config import Settings
+from content_automation.core.faces import face_boxes
 from content_automation.core.jobs import Job
-from content_automation.lora import face_boxes
-from content_automation.workflows.compose import raw_checks
 from content_automation.workflows.image_job import raw_image
 
 DEFAULT_GROUP_WORDS = ("group", "team", "colleagues", "audience", "crowd")
@@ -25,7 +24,7 @@ Box = tuple[float, float, float, float]  # left, top, right, bottom as shares of
 
 
 def group_words(settings: Settings) -> tuple[str, ...]:
-    path = Path(settings.comfyui_config_file)
+    path = Path("config/compose.json")
     path = path if path.is_absolute() or path.exists() else _PROJECT_ROOT / path
     try:
         words = json.loads(path.read_text(encoding="utf-8")).get("groupWords")
@@ -73,7 +72,5 @@ def check_job_image(job: Job, name: str, settings: Settings) -> list[str]:
     if job.provider == "mock":
         return []
     image = raw_image(job.folder, name) or job.folder / name
-    if job.provider == "comfyui":  # live fix: the raw studio photo: no text, one big face
-        return raw_checks(image, settings)
     return face_problems(image, group=is_group(job.prompt, group_words(settings)),
                          text_boxes=text_boxes(job))

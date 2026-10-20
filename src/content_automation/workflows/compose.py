@@ -1,6 +1,6 @@
 """Person images composed in the app (live fixes).
 
-config/comfyui.json personImage.mode picks the look (config/compose.json holds the rules):
+config/compose.json `mode` picks the look (and holds the rules):
 - scene (default): the model makes a photo scene of Roman (personScene); the app draws the
   branded card over it (workflows/card.py, templates insight and stat from design_system.json
   personTemplates). Copy: tag 2-3 words, headline 3-7 words with one highlight, German subtitle
@@ -25,7 +25,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 from content_automation.core.config import Settings
-from content_automation.lora import face_boxes
+from content_automation.core.faces import face_boxes
 from content_automation.references import BrandProfileError, load_brand
 from content_automation.workflows.card import (
     CardError,
@@ -123,11 +123,7 @@ def compose_config(settings: Settings) -> dict[str, Any]:
             merged[key].update(value)
         elif not key.startswith("_"):
             merged[key] = value
-    from content_automation.ai.image import ImageError, load_comfyui_config
-
-    try:  # the mode lives with the prompts: config/comfyui.json personImage.mode
-        merged["mode"] = load_comfyui_config(settings.comfyui_config_file).person_image.mode
-    except ImageError:
+    if merged.get("mode") not in MODES:
         merged["mode"] = "scene"
     return merged
 

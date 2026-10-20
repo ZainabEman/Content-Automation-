@@ -1,5 +1,5 @@
 """PRD v5 R6 / §7.8 (2026-10-20): requires_roman → Higgsfield Soul 2.0 (Codex, his saved
-character), everything else → OpenRouter; the RunPod LoRA route is disabled; no silent
+character), everything else → OpenRouter (PRD v6 R5: the only two image providers); no silent
 fallback; no secret in prompts, job records, manifests or package files (mock only, offline)."""
 
 import hashlib
@@ -13,12 +13,7 @@ from PIL import Image, ImageDraw
 from content_automation.content import direction_brief
 from content_automation.content.design_preview import sample_copy
 from content_automation.content.directions import load_directions
-from content_automation.content.routing import (
-    RoutingError,
-    check_route,
-    image_route,
-    runpod_missing,
-)
+from content_automation.content.routing import image_route
 from content_automation.core.config import Settings
 from content_automation.workflows import design_check, direction_job, image_workflows
 from content_automation.workflows.image_workflows import (
@@ -28,7 +23,6 @@ from content_automation.workflows.image_workflows import (
 )
 from content_automation.workflows.registry import WorkflowError
 
-RUNPOD_KEY = "rpa_FAKEFAKEFAKE0123456789routingtest"
 OPENROUTER_KEY = "sk-or-v1-fakefakefake0123456789routingtest"
 ILLUSTRATION = "a glowing glass chat bubble above a dark pedestal"
 
@@ -53,7 +47,6 @@ def mock_settings(make_settings: Callable[..., Settings], tmp_path: Path,
     return make_settings(IMAGE_PROVIDER="mock", REFERENCES_DIR=str(tmp_path / "refs"),
                          BRAND_FILE=str(repo / "config" / "brand.json"),
                          SERVICES_FILE=str(repo / "config" / "services.json"),
-                         RUNPOD_API_KEY="", RUNPOD_ENDPOINT_ID="",
                          OPENROUTER_API_KEY=OPENROUTER_KEY)
 
 
@@ -84,18 +77,12 @@ def _inputs(direction: str, copy: dict[str, object], **extra: object) -> Workflo
 def test_the_route_follows_requires_roman() -> None:
     assert image_route(True) == "higgsfield_soul" and image_route(False) == "openrouter"
     assert image_route(True, picture=False) == "template"
-    assert image_route(True, roman_provider="comfyui") == "comfyui"  # refused by check_route
 
 
-def test_the_runpod_route_is_disabled_never_a_fallback(mock_settings: Settings) -> None:
-    live = mock_settings.model_copy(update={"image_provider": "openrouter",
-                                            "roman_image_provider": "comfyui"})
-    assert runpod_missing(live) == ["RUNPOD_API_KEY", "RUNPOD_ENDPOINT_ID"]  # code kept
-    with pytest.raises(RoutingError, match="disabled"):
-        check_route(load_directions().get("LI-R1"), live)
-    with pytest.raises(WorkflowError, match="no fallback to another provider"):
-        prepare_workflow("social_creative", _inputs("LI-R1", sample_copy()["LI-R1/roman_right"]),
-                         live)
+def test_roman_never_runs_without_a_combination(mock_settings: Settings) -> None:
+    """No other route for Roman: no combination is never a silent swap to another provider."""
+    assert all(d.provider in ("openrouter", "higgsfield_soul") for d in load_directions()
+               .directions)
 
 
 def test_roman_goes_to_higgsfield_others_to_openrouter(mock_settings: Settings) -> None:
@@ -112,7 +99,7 @@ def test_roman_goes_to_higgsfield_others_to_openrouter(mock_settings: Settings) 
     _designer_files(Path(live.references_dir), "LI-1")
     other = prepare_workflow("social_creative", _inputs("LI-1", dict(
         sample_copy()["LI-1/post"], illustration=ILLUSTRATION)), live.model_copy(update={
-            "image_provider": "comfyui"}))  # a global IMAGE_PROVIDER=comfyui does not decide
+            "image_provider": "template"}))  # a global IMAGE_PROVIDER does not decide
     assert other.inputs["route"] == "openrouter" and other.settings is not None
     assert other.settings.image_provider == "openrouter" and not other.request.person
 
@@ -130,8 +117,7 @@ def test_a_variant_must_match_the_planned_flag(mock_settings: Settings) -> None:
 def test_no_secret_in_prompts_job_records_or_manifests(mock_settings: Settings) -> None:
     from pydantic import SecretStr
 
-    keyed = mock_settings.model_copy(update={"runpod_api_key": SecretStr(RUNPOD_KEY),
-                                             "runpod_endpoint_id": "endpoint-test"})
+    keyed = mock_settings.model_copy(update={"openrouter_api_key": SecretStr(OPENROUTER_KEY)})
     texts: list[str] = []
     for direction_id, copy in (("LI-R1", sample_copy()["LI-R1/roman_right"]),
                                ("LI-2", dict(sample_copy()["LI-2/post"],
@@ -143,5 +129,5 @@ def test_no_secret_in_prompts_job_records_or_manifests(mock_settings: Settings) 
         texts += [path.read_text(encoding="utf-8", errors="ignore")
                   for path in job.folder.rglob("*") if path.suffix in (".json", ".txt", ".md")]
     joined = "\n".join(texts)
-    for secret in (RUNPOD_KEY, OPENROUTER_KEY):
+    for secret in (OPENROUTER_KEY,):
         assert secret not in joined and secret[-12:] not in joined

@@ -2,12 +2,13 @@
 
 Every format is a template: a solid theme panel with its text zones plus a separate image slot
 (the picture is cropped into it; text never sits on the picture), checked at load: zones never
-overlap each other or the slot. Each format names its image provider (Roman formats: comfyui,
-the rest: openrouter); it is never swapped. pick_format: never the format or the theme of the
-previous post on that platform, needsNumber formats only when the research has a sourced
-number, Roman formats only for the calendar's weekly Roman row ("roman", never the last Roman
-format again) or an "as <format>" override. The writer fills only the chosen format's fields
-(brief.template.json), workflows/text_overlay.py renders the template and the dry run names it.
+overlap each other or the slot. Each format's image provider is OpenRouter; it is never swapped.
+pick_format: never the format or the theme of the previous post on that platform, needsNumber
+formats only when the research has a sourced number, or an "as <format>" override. v6 (R5): the
+Roman post formats of the removed LoRA route are archived (docs/history/README.md); Roman is a
+founder layout variant made with Higgsfield Soul 2.0 (config/design_directions.json). The writer
+fills only the chosen format's fields (brief.template.json), workflows/text_overlay.py renders
+the template and the dry run names it.
 """
 
 import json
@@ -29,7 +30,7 @@ ZoneKind = Literal[
 ]
 SlideKind = Literal["cover", "body", "final"]
 Platform = Literal["linkedin", "facebook", "instagram"]
-FormatProvider = Literal["openrouter", "comfyui"]
+FormatProvider = Literal["openrouter"]
 Box = tuple[float, float, float, float]
 LIST_KINDS = ("list", "two_column")
 TITLE_KINDS = ("headline", "question")
@@ -176,6 +177,9 @@ class PostFormat(_FormatModel):
             self._check_overlaps(zones, image, bars, kind)
         if self.has_image and "{illustration}" not in self.image_prompt and not self.roman:
             raise ValueError(f"{self.id}: an image slot needs an imagePrompt with {{illustration}}")
+        if self.roman:
+            raise ValueError(f"{self.id}: Roman post formats were removed (PRD v6 R5); Roman is "
+                             "a founder layout variant made with Higgsfield Soul 2.0")
         if self.roman and (self.image is None or not self.settings or not self.image_prompt):
             raise ValueError(f"{self.id}: a Roman format needs an image slot, settings and an "
                              "imagePrompt")
@@ -261,19 +265,11 @@ class PostFormat(_FormatModel):
                 f"{image}, {person}{extra})")
 
 
-class RomanPools(_FormatModel):
-    prefix: str = Field(min_length=1)  # every Roman prompt starts with it
-    outfits: list[str] = Field(min_length=1)
-    angles: list[str] = Field(min_length=1)
-    expressions: list[str] = Field(min_length=1)
-
-
 class FormatCatalog(_FormatModel):
     note: str = Field(default="", alias="_note")
     themes: dict[str, dict[str, str]]  # background, text, highlight, muted (hex)
     no_text: str = Field(min_length=1)
     blocked_visual_words: list[str] = Field(default_factory=list)
-    roman: RomanPools
     formats: list[PostFormat] = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -287,8 +283,6 @@ class FormatCatalog(_FormatModel):
         unknown = sorted({item.theme for item in self.formats} - set(self.themes))
         if unknown:
             raise ValueError(f"unknown themes: {', '.join(unknown)}")
-        if "logo" in self.roman.prefix.lower():
-            raise ValueError("roman.prefix must not mention a logo")
         return self
 
     def get(self, format_id: str) -> PostFormat:
@@ -344,7 +338,7 @@ def research_has_number(texts: Iterable[str]) -> bool:
 
 
 def provider_shows_person(settings: Settings) -> bool:
-    """The image provider can make images of Roman (identity photos or a trained LoRA)."""
+    """The image provider can make images of Roman (identity photos or a saved identity)."""
     try:
         capabilities = get_provider(settings.image_provider, settings).capabilities
     except ImageError:
@@ -379,9 +373,10 @@ def pick_format(
                               "cannot make images of him")
         return chosen
     roman = bool(wanted)
-    if roman and not person_ok:
-        raise FormatError("the Roman row needs the comfyui provider (Roman's LoRA); it is not "
-                          "set up, and it is never swapped for another provider")
+    if roman:
+        raise FormatError("Roman has no post format (PRD v6 R5): he is planned as a founder "
+                          "layout variant, made with Higgsfield Soul 2.0")
+    del person_ok
     eligible = [item for item in options
                 if item.roman == roman and (has_number or not item.needs_number)]
     previous = catalog.find(recent[0]) if recent else None
@@ -506,14 +501,6 @@ def illustration_problem(illustration: str, catalog: FormatCatalog,
     return None
 
 
-def roman_picks(chosen: PostFormat, catalog: FormatCatalog, seed: str) -> dict[str, str]:
-    """Setting, outfit, angle and expression for one Roman image (varied per post)."""
-    rng = random.Random(f"{chosen.id}|{seed}")
-    pools = catalog.roman
-    return {"setting": rng.choice(chosen.settings), "outfit": rng.choice(pools.outfits),
-            "angle": rng.choice(pools.angles), "expression": rng.choice(pools.expressions)}
-
-
 def image_prompt(
     chosen: PostFormat,
     catalog: FormatCatalog,
@@ -522,25 +509,19 @@ def image_prompt(
     seed: str = "",
     copy_texts: Iterable[str] = (),
 ) -> str:
-    """The picture only: never the topic, headline or copy. Roman: the LoRA prefix, the
-    format's portrait with varied setting, outfit, angle and expression, Roman alone. Others:
-    the illustration, no people. Every prompt ends with the no-text rule. FormatError for an
-    illustration that names text, screens or a logo, or repeats the copy."""
-    if chosen.roman:
-        picks = roman_picks(chosen, catalog, seed)
-        body = chosen.image_prompt.format(**picks)
-        prompt = (f"{catalog.roman.prefix}, {body}, Roman is the only person; no other people, "
-                  "no screens, no monitors, no signs, no whiteboards")
-    else:
-        subject = (illustration or "").strip()
-        if not subject:
-            raise FormatError(f"{chosen.id}: describe the picture in illustration (a place or "
-                              "objects, nothing written)")
-        problem = illustration_problem(subject, catalog, copy_texts)
-        if problem is not None:
-            raise FormatError(f"{chosen.id}: {problem}")
-        prompt = (f"{chosen.image_prompt.replace('{illustration}', subject.rstrip('.'))} "
-                  "No people, no faces, no hands")
+    """The picture only: never the topic, headline or copy; the illustration, no people. Every
+    prompt ends with the no-text rule. FormatError for an illustration that names text, screens
+    or a logo, or repeats the copy."""
+    del seed
+    subject = (illustration or "").strip()
+    if not subject:
+        raise FormatError(f"{chosen.id}: describe the picture in illustration (a place or "
+                          "objects, nothing written)")
+    problem = illustration_problem(subject, catalog, copy_texts)
+    if problem is not None:
+        raise FormatError(f"{chosen.id}: {problem}")
+    prompt = (f"{chosen.image_prompt.replace('{illustration}', subject.rstrip('.'))} "
+              "No people, no faces, no hands")
     prompt = f"{prompt.rstrip('. ')}. {catalog.no_text}."
     if "logo" in prompt.lower().replace(catalog.no_text.lower(), ""):
         raise FormatError(f"{chosen.id}: the image prompt must not mention a logo")

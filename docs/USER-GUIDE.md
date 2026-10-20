@@ -10,7 +10,6 @@ Type every phrase below in Codex Desktop. Codex runs the matching `uv run ca …
    - `STORAGE_PROVIDER` and `DRIVE_SHARE_WITH`: the Drive route (step 3)
    - `HEYGEN_AVATAR_ID` and `HEYGEN_VOICE_ID`: chosen from the HeyGen plugin's lists
    - `OPENROUTER_API_KEY`: only if the Nano Banana fallback is kept (client decision)
-   - `RUNPOD_API_KEY`, `RUNPOD_ENDPOINT_ID`, `RUNPOD_NETWORK_VOLUME_ID` and the S3 keys: ComfyUI with Roman's LoRA (`docs/guides/runpod-zimage-setup.md`)
 3. Choose the Drive route:
    - `STORAGE_PROVIDER=plugin`: the Google Drive plugin uploads each request, then "upload approved files".
    - `STORAGE_PROVIDER=drive`: the Drive API. Run `uv run ca drive setup` once.
@@ -59,7 +58,6 @@ Type every phrase below in Codex Desktop. Codex runs the matching `uv run ca …
 - "make 2 and 5": one package each
 - "make a post about X": a package about X
 - "make an insta post / facebook ad / reel about X": a package with only those deliverables
-- "use comfyui": this build on ComfyUI with Roman's LoRA (its dry run, then "ok")
 - "use the fallback": only the offered fallback line's own dry run, then "ok" (never for ads)
 - "write script for BG-x": a checked, versioned script
 - "write copy for BG-x": the copy for a post, carousel or ad
@@ -74,7 +72,6 @@ Type every phrase below in Codex Desktop. Codex runs the matching `uv run ca …
 - "check designs": the free brand, logo, text-fit, contrast and claims check of rendered designs
 - "show authorizations": what each "ok" allows (spent of max)
 - "show costs": estimate against actual, per job type
-- "train lora": parked (LoRA track)
 
 ## Review
 - "what needs review": generated items not reviewed yet

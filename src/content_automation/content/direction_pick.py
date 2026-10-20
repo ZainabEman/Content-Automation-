@@ -3,13 +3,12 @@
 The category follows the part: a Facebook post = fb_single, a Facebook ad = fb_ad, a LinkedIn post
 = li_single, an Instagram carousel = carousel. requires_roman (the calendar's Roman row "roman",
 or a founder variant named with "as <ID>") picks among the founder variants of that category
-(ids with R, his LoRA on comfyui); otherwise only the variants without Roman. Rotation (R5.3):
+(ids with R, Higgsfield Soul 2.0); otherwise only the variants without Roman. Rotation (R5.3):
 never the variant of the previous package with the same category and platform, a carousel also
 skips the one before that while another is left, and never a background treatment that the last
 two packages both used, so no platform gets three near-identical images in a row. History is
 package.json `direction` (stamped with the Content ID, the registry item's alias), newest first.
-"as <ID>" picks a variant by hand; founder variants are left out when the comfyui provider is not
-set up, never swapped for another provider.
+"as <ID>" picks a variant by hand; a founder variant is never swapped for another provider.
 """
 
 from __future__ import annotations
@@ -126,7 +125,7 @@ def pick_direction(
     if tired:
         reason += f"; not a third {tired} in a row"
     if len(usable) < len(options):
-        reason += "; LoRA variants left out (comfyui not set up)"
+        reason += "; founder variants left out (Roman's route not available)"
     return chosen, reason
 
 

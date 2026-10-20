@@ -1,4 +1,4 @@
-"""App-rendered text for image providers that draw no text (ComfyUI).
+"""App-rendered text for image providers that draw no text.
 
 Order on every image: the generated base image, then this text overlay, then the logo
 (workflows/logo.py). design_system.json "textOverlay" holds the text zones per format: a box

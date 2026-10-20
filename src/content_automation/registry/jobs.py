@@ -62,7 +62,7 @@ class JobConfig:
     free_providers: tuple[str, ...] = ("mock", "template", "local", "ffmpeg", "library", "none",
                                        "drive", "sheets")
     units: dict[str, str] = field(default_factory=lambda: {
-        "openrouter": "usd", "comfyui": "usd", "elevenlabs": "usd",
+        "openrouter": "usd", "elevenlabs": "usd",
         "higgsfield-plugin": "credits", "heygen-plugin": "credits"})
     timeouts: dict[str, int] = field(default_factory=lambda: {"default": 3600})
     estimates: dict[str, dict[str, float]] = field(default_factory=dict)

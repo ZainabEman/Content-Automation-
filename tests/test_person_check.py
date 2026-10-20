@@ -17,10 +17,10 @@ from content_automation.workflows import person_check
 from content_automation.workflows.person_check import face_problems, is_group
 
 
-def _job(output_dir: Path, provider: str = "comfyui") -> Job:
+def _job(output_dir: Path, provider: str = "higgsfield_soul") -> Job:
     job = create_job(output_dir, workflow_id="social_creative", workflow_version="1",
-                     requested_by="test", request="post", prompt="r0man_bg, a man, at a desk",
-                     provider=provider, model="z_image_turbo",
+                     requested_by="test", request="post", prompt="@Roman, at a desk",
+                     provider=provider, model="Soul 2.0",
                      params=JobParams(aspect_ratio="1:1", image_size="1K", count=1),
                      inputs={"personShown": True})
     job.start()
@@ -90,8 +90,8 @@ def test_one_automatic_redo_then_stop(tmp_path: Path, monkeypatch: pytest.Monkey
 def test_ads_never_take_a_fallback_provider() -> None:
     ad = Deliverable.model_validate({"kind": "ad", "label": "ad", "part": "ad",
                                      "platform": "facebook", "format": "ad",
-                                     "provider": "comfyui", "aliases": ["ad"]})
+                                     "provider": "mock", "aliases": ["ad"]})
     specs = {"facebook_ad": ad}
     assert package.ad_provider_problem(specs, "openrouter", "mock") is not None
-    assert package.ad_provider_problem(specs, "comfyui", "mock") is None
+    assert package.ad_provider_problem(specs, "mock", "mock") is None
     assert package.ad_provider_problem(specs, None, "mock") is None

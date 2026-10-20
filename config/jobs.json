@@ -13,7 +13,6 @@
   ],
   "units": {
     "openrouter": "usd",
-    "comfyui": "usd",
     "elevenlabs": "usd",
     "higgsfield-plugin": "credits",
     "heygen-plugin": "credits",

@@ -15,13 +15,6 @@ import httpx
 import imageio_ffmpeg
 from pydantic import SecretStr
 
-from content_automation.ai.image import (
-    ImageError,
-    is_unset,
-    load_comfyui_config,
-    load_comfyui_workflow,
-    model_for,
-)
 from content_automation.content.deliverables import DeliverableError, load_deliverables
 from content_automation.core.config import ConfigurationError, Settings, load_settings
 from content_automation.core.limits import images_generated_on
@@ -76,7 +69,6 @@ def run_checks(env_file: Path = Path(".env")) -> list[Check]:
         return checks
     checks += _keys(settings)
     checks += _providers(settings)
-    checks += _comfyui(settings)
     checks.append(_drive(settings))
     checks += _skills()
     checks += _config_files(settings)
@@ -111,34 +103,19 @@ def _is_set(secret: SecretStr | None) -> bool:
 
 def _keys(settings: Settings) -> list[Check]:
     checks = []
+    if settings.removed_image_provider:  # v6 R5: an old .env line
+        checks.append(Check("warn", "IMAGE_PROVIDER",
+                            f"{settings.removed_image_provider} no longer exists; this run uses "
+                            f"openrouter with {settings.image_model}",
+                            "In .env set IMAGE_PROVIDER=openrouter (or mock) and IMAGE_MODEL="
+                            f"{settings.carousel_image_model}; the old image-server keys can be "
+                            "deleted."))
     openrouter = _is_set(settings.openrouter_api_key)
     if settings.image_provider == "openrouter" and not openrouter:
         checks.append(Check("fail", "OPENROUTER_API_KEY", "set: no",
                             "Add your OpenRouter key to .env (OPENROUTER_API_KEY=...)."))
     else:
         checks.append(Check("ok", "OPENROUTER_API_KEY", f"set: {'yes' if openrouter else 'no'}"))
-    comfyui = settings.image_provider == "comfyui"
-    for name, is_set in (
-        ("RUNPOD_API_KEY", _is_set(settings.runpod_api_key)),
-        ("RUNPOD_ENDPOINT_ID", bool((settings.runpod_endpoint_id or "").strip())),
-    ):
-        level: Level = "fail" if comfyui and not is_set else "ok"
-        fix = "Add it to .env (see docs/guides/runpod-comfyui.md)." if level == "fail" else ""
-        checks.append(Check(level, name, f"set: {'yes' if is_set else 'no'}", fix))
-    training = [
-        name for name, value in (
-            ("RUNPOD_NETWORK_VOLUME_ID", (settings.runpod_network_volume_id or "").strip()),
-            ("RUNPOD_S3_ACCESS_KEY", _is_set(settings.runpod_s3_access_key)),
-            ("RUNPOD_S3_SECRET_KEY", _is_set(settings.runpod_s3_secret_key)),
-        ) if not value
-    ]
-    if training:
-        checks.append(Check("warn", "LoRA training (ca lora train-remote)",
-                            f"not set: {', '.join(training)}",
-                            "See docs/guides/runpod-comfyui.md, section 8."))
-    else:
-        checks.append(Check("ok", "LoRA training (ca lora train-remote)",
-                            "network volume and S3 key set"))
     if settings.voice_provider == "elevenlabs":
         elevenlabs = _is_set(settings.elevenlabs_api_key)
         checks.append(Check("ok" if elevenlabs else "fail", "ELEVENLABS_API_KEY",
@@ -190,34 +167,6 @@ def _providers(settings: Settings) -> list[Check]:
                             "For real news set SCRAPER_PROVIDER=free in .env."))
     else:
         checks.append(Check("ok", "News scraper", settings.scraper_provider))
-    return checks
-
-
-def _comfyui(settings: Settings) -> list[Check]:
-    """config/comfyui.json and both workflows; with IMAGE_PROVIDER=comfyui also the model and
-    the person's LoRA (a placeholder until Phase 2 Step 4)."""
-    active = settings.image_provider == "comfyui"
-    guide = "See docs/guides/runpod-comfyui.md."
-    try:
-        config = load_comfyui_config(settings.comfyui_config_file)
-        for name in config.workflows:
-            load_comfyui_workflow(config, name)
-    except ImageError as error:
-        return [Check("fail" if active else "warn", "ComfyUI config", str(error), guide)]
-    checks = [Check("ok", "ComfyUI config", f"valid: {', '.join(config.workflows)}")]
-    if not active:
-        return checks
-    model = model_for(settings)  # IMAGE_MODEL if it names a workflow, else defaultWorkflow
-    spec = config.workflows.get(model)
-    if spec is None:
-        checks.append(Check("fail", "ComfyUI model", f"workflow {model}",
-                            f"Set defaultWorkflow to one of: {', '.join(config.workflows)}."))
-    elif is_unset(spec.lora_name) or is_unset(config.trigger_word):
-        checks.append(Check("warn", "ComfyUI LoRA", "not set yet: images with the person are "
-                            "refused before any call",
-                            "Set loraName and triggerWord in config/comfyui.json (Step 4)."))
-    else:
-        checks.append(Check("ok", "ComfyUI LoRA", f"{spec.lora_name} ({model})"))
     return checks
 
 

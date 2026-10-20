@@ -109,13 +109,6 @@ def _keys(settings: Settings) -> list[Check]:
                             + "; ".join(settings.legacy_paths),
                             "In .env set OUTPUT_DIR=outputs/_system/jobs and PACKAGES_DIR=outputs "
                             "(or delete both lines)."))
-    if settings.removed_image_provider:  # v6 R5: an old .env line
-        checks.append(Check("warn", "IMAGE_PROVIDER",
-                            f"{settings.removed_image_provider} no longer exists; this run uses "
-                            f"openrouter with {settings.image_model}",
-                            "In .env set IMAGE_PROVIDER=openrouter (or mock) and IMAGE_MODEL="
-                            f"{settings.carousel_image_model}; the old image-server keys can be "
-                            "deleted."))
     openrouter = _is_set(settings.openrouter_api_key)
     if settings.image_provider == "openrouter" and not openrouter:
         checks.append(Check("fail", "OPENROUTER_API_KEY", "set: no",

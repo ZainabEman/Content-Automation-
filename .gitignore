@@ -24,3 +24,4 @@ htmlcov/
 # make-zip.ps1 output (may contain secrets) and setup.ps1 FFmpeg download
 /dist/
 /tools/
+/backups/

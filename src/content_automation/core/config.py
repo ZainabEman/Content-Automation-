@@ -9,10 +9,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 ImageProvider = Literal["mock", "openrouter", "template", "higgsfield_soul"]
 # Roman's images: Higgsfield Soul 2.0 via Codex (PRD v6 R5: the only route for Roman)
 RomanImageProvider = Literal["higgsfield_soul"]
-# PRD v6 R5: the retired image-server provider. Only an old .env still names it: it loads, runs as
-# openrouter with CAROUSEL_IMAGE_MODEL and `ca doctor` says which .env lines to change. Any other
-# unknown IMAGE_PROVIDER stays an error.
-RETIRED_IMAGE_PROVIDERS = frozenset({"comfyui"})
 # PRD v6 R8: the old flat output folders. An .env that still names one runs with the new tree
 # (`ca doctor` names the line to change); any other path is used as given.
 LEGACY_PATHS: dict[str, tuple[str, str]] = {
@@ -67,10 +63,6 @@ class Settings(BaseSettings):
 
     image_provider: ImageProvider = "mock"
     image_model: str = Field(default="google/gemini-3.1-flash-image", min_length=1)
-    # v6 (R5): an IMAGE_PROVIDER that no longer exists (the removed image-server route) still
-    # loads, runs as openrouter with CAROUSEL_IMAGE_MODEL, and `ca doctor` names the .env lines
-    # to change; never a crash at start-up because of an old .env.
-    removed_image_provider: str | None = None
     legacy_paths: list[str] = Field(default_factory=list)  # v6 R8: old .env path lines
     image_daily_limit: int = Field(default=10, gt=0)
     image_timeout_ms: int = Field(default=120_000, gt=0)
@@ -126,15 +118,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="wrap")
     @classmethod
-    def _run_removed_as_openrouter(cls, data: Any, handler: Any) -> Any:
-        removed: str | None = None
+    def _legacy_paths(cls, data: Any, handler: Any) -> Any:
         legacy: list[str] = []
         if isinstance(data, dict):
-            for key in ("image_provider", "IMAGE_PROVIDER"):
-                value = data.get(key)
-                if isinstance(value, str) and value.strip().lower() in RETIRED_IMAGE_PROVIDERS:
-                    removed = value.strip()
-                    data = {**data, key: "openrouter"}
             for name, (old, new) in LEGACY_PATHS.items():
                 for key in (name, name.upper()):
                     value = data.get(key)
@@ -144,9 +130,6 @@ class Settings(BaseSettings):
                         data = {**data, key: new}
         settings = handler(data)
         settings.legacy_paths = legacy
-        if removed is not None:
-            settings.removed_image_provider = removed
-            settings.image_model = settings.carousel_image_model
         return settings
 
     def summary_lines(self) -> tuple[str, ...]:

@@ -322,6 +322,33 @@ def test_job_waits_for_codex_then_draws_and_checks(live: Settings, tmp_path: Pat
         assert final.size == (1080, 1350)
     assert any(note.startswith("Roman checks:") for note in job.notes)
     assert str(job.inputs["aiDisclosure"]).startswith("KI-generiertes Bild")
+    # PRD v6 R4.6 / §5 check 3: a Roman creative carries no logo and no website
+    assert manifest["logo"] is None and manifest["footer"] == [] and manifest["emblem"] is None
+    assert not any("brandedgenius" in text["text"] for text in manifest["texts"])
+    assert manifest["texts"] and manifest["ctas"]  # the German text and CTA from the kit
+
+
+def test_a_logo_or_website_on_a_roman_creative_fails_the_check() -> None:
+    """R4.6: the design check refuses the logo or the website on a Roman manifest."""
+    from content_automation.content.directions import load_directions
+    from content_automation.references import load_brand
+    from content_automation.references.services import load_services
+    from content_automation.workflows.design_check import check_manifest
+
+    repo = Path(__file__).resolve().parents[1]
+    catalog = load_directions()
+    manifest = {"direction": "LI-R1", "layout": "roman_right", "size": [1080, 1440],
+                "texts": [], "fills": [], "footer": ["brandedgenius.de"],
+                "logo": {"file": "logo.png", "sha256": "x", "box": [800, 80, 1000, 150],
+                         "aspect_error": 0, "width_px": 200, "min_width_px": 160,
+                         "clear_space_px": 20}}
+    report = check_manifest(manifest, catalog=catalog,
+                            brand=load_brand(repo / "assets" / "reference"),
+                            services=load_services(repo / "config" / "services.json"),
+                            official={"x"}, person_check="pass")
+    assert any(error.startswith("[roman_logo]") for error in report.errors)
+    for name, layout in catalog.get("LI-R1").layouts.items():
+        assert not any(zone.kind in ("logo", "footer") for zone in layout.zones.values()), name
 
 
 def test_the_paid_route_waits_for_the_ok(live: Settings, monkeypatch: pytest.MonkeyPatch) -> None:

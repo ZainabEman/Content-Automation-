@@ -30,7 +30,6 @@ from typing import Any, Literal
 from PIL import Image, ImageOps
 from pydantic import Field
 
-from content_automation.ai.avatar import AvatarError
 from content_automation.ai.image import (
     ImageAwaitingAgent,
     ImageError,
@@ -175,9 +174,7 @@ from content_automation.workflows.variety import (
     suggest_format,
 )
 from content_automation.workflows.video_job import (
-    AvatarSetupError,
     agent_checklist,
-    missing_avatar_ids,
     missing_providers,
     pending_lines,
     prepare_video,
@@ -1299,13 +1296,13 @@ def _video_costs(brief: ContentBrief, settings: Settings, config: JobConfig
         return []
     try:
         prepared = prepare_video(parse_plan(json.dumps(plan), check_scenes=False), settings)
-    except (PlanError, VideoError, AvatarError):
+    except (PlanError, VideoError):
         return []
     costs: list[tuple[str, str, float]] = []
     for item in prepared.scenes:
         if not config.paid(item.provider):
             continue
-        job_type = "video_scene" if item.scene.type == "video" else "avatar_scene"
+        job_type = "video_scene"
         costs.append((job_type, item.provider, config.estimate(job_type, item.provider) or 0.0))
     return costs
 
@@ -2112,7 +2109,7 @@ def _make_reel(
     if previous is not None and previous.status == "waiting" and previous.job_folder:
         try:
             job = resume_video_job(Job.load(Path(previous.job_folder) / DETAILS_FILE), settings)
-        except (OSError, ValueError, VideoError, AvatarError) as error:
+        except (OSError, ValueError, VideoError) as error:
             failed = PackageItem(
                 status="failed", error=f"cannot resume the video: {error}", updated_at=now
             )
@@ -2134,15 +2131,7 @@ def _make_reel(
                 request=f"{brief.topic}: {brief.reel.workflow} (package {folder.name})",
                 real_only=True,
             )
-        except AvatarSetupError as error:  # no job was created, so nothing is failed
-            pending = PackageItem(
-                status="pending", error="HeyGen avatar or voice ID not set", updated_at=now
-            )
-            return pending, [
-                "Video not started (no job created): set these first, then build again:",
-                *(f"  - {line}" for line in error.problems),
-            ]
-        except (PlanError, VideoError, AvatarError) as error:
+        except (PlanError, VideoError) as error:
             return PackageItem(status="failed", error=str(error), updated_at=now), []
     return _reel_item(job, folder, settings)
 
@@ -2176,7 +2165,7 @@ def _reel_plan(
         }
         if scene.on_screen_text:
             entry["onScreenText"] = scene.on_screen_text
-        # Avatar scenes take no start image; the first frame starts the first video scene.
+        # the first frame starts the first video scene
         wanted = scene.image or (first if number == 1 and scene.type == "video" else None)
         if wanted and not check:
             ref = image_ref(wanted)
@@ -2500,16 +2489,12 @@ def _video_dry_run(brief: ContentBrief, seconds: float, settings: Settings) -> l
         return [f"{head}: {plan}"]
     try:
         prepared = prepare_video(parse_plan(json.dumps(plan), check_scenes=False), settings)
-    except (PlanError, VideoError, AvatarError) as error:
+    except (PlanError, VideoError) as error:
         return [f"{head}: cannot be made yet: {error}"]
     used = sorted({(item.scene.type, item.provider) for item in prepared.scenes})
     via = ", ".join(f"{kind} scenes via {provider}" for kind, provider in used)
     lines = [f"{head}; {via}; {_credits({provider for _, provider in used})}"]
     lines += [f"  {line}" for line in scene_lines(prepared, settings)]
-    ids = missing_avatar_ids(prepared, settings)
-    if ids:
-        lines.append("  STOP: the video cannot start until these are set (no job is created):")
-        lines += [f"  - {line}" for line in ids]
     missing = missing_providers(prepared)
     if missing:
         lines.append("  The video will be pending (draft - video pending) until this is fixed:")
@@ -2521,7 +2506,7 @@ def _credits(providers: set[str]) -> str:
     if providers <= {"mock", "none", "library"}:
         return "cost: none now (no real clips are made; the video waits for a real provider)"
     return (
-        "cost: Higgsfield/HeyGen credits charged in those apps (not estimated by this tool; "
+        "cost: Higgsfield credits charged in that app (not estimated by this tool; "
         "check the plan or credit balance there)"
     )
 

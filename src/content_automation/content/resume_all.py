@@ -14,7 +14,6 @@ Nothing here calls a paid or external service.
 import sqlite3
 from pathlib import Path
 
-from content_automation.ai.avatar import AvatarError
 from content_automation.ai.video import VideoError
 from content_automation.core.agent_steps import request_path
 from content_automation.core.config import Settings
@@ -83,7 +82,7 @@ def _videos(settings: Settings) -> list[str]:
             continue
         try:
             job = resume_video_job(job, settings)
-        except (VideoError, AvatarError, MediaError, OSError, ValueError) as error:
+        except (VideoError, MediaError, OSError, ValueError) as error:
             lines.append(f"Video {job.job_id}: needs manual action: {error}")
             continue
         lines.append(f"Video {job.job_id}: resumed, {job.status} ({job.folder.as_posix()})")

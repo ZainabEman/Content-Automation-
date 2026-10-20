@@ -1,7 +1,7 @@
 """`ca costs calibrate` (Phase 7 Step 2): the average actual amount per job of one provider
 replaces its estimate in config — only with --apply.
 
-Estimates in config: video/avatar scenes (config/jobs.json estimates.<job type>.<provider>).
+Estimates in config: video scenes (config/jobs.json estimates.<job type>.<provider>).
 Other job types have no estimate in config to change.
 """
 

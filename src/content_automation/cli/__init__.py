@@ -1,7 +1,6 @@
 """Typer command line interface."""
 
 import json
-import re
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -13,7 +12,6 @@ from typing import Annotated
 import typer
 from pydantic import ValidationError
 
-from content_automation.ai.avatar import AvatarError
 from content_automation.ai.image import ASPECT_RATIOS, ImageError, ImageRequest, model_for
 from content_automation.ai.video import VideoError
 from content_automation.cli.bridge import (
@@ -205,7 +203,6 @@ app = typer.Typer(name="ca", no_args_is_help=True, help="Content Automation CLI.
 refs_app = typer.Typer(no_args_is_help=True, help="Reference photo library.")
 brand_app = typer.Typer(no_args_is_help=True, help="Brand profile (brand.json).")
 job_app = typer.Typer(no_args_is_help=True, help="Job records, agent steps and person checks.")
-env_app = typer.Typer(no_args_is_help=True, help="Set one allowed line in .env (never shown).")
 video_app = typer.Typer(help="Videos from a plan.json (1080x1920; youtube 1920x1080).")
 research_app = typer.Typer(no_args_is_help=True, help="News research: collect and digest articles.")
 content_app = typer.Typer(
@@ -236,7 +233,6 @@ app.add_typer(calendar_app, name="calendar")
 app.add_typer(drive_app, name="drive")
 app.add_typer(tracking_app, name="tracking")
 app.add_typer(overlay_app, name="overlay")
-app.add_typer(env_app, name="env")
 app.add_typer(items_app, name="item")
 review_app = typer.Typer(no_args_is_help=True, help="The review gate: what waits, one item.")
 app.add_typer(review_app, name="review")
@@ -271,8 +267,6 @@ AuthorizeOption = Annotated[
     typer.Option("--authorize", help='The dry run ID the user said "ok" to (DR-...).'),
 ]
 # The only .env lines a command may set: IDs chosen by the user in a plugin, never keys.
-ENV_SETTABLE = ("HEYGEN_AVATAR_ID", "HEYGEN_VOICE_ID")
-_ENV_VALUE = re.compile(r"[A-Za-z0-9_-]{1,128}")
 
 JobDir = Annotated[Path, typer.Argument(help="Job folder (the one with details.json).")]
 AsFormatOption = Annotated[
@@ -1005,36 +999,6 @@ def _visual_answers(text: str) -> tuple[dict[str, str], str | None]:
     return answers, None
 
 
-@env_app.command("set")
-def env_set(
-    name: Annotated[str, typer.Argument(help=f"One of: {', '.join(ENV_SETTABLE)}.")],
-    value: Annotated[str, typer.Argument(help="The ID the user chose.")],
-    env_file: Annotated[Path, typer.Option(hidden=True)] = Path(".env"),
-) -> None:
-    """Set one ID line in .env; nothing else in the file is changed or shown."""
-    key = name.strip().upper()
-    if key not in ENV_SETTABLE:
-        typer.echo(f"Only these can be set here: {', '.join(ENV_SETTABLE)}.", err=True)
-        raise typer.Exit(code=2)
-    if not _ENV_VALUE.fullmatch(value.strip()):
-        typer.echo("The ID may contain only letters, digits, - and _.", err=True)
-        raise typer.Exit(code=2)
-    if not env_file.is_file():
-        typer.echo(f"{env_file} not found: copy .env.example to .env first.", err=True)
-        raise typer.Exit(code=1)
-    lines = env_file.read_text(encoding="utf-8").splitlines()
-    line = f"{key}={value.strip()}"
-    found = [i for i, text in enumerate(lines) if text.split("=", 1)[0].strip() == key]
-    if found:
-        lines[found[0]] = line
-        for extra in reversed(found[1:]):
-            del lines[extra]
-    else:
-        lines.append(line)
-    atomic_write_text(env_file, "\n".join(lines) + "\n")
-    typer.echo(f"{key} set in {env_file}.")
-
-
 @video_app.callback(invoke_without_command=True)
 def video(
     ctx: typer.Context,
@@ -1063,7 +1027,7 @@ def video(
     if plan is None:
         typer.echo(ctx.get_help())
         raise typer.Exit(code=2)
-    # Video, avatar and image scenes need no API key in the MVP (mock or agent providers).
+    # Video and image scenes need no API key in the MVP (mock or agent providers).
     settings = _settings(dry_run=dry_run, check_keys=False)
     key = f"video {plan.resolve().as_posix()}"
     try:
@@ -1087,7 +1051,7 @@ def video(
             else:
                 require_budget(scope, costs, f'uv run ca video --plan "{plan}" --dry-run')
             job = start_video_job(plan, settings, request=request)
-    except (PlanError, VideoError, AvatarError, RegistryError) as error:
+    except (PlanError, VideoError, RegistryError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from None
     _report_video(job, settings)
@@ -1102,7 +1066,7 @@ def video_resume(job_dir: JobDir) -> None:
     try:
         with _registry(settings, f"ca video resume {job.job_id}"):
             job = resume_video_job(job, settings)
-    except (VideoError, AvatarError) as error:
+    except VideoError as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=1) from None
     _report_video(job, settings)

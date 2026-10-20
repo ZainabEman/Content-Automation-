@@ -40,7 +40,7 @@ def video_cost_lines(prepared: PreparedVideo, settings: Settings) -> list[CostLi
     for item in prepared.scenes:
         if not config.paid(item.provider):
             continue
-        job_type = "video_scene" if item.scene.type == "video" else "avatar_scene"
+        job_type = "video_scene"
         estimate = config.estimate(job_type, item.provider) or 0.0
         lines.append(CostLine(None, job_type, item.provider, config.unit(item.provider),
                               estimate, estimate, f"scene {item.scene.n}"))

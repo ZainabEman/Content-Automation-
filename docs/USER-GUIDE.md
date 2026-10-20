@@ -6,15 +6,14 @@ Type every phrase below in Codex Desktop. Codex runs the matching `uv run ca …
 
 ## First-time setup
 1. Install and check: `uv sync`, then `uv run ca doctor`. Follow any fix it prints.
-2. Create `.env`: copy `.env.example` to `.env`. Set each value with `uv run ca env set <NAME> <value>`, which never shows the value. Keys by name:
+2. Create `.env`: copy `.env.example` to `.env` and fill it in a text editor (never paste keys into a chat). Keys by name:
    - `STORAGE_PROVIDER` and `DRIVE_SHARE_WITH`: the Drive route (step 3)
-   - `HEYGEN_AVATAR_ID` and `HEYGEN_VOICE_ID`: chosen from the HeyGen plugin's lists
-   - `OPENROUTER_API_KEY`: only if the Nano Banana fallback is kept (client decision)
+   - `OPENROUTER_API_KEY`: every non-Roman image (OpenRouter, the configured model)
 3. Choose the Drive route:
    - `STORAGE_PROVIDER=plugin`: the Google Drive plugin uploads each request, then "upload approved files".
    - `STORAGE_PROVIDER=drive`: the Drive API. Run `uv run ca drive setup` once.
    - `mock` is only for testing and never counts as an upload.
-4. Connect these Codex plugins: Gmail (brandedgenius.de@gmail.com only), Higgsfield, HeyGen, and Google Drive (if you chose the plugin route).
+4. Connect these Codex plugins: Gmail (brandedgenius.de@gmail.com only), Higgsfield (Roman's images with Soul 2.0, and reel clips), and Google Drive (if you chose the plugin route). (v6: HeyGen is no longer used.)
 5. Say "verification status". Then do the manual live tests in `docs/VERIFICATION.md`, and record each result with `uv run ca verify record <name> --live pass|fail "<note>"`.
 
 ## Research

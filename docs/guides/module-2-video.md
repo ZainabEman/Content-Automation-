@@ -1,5 +1,7 @@
 # Module guide: Video
 
+> **v6 (2026-10-20):** the HeyGen avatar path, `AVATAR_PROVIDER`, `HEYGEN_AVATAR_ID`, `HEYGEN_VOICE_ID` and `ca env set` are removed (PRD v6 R9): a plan has video and image scenes only. The HeyGen and avatar sections below are history.
+>
 > **v5 (2026-10-19):** UGC ads, podcast media and finished YouTube videos are no longer generated (PRD v5 R8). Only reels (`reel_short`, Higgsfield) remain as video; HeyGen avatar clips are not used by any workflow. YouTube is research and production planning: `ca youtube` and the make-youtube skill. Everything the audience sees is German.
 
 > Status: `ca video` turns a video plan into a finished `final.mp4`. With the free mock providers

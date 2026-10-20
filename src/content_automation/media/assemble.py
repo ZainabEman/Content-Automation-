@@ -3,7 +3,7 @@
 Each scene is first normalized on its own (scale + pad to the size, 30 fps, 48 kHz stereo,
 silence when the clip has no sound) with its text burned in; the scenes are then joined in
 order. An image scene becomes a slow zoom for its duration. Video scenes are cut to their
-planned length; avatar clips keep their full length so speech is never cut off.
+planned length.
 
 Text is burned in with FFmpeg's drawtext filter and a system font. If this FFmpeg build has
 no drawtext or no font is found, the video is made without text; captions.srt (always
@@ -47,7 +47,7 @@ TextPosition = Literal["top", "bottom"]
 
 @dataclass(frozen=True)
 class Segment:
-    """One scene: a clip (video/avatar) or a still image, with its text."""
+    """One scene: a video clip or a still image, with its text."""
 
     path: Path
     kind: SegmentKind = "clip"

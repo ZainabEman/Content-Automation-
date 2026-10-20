@@ -15,7 +15,6 @@
     "openrouter": "usd",
     "elevenlabs": "usd",
     "higgsfield-plugin": "credits",
-    "heygen-plugin": "credits",
     "higgsfield_soul": "usd"
   },
   "timeouts_seconds": {
@@ -23,7 +22,6 @@
     "still": 3600,
     "clip": 3600,
     "video_scene": 3600,
-    "avatar_scene": 3600,
     "upload": 600,
     "tracker_write": 300,
     "default": 3600
@@ -31,12 +29,9 @@
   "max_attempts": 2,
   "_max_attempts_note": "client to confirm: tries per job (the first + 1 retry) for `ca jobs retry`",
   "estimates": {
-    "_note": "client to confirm: credits per video scene in the Higgsfield and HeyGen Codex plugins (placeholders; the plugins report the real credits, which are recorded per job)",
+    "_note": "client to confirm: credits per video scene in the Higgsfield Codex plugin (placeholders; the plugins report the real credits, which are recorded per job)",
     "video_scene": {
       "higgsfield-plugin": 35
-    },
-    "avatar_scene": {
-      "heygen-plugin": 5
     }
   }
 }

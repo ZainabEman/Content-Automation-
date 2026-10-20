@@ -16,7 +16,7 @@ from content_automation.core.jobs import Job, JobStep
 
 REQUESTS_DIR = "requests"
 # Where `ca job complete` copies a step's file, by capability (default: the job folder).
-OUTPUT_DIRS = {"video": "clips", "avatar": "clips"}
+OUTPUT_DIRS = {"video": "clips"}
 
 
 class AgentRequest(CamelModel):

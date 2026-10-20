@@ -143,7 +143,6 @@ def _providers(settings: Settings) -> list[Check]:
                         f"{settings.image_daily_limit} per day ({used} used today)"))
     for label, provider, real, plugin in (
         ("Video", settings.video_provider, "higgsfield-plugin", "Higgsfield"),
-        ("Avatar", settings.avatar_provider, "heygen-plugin", "HeyGen"),
     ):
         if provider in ("mock", "none"):
             detail = "mock (placeholder clips)" if provider == "mock" else "none (not set)"
@@ -156,15 +155,6 @@ def _providers(settings: Settings) -> list[Check]:
             checks.append(Check("ok", label,
                                 f"{provider}: Codex makes the clips with the {plugin} plugin "
                                 "(checked by Codex when a video is made)"))
-    if settings.avatar_provider == "heygen-plugin":
-        for name, value, what in (
-            ("HEYGEN_AVATAR_ID", settings.heygen_avatar_id, "avatars"),
-            ("HEYGEN_VOICE_ID", settings.heygen_voice_id, "voices (own or cloned first)"),
-        ):
-            if not value:
-                checks.append(Check("warn", name, "not set; HeyGen clips cannot start",
-                                    f"Codex lists your HeyGen {what} with the HeyGen plugin; "
-                                    f"after you choose: uv run ca env set {name} <id>"))
     voice = "off (no voiceover in the MVP)" if settings.voice_provider == "none" else (
         settings.voice_provider)
     checks.append(Check("ok", "Voice", voice))

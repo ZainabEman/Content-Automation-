@@ -457,8 +457,6 @@ def _texts(brief: ContentBrief) -> Iterable[tuple[str, str]]:
         for scene in brief.reel.scenes:
             if scene.on_screen_text:
                 yield "reel.onScreenText", scene.on_screen_text
-            if scene.type == "avatar":
-                yield "reel.avatar", scene.prompt
 
 
 def reader_texts(brief: ContentBrief) -> list[tuple[str, str]]:

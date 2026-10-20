@@ -83,7 +83,7 @@ back to **Ask for approval** afterwards.
    | `SCRAPER_PROVIDER=` | `free` | real news (our own free scraper) |
    | `USER_NAME=` | your name | saved in every job record |
 
-   `VIDEO_PROVIDER=higgsfield-plugin`, `AVATAR_PROVIDER=heygen-plugin` and `VOICE_PROVIDER=none`
+   `VIDEO_PROVIDER=higgsfield-plugin` and `VOICE_PROVIDER=none`
    are already set (see step 8); `IMAGE_DAILY_LIMIT=30`.
 3. Save the file. **Never paste a key into the Codex chat, a document or a screenshot**:
    it belongs only in `.env`, which is never shared or uploaded.
@@ -111,14 +111,14 @@ Ask Codex: **"Run uv run ca doctor."** It checks the tools, your `.env` (it show
 each key is set, never the key itself), the photos, `brand.json`, the company profile
 (`brand/services.md`), the news sites, the providers and the output folders. Every
 `[FAIL]` line comes with a **Fix:** line; do that and run it again until there are no problems.
-`[WARN]` lines are fine for a start (for example `HEYGEN_AVATAR_ID` or `HEYGEN_VOICE_ID` not
-set yet; Codex helps you choose them when the first HeyGen video is made).
+`[WARN]` lines are fine for a start (for example an old `.env` line that `ca doctor` asks you
+to change).
 
-## 8. Plugins: Gmail, Higgsfield and HeyGen
+## 8. Plugins: Gmail and Higgsfield
 
-Codex uses three plugins: **Gmail** (read-only, for "show content"), **Higgsfield** (video clips)
-and **HeyGen** (your avatar). Install and sign in to them in Codex; nothing goes into `.env`
-except the provider names above. Details: [Higgsfield and HeyGen plugins](guides/module-2-video.md#higgsfield-and-heygen-plugins).
+Codex uses two plugins: **Gmail** (read-only, for "show content") and **Higgsfield** (Roman's
+images with Soul 2.0 and his saved character, and reel clips). Install and sign in to them in
+Codex; nothing goes into `.env` except the provider names above. (v6: HeyGen is no longer used.)
 Optional: the **Google Drive** plugin, read-only, to look up files, links and the Content
 Tracker. Uploads and tracker updates never use it; they go through `ca drive` and `ca tracking`.
 

@@ -231,8 +231,8 @@ class Insight(_BriefModel):
 
 
 class ReelScene(_BriefModel):
-    type: Literal["video", "avatar"] = "video"  # avatar: the avatar says ``prompt``
-    prompt: str = Field(min_length=1)  # video: the shot; avatar: the exact words
+    type: Literal["video"] = "video"  # v6 R9: avatar scenes (HeyGen) are removed
+    prompt: str = Field(min_length=1)  # the shot
     duration_sec: float = Field(gt=0, le=15)
     on_screen_text: str | None = None
     image: ImageRef | None = None  # show this package image (slow zoom) instead of a clip
@@ -417,8 +417,6 @@ def brief_problems(
             problems.append(
                 f"{video.workflow_id} needs at least one {video.required_scene_type} scene"
             )
-        if any(scene.type == "avatar" and scene.image for scene in brief.reel.scenes):
-            problems.append("an avatar scene cannot show a package image")
         refs = [brief.reel.first_frame] + [scene.image for scene in brief.reel.scenes]
         for ref in refs:
             if ref is not None and ref.split("-")[0] not in brief.formats:

@@ -22,7 +22,6 @@ LEGACY_PATHS: dict[str, tuple[str, str]] = {
 # "none": no provider is set; a content package then keeps its video pending.
 # Agent providers are Codex plugins: Codex makes the clip, the app records it.
 VideoProvider = Literal["none", "mock", "higgsfield-plugin"]
-AvatarProvider = Literal["none", "mock", "heygen-plugin"]
 # "none" (default): no voiceover step runs; the MVP videos have no voiceover.
 VoiceProvider = Literal["none", "mock", "elevenlabs"]
 # "free" (default): our own scraper (RSS + article pages); no paid API, no account.
@@ -91,10 +90,6 @@ class Settings(BaseSettings):
 
     video_provider: VideoProvider = "mock"
     video_model: str = Field(default="mock", min_length=1)
-    avatar_provider: AvatarProvider = "mock"
-    avatar_model: str = Field(default="mock", min_length=1)
-    heygen_avatar_id: str | None = None  # the person's own HeyGen avatar
-    heygen_voice_id: str | None = None  # passed with every HeyGen clip (never the default voice)
     voice_provider: VoiceProvider = "none"
     voice_model: str = Field(default="mock", min_length=1)
     elevenlabs_api_key: SecretStr | None = None
@@ -163,7 +158,6 @@ class Settings(BaseSettings):
             f"research={self.research_dir}, packages={self.packages_dir}",
             f"Image: {self.image_provider} ({self.image_model})",
             f"Video: {self.video_provider} ({self.video_model})",
-            f"Avatar: {self.avatar_provider} ({self.avatar_model})",
             f"Voice: {self.voice_provider} ({self.voice_model})",
             f"Research: {self.scraper_provider} (sources: {self.sources_file})",
             f"Storage: {self.storage_provider}",

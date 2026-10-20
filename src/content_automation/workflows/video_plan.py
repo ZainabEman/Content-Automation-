@@ -15,7 +15,7 @@ DURATION_TOLERANCE_SEC = 1.0
 
 # v5 (PRD R8): UGC ads, podcast clips and finished YouTube videos are no longer generated.
 VideoWorkflow = Literal["reel_short"]
-SceneType = Literal["video", "avatar", "image"]
+SceneType = Literal["video", "image"]  # v6 R9: no avatar scenes
 
 
 class PlanError(ValueError):

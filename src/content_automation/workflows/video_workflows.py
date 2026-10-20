@@ -3,10 +3,7 @@
 from dataclasses import dataclass
 from typing import Literal
 
-from content_automation.ai.voice import estimate_speech_sec
 from content_automation.workflows.video_plan import SceneType, VideoPlan
-
-SPEECH_TOLERANCE = 1.2  # avatar words may run up to 20% over the scene length
 
 
 @dataclass(frozen=True)
@@ -56,15 +53,6 @@ def workflow_problems(plan: VideoPlan) -> list[str]:
             problems.append(
                 f"{label}: an image scene needs startImageAssetId (an M1 image or reference photo)"
             )
-        if scene.type == "avatar":
-            if scene.start_image_asset_id:
-                problems.append(f"{label}: avatar scenes do not use startImageAssetId")
-            speech = estimate_speech_sec(scene.prompt)
-            if speech > scene.duration_sec * SPEECH_TOLERANCE:
-                problems.append(
-                    f"{label}: the avatar's words take about {speech:g}s to say but the scene is "
-                    f"{scene.duration_sec:g}s; shorten the words or split the scene"
-                )
     if not any(scene.type == spec.required_scene_type for scene in plan.scenes):
         problems.append(
             f"{spec.workflow_id} needs at least one {spec.required_scene_type} scene"

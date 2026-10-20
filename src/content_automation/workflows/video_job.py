@@ -4,22 +4,18 @@
 agent steps pause the job (awaiting_agent) until Codex records them with `ca job complete`.
 `ca video resume` then runs anything still missing and assembles final.mp4.
 Voiceover is disabled in the MVP (VOICE_PROVIDER=none): scenes keep their own sound.
+v6 (PRD R9): video and image scenes only; the unreachable HeyGen avatar path is removed.
 
 A content package needs a real video, so it starts its job with real_only=True: while a
 scene's provider is mock or none, the job is created but holds (status processing, no
 steps) and says what is missing; `ca video resume` continues it once a real provider is set.
 
-HeyGen clips need the person's avatar and a voice (HEYGEN_AVATAR_ID, HEYGEN_VOICE_ID). They
-are checked before a job is created (AvatarSetupError), so a missing ID never leaves a
-failed job behind; Codex confirms both IDs with the HeyGen plugin before the "ok".
 """
 
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-from content_automation.ai.avatar import AvatarRequest, generate_avatar_video
-from content_automation.ai.avatar import get_provider as get_avatar_provider
 from content_automation.ai.video import VideoRequest, generate_video
 from content_automation.ai.video import get_provider as get_video_provider
 from content_automation.ai.voice import VOICE_OFF
@@ -61,11 +57,9 @@ SCRIPT_FILE = "script.md"
 _CREDITS = {"mock": "0", "library": "0", "none": "0"}
 MAX_IDENTITY_PHOTOS = 14  # all of the person's usable photos (the model limit)
 _CREDITS_TBD = "TBD until M2.C"
-HEYGEN = "heygen-plugin"
 # Credit cost per scene as far as it is known before generation, by provider.
 _SCENE_CREDITS = {
     "higgsfield-plugin": "reported by the Higgsfield plugin before generating",
-    HEYGEN: "reported by the HeyGen plugin before generating",
 }
 NO_PROVIDER = "none"
 PLACEHOLDER_PROVIDERS = frozenset({"mock", NO_PROVIDER})  # no real clips
@@ -73,19 +67,9 @@ REAL_ONLY = "realProvidersOnly"  # job input: wait for real providers instead of
 # Scene type -> (setting, real provider, what to connect in Codex).
 _REAL = {
     "video": ("VIDEO_PROVIDER", "higgsfield-plugin", "the Higgsfield plugin"),
-    "avatar": ("AVATAR_PROVIDER", "heygen-plugin", "the HeyGen plugin (and set HEYGEN_AVATAR_ID)"),
 }
 
 logger = get_logger("workflows.video_job")
-
-
-class AvatarSetupError(PlanError):
-    """HeyGen avatar or voice ID is missing; raised before any job is created."""
-
-    def __init__(self, problems: list[str]) -> None:
-        super().__init__(problems)
-        lines = "\n".join(f"- {problem}" for problem in problems)
-        self.args = (f"HeyGen is not set up, so no video job was created:\n{lines}",)
 
 
 @dataclass(frozen=True)
@@ -110,8 +94,8 @@ class PreparedVideo:
 def prepare_video(plan: VideoPlan, settings: Settings) -> PreparedVideo:
     """Check the plan against its workflow and find start images; no job, no calls.
 
-    Raises PlanError listing every problem, or VideoError/AvatarError when the selected
-    provider does not exist.
+    Raises PlanError listing every problem, or VideoError when the selected provider does not
+    exist.
     """
     problems = scene_problems(plan) + workflow_problems(plan)
     scenes: list[PreparedScene] = []
@@ -153,18 +137,13 @@ def _provider_for(scene: PlanScene, settings: Settings) -> tuple[str, str]:
         if settings.video_provider == NO_PROVIDER:
             return NO_PROVIDER, NO_PROVIDER
         return settings.video_provider, get_video_provider(settings.video_provider, settings).mode
-    if scene.type == "avatar":
-        if settings.avatar_provider == NO_PROVIDER:
-            return NO_PROVIDER, NO_PROVIDER
-        avatar = get_avatar_provider(settings.avatar_provider, settings)
-        return settings.avatar_provider, avatar.mode
     return "library", "code"  # image scene: an existing picture, no provider call
 
 
 def missing_providers(prepared: PreparedVideo) -> list[str]:
     """What must be set before the plan's clips can be real (empty: nothing is missing)."""
     lines = []
-    for kind in ("video", "avatar"):
+    for kind in ("video",):
         providers = {item.provider for item in prepared.scenes if item.scene.type == kind}
         for provider in sorted(providers & PLACEHOLDER_PROVIDERS):
             setting, real, connect = _REAL[kind]
@@ -176,33 +155,13 @@ def missing_providers(prepared: PreparedVideo) -> list[str]:
     return lines
 
 
-def missing_avatar_ids(prepared: PreparedVideo, settings: Settings) -> list[str]:
-    """HeyGen clips need the avatar and the voice ID; what is missing and how to set it."""
-    if not any(item.provider == HEYGEN for item in prepared.scenes):
-        return []
-    lines = []
-    for name, value, what in (
-        ("HEYGEN_AVATAR_ID", settings.heygen_avatar_id, "avatars (his own avatar first)"),
-        ("HEYGEN_VOICE_ID", settings.heygen_voice_id, "voices (his own or cloned voices first)"),
-    ):
-        if not value:
-            lines.append(
-                f"{name} is not set: list the account's {what} with the HeyGen plugin, let the "
-                f"user choose, then run: uv run ca env set {name} <id>"
-            )
-    return lines
-
-
 def scene_lines(prepared: PreparedVideo, settings: Settings) -> list[str]:
-    """Per scene: provider, avatar, voice, duration and credits, for the "ok" step."""
+    """Per scene: provider, duration and credits, for the "ok" step."""
     lines = []
     for item in prepared.scenes:
         scene = item.scene
         parts = [f"scene {scene.n}: {scene.type}", f"{scene.duration_sec:g} s", item.provider]
-        if item.provider == HEYGEN:
-            parts.append(f"avatar {settings.heygen_avatar_id or 'NOT SET'}")
-            parts.append(f"voice {settings.heygen_voice_id or 'NOT SET'}")
-        elif scene.type == "video" and item.provider not in PLACEHOLDER_PROVIDERS:
+        if scene.type == "video" and item.provider not in PLACEHOLDER_PROVIDERS:
             parts.append(f"model {settings.video_model}")
         credits = _SCENE_CREDITS.get(item.provider, _CREDITS.get(item.provider, _CREDITS_TBD))
         parts.append(f"credits: {credits}")
@@ -211,15 +170,14 @@ def scene_lines(prepared: PreparedVideo, settings: Settings) -> list[str]:
 
 
 def pending_lines(job: Job, settings: Settings) -> list[str]:
-    """Why a held job (real_only, or HeyGen IDs missing) is still waiting, and how to finish it;
-    else []."""
+    """Why a held job (real_only) is still waiting, and how to finish it; else []."""
     if job.status != "processing" or job.steps:
         return []
     try:
         prepared = prepare_video(load_plan(job.folder / PLAN_FILE, check_scenes=False), settings)
     except (PlanError, StartImageError) as error:
         return [f"The video plan has a problem: {error}"]
-    missing = missing_providers(prepared) or missing_avatar_ids(prepared, settings)
+    missing = missing_providers(prepared)
     if not missing:
         return [f'Real providers are set now: run uv run ca video resume "{job.folder}"']
     return [
@@ -233,7 +191,6 @@ def dry_run_lines(prepared: PreparedVideo, settings: Settings) -> list[str]:
     plan, spec = prepared.plan, prepared.spec
     lines = [
         "DRY RUN: no job created, no provider call, nothing spent.",
-        *(f"STOP: {line}" for line in missing_avatar_ids(prepared, settings)),
         f"Workflow: {spec.workflow_id} (v{spec.version}), max {spec.max_duration_sec}s: "
         f"{spec.description}",
         f"Plan: {plan.duration_sec:g}s, {len(plan.scenes)} scenes, platform {plan.platform}",
@@ -246,15 +203,10 @@ def dry_run_lines(prepared: PreparedVideo, settings: Settings) -> list[str]:
             f"  {scene.n}. {scene.type:<6} {scene.duration_sec:>4g}s  "
             f"{item.provider} ({item.mode})"
         )
-        if item.provider == HEYGEN:
-            line += (
-                f" | avatar {settings.heygen_avatar_id or 'NOT SET'}, "
-                f"voice {settings.heygen_voice_id or 'NOT SET'}"
-            )
         if item.start_image:
             line += f" | start image {item.start_image.source} [{item.start_image.asset_id}]"
         lines.append(line)
-        lines.append(f"     {'says' if scene.type == 'avatar' else 'prompt'}: {scene.prompt}")
+        lines.append(f"     prompt: {scene.prompt}")
         if scene.on_screen_text:
             lines.append(f'     text: "{scene.on_screen_text}"')
     used = sorted({(item.scene.type, item.provider) for item in prepared.scenes})
@@ -286,9 +238,6 @@ def start_video_job(
         raise PlanError([f"cannot read {plan_file}"]) from None
     prepared = prepare_video(parse_plan(text, check_scenes=False), settings)
     plan = prepared.plan
-    ids = missing_avatar_ids(prepared, settings)
-    if ids:  # before the job exists, so nothing is marked failed
-        raise AvatarSetupError(ids)
     unset = [item for item in prepared.scenes if item.provider == NO_PROVIDER]
     if unset and not real_only:
         raise PlanError([
@@ -339,10 +288,6 @@ def resume_video_job(job: Job, settings: Settings) -> Job:
         job.start()
     if job.inputs.get(REAL_ONLY) and missing_providers(prepared):
         return job  # still held: no placeholder clips for a content package
-    if missing_avatar_ids(prepared, settings) and not any(
-        step.provider == HEYGEN for step in job.steps
-    ):
-        return job  # held until the avatar and voice IDs are set (pending_lines says how)
     if any(item.provider == NO_PROVIDER for item in prepared.scenes):
         return job  # nothing can make these clips yet
     return advance(job, prepared, settings)
@@ -403,19 +348,6 @@ def _run_scene(
             ),
             settings,
         )
-    if scene.type == "avatar":
-        return generate_avatar_video(
-            AvatarRequest(
-                step_id=item.step_id,
-                job_dir=job.folder,
-                script=scene.prompt,
-                duration_sec=scene.duration_sec,
-                aspect_ratio=spec.aspect,
-                avatar_id=settings.heygen_avatar_id,
-                voice_id=settings.heygen_voice_id,
-            ),
-            settings,
-        )
     if item.start_image is None:  # checked by the plan rules; kept for safety
         raise StartImageError(f"scene {scene.n}: no start image.")
     relative = f"clips/{item.step_id}{item.start_image.path.suffix.lower()}"
@@ -438,7 +370,7 @@ def _registry_job(job: Job, item: PreparedScene) -> None:
     scope = runtime.current()
     if scope is None:
         return
-    job_type = "video_scene" if item.scene.type == "video" else "avatar_scene"
+    job_type = "video_scene"
     estimate = scope.config.estimate(job_type, item.provider)
     opened = runtime.open_scoped_job(
         job_type, item.provider,
@@ -464,10 +396,8 @@ def _segments(job: Job, prepared: PreparedVideo) -> list[Segment]:
             Segment(
                 path=job.folder / step.file,
                 kind="image" if scene.type == "image" else "clip",
-                # Video clips are cut to plan length; avatar clips keep all their speech.
-                duration_sec=None if scene.type == "avatar" else scene.duration_sec,
+                duration_sec=scene.duration_sec,  # clips are cut to the plan length
                 on_screen_text=scene.on_screen_text,
-                speech=scene.prompt if scene.type == "avatar" else None,
             )
         )
     return segments
@@ -516,8 +446,6 @@ def _models(prepared: PreparedVideo, settings: Settings) -> set[str]:
     for item in prepared.scenes:
         if item.scene.type == "video":
             models.add(settings.video_model)
-        elif item.scene.type == "avatar":
-            models.add(settings.avatar_model)
     return models or {"none"}
 
 

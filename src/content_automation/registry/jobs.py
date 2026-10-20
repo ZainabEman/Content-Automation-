@@ -63,7 +63,7 @@ class JobConfig:
                                        "drive", "sheets")
     units: dict[str, str] = field(default_factory=lambda: {
         "openrouter": "usd", "elevenlabs": "usd",
-        "higgsfield-plugin": "credits", "heygen-plugin": "credits"})
+        "higgsfield-plugin": "credits"})
     timeouts: dict[str, int] = field(default_factory=lambda: {"default": 3600})
     estimates: dict[str, dict[str, float]] = field(default_factory=dict)
     max_attempts: int = 2  # tries of one job (the first and the retries), Phase 7

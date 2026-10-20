@@ -57,6 +57,7 @@ from content_automation.content.plan_config import (
 )
 from content_automation.content.relevance import service_fit
 from content_automation.content.research_input import ResearchFile, ResearchIdea, load_idea
+from content_automation.content.topic_pool import spread, theme_of, topic_memory
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
 from content_automation.references.services import ServicesError, load_services
@@ -85,7 +86,8 @@ OLD_COLUMNS = (  # before the registry (Phase 1-3): still read (D-8)
     "Package", "Content ID",
 )
 STATUSES = ("Proposed", "Approved", "Rejected", "Generated", "Revision requested",
-            "In progress", "Failed")
+            "In progress", "Failed", "Deleted")
+CLOSED = ("Rejected", "Deleted")  # v6 R6: rows that free their slot and never come back
 APPROVED_STATES = ("Approved", "In progress", "Failed")  # the idea is approved, not generated
 Decision = Literal["Approved", "Rejected"]
 CHANGES_FROM: dict[Decision, tuple[str, ...]] = {  # the statuses each decision may replace
@@ -228,7 +230,7 @@ def view_status(idea: str, generation: str) -> str:
     """The CSV Status of an item (D-9): its idea status, then its generation."""
     if idea != "approved":
         return {"proposed": "Proposed", "revision_requested": "Revision requested",
-                "rejected": "Rejected"}.get(idea, "Proposed")
+                "rejected": "Rejected", "deleted": "Deleted"}.get(idea, "Proposed")
     return {"not_started": "Approved", "queued": "In progress", "running": "In progress",
             "generated": "Generated", "failed": "Failed", "partial": "Failed"}[generation]
 
@@ -322,7 +324,8 @@ def _pillar_fit(settings: Settings) -> Callable[[str], bool] | None:
         return None
     if not any(pillar.keywords for pillar in strategy.pillars):
         return None  # no strategy file: the default pillars name no keywords
-    return lambda topic: pillar_guess(topic, strategy) is not None
+    # v6 R2: a theme of the topic pool fits too (no service link needed)
+    return lambda topic: pillar_guess(topic, strategy) is not None or theme_of(topic) is not None
 
 
 def new_calendar(
@@ -373,7 +376,19 @@ def new_calendar(
                 "automation) or pick another topic."
             )
         automatic = [idea for idea in automatic if fits(idea.topic)]
-    candidates = iter(picks + [idea for idea in automatic if idea.source not in planned])
+    # v6 R6: nothing generated, rejected or deleted before comes back, nor a close rewording
+    scope = runtime.current()
+    memory = topic_memory(conn=scope.conn if scope is not None else None,
+                          calendar_dir=settings.calendar_dir, packages_dir=settings.packages_dir)
+    refused = [f'"{idea.topic}": {reason}' for idea in picks
+               if (reason := memory.check(idea.topic)) is not None]
+    if refused:
+        raise CalendarError("Already used or turned down: " + "; ".join(refused)
+                            + ". Pick another topic or a genuinely different angle.")
+    automatic, skipped = memory.allowed(
+        [idea for idea in automatic if idea.source not in planned], lambda idea: idea.topic)
+    automatic = spread(automatic, lambda idea: idea.topic)  # R2: themes spread over the week
+    candidates = iter(picks + automatic)
 
     days = week_days(label)
     rows: list[Row] = []
@@ -422,6 +437,8 @@ def new_calendar(
         lines.append("Items: " + ", ".join(
             f"row {row['Row']} {row['BG ID']}" for row in rows if row["BG ID"]))
     lines += service_lines(rows, settings.services_file)
+    lines += skipped[:5] + ([f"... and {len(skipped) - 5} more skipped"] if len(skipped) > 5
+                            else [])
     if newest is None:
         lines.append("No newsletter content list found; used topics and scraper articles.")
     if empty:
@@ -489,12 +506,12 @@ def check_calendar(path: Path, label: str, catalog: DeliverableCatalog,
         problems += [f"{where}: {problem}" for problem in _format_problems(row)]
         key = _topic_key(row["Topic"])
         idea = row["Research source"] if row["Research source"].startswith("idea:") else ""
-        if not key and row["Status"] != "Rejected":
+        if not key and row["Status"] not in CLOSED:
             problems.append(f"{where}: no topic")
-        elif (row["Status"] != "Rejected" and key in topics
+        elif (row["Status"] not in CLOSED and key in topics
               and not (idea and topics[key][1] == idea)):  # C5-13: one idea, rows
             problems.append(f"{where}: same topic as row {topics[key][0]}")  # per platform
-        elif row["Status"] != "Rejected" and key:
+        elif row["Status"] not in CLOSED and key:
             topics.setdefault(key, (row["Row"], idea))
         source_problem = _source_problem(row["Research source"], research_dir)
         if source_problem:

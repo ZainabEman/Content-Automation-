@@ -23,7 +23,8 @@ Guard = Literal["idea_window", "idea_approved", "generation_generated", "new_ver
 
 DIMENSIONS: tuple[Dimension, ...] = ("idea", "generation", "review", "upload", "publication")
 STATUSES: dict[Dimension, tuple[str, ...]] = {  # the first one is a new item's status
-    "idea": ("proposed", "approved", "rejected", "revision_requested"),
+    # v6 R6: "deleted" is the soft delete (`ca item delete`): final, never suggested again
+    "idea": ("proposed", "approved", "rejected", "revision_requested", "deleted"),
     "generation": ("not_started", "queued", "running", "generated", "partial", "failed"),
     "review": ("not_reviewed", "approved", "rejected", "changes_requested"),
     "upload": ("not_uploaded", "uploading", "uploaded", "failed"),
@@ -70,6 +71,10 @@ TABLE: tuple[Move, ...] = (
     _move("idea", "approved", "rejected", "idea_window"),
     _move("idea", "approved", "revision_requested", "idea_window"),
     _move("idea", "rejected", "approved", "idea_window"),
+    _move("idea", "proposed", "deleted"),
+    _move("idea", "approved", "deleted"),
+    _move("idea", "rejected", "deleted"),
+    _move("idea", "revision_requested", "deleted"),
     _move("generation", "not_started", "queued", "idea_approved"),
     _move("generation", "queued", "running"),
     _move("generation", "running", "generated"),

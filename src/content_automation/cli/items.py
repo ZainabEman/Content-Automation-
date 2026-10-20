@@ -24,7 +24,7 @@ from content_automation.registry.audit import EVENT_TYPES, Event, append_event, 
 from content_automation.registry.db import RegistryError
 from content_automation.registry.decisions import Gate
 from content_automation.registry.ids import resolve, resolve_row
-from content_automation.registry.items import Item, get_item, list_items
+from content_automation.registry.items import Item, delete_item, get_item, list_items
 from content_automation.registry.progress import upload_label
 from content_automation.registry.report import ItemReport, item_report
 from content_automation.registry.statuses import DIMENSIONS, Dimension
@@ -326,6 +326,27 @@ def item_reject(
         change = reject(conn, _resolve(conn, ref, week), text, gate=chosen,
                         command=_command("item reject", ref, text))
         typer.echo(f'{change.line()} — reason: "{text}"')
+
+
+@items_app.command("delete")
+def item_delete(
+    ref: Annotated[str, typer.Argument(help="BG ID (or alias).")],
+    reason: Annotated[
+        list[str] | None, typer.Argument(help="Why it is deleted (required).")
+    ] = None,
+    week: WeekOption = None,
+) -> None:
+    """Delete an idea or row ("delete BG-007 off topic"): a soft delete. It leaves every active
+    list, the calendar shows Deleted, and its topic is never suggested or planned again."""
+    settings = _settings()
+    text = _text(reason)
+    if not text:
+        _fail("A delete needs a reason: ca item delete BG-007 \"<reason>\".", 2)
+    with _registry(settings, _command("item delete", ref, text)) as conn:
+        for item in delete_item(conn, _resolve(conn, ref, week), text,
+                                command=_command("item delete", ref, text)):
+            typer.echo(f'{item.id}: deleted ("{item.title}") — reason: "{text}"; never '
+                       "suggested again")
 
 
 @items_app.command("revise")

@@ -18,6 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from content_automation.content.research_input import ResearchFile
+from content_automation.content.topic_pool import topic_memory
 from content_automation.core.config import Settings
 from content_automation.core.files import atomic_write_text
 from content_automation.registry.ideas import create_idea, get_details, list_ideas, update_details
@@ -149,13 +150,21 @@ def _add_sources(conn: sqlite3.Connection, settings: Settings, item_id: str,
 def ingest(conn: sqlite3.Connection, settings: Settings, candidate: Candidate,
            strategy: Strategy, counts: RunCounts, *, actor: str = "system",
            command: str | None = None) -> str:
-    """The candidate as an idea (or merged into the older one); returns the BG ID."""
+    """The candidate as an idea (or merged into the older one); returns the BG ID ("" when the
+    topic was generated, rejected or deleted before)."""
     duplicate = find_duplicate(conn, candidate, strategy)
     if duplicate is not None:
         _add_sources(conn, settings, duplicate, candidate.sources, command)
         counts.duplicates += 1
         counts.lines.append(f"{duplicate}: duplicate of \"{candidate.title}\"; sources added")
         return duplicate
+    # v6 R6: a re-import never brings back a topic generated, rejected or deleted before
+    reason = topic_memory(conn=conn, calendar_dir=settings.calendar_dir,
+                          packages_dir=settings.packages_dir).check(candidate.title)
+    if reason is not None:
+        counts.duplicates += 1
+        counts.lines.append(f'Skipped "{candidate.title}": {reason}')
+        return ""
     item = create_idea(conn, candidate.title, topic=candidate.summary or candidate.title,
                        original_text=candidate.original_text,
                        assumptions=candidate.assumptions,

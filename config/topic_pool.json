@@ -1,0 +1,23 @@
+{
+  "_note": "PRD v6 R2/R6: the topic pool. Topics come from three sources, mixed by sourceMix: the German-society AI themes below, the verified Branded Genius services (config/services.json) and the subscribed newsletters (the Gmail flow, filtered to what fits the brand). A post does NOT have to map to a service: it may cover a theme in an informative style (service insight-only); the rule that stays is that no unverified service, result, client, price or statistic is ever claimed. Each theme has German and English keywords (lower case, matched as whole words or word starts); the planner spreads themes so the same one is never planned back to back. duplicates: a new topic is blocked when its normalised text equals, or is at least `threshold` similar to, a topic that was already generated, rejected or deleted (content/topic_pool.py); a different angle on the same broad theme stays allowed because only close rewordings reach the threshold. Edit freely.",
+  "sourceMix": {"society": 0.5, "services": 0.3, "newsletters": 0.2},
+  "duplicates": {
+    "threshold": 0.6,
+    "minSharedWords": 3,
+    "_note": "similarity = max(word overlap (Jaccard over content words), character ratio); a topic needs at least minSharedWords shared content words to count as a near-duplicate, so short theme words alone never block an angle"
+  },
+  "themes": [
+    {"id": "german_society", "label": "Aktuelle Probleme der deutschen Gesellschaft", "keywords": ["gesellschaft", "fachkräftemangel", "bürokratie", "pflege", "rente", "wohnungsmangel", "verwaltung", "mittelstand", "handwerk", "society", "skills shortage", "bureaucracy"]},
+    {"id": "ai_mistakes", "label": "KI macht Fehler (auch gefährliche)", "keywords": ["fehler", "halluzination", "falsch", "fehlerhaft", "gefährlich", "mistake", "hallucination", "wrong", "error"]},
+    {"id": "ai_misuse", "label": "Missbrauch von KI", "keywords": ["missbrauch", "manipulation", "desinformation", "misuse", "abuse", "manipulation"]},
+    {"id": "ai_out_of_control", "label": "KI scheint außer Kontrolle zu geraten", "keywords": ["kontrolle", "außer kontrolle", "autonom", "agenten", "control", "autonomous", "rogue"]},
+    {"id": "wrong_ai_use", "label": "Probleme durch falschen KI-Einsatz", "keywords": ["falscher einsatz", "fehleinsatz", "blind vertrauen", "ohne prüfung", "misuse of ai", "unchecked"]},
+    {"id": "ai_helps_germany", "label": "Deutsche Probleme, die KI lösen könnte", "keywords": ["lösen", "entlasten", "lösung", "effizienz", "automatisierung", "solve", "relief", "automation"]},
+    {"id": "deepfakes", "label": "Deepfakes", "keywords": ["deepfake", "deepfakes", "gefälscht", "stimmklon", "voice clone", "fake video"]},
+    {"id": "ai_scams", "label": "KI-Betrug", "keywords": ["betrug", "scam", "fraud", "phishing", "abzocke", "enkeltrick"]},
+    {"id": "ai_replaces_decisions", "label": "KI ersetzt menschliche Entscheidungen", "keywords": ["entscheidung", "entscheidungen", "ersetzt", "automatisierte entscheidung", "decision", "replaces"]},
+    {"id": "ai_overdependence", "label": "Zu große Abhängigkeit von KI", "keywords": ["abhängigkeit", "abhängig", "verlassen", "dependence", "overreliance", "dependent"]},
+    {"id": "companies_wrong_ai", "label": "Unternehmen setzen KI falsch ein", "keywords": ["unternehmen", "firmen", "betriebe", "mittelstand", "company", "companies", "business"]},
+    {"id": "ignored_risks", "label": "Risiken, die ignoriert werden", "keywords": ["risiko", "risiken", "datenschutz", "dsgvo", "sicherheit", "haftung", "risk", "privacy", "gdpr", "security"]}
+  ]
+}

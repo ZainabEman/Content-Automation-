@@ -10,7 +10,10 @@ is planned with requires_roman (a founder variant, Higgsfield Soul 2.0).
 Topics: approved, unplanned ideas of the backlog (best score first) and the --topic texts. Each
 topic goes to the slot whose category fits it best (a verified service fit favours an ad, how-to
 and list wording a carousel, news and study wording LinkedIn); topic → service matching is
-content/relevance.py, unchanged. Slots without a topic stay open.
+content/relevance.py, unchanged. Slots without a topic stay open. v6 (R2, R6): a topic needs no
+service (service insight-only is a valid plan); the same theme of config/topic_pool.json is not
+planned back to back; topics generated, rejected or deleted before (or close rewordings) are
+left out by the caller (content/topic_pool.py).
 
 The layout variant of each asset is simulated with the real rotation (content/direction_pick.py)
 in date order, so the plan shows it and proves R5.3: no platform gets three consecutive images
@@ -41,6 +44,7 @@ from content_automation.content.direction_brief import slide_roles
 from content_automation.content.direction_pick import direction_format, pick_direction
 from content_automation.content.directions import DirectionCatalog
 from content_automation.content.relevance import service_fit
+from content_automation.content.topic_pool import theme_of
 from content_automation.core.config import Settings
 from content_automation.core.files import atomic_write_text
 from content_automation.references.services import ServiceCatalog
@@ -83,6 +87,7 @@ class Asset:
     pictures: int
     estimate_usd: float
     metadata: dict[str, Any] = field(default_factory=dict)
+    theme: str | None = None  # v6 R2: the topic pool theme (config/topic_pool.json)
 
 
 def scale_mix(mix: dict[str, int], total: int) -> dict[str, int]:
@@ -201,6 +206,7 @@ def plan_month(settings: Settings, deliverables: DeliverableCatalog, catalog: Di
                                                 for key, value in (history or {}).items()}
     assets: list[Asset] = []
     roman_count = 0
+    last_theme: str | None = None
     for day, names in zip(days, plan, strict=True):
         for name in names:
             spec = deliverables.deliverables[name]
@@ -218,9 +224,14 @@ def plan_month(settings: Settings, deliverables: DeliverableCatalog, catalog: Di
                                        recent=recent.get(key, [])[:2], roman_ok=True,
                                        roman=roman)
             recent[key] = [chosen.id, *recent.get(key, [])][:5]
-            topic = max(pool, key=lambda item: _affinity(item, name, services)) if pool else None
+            choices = [item for item in pool
+                       if last_theme is None or theme_of(item.title) != last_theme] or pool
+            topic = (max(choices, key=lambda item: _affinity(item, name, services))
+                     if choices else None)
+            theme = theme_of(topic.title) if topic is not None else None
             if topic is not None:
                 pool.remove(topic)
+                last_theme = theme
             pictures = len(slide_roles(chosen)) if chosen.format == "carousel" else 1
             provider = chosen.provider if chosen.roman else "openrouter"
             assets.append(Asset(
@@ -230,7 +241,7 @@ def plan_month(settings: Settings, deliverables: DeliverableCatalog, catalog: Di
                 topic=topic.title if topic else None, source=topic.source if topic else None,
                 service=_service(topic, services), pictures=pictures,
                 estimate_usd=_cost(settings, provider, pictures),
-                metadata=metadata_template(name, platform, chosen.roman)))
+                metadata=metadata_template(name, platform, chosen.roman), theme=theme))
     return assets
 
 

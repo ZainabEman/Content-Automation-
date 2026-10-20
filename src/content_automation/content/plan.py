@@ -16,6 +16,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from content_automation.content.calendar import (
+    CLOSED,
     CalendarError,
     Row,
     assign_roman,
@@ -34,6 +35,7 @@ from content_automation.content.plan_config import (
     PlanConfigError,
     load_plan,
 )
+from content_automation.content.topic_pool import topic_memory
 from content_automation.core.config import Settings
 from content_automation.registry import runtime
 from content_automation.registry.db import transaction
@@ -146,8 +148,11 @@ def plan_calendar(settings: Settings, catalog: DeliverableCatalog, strategy: Str
         week_rows(week_of(day))
     # A rejected row no longer owns its slot; let an approved idea fill that date and type.
     occupied = {(row["Planned date"], row["Content type"])
-                for rows in weeks.values() for row in rows if row["Status"] != "Rejected"}
-    ideas = _approved_ideas(conn)
+                for rows in weeks.values() for row in rows if row["Status"] not in CLOSED}
+    # v6 R6: an approved idea that rewords something generated, rejected or deleted is left out
+    memory = topic_memory(conn=conn, calendar_dir=settings.calendar_dir,
+                          packages_dir=settings.packages_dir)
+    ideas, skipped = memory.allowed(_approved_ideas(conn), lambda pair: pair[0].title)
     used = len(ideas)
     shares = {pillar.key: pillar.target_share for pillar in strategy.pillars}
     counts: dict[str, int] = {}
@@ -190,6 +195,7 @@ def plan_calendar(settings: Settings, catalog: DeliverableCatalog, strategy: Str
         lines.append(f"No approved idea left for {len(empty)} slot(s): {', '.join(empty[:6])}"
                      + (" …" if len(empty) > 6 else "") + ". Review and approve more ideas, "
                      "then plan again (filled slots are kept).")
+    lines += skipped
     rows = period_rows(settings, days)
     lines += target_lines(rows, plan, days) + pillar_lines(conn, rows, strategy, plan)
     plan_only = sorted({row["Content type"] for row in rows if row["Content type"] in plan.types})
@@ -236,7 +242,7 @@ def period_rows(settings: Settings, days: list[date], *, numbered: bool = False)
 
 def target_lines(rows: list[Row], plan: Plan, days: list[date]) -> list[str]:
     """The targets the rows miss (rejected rows do not count)."""
-    live = [row for row in rows if row["Status"] != "Rejected"]
+    live = [row for row in rows if row["Status"] not in CLOSED]
     targets = plan.targets
     misses: list[str] = []
     if targets.post_types:
@@ -264,7 +270,7 @@ def pillar_lines(conn: sqlite3.Connection, rows: list[Row], strategy: Strategy,
                  plan: Plan) -> list[str]:
     """The pillar shares of the ideas planned in these rows against config/strategy.json."""
     ideas = {row["Research source"].removeprefix("idea:") for row in rows
-             if row["Research source"].startswith("idea:") and row["Status"] != "Rejected"}
+             if row["Research source"].startswith("idea:") and row["Status"] not in CLOSED}
     if not ideas:
         return []
     pillars = [get_details(conn, idea).pillar or "" for idea in ideas]

@@ -59,6 +59,9 @@ def test_table_matches_prd_d4_and_section_14() -> None:
         ("idea", "proposed", "revision_requested"), ("idea", "revision_requested", "proposed"),
         ("idea", "approved", "rejected"), ("idea", "rejected", "approved"),
         ("idea", "approved", "revision_requested"),
+        # v6 R6: the soft delete (`ca item delete`), final
+        ("idea", "proposed", "deleted"), ("idea", "approved", "deleted"),
+        ("idea", "rejected", "deleted"), ("idea", "revision_requested", "deleted"),
         ("generation", "not_started", "queued"), ("generation", "queued", "running"),
         ("generation", "running", "generated"), ("generation", "running", "partial"),
         ("generation", "running", "failed"), ("generation", "failed", "queued"),

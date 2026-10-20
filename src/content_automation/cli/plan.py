@@ -21,6 +21,7 @@ from content_automation.content.month_plan import (
     write_plan,
 )
 from content_automation.content.plan import _approved_ideas, month_days, month_label
+from content_automation.content.topic_pool import topic_memory
 from content_automation.references.services import ServicesError, load_services
 from content_automation.registry.db import RegistryError
 
@@ -54,9 +55,13 @@ def plan_month_command(
             topics = [Topic(item.title, f"idea:{item.id}", item.id, float(details.score or 0))
                       for item, details in _approved_ideas(scope.conn)]
             topics += [Topic(text, f"topic:{text}") for text in topic or []]
+            # v6 R6: nothing generated, rejected or deleted before, nor a close rewording
+            memory = topic_memory(conn=scope.conn, calendar_dir=settings.calendar_dir,
+                                  packages_dir=settings.packages_dir)
+            topics, skipped = memory.allowed(topics, lambda item: item.title)
             assets = plan_month(settings, deliverables, catalog, label, days, topics, services)
             files = write_plan(settings, label, assets)
-            lines = summary_lines(label, assets, len(days))
+            lines = summary_lines(label, assets, len(days)) + skipped
             if apply:
                 paths, applied = apply_plan(settings, deliverables, assets, scope.command)
                 lines += applied + [f"Week file: {path}" for path in paths]

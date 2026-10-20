@@ -453,6 +453,28 @@ def set_status(
         return get_item(conn, item.id)
 
 
+def delete_item(conn: sqlite3.Connection, ref: str, reason: str, *,
+                command: str | None = None) -> list[Item]:
+    """v6 R6: the soft delete. The item (and its planned rows, the children) leaves every
+    active list: idea status "deleted" (final), the reason in the audit log; the record and its
+    topic stay, so no later suggestion, import or plan brings the topic back."""
+    text = reason.strip()
+    if not text:
+        raise RegistryError("A delete needs a reason: ca item delete BG-007 \"<reason>\".")
+    item = get_item(conn, ref)
+    done: list[Item] = []
+    for target in [item, *children(conn, item.id)]:
+        if target.idea_status == "deleted":
+            continue
+        changed = set_status(conn, target.id, "idea", "deleted", actor="user", command=command)
+        append_event(conn, "item_updated", actor="user", command=command, item_id=target.id,
+                     details={"deleted": text})
+        done.append(changed)
+    if not done:
+        raise RegistryError(f"{item.id} is already deleted.")
+    return done
+
+
 def children(conn: sqlite3.Connection, ref: str) -> list[Item]:
     """The items whose parent is `ref` (an idea's planned content, a video's shorts)."""
     item_id = resolve(conn, ref)

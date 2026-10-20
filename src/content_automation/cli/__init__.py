@@ -61,6 +61,7 @@ from content_automation.content.calendar import (
 )
 from content_automation.content.clips import clips_handoff, clips_import, clips_select
 from content_automation.content.compose_preview import preview as compose_preview
+from content_automation.content.copy_check import package_review, week_review
 from content_automation.content.deliverables import (
     DeliverableCatalog,
     DeliverableError,
@@ -1455,9 +1456,70 @@ def content_build(
                 typer.echo(sync_calendar(path, settings))
 
 
+RetryOption = Annotated[
+    bool, typer.Option("--retry", help="The user asked for another rewrite of a stopped item.")
+]
+
+
+@content_app.command("copy")
+def content_copy(
+    folder: Annotated[Path, typer.Argument(help="The package folder from `ca content start`.")],
+    approve_copy: Annotated[
+        bool, typer.Option("--approve", help="Record the user's ok to this copy (only after "
+                           "they said ok to the review).")
+    ] = False,
+    retry: RetryOption = False,
+) -> None:
+    """The copy review (free, 2026-10-21): per graphic the headline, body, chips, CTA and
+    visual concept, with the copy check. Images are made only for approved copy."""
+    _utf8_output()
+    settings = _settings(dry_run=True, check_keys=False)
+    with _registry(settings, f'ca content copy "{folder}"'
+                   + (" --approve" if approve_copy else "")):
+        try:
+            lines, problems = package_review(folder, settings, approve_it=approve_copy,
+                                             retry=retry)
+        except (OSError, ValueError) as error:
+            typer.echo(str(error), err=True)
+            raise typer.Exit(code=1) from None
+    for line in lines:
+        typer.echo(line)
+    if problems:
+        raise typer.Exit(code=1)
+
+
 WeekOption = Annotated[
     str, typer.Option(help='The ISO week: "next" (default), "this" or e.g. 2026-W42.')
 ]
+
+
+@calendar_app.command("copy")
+def calendar_copy(
+    week: WeekOption = "next",
+    approve_rows: Annotated[
+        str | None, typer.Option("--approve", help='"all" or rows / BG IDs ("1,3" or '
+                                 '"BG-125 BG-126"): only after the user\'s ok to the review.')
+    ] = None,
+    retry: RetryOption = False,
+) -> None:
+    """The copy review of a week (free): every Approved row's graphics with the copy check;
+    --approve records the user's ok. The combined dry run needs approved copy."""
+    _utf8_output()
+    settings = _settings(dry_run=True, check_keys=False)
+    try:
+        label = week_label(week)
+        with _registry(settings, f"ca calendar copy --week {label}"
+                       + (f' --approve "{approve_rows}"' if approve_rows else "")):
+            lines, open_rows = week_review(settings, label, approve_rows=approve_rows,
+                                           retry=retry)
+    except (OSError, ValueError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from None
+    for line in lines:
+        typer.echo(line)
+    if open_rows:
+        typer.echo(f"{len(open_rows)} row(s) not approved yet: fix or show them, then wait for "
+                   "the user's ok (uv run ca calendar copy --week " + label + ' --approve "…").')
 
 
 @calendar_app.command("new")

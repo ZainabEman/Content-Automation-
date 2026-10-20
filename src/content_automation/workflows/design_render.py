@@ -1793,9 +1793,26 @@ def render_layout(
         elif zone.kind == "arrow":
             _arrow(painter, name, zone)
         elif zone.kind == "icons":
+            if direction.roman:  # his chips follow the body, clear of his holograms
+                zone = _roman_row(painter, zone, stacked, record.holograms, person_right)
             _icons(painter, name, zone, layout, copy, catalog)
     record.image = painter.image.convert("RGB")
     return record
+
+
+def _roman_row(painter: Painter, zone: Zone, stacked: PixelBox | None,
+               holograms: Sequence[PixelBox], person_right: bool) -> Zone:
+    """Roman's benefit chips (2026-10-21): right under the body, not at the zone's fixed place,
+    and narrowed until they clear his holograms like every text."""
+    area = painter.px(zone.box)
+    if stacked is not None and area[1] > stacked[1]:
+        top = stacked[3] + painter.s(STACK_GAP_PX * 1.5)
+        area = (area[0], top, area[2], top + area[3] - area[1])
+    if holograms:
+        area = _clear_of(area, holograms, painter.s(HOLOGRAM_GAP_PX), person_right)
+    width, height = painter.size
+    return zone.model_copy(update={"box": (area[0] / width, area[1] / height, area[2] / width,
+                                           area[3] / height)})
 
 
 def place_brand_marks(image: Image.Image, direction: Direction, layout_name: str, layout: Layout,

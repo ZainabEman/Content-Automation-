@@ -982,6 +982,8 @@
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
             "sub": "one supporting line in German, at most 14 words",
+            "features": "3 short German benefit chips, one per line, at most 2 words each (e.g. Zeit sparen)",
+            "icons": "3 icon names, one per chip (config/design_directions.json icons)",
             "cta": "optional: a short German call to action (e.g. Mehr erfahren), at most 4 words"
           },
           "zones": {
@@ -1057,6 +1059,18 @@
               "size": 28,
               "weight": "medium"
             },
+            "features": {
+              "kind": "icons",
+              "field": "features",
+              "iconsField": "icons",
+              "box": [
+                0.06,
+                0.7,
+                0.58,
+                0.79
+              ],
+              "size": 20
+            },
             "cta": {
               "kind": "text",
               "field": "cta",
@@ -1095,6 +1109,11 @@
               "maxChars": 28,
               "maxLines": 1,
               "minFontPx": 22
+            },
+            "features": {
+              "maxChars": 22,
+              "maxLines": 2,
+              "minFontPx": 15
             }
           }
         },
@@ -1106,6 +1125,8 @@
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
             "sub": "one supporting line in German, at most 14 words",
+            "features": "3 short German benefit chips, one per line, at most 2 words each (e.g. Zeit sparen)",
+            "icons": "3 icon names, one per chip (config/design_directions.json icons)",
             "cta": "optional: a short German call to action (e.g. Mehr erfahren), at most 4 words"
           },
           "zones": {
@@ -1181,6 +1202,18 @@
               "size": 28,
               "weight": "medium"
             },
+            "features": {
+              "kind": "icons",
+              "field": "features",
+              "iconsField": "icons",
+              "box": [
+                0.42,
+                0.7,
+                0.94,
+                0.79
+              ],
+              "size": 20
+            },
             "cta": {
               "kind": "text",
               "field": "cta",
@@ -1219,6 +1252,11 @@
               "maxChars": 28,
               "maxLines": 1,
               "minFontPx": 22
+            },
+            "features": {
+              "maxChars": 22,
+              "maxLines": 2,
+              "minFontPx": 15
             }
           }
         }
@@ -1818,6 +1856,8 @@
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
             "sub": "one supporting line in German, at most 14 words",
+            "features": "3 short German benefit chips, one per line, at most 2 words each (e.g. Zeit sparen)",
+            "icons": "3 icon names, one per chip (config/design_directions.json icons)",
             "cta": "the German button text on the image, at most 4 words"
           },
           "zones": {
@@ -1893,6 +1933,18 @@
               "size": 28,
               "weight": "medium"
             },
+            "features": {
+              "kind": "icons",
+              "field": "features",
+              "iconsField": "icons",
+              "box": [
+                0.06,
+                0.7,
+                0.58,
+                0.79
+              ],
+              "size": 20
+            },
             "cta": {
               "kind": "text",
               "field": "cta",
@@ -1931,6 +1983,11 @@
               "maxChars": 28,
               "maxLines": 1,
               "minFontPx": 22
+            },
+            "features": {
+              "maxChars": 22,
+              "maxLines": 2,
+              "minFontPx": 15
             }
           }
         },
@@ -1942,6 +1999,8 @@
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
             "sub": "one supporting line in German, at most 14 words",
+            "features": "3 short German benefit chips, one per line, at most 2 words each (e.g. Zeit sparen)",
+            "icons": "3 icon names, one per chip (config/design_directions.json icons)",
             "cta": "the German button text on the image, at most 4 words"
           },
           "zones": {
@@ -2017,6 +2076,18 @@
               "size": 28,
               "weight": "medium"
             },
+            "features": {
+              "kind": "icons",
+              "field": "features",
+              "iconsField": "icons",
+              "box": [
+                0.42,
+                0.7,
+                0.94,
+                0.79
+              ],
+              "size": 20
+            },
             "cta": {
               "kind": "text",
               "field": "cta",
@@ -2055,6 +2126,11 @@
               "maxChars": 28,
               "maxLines": 1,
               "minFontPx": 22
+            },
+            "features": {
+              "maxChars": 22,
+              "maxLines": 2,
+              "minFontPx": 15
             }
           }
         }
@@ -2883,6 +2959,8 @@
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
             "sub": "one supporting line in German, at most 14 words",
+            "features": "3 short German benefit chips, one per line, at most 2 words each (e.g. Zeit sparen)",
+            "icons": "3 icon names, one per chip (config/design_directions.json icons)",
             "cta": "optional: a short German call to action (e.g. Mehr erfahren), at most 4 words"
           },
           "zones": {
@@ -2958,6 +3036,18 @@
               "size": 28,
               "weight": "medium"
             },
+            "features": {
+              "kind": "icons",
+              "field": "features",
+              "iconsField": "icons",
+              "box": [
+                0.06,
+                0.7,
+                0.58,
+                0.79
+              ],
+              "size": 20
+            },
             "cta": {
               "kind": "text",
               "field": "cta",
@@ -2996,6 +3086,11 @@
               "maxChars": 28,
               "maxLines": 1,
               "minFontPx": 22
+            },
+            "features": {
+              "maxChars": 22,
+              "maxLines": 2,
+              "minFontPx": 15
             }
           }
         },
@@ -3007,6 +3102,8 @@
           "fields": {
             "headline": "the headline in German, at most 8 words; mark 1-2 key words *like this* (Sky Blue)",
             "sub": "one supporting line in German, at most 14 words",
+            "features": "3 short German benefit chips, one per line, at most 2 words each (e.g. Zeit sparen)",
+            "icons": "3 icon names, one per chip (config/design_directions.json icons)",
             "cta": "optional: a short German call to action (e.g. Mehr erfahren), at most 4 words"
           },
           "zones": {
@@ -3082,6 +3179,18 @@
               "size": 28,
               "weight": "medium"
             },
+            "features": {
+              "kind": "icons",
+              "field": "features",
+              "iconsField": "icons",
+              "box": [
+                0.42,
+                0.7,
+                0.94,
+                0.79
+              ],
+              "size": 20
+            },
             "cta": {
               "kind": "text",
               "field": "cta",
@@ -3120,6 +3229,11 @@
               "maxChars": 28,
               "maxLines": 1,
               "minFontPx": 22
+            },
+            "features": {
+              "maxChars": 22,
+              "maxLines": 2,
+              "minFontPx": 15
             }
           }
         }

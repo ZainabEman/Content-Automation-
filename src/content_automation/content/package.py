@@ -53,6 +53,13 @@ from content_automation.content.brief import (
     meta_cta_buttons,
     slot_kind,
 )
+from content_automation.content.copy_check import (
+    approval_problem,
+    copy_items,
+    help_block,
+    item_problems,
+    plan_template,
+)
 from content_automation.content.deliverables import (
     Deliverable,
     DeliverableCatalog,
@@ -926,7 +933,8 @@ def _brief_template(
         "_help": {
             "howTo": (
                 f"Save a copy as {BRIEF_FILE} in this folder and replace every <...>. Everything "
-                "the audience sees is German (natural, for readers in Germany, \"Sie\"; no "
+                "the audience sees is German (natural, for readers in Germany, \"Sie\"; a "
+                "carousel says \"du\"; the copy follows copyRules below; no "
                 "literal translations, no generic AI marketing language: config/"
                 "german_quality.json). Use brand/services.md and config/services.json "
                 "(verified services only) and the brand and design rules below. "
@@ -937,6 +945,9 @@ def _brief_template(
             "deliverables": {key: item.label for key, item in chosen.items()},
             "services": service_names(brand, company, services_file),
             "designDirection": help_text(direction) if direction is not None else {},
+            # 2026-10-21: the reader angle, 3 scored headlines, the CTA list, the examples
+            "copyRules": help_block(direction.category, direction.roman)
+            if direction is not None else {},
             "serviceFit": (
                 f"{fit.label}: keep this service, pick another verified one the copy is "
                 f'really about, or write "{INSIGHT_ONLY}" (no service named; the cta is a '
@@ -1026,7 +1037,7 @@ def _brief_template(
         design = suggested or post.format or "statement"
         if direction is not None and direction.format not in ("carousel", "fb_ad"):
             template["post"] = post_template(direction, platform=post.platform, seed=topic,
-                                             design=design)
+                                             design=design) | {"copyPlan": plan_template()}
         elif post_format is not None:
             template["post"] = {"format": design, "postFormat": post_format.id,
                                 "copy": copy_template(post_format)}
@@ -1037,7 +1048,8 @@ def _brief_template(
     if "carousel" in by_part:
         carousel = by_part["carousel"]
         if direction is not None and direction.format == "carousel":
-            template["carousel"] = carousel_template(direction)
+            template["carousel"] = carousel_template(direction) | {
+                "copyPlan": plan_template(carousel=True)}
         elif post_format is not None and post_format.slides is not None:
             low, high = post_format.slides
             count = min(max(carousel.slides or high, low), high)
@@ -1050,6 +1062,7 @@ def _brief_template(
         if direction is not None and direction.format == "fb_ad":  # v5: a Facebook ad (R4)
             template["ad"] = {
                 **post_template(direction, platform="facebook", seed=topic, design="ad"),
+                "copyPlan": plan_template(),
                 "adFields": {
                     "primaryText": "<German primary text above the image: the problem, the "
                                    "offer and the next step, 1-3 short sentences>",
@@ -1382,6 +1395,7 @@ def _quality_problems(brief: ContentBrief, settings: Settings, folder: Path) -> 
             problems = direction_problems(brief, load_directions(), settings) + problems
         except DirectionError as error:
             problems.append(str(error))
+    problems += _copy_gate(brief, settings, folder)
     if any(slot is not None and slot.post_format for slot in (brief.post, brief.carousel)):
         try:
             problems = format_problems(brief, load_formats(settings.post_formats_file),
@@ -1389,6 +1403,35 @@ def _quality_problems(brief: ContentBrief, settings: Settings, folder: Path) -> 
         except FormatError as error:
             problems.append(str(error))
     return problems
+
+
+def _copy_gate(brief: ContentBrief, settings: Settings, folder: Path) -> list[str]:
+    """2026-10-21: before a paid image, every graphic that still needs one passes the copy check
+    (config/copy_rules.json) and its copy is approved in the copy review (content/copy_check.py).
+    A part already made or waiting (e.g. Roman's Higgsfield image) is left alone; mock builds
+    (local tests) are free and skip it."""
+    if settings.image_provider == "mock":
+        return []
+    try:
+        catalog = load_directions()
+        services = load_services(settings.services_file)
+    except (DirectionError, ServicesError) as error:
+        return [str(error)]
+    items = [item for item in copy_items(brief, catalog) if _needs_image(folder, item.part)]
+    problems = [problem for item in items for problem in item_problems(item, brief, services)]
+    gate = approval_problem(folder, brief) if items and not problems else None
+    return problems + ([gate] if gate else [])
+
+
+def _needs_image(folder: Path, part: str) -> bool:
+    """The part still needs a new image: not made yet, failed, or a review regenerate."""
+    try:
+        package = ContentPackage.model_validate_json(
+            (folder / PACKAGE_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return True
+    item = package.items.get(part)
+    return item is None or item.status in ("pending", "failed") or bool(item.redo)
 
 
 def _in_brief_words(message: str) -> str:

@@ -1,0 +1,120 @@
+{
+  "_note": "The copy of the approved brand references (2026-10-21), verbatim: the few-shot examples for every headline, body, chip, CTA and visual concept on a social graphic (make-content skill, brief.template.json _help.copyRules). Feed posts and ads address the reader with \"Sie\" (the A refs are Facebook ads; their style is also the bar for Facebook and LinkedIn posts); carousels use \"du\", one idea per slide, sentence case. pattern: one of patterns below. Rules and the CTA list: config/copy_rules.json.",
+  "patterns": {
+    "contrast_pair": "two short sentences, the second turns the first: \"Ihr Vertrieb schläft. Unsere KI nicht.\"",
+    "benefit_pair": "less of the pain, more of the gain: \"Weniger Routine. Mehr Wachstum.\"",
+    "reader_question": "a question the reader answers for themselves: \"Wie viel Potenzial steckt in Ihrem Unternehmen?\"",
+    "bold_future": "a bold statement about the near future that makes the reader curious: \"2026 arbeitet jeder Mitarbeiter mit einem unsichtbaren Kollegen.\"",
+    "benefit_promise": "the result the reader wants, as a promise: \"Jede Anfrage verdient eine Antwort\""
+  },
+  "examples": [
+    {
+      "ref": "A01",
+      "category": "facebook_ad",
+      "alsoFor": ["facebook_post", "linkedin_post"],
+      "address": "Sie",
+      "pattern": "contrast_pair",
+      "headline": "IHR VERTRIEB SCHLÄFT. UNSERE KI NICHT.",
+      "body": "Automatische Antworten, Terminbuchungen und Lead-Qualifizierung.",
+      "cta": "Kostenlos testen",
+      "visual": "phone with a real WhatsApp-style chat, robot, 3 labelled feature callouts"
+    },
+    {
+      "ref": "A02",
+      "category": "facebook_ad",
+      "alsoFor": ["facebook_post", "linkedin_post"],
+      "address": "Sie",
+      "pattern": "benefit_pair",
+      "headline": "WENIGER ROUTINE. MEHR WACHSTUM.",
+      "body": "Automatisieren Sie wiederkehrende Prozesse und gewinnen Sie wertvolle Zeit.",
+      "cta": "Beratung buchen",
+      "visual": "before/after split, stressed vs relaxed manager"
+    },
+    {
+      "ref": "A03",
+      "category": "facebook_ad",
+      "alsoFor": ["facebook_post", "linkedin_post"],
+      "address": "Sie",
+      "pattern": "benefit_promise",
+      "headline": "JEDE ANFRAGE VERDIENT EINE ANTWORT",
+      "body": "Ihre KI beantwortet Anfragen in Sekunden – rund um die Uhr.",
+      "cta": "Live-Demo ansehen"
+    },
+    {
+      "ref": "A04",
+      "category": "facebook_ad",
+      "alsoFor": ["facebook_post", "linkedin_post"],
+      "address": "Sie",
+      "pattern": "reader_question",
+      "headline": "WIE VIEL POTENZIAL STECKT IN IHREM UNTERNEHMEN?",
+      "body": "Erhalten Sie eine individuelle KI-Potenzialanalyse.",
+      "chips": ["Chancen erkennen", "Prozesse optimieren", "Effizienz steigern", "Wachstum sichern"],
+      "cta": "Jetzt analysieren",
+      "visual": "analysis dashboard showing the result"
+    },
+    {
+      "ref": "A05",
+      "category": "facebook_ad",
+      "alsoFor": ["facebook_post", "linkedin_post"],
+      "address": "Sie",
+      "pattern": "contrast_pair",
+      "headline": "ARBEITEN SIE SMARTER – NICHT HÄRTER.",
+      "body": "Reduzieren Sie Kosten und steigern Sie Ihre Produktivität mit KI.",
+      "chips": ["Workflows", "KI-Agenten", "24/7"],
+      "cta": "Strategiegespräch buchen"
+    },
+    {
+      "ref": "A06",
+      "category": "facebook_ad",
+      "alsoFor": ["facebook_post", "linkedin_post"],
+      "address": "Sie",
+      "pattern": "benefit_promise",
+      "headline": "KI, DIE IHR UNTERNEHMEN WIRKLICH VORANBRINGT.",
+      "body": "Praxisnahe Automatisierung statt komplizierter Theorie.",
+      "cta": "Mehr erfahren"
+    },
+    {
+      "category": "instagram_carousel",
+      "address": "du",
+      "pattern": "bold_future",
+      "headline": "2026 arbeitet jeder Mitarbeiter mit einem unsichtbaren Kollegen."
+    },
+    {
+      "category": "instagram_carousel",
+      "address": "du",
+      "pattern": "bold_future",
+      "headline": "Deine Website hat bald Besucher, die keine Menschen sind."
+    },
+    {
+      "category": "instagram_carousel",
+      "address": "du",
+      "pattern": "reader_question",
+      "headline": "Was, wenn KI bald deine Preise bestimmt?"
+    },
+    {
+      "category": "instagram_carousel",
+      "address": "du",
+      "pattern": "reader_question",
+      "headline": "Würdest du einer KI deine Preise anvertrauen?",
+      "chips": ["Vertrauen", "Transparenz", "Zuverlässigkeit"]
+    },
+    {
+      "category": "instagram_carousel",
+      "address": "du",
+      "pattern": "bold_future",
+      "headline": "Die Customer Journey verändert sich gerade."
+    },
+    {
+      "category": "instagram_carousel",
+      "address": "du",
+      "pattern": "contrast_pair",
+      "headline": "Die Zukunft gehört nicht Menschen gegen KI. Sie gehört Menschen mit KI."
+    }
+  ],
+  "weak": [
+    {"headline": "KI-ZITATE BRAUCHEN QUELLENPRÜFUNG", "body": "Öffnen Sie die Originalseite vor jeder Veröffentlichung.", "cta": "Quelle prüfen", "why": "a news summary and a chore: no reader benefit, no emotion, the CTA asks for work"},
+    {"headline": "BROWSER-AGENTEN BRAUCHEN BEDIENBARE SEITEN", "body": "SEO und Frontend sollten Formulare gemeinsam prüfen.", "chips": ["Formulare", "Zugriff", "Abschluss"], "cta": "Seite testen", "why": "jargon for technicians (Browser-Agenten, SEO, Frontend), not the owner's gain"},
+    {"headline": "EINE KLEINE AUSZAHLUNG BEWEIST NICHTS", "why": "a news line without the reader's angle"},
+    {"headline": "KI IN DER PFLEGE SICHER TESTEN", "why": "an instruction, not a hook; no benefit for the reader"}
+  ]
+}

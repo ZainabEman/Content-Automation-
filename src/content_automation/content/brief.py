@@ -147,6 +147,39 @@ def meta_cta_buttons(path: Path = META_CTA_FILE) -> list[str]:
     return [str(button) for button in data.get("buttons", [])]
 
 
+CopyPattern = Literal["contrast_pair", "benefit_pair", "reader_question", "bold_future",
+                      "benefit_promise"]  # brand/copy_examples.json patterns
+
+
+class HeadlineOption(_BriefModel):
+    """One of the 3 headlines written for a graphic, scored with the copy rubric (one point per
+    criterion of config/copy_rules.json rubric, 0-6); the best one is the copy's headline."""
+
+    text: str = Field(min_length=1)
+    pattern: CopyPattern
+    score: int = Field(ge=0, le=6)
+    why: str | None = None  # the rubric points it misses
+
+
+class VisualConcept(_BriefModel):
+    """The benefit in action: one concrete scene (English, the source of copy.illustration) and
+    2-4 short German callout labels for what it shows."""
+
+    scene: str = Field(min_length=1)
+    callouts: list[str] = Field(default_factory=list, max_length=4)
+
+
+class CopyPlan(_BriefModel):
+    """How a graphic's copy was written (2026-10-21, config/copy_rules.json): the topic turned
+    into the reader's angle, the 3 headline options and the visual concept; checked by the copy
+    check and shown in the copy review (content/copy_check.py)."""
+
+    topic_type: Literal["news", "service"]
+    angle: str = Field(min_length=1)  # what it means for the reader / the pain removed, the gain
+    headline_options: list[HeadlineOption] = Field(min_length=3, max_length=3)
+    visual: VisualConcept
+
+
 class AdFields(_BriefModel):
     """v5 (PRD R4): the Facebook ad's text around the creative, all German; the CTA button is
     one of Meta's standard buttons (config/meta_cta.json). No ad is placed or paid for."""
@@ -201,6 +234,7 @@ class ImageSlot(_BriefModel):
     # layout's fields go into "copy" (a carousel: per slide); the app draws the design.
     direction: str | None = None
     copy_text: dict[str, CopyValue] = Field(default_factory=dict, alias="copy")
+    copy_plan: CopyPlan | None = None  # 2026-10-21: angle, headline options, visual concept
     ad_fields: AdFields | None = None  # v5: a Facebook ad's primary text, headline, ... (R4)
     alt_text: str | None = None  # v5 R7.4: German alt text of a post or ad image
 
@@ -294,20 +328,7 @@ def load_brief(
 
     checks: more rules (e.g. the deliverables catalog) reported together with these.
     """
-    try:
-        raw: Any = json.loads(path.read_text(encoding="utf-8"))
-    except OSError:
-        missing = f"{path.name} not found: write it first (see brief.template.json)"
-        raise BriefError([missing]) from None
-    except json.JSONDecodeError as error:
-        raise BriefError([f"not valid JSON: {error}"]) from None
-    if not isinstance(raw, dict):
-        raise BriefError(["the file must contain one JSON object"])
-    data = {key: value for key, value in raw.items() if not str(key).startswith("_")}
-    try:
-        brief = ContentBrief.model_validate(data)
-    except ValidationError as error:
-        raise BriefError([_describe(issue) for issue in error.errors(include_url=False)]) from None
+    brief, data = _parse(path)
     problems = brief_problems(
         brief, services=services, known_article_ids=known_article_ids, brand_tag=brand_tag
     )
@@ -319,6 +340,28 @@ def load_brief(
     if problems:
         raise BriefError(problems)
     return brief
+
+
+def parse_brief(path: Path) -> ContentBrief:
+    """brief.json read and validated only (the copy review); BriefError when it is invalid."""
+    return _parse(path)[0]
+
+
+def _parse(path: Path) -> tuple[ContentBrief, dict[str, Any]]:
+    try:
+        raw: Any = json.loads(path.read_text(encoding="utf-8"))
+    except OSError:
+        missing = f"{path.name} not found: write it first (see brief.template.json)"
+        raise BriefError([missing]) from None
+    except json.JSONDecodeError as error:
+        raise BriefError([f"not valid JSON: {error}"]) from None
+    if not isinstance(raw, dict):
+        raise BriefError(["the file must contain one JSON object"])
+    data = {key: value for key, value in raw.items() if not str(key).startswith("_")}
+    try:
+        return ContentBrief.model_validate(data), data
+    except ValidationError as error:
+        raise BriefError([_describe(issue) for issue in error.errors(include_url=False)]) from None
 
 
 def brief_problems(

@@ -1,0 +1,75 @@
+{
+  "_note": "Copy rules for every social graphic (2026-10-21; content/copy_check.py, the make-content skill, brief.template.json _help.copyRules). The examples: brand/copy_examples.json (the approved brand references, verbatim). Checked for free before every dry run of a paid build (copy check), then shown to the user in the copy review (`ca content copy`, `ca calendar copy`); images are made only for approved copy. A failing item is rewritten once, then it stops (never sent to image generation). ctas: the button labels, each mapped to the verified service ids of config/services.json it fits (\"any\": every service; insightOnly: also for an insight-only post); the CTA icon follows its meaning (workflows/design_render.cta_icon: the calendar only for booking, else the circle arrow).",
+  "audience": "Inhaber, Geschäftsführer und Führungskräfte kleiner und mittlerer Unternehmen in Deutschland (Mittelstand): keine Techniker. Sie wollen wissen, was ein Thema für ihr Unternehmen bedeutet und was es ihnen bringt (Zeit, Kosten, Kunden, Wachstum, Sicherheit).",
+  "angles": {
+    "news": "a news or society topic: what does this mean for the reader's business (or life), and what should they do now?",
+    "service": "a service topic: what pain does this remove for the reader, and what do they gain?"
+  },
+  "headlineOptions": 3,
+  "rubric": {
+    "readerCentred": "speaks to the reader (Sie/Ihr, du/dein) or about their business, not about technology",
+    "concreteBenefit": "names a gain the reader wants (time, customers, costs, growth, calm), not a task",
+    "short": "within the category's word limit",
+    "noJargon": "no word from jargon",
+    "emotionalHook": "a contrast, a benefit pair, a question to the reader or a bold future statement",
+    "fitsVisual": "the visual concept can show it in one concrete scene"
+  },
+  "minScore": 5,
+  "jargon": ["SEO", "SEA", "Frontend", "Backend", "Crawler", "Crawling", "API", "LLM", "Prompt", "Prompting", "Agent-Policy", "Browser-Agent", "Token", "Pipeline", "Deployment", "Framework", "Middleware", "Webhook", "Endpoint", "Schema", "Markup", "Scraping", "Scraper", "Embedding", "RAG", "Fine-Tuning", "Inference", "Latenz", "Headless", "DOM", "JavaScript", "MCP", "Robots.txt", "Sitemap", "Indexierung", "Rendering", "Server", "Bot-Traffic", "Benchmark", "Halluzination"],
+  "explainedBy": ["(", " – ", " - ", ":", "also ", "das heißt", "d. h.", "heißt", "bedeutet", "sprich"],
+  "categories": {
+    "facebook_ad": {
+      "goal": "an offer with a strong CTA: the pain, the offer, the next step",
+      "address": "Sie",
+      "headlineMaxWords": 8,
+      "bodyMaxWords": 15,
+      "ctaRequired": true,
+      "ctas": ["Kostenlos testen", "Beratung buchen", "Strategiegespräch buchen", "Erstgespräch buchen", "Live-Demo ansehen", "Jetzt analysieren", "Potenzialanalyse sichern", "Workshop anfragen"]
+    },
+    "facebook_post": {
+      "goal": "an insight with a business takeaway for the reader and a soft CTA",
+      "address": "Sie",
+      "headlineMaxWords": 8,
+      "bodyMaxWords": 15,
+      "ctaRequired": false,
+      "ctas": ["Mehr erfahren", "Jetzt entdecken", "Live-Demo ansehen", "Jetzt analysieren"]
+    },
+    "linkedin_post": {
+      "goal": "an insight with a business takeaway for decision makers and a soft CTA",
+      "address": "Sie",
+      "headlineMaxWords": 8,
+      "bodyMaxWords": 15,
+      "ctaRequired": false,
+      "ctas": ["Mehr erfahren", "Jetzt entdecken", "Live-Demo ansehen", "Jetzt analysieren"]
+    },
+    "instagram_carousel": {
+      "goal": "a trend or provocation hook on the cover, one idea per slide, the last slide asks for engagement",
+      "address": "du",
+      "headlineMaxWords": 12,
+      "bodyMaxWords": 15,
+      "sentenceCase": true,
+      "ctaRequired": false,
+      "ctas": ["Jetzt speichern", "Mehr erfahren"]
+    }
+  },
+  "roman": {
+    "_note": "Roman's founder variants (FB-R1, FA-R1, LI-R1): the same headline and body quality as the category, plus 3 benefit chips (the features zone) and a full body line under the headline, never a thin one-liner.",
+    "chips": 3,
+    "bodyMinWords": 6
+  },
+  "chips": {"min": 3, "max": 4, "maxWords": 2},
+  "visualCallouts": {"min": 2, "max": 4, "carouselMin": 0},
+  "ctas": {
+    "Kostenlos testen": {"services": ["ai_chatbots", "ai_callbots", "ai_agents_workflows", "marketing_sales_automation"]},
+    "Beratung buchen": {"services": "any"},
+    "Strategiegespräch buchen": {"services": "any"},
+    "Erstgespräch buchen": {"services": "any"},
+    "Live-Demo ansehen": {"services": ["ai_chatbots", "ai_callbots", "ai_agents_workflows", "marketing_sales_automation"]},
+    "Jetzt analysieren": {"services": "any", "_offer": "the free KI-Potenzialanalyse (brand/services.md Offer)"},
+    "Potenzialanalyse sichern": {"services": "any"},
+    "Workshop anfragen": {"services": ["ai_workshops"]},
+    "Mehr erfahren": {"services": "any", "insightOnly": true},
+    "Jetzt entdecken": {"services": "any", "insightOnly": true},
+    "Jetzt speichern": {"services": "any", "insightOnly": true}
+  }
+}

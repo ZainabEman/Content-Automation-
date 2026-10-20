@@ -280,7 +280,7 @@ def c3(c: Criterion) -> None:
 def c4(c: Criterion, work: Path) -> None:
     code, out, err = _ca("calendar", "generate", "--week", WEEK)
     _check(c, code == 0, f"stage 1 exit {code}: {err.strip()[:200]}")
-    templates = sorted(work.glob("outputs/content/*/brief.template.json"))
+    templates = sorted(work.glob("outputs/*/*/*/*/brief.template.json"))
     _check(c, len(templates) == 2, f"{len(templates)} packages started (2 approved rows)")
     for template in templates:
         _fill_brief(template)
@@ -303,12 +303,12 @@ def c4(c: Criterion, work: Path) -> None:
     _check(c, [(a["dryrun_id"], a["provider"]) for a in auths] == [(ids[0], "mock")],
            "one authorization for the dry run")
     _check(c, images == 2, f"{images} image jobs succeeded")
-    folders = len(list(work.glob("outputs/jobs/*/*/details.json")))
+    folders = len(list(work.glob("outputs/_system/jobs/*/*/details.json")))
     # As if the build crashed after the last image was made but before package.json was saved:
     # the last package built (a crash stops the run, so nothing later changes its design picks).
-    package_file = max(work.glob("outputs/content/*/package.json"),
+    package_file = max(work.glob("outputs/*/*/*/*/package.json"),
                        key=lambda path: max(p.stat().st_mtime for p in
-                                            path.parent.glob("images/*")))
+                                            path.parent.glob("final/*")))
     package = json.loads(package_file.read_text(encoding="utf-8"))
     package["items"]["post"] = {"status": "pending", "picks": package["items"]["post"].get("picks")}
     package["status"] = "brief needed"
@@ -322,7 +322,7 @@ def c4(c: Criterion, work: Path) -> None:
     conn = _db()
     reused = conn.execute("SELECT COUNT(*) FROM events WHERE type = 'job_reused'").fetchone()[0]
     conn.close()
-    after = len(list(work.glob("outputs/jobs/*/*/details.json")))
+    after = len(list(work.glob("outputs/_system/jobs/*/*/details.json")))
     _check(c, code == 0 and reused == 1 and after == folders,
            f"run again: job_reused {reused}, image folders {folders} -> {after}")
     c.notes.append(f"dry run {ids[0]}; mock counted as paid")
@@ -376,11 +376,12 @@ def c8(c: Criterion, work: Path) -> None:
     code, out, _ = _ca("calendar", "sync", "--week", WEEK, "--discard-edits")
     _check(c, code == 0 and "Missed calls" in path.read_text(encoding="utf-8"),
            "edits discarded on request")
-    tracker = work / "outputs" / "drive" / "Content Automation" / "tracking.csv"
+    tracker = work / "outputs" / "_system" / "drive-mock" / "Content Automation" / "tracking.csv"
     text = tracker.read_text(encoding="utf-8")
     tracker.write_text(text.replace("AI chatbots for dentists", "Edited by the manager", 1),
                        encoding="utf-8")
-    folder = sorted(work.glob("outputs/content/*/package.json"))[0].parent
+    folder = next(path.parent for path in sorted(work.glob("outputs/*/*/*/*/package.json"))
+                  if "dentists" in path.read_text(encoding="utf-8"))
     code, out, _ = _ca("drive", "sync", str(folder))
     _check(c, "not written (conflicts" in out, "tracker row with a hand edit not written")
     code, out, _ = _ca("tracking", "conflicts")

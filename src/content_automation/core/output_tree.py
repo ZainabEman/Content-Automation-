@@ -87,12 +87,13 @@ def system_dir(root: Path) -> Path:
 
 
 def iter_package_files(root: Path) -> Iterator[Path]:
-    """Every social package.json: the platform tree, the drafts and an older flat folder (the
-    legacy rejected outputs moved by `ca outputs migrate` included, so topics stay known)."""
+    """Every social package.json: the platform tree, the drafts, the old flat outputs/content/
+    and the legacy rejected outputs moved by `ca outputs migrate` (so topics stay known)."""
     if not root.is_dir():
         return
     seen: set[Path] = set()
-    for pattern in ("*/package.json", "*/*/*/*/package.json", f"{SYSTEM}/drafts/*/package.json",
+    for pattern in ("*/package.json", "content/*/package.json", "*/*/*/*/package.json",
+                    f"{SYSTEM}/drafts/*/package.json",
                     f"{SYSTEM}/{REJECTED_LEGACY}/**/package.json"):
         for path in root.glob(pattern):
             if path not in seen and YOUTUBE_DIR not in path.parts:

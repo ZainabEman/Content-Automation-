@@ -1,18 +1,17 @@
 """Roman's images: Codex makes them with the Higgsfield plugin, model Soul 2.0 (agent adapter).
 
 `ca` and Claude Code cannot call Codex plugins, so nothing is called here. A request becomes a
-job file, outputs/higgsfield/<key>/job.json (the prompt that opens with the saved character's
-token, the character name, model Soul 2.0, the aspect ratio to generate (validated against the
-Soul 2.0 list in config/roman_image_guidelines.json), one image, the expected output path, the
-credit estimate and numbered instructions), and the job waits (ImageAwaitingAgent): nothing is
-charged before an image exists. Codex makes the image, saves it to the expected path and runs
-`ca higgsfield record <key> --file … --credits …` (or `ca higgsfield fail`), then the package
-build again. Then this adapter returns the image: the person-zone check first (Roman in the
-outer quarter on the planned side, nothing person-like in the empty two-thirds); a failure
+job file, outputs/_system/higgsfield/<key>/job.json (the prompt that opens with the saved
+character's token, the character name, model Soul 2.0, the aspect ratio to generate (validated
+against the Soul 2.0 list in config/roman_image_guidelines.json), one image, the expected output
+path, the credit estimate and numbered instructions), and the job waits (ImageAwaitingAgent):
+nothing is charged before an image exists. Codex makes the image, saves it to the expected path
+and runs `ca higgsfield record <key> --file … --credits …` (or `ca higgsfield fail`), then the
+package build again. Then this adapter returns the image: the person-zone check first (Roman in
+the outer quarter on the planned side, nothing person-like in the empty two-thirds); a failure
 rejects that attempt and asks for one more (at most maxAttempts, every attempt's credits
-counted); then the person-safe crop to the canvas aspect (3:4 to 4:5 for Facebook). No
-fallback to another provider: two failed attempts fail the job with the reasons.
-"""
+counted); then the person-safe crop to the canvas aspect (3:4 to 4:5 for Facebook). No fallback
+to another provider: two failed attempts fail the job with the reasons. """
 
 from __future__ import annotations
 
@@ -95,7 +94,7 @@ def zone_problems(zone_image: Image.Image, side: str, share: float) -> list[str]
 
 
 class HiggsfieldJob:
-    """One Roman image request on disk (outputs/higgsfield/<key>/job.json)."""
+    """One Roman image request on disk (outputs/_system/higgsfield/<key>/job.json)."""
 
     def __init__(self, folder: Path, data: dict[str, Any]) -> None:
         self.folder = folder

@@ -63,7 +63,7 @@ def test_report_month_counts_recorded_finals(conn: sqlite3.Connection, isolated:
     assert f"Published on linkedin: 1 ({post.id} https://ln/p/1)" in out
     assert "Published with an approved review: 1 of 1 (100%), target 100%" in out
     assert f"Mock (not counted): 1 ({mock.id} post: mock upload)" in out
-    assert (isolated / "outputs" / "reports" / f"{month}.md").is_file()
+    assert (isolated / "outputs" / "_system" / "reports" / f"{month}.md").is_file()
     data = json.loads(ca("report", "month", month, "--json").output)
     assert [row["count"] for row in data["rows"]] == [1, 1, 1] and clip.id in str(data)
     assert ca("report", "month", "2026-13").exit_code == 1

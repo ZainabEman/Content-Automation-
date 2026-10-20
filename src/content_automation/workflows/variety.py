@@ -17,6 +17,7 @@ from pathlib import Path
 from pydantic import Field, ValidationError
 
 from content_automation.core.files import CamelModel
+from content_automation.core.output_tree import iter_package_files
 from content_automation.workflows.design_system import (
     DesignChoice,
     DesignSystem,
@@ -95,7 +96,7 @@ def recent_packages(
     """
     found: list[tuple[str, list[DesignPicks]]] = []
     skip = exclude.resolve() if exclude is not None else None
-    for path in packages_dir.glob(f"*/{PACKAGE_FILE}"):
+    for path in iter_package_files(packages_dir):
         if skip is not None and path.parent.resolve() == skip:
             continue
         try:

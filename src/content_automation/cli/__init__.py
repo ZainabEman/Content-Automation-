@@ -29,6 +29,7 @@ from content_automation.cli.higgsfield import higgsfield_app
 from content_automation.cli.ideas import claims_app, ideas_app
 from content_automation.cli.items import audit_app, items_app
 from content_automation.cli.jobs import auth_app, costs_app, jobs_app, report_app
+from content_automation.cli.outputs import outputs_app
 from content_automation.cli.plan import plan_app
 from content_automation.cli.scope import (
     authorization_lines,
@@ -80,6 +81,7 @@ from content_automation.content.migration import collect_sources, rewrite_old_ca
 from content_automation.content.package import (
     DONE_STATUS,
     build_package,
+    resolve_package_folder,
     set_deliverables,
     start_package,
 )
@@ -254,6 +256,7 @@ app.add_typer(jobs_app, name="jobs")
 app.add_typer(help_app, name="help")
 app.add_typer(design_app, name="design")
 app.add_typer(plan_app, name="plan")
+app.add_typer(outputs_app, name="outputs")
 app.add_typer(youtube_app, name="youtube")
 app.add_typer(higgsfield_app, name="higgsfield")
 app.add_typer(ideas_app, name="ideas")
@@ -1372,6 +1375,7 @@ def content_set(
     """
     _utf8_output()
     settings = _settings(check_keys=False)
+    folder = resolve_package_folder(folder)  # v6 R8: a draft may have moved into the tree
     try:
         catalog = load_deliverables(settings.deliverables_file)
         chosen = catalog.resolve(deliverables)
@@ -1391,7 +1395,7 @@ def _register(settings: Settings, folder: Path, catalog: DeliverableCatalog,
     """The package's items (one per deliverable, D-1/D-3); their BG IDs for Codex."""
     with _registry(settings, f'{command} "{folder}"') as scope:
         return package_registration(scope.conn, folder, catalog, request=request,
-                                    command=scope.command)
+                                    command=scope.command, settings=settings)
 
 
 @content_app.command("deliverables")
@@ -1427,6 +1431,7 @@ def content_build(
     The dry run prints its ID; after the user's "ok" build with --authorize <dryrun_id>. A
     build that continues (after a person or set check) uses the authorization it already has."""
     _utf8_output()
+    folder = resolve_package_folder(folder)  # v6 R8: a draft may have moved into the tree
     if not folder.is_dir():
         typer.echo(f"Folder not found: {folder}", err=True)
         raise typer.Exit(code=1)
@@ -1872,7 +1877,7 @@ def drive_sync(
 def tracking_export(
     out: Annotated[
         Path, typer.Option(help="Where to save the CSV on this computer.")
-    ] = Path("outputs/content-tracker.csv"),
+    ] = Path("outputs/_system/content-tracker.csv"),
 ) -> None:
     """Save the Content Tracker as CSV here and as "Content Tracker.csv" in the main folder.
 
@@ -1979,7 +1984,8 @@ def overlay_preview(
         bool, typer.Option("--no-person", help="A LinkedIn post without the person.")
     ] = False,
     out: Annotated[
-        Path | None, typer.Option(help="Where to save the PNG (default: outputs/overlay-preview/).")
+        Path | None, typer.Option(help="Where to save the PNG (default: "
+                                         "outputs/_system/previews/overlay/).")
     ] = None,
 ) -> None:
     """Render sample text (the brief template's fields at their word limits), then the logo,
@@ -2012,7 +2018,7 @@ def overlay_preview(
             logo_line = f"Logo: {version} ({ref.source})"
         except (ReferenceLibraryError, LogoError) as error:
             logo_line = f"Logo: not pasted ({error})"
-        target = out or Path("outputs/overlay-preview") / (
+        target = out or Path("outputs/_system/previews/overlay") / (
             f"{image.stem}-{format_id}-{chosen or 'none'}.png"
         )
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -2030,8 +2036,8 @@ def overlay_preview(
 @overlay_app.command("sheet")
 def overlay_sheet(
     out: Annotated[
-        Path | None, typer.Option(help="Where to save the PNG (default: outputs/review/"
-                                  "format_sheet.png).")
+        Path | None, typer.Option(help="Where to save the PNG (default: outputs/_system/"
+                                  "previews/format_sheet.png).")
     ] = None,
 ) -> None:
     """Every post format (the Roman ones and each carousel's cover, body and final slides)

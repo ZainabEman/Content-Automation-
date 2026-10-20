@@ -143,8 +143,9 @@ def youtube_storyboards(bg_id: BgId) -> None:
 
 @youtube_app.command("upload")
 def youtube_upload(bg_id: BgId) -> None:
-    """Drive YouTube/<YYYY-MM>/<BG-ID>_<slug>/ (research, 6 scripts, 3 storyboards) and one
-    tracker row with their links (STORAGE_PROVIDER=mock: outputs/drive/, fake links)."""
+    """Drive YouTube Long-Form/<Topic Name>/ (research, 6 scripts, 3 storyboards) and one
+    tracker row with their links (STORAGE_PROVIDER=mock: outputs/_system/drive-mock/, fake
+    links)."""
     _echo(_run(f"ca youtube upload {bg_id}", "upload", bg_id))
 
 

@@ -49,6 +49,7 @@ from content_automation.content.tracking import (
 )
 from content_automation.core.config import Settings
 from content_automation.core.files import atomic_write_text
+from content_automation.core.output_tree import CAPTION_FILE, SOURCE_DIR
 from content_automation.registry import runtime
 from content_automation.registry.audit import append_event
 from content_automation.registry.db import RegistryError
@@ -155,8 +156,37 @@ def drive_setup_problem(settings: Settings) -> str | None:
 
 
 def package_folder_key(package: ContentPackage) -> str:
-    """v5 R10: the Drive folder key of a package: its category's folder, else its platform's."""
+    """v5 R10: the Drive folder key of a package: its category's folder, else its platform's.
+    v6 R8: a package in the platform tree uploads under its platform folder (Instagram,
+    Facebook, LinkedIn), mirroring the local tree."""
+    if package.tree_path:
+        return package.tree_path.split("/")[0].lower()
     return CATEGORY_FOLDERS.get(package.category or "", package.platform)
+
+
+def upload_names(folder: Path, package: ContentPackage) -> dict[str, str | None]:
+    """The package's files to upload (relative name -> Drive subfolder): the finished files of
+    its done parts; v6 R8 (a package in the tree): in final/ and source/ as in the local tree,
+    plus caption_de.txt."""
+    names: dict[str, str | None] = {}
+    subfolders = {name: sub for item in package.items.values()
+                  for name, sub in item.subfolders.items()}
+    for item in package.items.values():
+        if item.status != "done":
+            continue
+        for name in item.files:
+            if Path(name).suffix.lower() not in UPLOAD_SUFFIXES:
+                continue
+            parent = Path(name).parent.as_posix()
+            names[name] = subfolders.get(name) or (
+                parent if package.tree_path and parent != "." else None)
+    if package.tree_path and names:
+        if (folder / CAPTION_FILE).is_file():
+            names[CAPTION_FILE] = None
+        for path in sorted((folder / SOURCE_DIR).glob("*")) if (folder / SOURCE_DIR).is_dir() \
+                else []:
+            names[f"{SOURCE_DIR}/{path.name}"] = SOURCE_DIR
+    return names
 
 
 def platform_folder(platform: str) -> str:
@@ -196,13 +226,8 @@ def sync_package(folder: Path, storage: Storage, catalog: DeliverableCatalog) ->
             result.failed.append(str(error))
         result.waiting = "upload pending (Drive plugin: upload_manifest.json, ca drive record)"
         return result
-    names = dict.fromkeys(
-        name for item in package.items.values() if item.status == "done"
-        for name in item.files if Path(name).suffix.lower() in UPLOAD_SUFFIXES
-    )
-    subfolders = {
-        name: sub for item in package.items.values() for name, sub in item.subfolders.items()
-    }
+    subfolders = upload_names(folder, package)
+    names = list(subfolders)
     content_id = drive_folder_name(folder, package)
     where = f"{platform_folder(package_folder_key(package))}/{content_id}"
     result = SyncResult()
@@ -283,7 +308,10 @@ def settings_of(storage: Storage) -> Settings:
 
 def drive_folder_name(folder: Path, package: ContentPackage) -> str:
     """The Drive folder (D-13): the Content ID, else the BG ID of the package's first item,
-    else (not registered) the package folder name."""
+    else (not registered) the package folder name. v6 R8: a package in the platform tree uses
+    its path below the platform folder (Carousels/<YYYY-MM>/<folder>)."""
+    if package.tree_path and "/" in package.tree_path:
+        return package.tree_path.split("/", 1)[1]
     if package.content_id:
         return package.content_id
     items = runtime.package_items(folder)

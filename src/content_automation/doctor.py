@@ -103,6 +103,12 @@ def _is_set(secret: SecretStr | None) -> bool:
 
 def _keys(settings: Settings) -> list[Check]:
     checks = []
+    if settings.legacy_paths:  # v6 R8: old flat output folders in .env
+        checks.append(Check("warn", "Output folders",
+                            "old .env paths run with the new tree: "
+                            + "; ".join(settings.legacy_paths),
+                            "In .env set OUTPUT_DIR=outputs/_system/jobs and PACKAGES_DIR=outputs "
+                            "(or delete both lines)."))
     if settings.removed_image_provider:  # v6 R5: an old .env line
         checks.append(Check("warn", "IMAGE_PROVIDER",
                             f"{settings.removed_image_provider} no longer exists; this run uses "

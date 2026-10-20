@@ -15,7 +15,7 @@ from content_automation.workflows.design_system import DesignSystem, load_design
 from content_automation.workflows.logo import LogoError, LogoOverlay, apply_logo, check_logo
 from content_automation.workflows.text_overlay import TextOverlay, compose_format, format_overlay
 
-SHEET_FILE = Path("outputs/review/format_sheet.png")
+SHEET_FILE = Path("outputs/_system/previews/format_sheet.png")
 TILE_WIDTH = 360
 COLUMNS = 6
 GAP = 24
@@ -118,8 +118,8 @@ def _tiles(settings: Settings) -> list[tuple[str, Image.Image]]:
 
 
 def format_sheet(settings: Settings, out: Path | None = None) -> tuple[Path, int]:
-    """Render every format onto one PNG (default: outputs/review/format_sheet.png); returns
-    the path and the number of tiles. Local and free; TextOverlayError when a text does not
+    """Render every format onto one PNG (default: outputs/_system/previews/format_sheet.png);
+    returns the path and the number of tiles. Local and free; TextOverlayError when a text does not
     fit."""
     tiles = _tiles(settings)
     scaled = [(label, tile.resize((TILE_WIDTH, round(tile.height * TILE_WIDTH / tile.width)),

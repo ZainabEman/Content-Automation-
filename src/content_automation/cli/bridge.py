@@ -2,16 +2,23 @@
 package registration, agent-step jobs and rejected images. Thin; the rules live in registry/."""
 
 import sqlite3
+from datetime import date
 from pathlib import Path
 
 from content_automation.ai.image import ImageRequest, estimate_cost_usd
 from content_automation.content.deliverables import DeliverableCatalog
-from content_automation.content.package import PACKAGE_FILE, load_package
+from content_automation.content.package import (
+    PACKAGE_FILE,
+    drafts_dir,
+    load_package,
+    place_package,
+)
 from content_automation.core.agent_steps import load_request
 from content_automation.core.config import Settings
 from content_automation.registry import runtime
 from content_automation.registry.db import RegistryError
 from content_automation.registry.dryruns import CostLine
+from content_automation.registry.items import set_package_path
 from content_automation.registry.jobs import find_by_result, load_job_config, reject_job
 from content_automation.registry.link import package_item, register_package
 from content_automation.workflows.video_job import PreparedVideo
@@ -43,6 +50,7 @@ def video_cost_lines(prepared: PreparedVideo, settings: Settings) -> list[CostLi
 def package_registration(
     conn: sqlite3.Connection, folder: Path, catalog: DeliverableCatalog, *,
     request: str | None, command: str | None, legacy: bool = False,
+    settings: Settings | None = None,
 ) -> list[str]:
     """Register the package's deliverables as items (D-1, D-3); the lines name the BG IDs.
     legacy: `ca content build` of a package from before the registry (only missing items)."""
@@ -60,11 +68,21 @@ def package_registration(
         source_refs=[package.research_source] if package.research_source else [],
         request=LEGACY_REQUEST if legacy else request, command=command,
     )
-    return [
+    lines = [
         f"{item.id} {item.deliverable}: {'registered' if created else 'already registered'} "
         f"(idea {item.idea_status}, v{item.current_version})"
         for item, created in results if created or not legacy
     ]
+    if settings is not None and results and package.category and (
+            folder.parent.resolve() == drafts_dir(settings).resolve()):
+        # v6 R8: the draft moves into the platform tree now that its BG ID is known
+        first = min((item for item, _ in results), key=lambda item: item.number)
+        moved = place_package(folder, settings, first.id,
+                              first.planned_date or package.planned_date or date.today())
+        for item, _ in results:
+            set_package_path(conn, item.id, moved.as_posix(), command=command)
+        lines.append(f"Package folder (platform tree): {moved}")
+    return lines
 
 
 def record_agent_job(job_folder: Path, step: str, *, credits: float | None = None,

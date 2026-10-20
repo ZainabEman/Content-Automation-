@@ -23,6 +23,7 @@ from content_automation.content.calendar import (
 )
 from content_automation.content.deliverables import DeliverableCatalog
 from content_automation.core.config import Settings
+from content_automation.core.output_tree import iter_package_files
 from content_automation.registry import runtime
 from content_automation.registry.migrate import Candidate
 from content_automation.storage import ROOT_FOLDER
@@ -116,7 +117,7 @@ def _uploads(data: dict[str, Any], files: list[str]) -> tuple[str | None, str | 
 
 def _packages(settings: Settings, catalog: DeliverableCatalog, found: Sources,
               by_key: dict[str, Candidate]) -> None:
-    for folder in sorted(path for path in settings.packages_dir.glob("*") if path.is_dir()):
+    for folder in sorted(path.parent for path in iter_package_files(settings.packages_dir)):
         file = folder / PACKAGE_FILE
         if not file.is_file():
             continue
@@ -206,6 +207,8 @@ def _drive_state(settings: Settings, found: Sources) -> None:
 
 def _tracker(settings: Settings, found: Sources) -> None:
     path = settings.drive_mock_dir / ROOT_FOLDER / TRACKER_FILE
+    legacy = settings.packages_dir / "drive" / ROOT_FOLDER / TRACKER_FILE  # before v6 R8
+    path = path if path.is_file() else legacy
     if not path.is_file():
         return
     known = {alias for candidate in found.candidates for alias in candidate.aliases}

@@ -33,6 +33,7 @@ from content_automation.content.directions import (
     Zone,
     boxes_overlap,
 )
+from content_automation.core.output_tree import iter_package_files
 
 PACKAGE_KEY = "variation"
 SIDES = ("L", "R")
@@ -174,7 +175,7 @@ def recent_variations(packages_dir: Path, platform: str, *, exclude: Path | None
                       limit: int = 3) -> list[str]:
     """package.json `variation` of the newest packages on the platform, newest first."""
     found: list[tuple[str, str]] = []
-    for path in packages_dir.glob("*/package.json"):
+    for path in iter_package_files(packages_dir):
         if exclude is not None and path.parent.resolve() == exclude.resolve():
             continue
         try:

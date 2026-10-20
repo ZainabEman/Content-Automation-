@@ -120,6 +120,13 @@ from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
 from content_automation.core.jobs import DETAILS_FILE, Job, ReviewCheck, slugify
 from content_automation.core.limits import DailyLimitError
+from content_automation.core.output_tree import (
+    CAPTION_FILE,
+    FINAL_DIR,
+    SOURCE_DIR,
+    SYSTEM,
+    package_dir,
+)
 from content_automation.references import (
     BrandProfile,
     BrandProfileError,
@@ -150,6 +157,7 @@ from content_automation.workflows.design_system import (
 )
 from content_automation.workflows.direction_job import MANIFEST_SUFFIX, direction_settings
 from content_automation.workflows.image_checks import image_problems
+from content_automation.workflows.image_job import raw_image
 from content_automation.workflows.image_workflows import (
     AD_VARIANTS,
     PreparedWorkflow,
@@ -185,7 +193,8 @@ BRIEF_FILE = "brief.json"
 TEMPLATE_FILE = "brief.template.json"
 RESEARCH_FILE = "research.md"
 POST_FILE = "post.md"
-IMAGES_DIR = "images"
+IMAGES_DIR = FINAL_DIR  # v6 R8: publish-ready images only (a carousel: slide_01.png …)
+MOVED_SUFFIX = ".moved.txt"  # a draft that moved into the platform tree leaves its new path
 VIDEO_DIR = "video"
 TOPIC_DAYS = 14
 TOPIC_LIMIT = 10
@@ -282,6 +291,10 @@ class ContentPackage(CamelModel):
     # 2026-10-20: Roman's combination for Higgsfield (e.g. "S-L/BG-2/P-3/H-1"), picked at
     # stage 1 by rotation over the platform's earlier Roman images (content/roman_prompt.py)
     roman_combination: str | None = None
+    # v6 (R8): the planned publish date (the date in the platform tree's folder name) and the
+    # package's path in the tree, e.g. "Instagram/Carousels/2026-11/<folder>" (Drive mirrors it)
+    planned_date: date | None = None
+    tree_path: str | None = None
     # v6 (R3.5): the layout variant's variation (side/panel/deco/cta), picked at stage 1 by
     # rotation over the platform's earlier packages (content/design_variation.py)
     variation: str | None = None
@@ -310,8 +323,14 @@ def start_package(
     idea: ResearchIdea | None = None,
     content_id: str | None = None,
     format_override: str | None = None,
+    bg_id: str | None = None,
+    planned: date | None = None,
 ) -> PackageResult:
     """Make the package folder with research.md (stage 1, free).
+
+    v6 R8: the folder starts in outputs/_system/drafts/ and moves into the platform tree
+    (outputs/<Platform>/<Kind>/<YYYY-MM>/<YYYY-MM-DD>_<BG-ID>_<slug>/) once its category and BG
+    ID are known: here for a calendar row (bg_id, planned), else at registration.
 
     idea: research from a file (a newsletter idea) instead of the scraper. With no
     deliverables yet, nothing can be built until `ca content set` names them.
@@ -345,7 +364,7 @@ def start_package(
                 f"sources with web search, with links and dates, to {RESEARCH_FILE}."
             )
 
-    folder = _new_folder(settings.packages_dir, f"{date.today():%Y-%m-%d}_{slugify(topic)}")
+    folder = _new_folder(drafts_dir(settings), f"{date.today():%Y-%m-%d}_{slugify(topic)}")
     atomic_write_text(folder / RESEARCH_FILE, _research_markdown(topic, articles, note))
     package = ContentPackage(
         package_id=folder.name,
@@ -360,6 +379,9 @@ def start_package(
     if deliverables:
         lines += _apply_deliverables(folder, package, deliverables, catalog, settings, articles,
                                      format_override)
+        if bg_id and package.category:
+            folder = place_package(folder, settings, bg_id, planned or date.today())
+            lines.append(f"Package folder (platform tree): {folder}")
     else:
         lines.append(
             f"Next (Codex): write {CONTENT_FILE} (angle, key message, 3-5 key points, draft "
@@ -635,6 +657,44 @@ def _part_settings(chosen: PostFormat | None, slot: ImageSlot, settings: Setting
     if chosen is None or not slot.post_format:
         return settings
     return format_settings(chosen, settings, "cover" if chosen.slide_types else None)
+
+
+def drafts_dir(settings: Settings) -> Path:
+    """Where a package waits until its category and BG ID are known (internal, v6 R8)."""
+    return settings.packages_dir / SYSTEM / "drafts"
+
+
+def place_package(folder: Path, settings: Settings, bg_id: str, planned: date) -> Path:
+    """Move a draft into the platform tree (v6 R8); a package already there stays. The draft
+    leaves `<name>.moved.txt` with the new path, so an older command line still finds it."""
+    package = load_package(folder)
+    if package.category is None or folder.parent.resolve() != drafts_dir(settings).resolve():
+        return folder
+    target = package_dir(settings.packages_dir, package.category, planned, bg_id, package.topic)
+    suffix = 1
+    while (candidate := target if suffix == 1 else target.with_name(
+            f"{target.name}-{suffix}")).exists():
+        suffix += 1
+    candidate.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(folder), str(candidate))
+    package.package_id = candidate.name
+    package.planned_date = planned
+    package.tree_path = candidate.relative_to(settings.packages_dir).as_posix()
+    _save(candidate, package)
+    atomic_write_text(folder.with_name(folder.name + MOVED_SUFFIX), candidate.as_posix() + "\n")
+    return candidate
+
+
+def resolve_package_folder(folder: Path) -> Path:
+    """The package's folder now: a draft that moved into the platform tree is followed."""
+    if folder.is_dir():
+        return folder
+    marker = folder.with_name(folder.name + MOVED_SUFFIX)
+    if marker.is_file():
+        moved = Path(marker.read_text(encoding="utf-8").strip())
+        if moved.is_dir():
+            return moved
+    return folder
 
 
 def _new_folder(parent: Path, name: str) -> Path:
@@ -1187,6 +1247,8 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool,
     saved = load_articles(settings.research_dir, datetime.min.replace(tzinfo=UTC))
     articles = {article.article_id: article for article in saved}
     atomic_write_text(folder / POST_FILE, _post_markdown(brief, package, articles))
+    if package.status == DONE_STATUS:  # v6 R8: the package's caption file for publishing
+        atomic_write_text(folder / CAPTION_FILE, caption_de_text(brief))
     _save(folder, package)
     return PackageResult(folder, lines, package)
 
@@ -1949,8 +2011,14 @@ def _make_images(
             return item, []
         (folder / IMAGES_DIR).mkdir(exist_ok=True)
         name = job.outputs[0]  # one image per job
-        target = folder / IMAGES_DIR / f"{kind}-{position + 1}{Path(name).suffix}"
+        stem = (f"slide_{position + 1:02d}" if kind == "carousel"  # v6 R8: no number drawn
+                else f"{kind}-{position + 1}")
+        target = folder / IMAGES_DIR / f"{stem}{Path(name).suffix}"
         shutil.copyfile(job.folder / name, target)
+        raw = raw_image(job.folder, name)  # v6 R8: the model's or Higgsfield's image
+        if raw is not None and raw.is_file():
+            (folder / SOURCE_DIR).mkdir(exist_ok=True)
+            shutil.copyfile(raw, folder / SOURCE_DIR / f"{stem}{raw.suffix}")
         if plan.size is not None:
             _fit_size(target, plan.size)
         entry = (f"{IMAGES_DIR}/{target.name}", f"{job.job_id}/{name}", str(job.folder))
@@ -2456,6 +2524,35 @@ def _credits(providers: set[str]) -> str:
         "cost: Higgsfield/HeyGen credits charged in those apps (not estimated by this tool; "
         "check the plan or credit balance there)"
     )
+
+
+def caption_de_text(brief: ContentBrief) -> str:
+    """caption_de.txt (v6 R8): caption, hashtags, CTA and alt text; an ad also its primary
+    text, headline, description and CTA button."""
+    caption = brief.caption or next(iter(brief.captions.values()), None)
+    parts: list[str] = []
+    if caption is not None:
+        parts.append("CAPTION\n" + "\n\n".join(part for part in (
+            caption.hook.strip(), "\n".join(f"- {line.strip()}" for line in caption.takeaways),
+            caption.question.strip()) if part))
+    parts.append("HASHTAGS\n" + " ".join(brief.hashtags))
+    parts.append("CTA\n" + f"{brief.cta.strip()} {brief.link}".strip())
+    alt: list[str] = []
+    for slot in (brief.post, brief.ad):
+        if slot is not None and (slot.alt_text or "").strip():
+            alt.append(str(slot.alt_text).strip())
+    if brief.carousel is not None:
+        alt += [f"slide_{number:02d}: {(slide.alt_text or '').strip()}"
+                for number, slide in enumerate(brief.carousel.slides, start=1)]
+    if alt:
+        parts.append("ALT TEXT\n" + "\n".join(alt))
+    ad = brief.ad.ad_fields if brief.ad is not None else None
+    if ad is not None:
+        parts.append("AD\n" + "\n".join((f"Primary text: {ad.primary_text}",
+                                           f"Headline: {ad.headline}",
+                                           f"Description: {ad.description}",
+                                           f"CTA button: {ad.cta_button}")))
+    return "\n\n".join(parts) + "\n"
 
 
 def _post_markdown(

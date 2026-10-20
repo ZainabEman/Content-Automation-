@@ -13,4 +13,4 @@ def test_v5_end_to_end() -> None:
     spec.loader.exec_module(module)
     results = module.run()
     failed = [f"{text}: {note}" for text, passed, note in results if not passed]
-    assert len(results) == 9 and failed == []
+    assert len(results) == 10 and failed == []

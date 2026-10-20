@@ -719,7 +719,9 @@ def generate_rows(
                 content_id = row["Content ID"] or f"{label}-{int(row['Row']):02d}"
                 started = start_package(topic, [row["Content type"]], catalog, settings,
                                         idea=idea, content_id=content_id,
-                                        format_override=row.get("Format") or None)
+                                        format_override=row.get("Format") or None,
+                                        bg_id=row.get("BG ID") or None,
+                                        planned=_planned_day(row))
             except (OSError, ValueError) as error:
                 failed.append(f"{where}: stage 1 failed: {error}")
                 continue
@@ -938,6 +940,14 @@ def show_lines(rows: list[Row], notes: dict[str, str] | None = None) -> list[str
             cells[5] += f" ({notes[row['BG ID']]})"
         lines.append("| " + " | ".join(cells) + " |")
     return lines
+
+
+def _planned_day(row: Row) -> date | None:
+    """The row's planned publish date (the date in the v6 package folder name)."""
+    try:
+        return date.fromisoformat(row["Planned date"])
+    except (KeyError, ValueError):
+        return None
 
 
 def _with_weekday(text: str) -> str:

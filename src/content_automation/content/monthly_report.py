@@ -1,5 +1,5 @@
 """`ca report month [YYYY-MM]` (Phase 10 Step 1, UC-19): the month's recorded final states
-against the targets, written to `outputs/reports/<YYYY-MM>.md`.
+against the targets, written to `outputs/_system/reports/<YYYY-MM>.md`.
 
 Only final states recorded in the registry count, in the month they were recorded: the last
 status_changed event to review approved (YouTube finals, clips, graphics) or to production

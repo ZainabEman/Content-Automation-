@@ -13,6 +13,12 @@ RomanImageProvider = Literal["higgsfield_soul"]
 # openrouter with CAROUSEL_IMAGE_MODEL and `ca doctor` says which .env lines to change. Any other
 # unknown IMAGE_PROVIDER stays an error.
 RETIRED_IMAGE_PROVIDERS = frozenset({"comfyui"})
+# PRD v6 R8: the old flat output folders. An .env that still names one runs with the new tree
+# (`ca doctor` names the line to change); any other path is used as given.
+LEGACY_PATHS: dict[str, tuple[str, str]] = {
+    "output_dir": ("outputs/jobs", "outputs/_system/jobs"),
+    "packages_dir": ("outputs/content", "outputs"),
+}
 # "none": no provider is set; a content package then keeps its video pending.
 # Agent providers are Codex plugins: Codex makes the clip, the app records it.
 VideoProvider = Literal["none", "mock", "higgsfield-plugin"]
@@ -50,10 +56,12 @@ class Settings(BaseSettings):
     references_file: Path = Path("config/references.json")  # tracked tags, primaries, masks
     company_file: Path = Path("brand/services.md")  # company profile (people); proof.md beside it
     services_file: Path = Path("config/services.json")  # services for generation (Phase D)
-    output_dir: Path = Path("outputs/jobs")
+    # v6 (PRD R8): the platform tree under outputs/ (core/output_tree.py); internal files in
+    # outputs/_system/ (never uploaded)
+    output_dir: Path = Path("outputs/_system/jobs")
     research_dir: Path = Path("research")
-    packages_dir: Path = Path("outputs/content")
-    reports_dir: Path = Path("outputs/reports")  # `ca report month` (Phase 10)
+    packages_dir: Path = Path("outputs")  # the root of the platform tree
+    reports_dir: Path = Path("outputs/_system/reports")  # `ca report month` (Phase 10)
     deliverables_file: Path = Path("config/deliverables.json")  # names the user can ask for
     calendar_file: Path = Path("config/calendar.json")  # weekly cadence: weekday -> deliverable
     calendar_dir: Path = Path("calendar")  # calendar/<YYYY-Www>.csv: git-ignored
@@ -64,6 +72,7 @@ class Settings(BaseSettings):
     # loads, runs as openrouter with CAROUSEL_IMAGE_MODEL, and `ca doctor` names the .env lines
     # to change; never a crash at start-up because of an old .env.
     removed_image_provider: str | None = None
+    legacy_paths: list[str] = Field(default_factory=list)  # v6 R8: old .env path lines
     image_daily_limit: int = Field(default=10, gt=0)
     image_timeout_ms: int = Field(default=120_000, gt=0)
     image_max_retries: int = Field(default=1, ge=0, le=5)
@@ -101,11 +110,11 @@ class Settings(BaseSettings):
     storage_provider: StorageProvider = "mock"
     drive_share_with: str = ""  # comma-separated emails: editors of the main Drive folder
     secrets_dir: Path = Path(".secrets")  # OAuth client, token, Drive folder IDs: git-ignored
-    drive_mock_dir: Path = Path("outputs/drive")  # STORAGE_PROVIDER=mock writes here
+    drive_mock_dir: Path = Path("outputs/_system/drive-mock")  # STORAGE_PROVIDER=mock
     # STORAGE_PROVIDER=plugin: the Drive folder IDs (root, platforms, Calendar) and the local
     # Content Tracker CSV whose rows the Drive plugin writes (storage/manifest.py).
     drive_folders_file: Path = Path("config/drive_folders.json")
-    tracker_csv_file: Path = Path("outputs/tracker.csv")
+    tracker_csv_file: Path = Path("outputs/_system/tracker.csv")
     state_dir: Path = Path("state")  # registry.db, backups, dry runs: git-ignored
     registry_file: Path = Path("config/registry.json")  # the first BG number (next_id)
     jobs_file: Path = Path("config/jobs.json")  # free providers, units, timeouts, estimates
@@ -124,13 +133,22 @@ class Settings(BaseSettings):
     @classmethod
     def _run_removed_as_openrouter(cls, data: Any, handler: Any) -> Any:
         removed: str | None = None
+        legacy: list[str] = []
         if isinstance(data, dict):
             for key in ("image_provider", "IMAGE_PROVIDER"):
                 value = data.get(key)
                 if isinstance(value, str) and value.strip().lower() in RETIRED_IMAGE_PROVIDERS:
                     removed = value.strip()
                     data = {**data, key: "openrouter"}
+            for name, (old, new) in LEGACY_PATHS.items():
+                for key in (name, name.upper()):
+                    value = data.get(key)
+                    if isinstance(value, (str, Path)) and Path(value).as_posix().strip(
+                            "/") == old:
+                        legacy.append(f"{name.upper()}={old} -> {new}")
+                        data = {**data, key: new}
         settings = handler(data)
+        settings.legacy_paths = legacy
         if removed is not None:
             settings.removed_image_provider = removed
             settings.image_model = settings.carousel_image_model

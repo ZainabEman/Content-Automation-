@@ -24,6 +24,8 @@ from itertools import product
 from pathlib import Path
 from typing import Any
 
+from content_automation.core.output_tree import iter_package_files
+
 CONFIG_FILE = Path("config/roman_image_guidelines.json")
 PACKAGE_KEY = "romanCombination"
 # PRD v5 R6.7 (EU AI Act Art. 50): the label of every generated image of Roman
@@ -125,7 +127,7 @@ def build_prompt(combination: Combination, *, token: str | None = None,
 def history(packages_dir: Path, platform: str, *, exclude: Path | None = None) -> list[str]:
     """The Roman combinations of the newest packages on the platform, newest first."""
     found: list[tuple[str, str]] = []
-    for path in packages_dir.glob("*/package.json"):
+    for path in iter_package_files(packages_dir):
         if exclude is not None and path.parent.resolve() == exclude.resolve():
             continue
         try:

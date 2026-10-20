@@ -104,14 +104,18 @@ def fill_brief(template_file: Path, deliverable: str, e2e4: ModuleType) -> dict[
 
 def build(deliverable: str, work: Path, e2e4: ModuleType, notes: dict[str, list[str]]
           ) -> Path | None:
-    before = set((work / "outputs" / "content").glob("*")) if (
-        work / "outputs" / "content").exists() else set()
     code, out, err = e2e4._ca("content", "start", "--topic", TOPICS[deliverable],
                               "--deliverables", deliverable)
     if code != 0:
         notes["errors"].append(f"{deliverable} start: {err.strip()[-200:]}")
         return None
-    folder = next(iter(set((work / "outputs" / "content").glob("*")) - before))
+    # v6 R8: the package moved into the platform tree once its BG ID was known
+    placed = re.findall(r"Package folder \(platform tree\): (.+)", out)
+    if not placed:
+        notes["errors"].append(f"{deliverable} start: no platform-tree folder: {out[-300:]}")
+        return None
+    folder = Path(placed[-1].strip())
+    folder = folder if folder.is_absolute() else work / folder
     notes["variants"].append(next((line for line in out.splitlines()
                                    if line.startswith("Layout variant:")), "?"))
     fill_brief(folder / "brief.template.json", deliverable, e2e4)
@@ -141,7 +145,7 @@ def build(deliverable: str, work: Path, e2e4: ModuleType, notes: dict[str, list[
 def manifests(work: Path, folder: Path) -> list[dict[str, Any]]:
     """The render manifests of a package's images (job folders of this package)."""
     found = []
-    for path in sorted((work / "outputs" / "jobs").rglob("*.design.json")):
+    for path in sorted((work / "outputs" / "_system" / "jobs").rglob("*.design.json")):
         data = json.loads(path.read_text(encoding="utf-8"))
         details = path.parent / "details.json"
         text = details.read_text(encoding="utf-8") if details.exists() else ""
@@ -207,6 +211,24 @@ def run(keep: bool = False) -> list[tuple[str, bool, str]]:
                 (ad / "package.json").read_text(encoding="utf-8"))["category"] == "facebook_ad"
         results.append(("§7.5 Facebook posts and ads: separate variants, packages, folders",
                          separate, ""))
+        tree = {"instagram_carousel": "Instagram/Carousels", "facebook_post": "Facebook/Posts",
+                "facebook_ad": "Facebook/Ads", "linkedin_post": "LinkedIn/Posts"}
+        placed: list[str] = []
+        for name, folder in built.items():
+            if folder is None:
+                placed.append(f"{name}: not built")
+                continue
+            relative = folder.relative_to(work / "outputs").as_posix()
+            parts = [part for part in ("final", "source") if not any((folder / part).glob("*"))]
+            parts += [file for file in ("caption_de.txt", "package.json")
+                      if not (folder / file).is_file()]
+            if not relative.startswith(tree[name] + "/") or parts:
+                placed.append(f"{name} {relative}: missing {parts}")
+            if name == "instagram_carousel" and not (folder / "final" / "slide_01.png").is_file():
+                placed.append("carousel: no final/slide_01.png")
+        results.append(("v6 §5.8 one package per category in the R8 tree with final/, "
+                        "caption_de.txt, package.json and source/", not placed,
+                        "; ".join(placed)))
         yt = _module("youtube_mock_package")
     result = yt.run(copy_to=None)  # its own sandbox; the teleprompter check is the German pass
     youtube_ok = all(code == 0 for name, code in result["steps"].items() if name != "blocked")

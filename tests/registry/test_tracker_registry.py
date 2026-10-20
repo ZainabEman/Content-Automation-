@@ -155,7 +155,7 @@ def _scope(conn: sqlite3.Connection) -> Scope:
 
 
 def _sheet(isolated: Path) -> list[dict[str, str]]:
-    path = isolated / "outputs" / "drive" / "Content Automation" / "tracking.csv"
+    path = isolated / "outputs" / "_system" / "drive-mock" / "Content Automation" / "tracking.csv"
     with path.open(encoding="utf-8", newline="") as handle:
         return list(csv.DictReader(handle))
 
@@ -163,7 +163,7 @@ def _sheet(isolated: Path) -> list[dict[str, str]]:
 def test_sync_conflict_and_resolve(isolated: Path, conn: sqlite3.Connection,
                                    monkeypatch: pytest.MonkeyPatch) -> None:
     folder, item_id = _package(conn)
-    storage = MockStorage(isolated / "outputs" / "drive" / "Content Automation")
+    storage = MockStorage(isolated / "outputs" / "_system" / "drive-mock" / "Content Automation")
     with activate(_scope(conn)):
         result = sync_package(folder, storage, _catalog())
         assert "BG-001" in result.lines[0]  # D-13: no Content ID -> the BG ID folder
@@ -178,7 +178,7 @@ def test_sync_conflict_and_resolve(isolated: Path, conn: sqlite3.Connection,
     [row] = _sheet(isolated)
     assert row[BG] == item_id and row["Approval status"] == "Pending"
     assert last_cells(conn)[folder.name]["Topic"].written == "Chatbots"
-    path = isolated / "outputs" / "drive" / "Content Automation" / "tracking.csv"
+    path = isolated / "outputs" / "_system" / "drive-mock" / "Content Automation" / "tracking.csv"
     path.write_text(path.read_text(encoding="utf-8").replace("Chatbots", "Bots by hand", 1),
                     encoding="utf-8")
     with activate(_scope(conn)):

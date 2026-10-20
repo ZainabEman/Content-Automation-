@@ -5,7 +5,8 @@ touch the top edge. The approved selfies show the ceiling above the screen and s
 at the bottom, so the key alone leaves the ceiling on his hair; then the person mask of rembg's
 u2net_human_seg model (already a dependency; rembg MIT, model Apache-2.0, read from the local
 .cache/rembg and never downloaded here) is combined with the key. Green spill on the edges is
-pulled back to the other channels. Results are cached by photo hash in outputs/cache/cutouts/.
+pulled back to the other channels. Results are cached by photo hash in
+outputs/_system/cache/cutouts/.
 """
 
 import hashlib
@@ -21,7 +22,7 @@ from PIL import Image
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 MODEL = "u2net_human_seg"
 MODEL_HOME = _PROJECT_ROOT / ".cache" / "rembg"  # the same cache as workflows/compose.py
-CACHE = Path("outputs") / "cache" / "cutouts"
+CACHE = Path("outputs") / "_system" / "cache" / "cutouts"
 _SEGMENT_SIDE = 768  # the person mask is computed small and scaled up (fast on the CPU)
 _GREEN_SOFT = (8.0, 38.0)  # greenness (g - max(r, b)): fully kept below, fully keyed above
 Segmenter = Callable[[Image.Image], Image.Image]

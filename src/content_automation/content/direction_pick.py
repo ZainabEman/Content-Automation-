@@ -23,6 +23,7 @@ from content_automation.content.directions import (
     DirectionCatalog,
     DirectionError,
 )
+from content_automation.core.output_tree import iter_package_files
 
 PACKAGE_KEY = "direction"  # package.json: the chosen variant's ID
 DIRECTION_ID = re.compile(r"^(FB|FA|LI|CS)-R?\d+$", re.IGNORECASE)
@@ -51,7 +52,7 @@ def recent_directions(packages_dir: Path, catalog: DirectionCatalog, format_name
                       limit: int = 2) -> list[str]:
     """The variants of the newest packages with this category and platform, newest first."""
     found: list[tuple[str, str]] = []
-    for path in packages_dir.glob("*/package.json"):
+    for path in iter_package_files(packages_dir):
         if exclude is not None and path.parent.resolve() == exclude.resolve():
             continue
         try:

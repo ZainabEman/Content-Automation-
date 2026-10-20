@@ -24,6 +24,7 @@ from pydantic import ConfigDict, Field, ValidationError, model_validator
 from content_automation.ai.image import ImageError, get_provider
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel
+from content_automation.core.output_tree import iter_package_files
 
 ZoneKind = Literal[
     "big_number", "headline", "subline", "list", "two_column", "question", "quote", "icon"
@@ -319,7 +320,7 @@ def recent_formats(packages_dir: Path, platform: str | None, *, exclude: Path | 
                    limit: int = HISTORY) -> list[str]:
     """The formats of the newest packages on this platform (None: any), newest first."""
     found: list[tuple[str, str]] = []
-    for path in packages_dir.glob("*/package.json"):
+    for path in iter_package_files(packages_dir):
         if exclude is not None and path.parent.resolve() == exclude.resolve():
             continue
         try:

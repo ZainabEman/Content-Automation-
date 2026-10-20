@@ -8,8 +8,8 @@ internal briefs stay local. Existing Drive folders are never renamed, moved or d
 same-name file in the target folder is updated, never duplicated (the storage providers).
 Tracker: one row per topic (Content ID = the BG ID) with links to the research file, the scripts
 and the storyboards, plus the registry columns. STORAGE_PROVIDER=mock writes the same layout
-under outputs/drive/ with fake links; drive uses the Google APIs (only after setup); plugin
-(Codex Drive plugin manifests) is not built for YouTube topics yet and says so.
+under outputs/_system/drive-mock/ with fake links; drive uses the Google APIs (only after
+setup); plugin (Codex Drive plugin manifests) is not built for YouTube topics yet and says so.
 """
 
 from __future__ import annotations

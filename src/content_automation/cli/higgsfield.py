@@ -1,7 +1,7 @@
 """`ca higgsfield …` (2026-10-20): Roman's images, made by Codex with the Higgsfield plugin.
 
-`ca content build` writes a job file per image (outputs/higgsfield/<key>/job.json: the Soul 2.0
-prompt, the saved character, the aspect ratio, the expected output path and the credit
+`ca content build` writes a job file per image (outputs/_system/higgsfield/<key>/job.json: the
+Soul 2.0 prompt, the saved character, the aspect ratio, the expected output path and the credit
 estimate). Codex runs the plugin, saves the image, then records it here and builds again. At
 most 2 attempts per image; every attempt's credits count. Free and local: no provider call."""
 

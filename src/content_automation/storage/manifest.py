@@ -1,7 +1,7 @@
 """STORAGE_PROVIDER=plugin: the upload manifest the Codex Google Drive plugin works through.
 
 `ca` cannot call plugins, so instead of uploading a package gets
-outputs/content/<package>/upload_manifest.json: first "create_folder" entries for the Drive
+<package folder>/upload_manifest.json: first "create_folder" entries for the Drive
 folders that do not exist yet (<Platform>/<Content ID>/ and its subfolders, parents first),
 then one "upload" entry per file {local_path, target_folder_id, target_name}. Folder IDs come
 from config/drive_folders.json (root, the platform folders, Calendar) plus the folders made
@@ -34,11 +34,11 @@ from content_automation.content.package import (
 from content_automation.content.tracking import TRACKER_NAME, TrackerError, tracker_entry
 from content_automation.core.config import Settings
 from content_automation.core.files import atomic_write_text
+from content_automation.core.output_tree import iter_package_files
 from content_automation.registry import runtime
 from content_automation.registry.progress import upload_target
 from content_automation.storage import (
     CALENDAR_FOLDER,
-    UPLOAD_SUFFIXES,
     StorageError,
     drive_folder_name,
     get_storage,
@@ -46,6 +46,7 @@ from content_automation.storage import (
     platform_folder,
     registry_cells,
     update_tracker,
+    upload_names,
 )
 
 MANIFEST_FILE = "upload_manifest.json"
@@ -120,17 +121,11 @@ def package_targets(folder: Path, package: ContentPackage) -> list[Target]:
     content_id = drive_folder_name(folder, package)
     base = f"{platform_folder(package_folder_key(package))}/{content_id}"
     items = runtime.package_items(folder)
-    targets: list[Target] = []
-    for part, item in package.items.items():
-        if item.status != "done":
-            continue
-        for name in item.files:
-            if Path(name).suffix.lower() not in UPLOAD_SUFFIXES:
-                continue
-            sub = item.subfolders.get(name)
-            targets.append(Target(name, folder / name, f"{base}/{sub}" if sub else base,
-                                  items.get(part)))
-    return targets
+    owner = {name: part for part, item in package.items.items() for name in item.files}
+    first = next(iter(items.values()), None)
+    return [Target(name, folder / name, f"{base}/{sub}" if sub else base,
+                   items.get(owner[name]) if name in owner else first)
+            for name, sub in upload_names(folder, package).items()]
 
 
 def write_manifest(folder: Path, settings: Settings, targets: list[Target]) -> list[str]:
@@ -336,5 +331,6 @@ def _post_upload(folder: Path, settings: Settings, catalog: DeliverableCatalog,
 
 def pending_manifests(packages_dir: Path) -> list[Path]:
     """Package folders whose manifest still has entries to do ("sync drive")."""
-    return [path.parent for path in sorted(packages_dir.glob(f"*/{MANIFEST_FILE}"))
-            if (data := load_manifest(path.parent)) is not None and pending(data)]
+    folders = sorted(path.parent for path in iter_package_files(packages_dir))
+    return [folder for folder in folders
+            if (data := load_manifest(folder)) is not None and pending(data)]

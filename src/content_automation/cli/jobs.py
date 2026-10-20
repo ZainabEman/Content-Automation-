@@ -293,7 +293,7 @@ def report_month(
     as_json: JsonOption = False,
 ) -> None:
     """Recorded final states against the targets ("monthly report", "report for <month>");
-    written to outputs/reports/<YYYY-MM>.md. Mock uploads and results never count."""
+    written to outputs/_system/reports/<YYYY-MM>.md. Mock uploads and results never count."""
     settings = _settings()
     try:
         chosen = check_month(month)

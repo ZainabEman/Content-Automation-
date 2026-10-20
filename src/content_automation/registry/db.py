@@ -415,7 +415,9 @@ def now() -> str:
 def connect(path: Path = DEFAULT_DB_PATH) -> sqlite3.Connection:
     """Open (or create) the database file: autocommit mode, rows by name, foreign keys on."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, autocommit=True, timeout=10)
+    # check_same_thread off: a parallel build (core/parallel.py) uses this connection from its
+    # workers, one at a time under the build lock
+    conn = sqlite3.connect(path, autocommit=True, timeout=10, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn

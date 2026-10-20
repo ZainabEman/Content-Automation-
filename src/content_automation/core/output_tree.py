@@ -32,6 +32,7 @@ TEST_RUNS_DIR = SYSTEM_DIR / "test-runs"
 LOGS_DIR = SYSTEM_DIR / "logs"
 DRAFTS_DIR = SYSTEM_DIR / "drafts"
 YOUTUBE_META_DIR = SYSTEM_DIR / "youtube"
+REVIEW_DIR = SYSTEM_DIR / "review"  # `ca outputs collect`: copies for quick viewing
 REJECTED_LEGACY = "rejected_legacy"
 YOUTUBE_DIR = "YouTube Long-Form"
 # the social category -> its folder under outputs/ (and on Drive)
@@ -101,7 +102,45 @@ def iter_package_files(root: Path) -> Iterator[Path]:
                 yield path
 
 
+def collect_final(root: Path, week: str | None = None) -> list[tuple[Path, Path]]:
+    """`ca outputs collect`: every passed final image of the platform tree (a package part with
+    status done, its final/ files) copied to outputs/_system/review/<YYYY-Www>/<file>, prefixed
+    with the package folder name; the week comes from the folder's planned date. Copies only:
+    the package keeps its files. Returns (source, copy) pairs."""
+    import json
+    import shutil
+    from datetime import date
+
+    copied: list[tuple[Path, Path]] = []
+    for category in CATEGORY_DIRS.values():
+        for package in sorted((root / category).glob("*/*/package.json")):
+            folder = package.parent
+            try:
+                planned = date.fromisoformat(folder.name[:10])
+                data = json.loads(package.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            year, number, _ = planned.isocalendar()
+            label = f"{year}-W{number:02d}"
+            if week is not None and label != week:
+                continue
+            items = data.get("items") if isinstance(data, dict) else None
+            for item in (items or {}).values():
+                if not isinstance(item, dict) or item.get("status") != "done":
+                    continue
+                for name in item.get("files") or []:
+                    source = folder / str(name)
+                    if source.parent.name != FINAL_DIR or not source.is_file():
+                        continue
+                    target = root / SYSTEM / "review" / label / f"{folder.name}_{source.name}"
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source, target)
+                    copied.append((source, target))
+    return copied
+
+
 __all__ = ["CAPTION_FILE", "CATEGORY_DIRS", "DRAFTS_DIR", "FINAL_DIR", "JOBS_DIR", "LOGS_DIR",
            "OUTPUT_ROOT", "PREVIEWS_DIR", "REJECTED_LEGACY", "SOURCE_DIR", "SYSTEM",
-           "SYSTEM_DIR", "TEST_RUNS_DIR", "YOUTUBE_DIR", "YOUTUBE_META_DIR", "category_dir",
-           "iter_package_files", "package_dir", "safe_title", "short_slug", "system_dir"]
+           "REVIEW_DIR", "SYSTEM_DIR", "TEST_RUNS_DIR", "YOUTUBE_DIR", "YOUTUBE_META_DIR",
+           "category_dir", "collect_final", "iter_package_files", "package_dir", "safe_title",
+           "short_slug", "system_dir"]

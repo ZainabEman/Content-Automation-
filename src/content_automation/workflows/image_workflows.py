@@ -1,6 +1,8 @@
 """Named image workflows: check inputs, pick references, build the prompt, run the job."""
 
 import json
+import sys
+import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, cast
@@ -840,7 +842,9 @@ def _prepare_direction(
                              platform=inputs.direction_platform,
                              step=int(number) - 1 if number.isdigit() else 0, mode=mode,
                              texts=designer.texts if designer is not None else [],
-                             variation=inputs.variation)
+                             variation=inputs.variation,
+                             reuse_scene=mode == "designer" and inputs.design_attempt >= int(
+                                 text_check_config().get("attempts", 2)))
     recorded["personShown"] = person
     recorded["design"] = design.to_json()
     recorded["designMode"] = mode
@@ -851,7 +855,8 @@ def _prepare_direction(
     if inputs.slide:
         recorded["slide"] = inputs.slide
     aspect: AspectRatio = picture_aspect(direction, layout, catalog) if picture else "4:5"
-    if combination is not None:  # the canvas aspect; higgsfield_soul maps and crops it
+    if combination is not None or mode == "designer":  # the canvas aspect: the model draws the
+        # whole ad (designer) or higgsfield_soul maps and crops it (Roman)
         aspect = cast(AspectRatio, CANVAS[direction.format])
     request = ImageRequest(
         prompt=prompt,
@@ -903,11 +908,13 @@ def run_workflow(
     """Prepare the workflow (fails early on bad inputs), then run it as an image job.
 
     cold_start=False: it follows another job of the same build on a warm worker.
-    v6 R3.4: a designer-mode image that fails its text verification or image checks gets one
-    automatic retry (both attempts count toward the cost), then composite mode; the returned
-    job is the last one, with the earlier attempts named in its notes."""
+    v6 R3.4 (2026-10-21): a designer-mode image that fails its checks gets one regeneration
+    (both attempts count toward the cost); when that fails too, its scene is reused in composite
+    mode without a call where the layout allows it (DirectionDesign.reuse_scene), else one
+    composite generation; then the image fails with its reason. The returned job is the last
+    one, with the earlier attempts named in its notes."""
     prepared = prepare_workflow(workflow_id, inputs, settings)
-    job = _run_prepared(prepared, inputs, settings, cold_start)
+    job = _timed(prepared, inputs, settings, cold_start, inputs.design_attempt)
     if prepared.design is None or prepared.design.mode != "designer":
         return job
     attempts = int(text_check_config().get("attempts", 2))
@@ -919,13 +926,33 @@ def run_workflow(
         retry = (replace(inputs, design_attempt=attempt) if attempt <= attempts else
                  replace(inputs, design_mode="composite"))
         prepared = prepare_workflow(workflow_id, retry, settings)
-        job = _run_prepared(prepared, retry, settings, cold_start=False)
+        job = _timed(prepared, retry, settings, False, attempt)
         if retry.design_mode == "composite":
             break
     if failed:
         job.notes.append("Designer mode: " + " | ".join(failed)
                          + ("; composite mode used" if attempt > attempts else ""))
         job.save()
+    return job
+
+
+def _timed(prepared: PreparedWorkflow, inputs: WorkflowInputs, settings: Settings,
+           cold_start: bool, attempt: int) -> Job:
+    """One image job and one progress line on stderr for a paid provider (row, attempt,
+    seconds, result), so a parallel build shows its progress without verbose output."""
+    from content_automation.registry import runtime
+
+    started = time.monotonic()
+    job = _run_prepared(prepared, inputs, settings, cold_start)
+    provider = (prepared.settings or settings).image_provider
+    if provider not in ("mock", "template"):
+        scope = runtime.current()
+        row = (scope.item if scope is not None else None) or inputs.topic or "-"
+        mode = prepared.design.mode if prepared.design is not None else provider
+        result = ("passed" if job.status == "completed" else
+                  f"failed: {' '.join((job.error or '').split())[:100]}")
+        print(f"[image] {row} {inputs.slide or ''} attempt {attempt} ({mode}): "
+              f"{time.monotonic() - started:.0f}s, {result}", file=sys.stderr, flush=True)
     return job
 
 

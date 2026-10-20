@@ -191,7 +191,8 @@ def run_image_job(
                                             + "; ".join(report.errors))
                 job.notes.append(f"Design: {design.describe()}; check passed"
                                  + (f" ({'; '.join(report.warnings)})" if report.warnings
-                                    else "") + ".")
+                                    else "") + "."
+                                 + "".join(f" {note}." for note in design.notes))
                 continue
             if logo is None and text is None:
                 path = job.folder / f"image-{index}.{extension}"
@@ -230,11 +231,12 @@ def run_image_job(
         if registered is not None:
             runtime.fail(registered.id, "interrupted (Ctrl+C)")
         raise
-    except ImageAwaitingAgent:  # an attempt was rejected; Codex makes the next one
+    except ImageAwaitingAgent:  # no image yet for this attempt; Codex makes it
         _remove(written)
-        job.cancel("Higgsfield attempt rejected; Codex makes the next one.")
-        if registered is not None:
-            runtime.reject(registered.id, "Higgsfield attempt rejected; waiting for the next one")
+        job.cancel("Higgsfield: waiting for Codex.")
+        if registered is not None:  # failed, never left running: the next build opens a redo
+            # (rejecting a running job raised and left a stale record that blocked the build)
+            runtime.fail(registered.id, "Higgsfield: waiting for Codex")
         raise
     except Exception as error:
         _remove(written)
@@ -313,6 +315,12 @@ def _registry_job(
                 opened = runtime.open_scoped_job("image", provider, job_inputs,
                                                  estimate=estimate, unit=unit,
                                                  direct=scope.item is None)
+        if opened is not None and opened.in_progress and opened.job.status == "running":
+            # left running by an earlier build that stopped (one build at a time per item):
+            # failed, so this build attaches to a fresh record of the same request
+            runtime.fail(opened.job.id, "stale: left running by an earlier build; replaced")
+            opened = runtime.open_scoped_job("image", provider, job_inputs, estimate=estimate,
+                                             unit=unit, direct=scope.item is None)
         if opened is not None:
             started = runtime.start(opened.job.id)
             return started, None

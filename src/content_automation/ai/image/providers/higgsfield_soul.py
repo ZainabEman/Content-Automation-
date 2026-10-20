@@ -7,11 +7,18 @@ against the Soul 2.0 list in config/roman_image_guidelines.json), one image, the
 path, the credit estimate and numbered instructions), and the job waits (ImageAwaitingAgent):
 nothing is charged before an image exists. Codex makes the image, saves it to the expected path
 and runs `ca higgsfield record <key> --file … --credits …` (or `ca higgsfield fail`), then the
-package build again. Then this adapter returns the image: the person-zone check first (Roman in
-the outer quarter on the planned side, nothing person-like in the empty two-thirds); a failure
-rejects that attempt and asks for one more (at most maxAttempts, every attempt's credits
-counted); then the person-safe crop to the canvas aspect (3:4 to 4:5 for Facebook). No fallback
-to another provider: two failed attempts fail the job with the reasons. """
+package build again. Then this adapter returns the image: the placement check first (Roman fully
+inside the outer personZoneShare, 40%, of the width on the planned side, nothing person-like in
+the text side); when he is slightly too central, a person-safe shift crop (core/person_zone.py
+shift_crop) moves him outward before anything else; then the person-safe crop to the canvas
+aspect (3:4 to 4:5 for Facebook).
+
+Never an automatic new image (2026-10-21): a failed check (or a failed plugin run) stops the row
+(status needs_operator) and the operator chooses: `ca higgsfield accept <key> --file
+<attempt.png>` (manual approval, logged in job.json; the build then continues from that image)
+or `ca higgsfield retry <key>` (a new attempt, made only after a new dry run and the user's
+"ok"). No fallback to another provider. Every attempt's credits are charged once: a registry job
+reports only the credits not charged before (chargedCredits). """
 
 from __future__ import annotations
 
@@ -39,7 +46,7 @@ from content_automation.ai.image import (
 from content_automation.content.roman_prompt import CONFIG_FILE, load_guidelines
 from content_automation.core.config import Settings
 from content_automation.core.files import atomic_write_text
-from content_automation.core.person_zone import CropError, detect, safe_crop
+from content_automation.core.person_zone import CropError, detect, safe_crop, shift_crop
 
 GUIDELINES = CONFIG_FILE  # config/roman_image_guidelines.json
 JOB_FILE = "job.json"
@@ -85,12 +92,29 @@ def zone_problems(zone_image: Image.Image, side: str, share: float) -> list[str]
     if side == "S-L" and right > width * share:
         problems.append(f"Roman reaches {right / width:.0%} of the width; he must stay in the "
                         f"leftmost {share:.0%}")
-    empty = (0, int(width * 2 / 3)) if side == "S-R" else (int(width / 3), width)
+    # the text side: everything outside his outer share
+    empty = (0, int(width * (1 - share))) if side == "S-R" else (int(width * share), width)
     strays = [box for box in zone.regions
               if empty[0] <= (box[0] + box[2]) / 2 <= empty[1]]
     if strays:
-        problems.append(f"{len(strays)} person-like region(s) in the empty two-thirds")
+        problems.append(f"{len(strays)} person-like region(s) in the text side")
     return problems
+
+
+def placed(image: Image.Image, side: str, share: float
+           ) -> tuple[Image.Image, list[str], tuple[int, int, int, int] | None]:
+    """(the image, its placement problems, the shift crop used): when Roman is slightly too
+    central, a person-safe shift crop is tried before a failure is reported."""
+    problems = zone_problems(image, side, share)
+    if not any(problem.startswith("Roman reaches") for problem in problems):
+        return image, problems, None
+    try:
+        shifted, box = shift_crop(image, detect(image), side, share)
+    except CropError:
+        return image, problems, None
+    if zone_problems(shifted, side, share):
+        return image, problems, None
+    return shifted, [], box
 
 
 class HiggsfieldJob:
@@ -159,18 +183,40 @@ class HiggsfieldJob:
         self.data["instructions"] = instructions(self)
         self.save()
 
-    def reject(self, reason: str) -> bool:
-        """Reject the current attempt; True when another one is allowed (and requested)."""
-        current = self.attempt
-        current.update(status="rejected", reason=reason)
-        if len(self.data["attempts"]) < int(self.data["maxAttempts"]):
-            self.new_attempt()
-            return True
-        self.data["status"] = "failed"
+    def stop(self, reason: str) -> None:
+        """The current attempt failed (its check or the plugin): the row waits for the
+        operator (accept or retry); never a new attempt by itself."""
+        self.attempt.update(status="check_failed", reason=reason)
+        self.data["status"] = "needs_operator"
+        self.log(f"stopped: {reason}")
         self.save()
-        return False
+
+    def log(self, text: str) -> None:
+        stamp = datetime.now(UTC).isoformat(timespec="seconds")
+        self.data.setdefault("log", []).append(f"{stamp} {text}")
+
+    def uncharged_usd(self) -> float | None:
+        """The credits not charged to a registry job yet, in USD (then marked charged)."""
+        credits = self.credits() - float(self.data.get("chargedCredits") or 0)
+        self.data["chargedCredits"] = self.credits()
+        self.save()
+        usd = float(guidelines()["higgsfield"]["usdPerCredit"])
+        return round(credits * usd, 4) if credits > 0 else None
+
+    def operator_message(self) -> str:
+        key = self.data["key"]
+        last = self.attempt
+        return (f"Roman's Higgsfield image {key} stopped ({last.get('reason', 'see job.json')}); "
+                "no new image is made by itself. The operator chooses: uv run ca higgsfield "
+                f"accept {key} --file \"{last['expectedOutput']}\" (manual approval, logged; "
+                f"the build then continues), or uv run ca higgsfield retry {key} (a new costed "
+                "attempt, after a new dry run and the user's \"ok\")")
 
     def delivered(self) -> Path | None:
+        accepted = self.data.get("accepted")
+        if isinstance(accepted, dict):  # the operator's choice wins
+            chosen = Path(str(accepted.get("file", "")))
+            return chosen if chosen.is_file() else None
         current = self.attempt
         if current.get("status") != "delivered":
             return None
@@ -199,7 +245,7 @@ def instructions(job: HiggsfieldJob) -> list[str]:
         f"6. Run: uv run ca higgsfield record {key} --file \"{data['expectedOutput']}\" "
         "--credits <credits the plugin reports>",
         f"7. If it fails: uv run ca higgsfield fail {key} --error \"<the reason>\" (no retry "
-        "by yourself; a second attempt only comes from ca).",
+        "by yourself; a new attempt only when the operator runs ca higgsfield retry).",
         "8. Then continue the build: uv run ca content build \"<package folder>\"; the app "
         "checks Roman's position, crops, adds the German text and CTA (no logo, no website on "
         "a Roman creative), and checks again.",
@@ -212,8 +258,9 @@ def record(root: Path, key: str, file: Path, credits: float | None) -> Higgsfiel
     if not path.is_file():
         raise ImageRequestError(f"no Higgsfield job {key} (uv run ca higgsfield list)")
     job = HiggsfieldJob(path.parent, json.loads(path.read_text(encoding="utf-8")))
-    if job.data["status"] == "failed":
-        raise ImageRequestError(f"{key} failed after {len(job.data['attempts'])} attempts")
+    if job.data["status"] in ("failed", "needs_operator"):
+        raise ImageRequestError(f"{key} waits for the operator: uv run ca higgsfield accept "
+                                f"{key} --file <attempt.png>, or uv run ca higgsfield retry {key}")
     current = job.attempt
     target = Path(str(current["expectedOutput"]))
     if not file.is_file():
@@ -241,21 +288,73 @@ def record(root: Path, key: str, file: Path, credits: float | None) -> Higgsfiel
     return job
 
 
-def fail(root: Path, key: str, error: str) -> HiggsfieldJob:
-    """`ca higgsfield fail`: the attempt failed at Higgsfield; one more if allowed."""
+def _load(root: Path, key: str) -> HiggsfieldJob:
     path = root / key / JOB_FILE
     if not path.is_file():
-        raise ImageRequestError(f"no Higgsfield job {key}")
-    job = HiggsfieldJob(path.parent, json.loads(path.read_text(encoding="utf-8")))
-    job.reject(f"Higgsfield: {error}")
+        raise ImageRequestError(f"no Higgsfield job {key} (uv run ca higgsfield list)")
+    return HiggsfieldJob(path.parent, json.loads(path.read_text(encoding="utf-8")))
+
+
+def fail(root: Path, key: str, error: str) -> HiggsfieldJob:
+    """`ca higgsfield fail`: the attempt failed at Higgsfield; the operator decides next."""
+    job = _load(root, key)
+    job.stop(f"Higgsfield: {error}")
     return job
 
 
-def pending_jobs(root: Path) -> list[HiggsfieldJob]:
+def accept(root: Path, key: str, file: Path) -> HiggsfieldJob:
+    """`ca higgsfield accept`: the operator approves one attempt's image by hand (logged); the
+    build continues from it without the placement check blocking (the shift crop is still used
+    when it helps). Credits a failed build charged already are not charged again."""
+    job = _load(root, key)
+    if not file.is_file():
+        raise ImageRequestError(f"{file} is not a file")
+    try:
+        with Image.open(file) as opened:
+            size = opened.size
+    except OSError as error:
+        raise ImageRequestError(f"{file} is not an image: {error}") from None
+    width, height = _ratio(str(job.data["aspectRatio"]))
+    if abs(size[0] / size[1] - width / height) > 0.02:
+        raise ImageRequestError(f"{file.name} is {size[0]}x{size[1]}, not "
+                                f"{job.data['aspectRatio']} as requested")
+    target = file.resolve()
+    attempt = next((item for item in job.data["attempts"]
+                    if Path(str(item.get("expectedOutput", ""))).resolve() == target), None)
+    if attempt is None:  # a file from elsewhere: kept beside the job
+        target = (job.folder / "accepted.png").resolve()
+        shutil.copyfile(file, target)
+    if job.data["status"] == "failed" and "chargedCredits" not in job.data:
+        job.data["chargedCredits"] = job.credits()  # its failed build charged them already
+    number = attempt["n"] if attempt is not None else None
+    job.data["accepted"] = {"attempt": number, "file": str(target), "by": "operator",
+                            "at": datetime.now(UTC).isoformat(timespec="seconds")}
+    if attempt is not None:
+        attempt["accepted"] = True
+    job.data["status"] = "delivered"
+    job.log(f"accepted by the operator: {target.name} (attempt {number or 'external'})")
+    job.save()
+    return job
+
+
+def retry(root: Path, key: str) -> HiggsfieldJob:
+    """`ca higgsfield retry`: the operator orders one new, costed attempt (made by Codex after a
+    new dry run and the user's "ok")."""
+    job = _load(root, key)
+    if job.data["status"] not in ("needs_operator", "failed"):
+        raise ImageRequestError(f"{key} is {job.data['status']}: nothing to retry")
+    job.data.pop("accepted", None)
+    job.data["maxAttempts"] = max(int(job.data["maxAttempts"]), len(job.data["attempts"]) + 1)
+    job.log(f"new attempt {len(job.data['attempts']) + 1} ordered by the operator")
+    job.new_attempt()
+    return job
+
+
+def pending_jobs(root: Path, status: str = "pending") -> list[HiggsfieldJob]:
     found = []
     for path in sorted(root.glob(f"*/{JOB_FILE}")):
         job = HiggsfieldJob(path.parent, json.loads(path.read_text(encoding="utf-8")))
-        if job.data["status"] == "pending":
+        if job.data["status"] == status:
             found.append(job)
     return found
 
@@ -287,40 +386,42 @@ class HiggsfieldSoulProvider:
     def waiting(self, request: ImageRequest) -> Path | None:
         """The job file while no checked image exists for this request (it is written)."""
         job = HiggsfieldJob.for_request(request, self.root())
-        if job.data["status"] == "failed":
-            return None  # generate() raises the failure with its reasons
+        if job.data["status"] in ("failed", "needs_operator"):
+            return None  # generate() raises the failure with the operator's choices
         return None if job.delivered() is not None else job.path
 
     def generate(self, request: ImageRequest, model: str) -> ImageResult:
         job = HiggsfieldJob.for_request(request, self.root())
-        if job.data["status"] == "failed":
-            reasons = "; ".join(str(item.get("reason")) for item in job.data["attempts"])
-            raise ImageProviderError(f"Roman's image failed after {len(job.data['attempts'])} "
-                                     f"Higgsfield attempts ({reasons}); no fallback to another "
-                                     "provider", cost_usd=_spent(job))
+        if job.data["status"] in ("failed", "needs_operator"):
+            raise ImageProviderError(job.operator_message() + "; no fallback to another "
+                                     "provider", cost_usd=job.uncharged_usd())
         delivered = job.delivered()
         if delivered is None:
             raise ImageAwaitingAgent(f"waiting for Codex: Higgsfield job {job.path}", job.path)
         with Image.open(delivered) as opened:
             image = opened.convert("RGB")
         checks = guidelines()["checks"]
-        problems = zone_problems(image, str(job.data["side"]), float(checks["personZoneShare"]))
+        accepted = job.data.get("accepted")
+        record_to: dict[str, Any] = accepted if isinstance(accepted, dict) else job.attempt
+        image, problems, shift = placed(image, str(job.data["side"]),
+                                        float(checks["personZoneShare"]))
+        if shift is not None:
+            record_to["shift"] = list(shift)
+        if problems and isinstance(accepted, dict):  # approved by the operator as it is
+            record_to["acceptedDespite"] = "; ".join(problems)
+            problems = []
         if not problems and job.data["cropToTarget"]:
             try:
                 image, box = safe_crop(image, _ratio(str(job.data["targetAspect"])),
                                        detect(image))
-                job.attempt["crop"] = list(box)
+                record_to["crop"] = list(box)
             except CropError as error:
                 problems.append(str(error))
         if problems:
-            reason = "person zone: " + "; ".join(problems)
-            if job.reject(reason):
-                raise ImageAwaitingAgent(f"attempt rejected ({reason}); Higgsfield job "
-                                         f"{job.path} asks for attempt "
-                                         f"{len(job.data['attempts'])}", job.path)
-            raise ImageProviderError(f"Roman's image failed twice ({reason}); no fallback",
-                                     cost_usd=_spent(job))
-        job.attempt["checks"] = {"personZone": "passed"}
+            job.stop("placement: " + "; ".join(problems))
+            raise ImageProviderError(job.operator_message(), cost_usd=job.uncharged_usd())
+        record_to["checks"] = {"personZone": "accepted by the operator"
+                               if isinstance(accepted, dict) else "passed"}
         job.save()
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
@@ -329,20 +430,13 @@ class HiggsfieldSoulProvider:
             images=[GeneratedImage(data=buffer.getvalue(), mime_type="image/png")],
             provider=self.name, model=str(job.data["model"]),
             provider_request_ids=[f"higgsfield-{job.data['key']}"],
-            cost_usd=_spent(job),
+            cost_usd=job.uncharged_usd(),
             metrics={"credits": credits, "attempts": float(len(job.data["attempts"]))})
-
-
-def _spent(job: HiggsfieldJob) -> float | None:
-    """Every attempt's credits in USD (rejected attempts count too); None before any record."""
-    credits = job.credits()
-    usd = float(guidelines()["higgsfield"]["usdPerCredit"])
-    return round(credits * usd, 4) if credits else None
 
 
 def create_provider(settings: Settings | None = None) -> HiggsfieldSoulProvider:
     return HiggsfieldSoulProvider(settings)
 
 
-__all__ = ["HiggsfieldJob", "HiggsfieldSoulProvider", "create_provider", "fail",
-           "generation_aspect", "pending_jobs", "record", "zone_problems"]
+__all__ = ["HiggsfieldJob", "HiggsfieldSoulProvider", "accept", "create_provider", "fail",
+           "generation_aspect", "pending_jobs", "placed", "record", "retry", "zone_problems"]

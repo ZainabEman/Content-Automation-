@@ -62,7 +62,8 @@ class Settings(BaseSettings):
     calendar_dir: Path = Path("calendar")  # calendar/<YYYY-Www>.csv: git-ignored
 
     image_provider: ImageProvider = "mock"
-    image_model: str = Field(default="google/gemini-3.1-flash-image", min_length=1)
+    image_model: str = Field(default="openai/gpt-image-2", min_length=1)
+    image_parallel: int = Field(default=4, ge=1, le=8)  # OpenRouter images at once (a build)
     legacy_paths: list[str] = Field(default_factory=list)  # v6 R8: old .env path lines
     image_daily_limit: int = Field(default=10, gt=0)
     image_timeout_ms: int = Field(default=120_000, gt=0)
@@ -75,7 +76,7 @@ class Settings(BaseSettings):
     post_formats_file: Path = Path("config/post_formats.json")  # post and carousel formats
     # The static Instagram carousel's slide images: always OpenRouter (OPENROUTER_API_KEY);
     # IMAGE_PROVIDER=mock keeps them mock.
-    carousel_image_model: str = Field(default="google/gemini-3.1-flash-image", min_length=1)
+    carousel_image_model: str = Field(default="openai/gpt-image-2", min_length=1)
     roman_image_provider: RomanImageProvider = "higgsfield_soul"
     default_identity_set: str = Field(default="identity/person_01", min_length=1)
     openrouter_api_key: SecretStr | None = None

@@ -15,7 +15,13 @@ from PIL import Image, ImageDraw
 from typer.testing import CliRunner
 
 from content_automation.ai.image import ImageAwaitingAgent, ImageProviderError, ImageRequest
-from content_automation.ai.image.higgsfield import HiggsfieldSoulProvider, fail, record
+from content_automation.ai.image.higgsfield import (
+    HiggsfieldSoulProvider,
+    accept,
+    fail,
+    record,
+    retry,
+)
 from content_automation.ai.image.providers.higgsfield_soul import generation_aspect
 from content_automation.cli import app
 from content_automation.content import direction_brief
@@ -177,20 +183,24 @@ def test_person_right_passes_and_the_4_5_crop_keeps_head_and_hands(
     assert result.cost_usd is not None and result.metrics["credits"] == 4.0
 
 
-def test_person_left_is_rejected_then_fails_after_two(
+def test_person_left_stops_for_the_operator_never_regenerates(
         make_settings: Callable[..., Settings], tmp_path: Path) -> None:
     provider = _provider(make_settings, tmp_path)
     request = _request("3:4")
     wrong = stand_in((1080, 1440), "S-L", "P-2")  # planned S-R, delivered on the left
-    _deliver(provider, request, wrong, tmp_path)
-    with pytest.raises(ImageAwaitingAgent, match="attempt rejected"):
+    key = _deliver(provider, request, wrong, tmp_path)
+    with pytest.raises(ImageProviderError, match="higgsfield accept") as stopped:
         provider.generate(request, "soul")
-    _deliver(provider, request, wrong, tmp_path, credits=None)  # unreported: the estimate
-    with pytest.raises(ImageProviderError, match="no fallback") as failed:
-        provider.generate(request, "soul")
-    estimate = load_guidelines()["higgsfield"]["estimatedCreditsPerImage"]
     usd = load_guidelines()["higgsfield"]["usdPerCredit"]
-    assert failed.value.cost_usd == round((4.0 + estimate) * usd, 4)  # every attempt counted
+    assert stopped.value.cost_usd == round(4.0 * usd, 4)  # the attempt is counted once
+    assert provider.waiting(request) is None  # no new attempt by itself
+    with pytest.raises(ImageProviderError) as again:
+        provider.generate(request, "soul")
+    assert again.value.cost_usd is None  # never charged twice
+    job = accept(provider.root(), key, provider.root() / key / "attempt-1.png")
+    assert job.data["accepted"]["by"] == "operator" and job.data["log"]
+    result = provider.generate(request, "soul")  # the build continues from the accepted image
+    assert result.images and result.cost_usd is None
 
 
 def test_figure_in_the_middle_fails_the_zone(make_settings: Callable[..., Settings],
@@ -198,7 +208,7 @@ def test_figure_in_the_middle_fails_the_zone(make_settings: Callable[..., Settin
     provider = _provider(make_settings, tmp_path)
     request = _request("1:1")
     _deliver(provider, request, stand_in((1080, 1080), "S-R", "P-3", offset=0.45), tmp_path)
-    with pytest.raises(ImageAwaitingAgent):
+    with pytest.raises(ImageProviderError, match="stopped"):
         provider.generate(request, "soul")
 
 
@@ -213,8 +223,9 @@ def test_wrong_aspect_and_plugin_failure(make_settings: Callable[..., Settings],
     Image.new("RGB", (512, 512)).save(square)
     with pytest.raises(Exception, match="not 3:4"):
         record(provider.root(), key, square, 4)
-    assert fail(provider.root(), key, "plugin missing").data["status"] == "pending"
-    assert fail(provider.root(), key, "again").data["status"] == "failed"
+    assert fail(provider.root(), key, "plugin missing").data["status"] == "needs_operator"
+    reopened = retry(provider.root(), key)  # the operator's choice: one new costed attempt
+    assert reopened.data["status"] == "pending" and len(reopened.data["attempts"]) == 2
 
 
 def test_no_safe_crop_fails() -> None:

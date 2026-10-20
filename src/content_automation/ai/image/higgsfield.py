@@ -3,9 +3,12 @@
 from content_automation.ai.image.providers.higgsfield_soul import (
     HiggsfieldJob,
     HiggsfieldSoulProvider,
+    accept,
     fail,
     pending_jobs,
     record,
+    retry,
 )
 
-__all__ = ["HiggsfieldJob", "HiggsfieldSoulProvider", "fail", "pending_jobs", "record"]
+__all__ = ["HiggsfieldJob", "HiggsfieldSoulProvider", "accept", "fail", "pending_jobs", "record",
+           "retry"]

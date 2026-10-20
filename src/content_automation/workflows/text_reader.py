@@ -21,6 +21,7 @@ import httpx
 from PIL import Image
 
 from content_automation.core.config import Settings
+from content_automation.core.parallel import released
 from content_automation.workflows.image_check import ReadText
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -28,7 +29,12 @@ _LONG_SIDE = 1536  # the image sent for reading (enough for small print, cheaper
 
 
 class TextReadError(RuntimeError):
-    """The text could not be read (the vision check failed)."""
+    """The text could not be read (the vision check failed). service: the check service itself
+    failed (timeout, 429, 5xx, a bad response): retried once, never an image attempt."""
+
+    def __init__(self, message: str, *, service: bool = True) -> None:
+        super().__init__(message)
+        self.service = service
 
 
 @dataclass
@@ -74,7 +80,8 @@ class OpenRouterTextReader:
     def read(self, image: Image.Image, intended: list[str]) -> TextRead:
         del intended  # never shown to the model: it must read, not confirm
         if not self._api_key:
-            raise TextReadError("OPENROUTER_API_KEY missing: the text check cannot run")
+            raise TextReadError("OPENROUTER_API_KEY missing: the text check cannot run",
+                                service=False)
         copy = image.convert("RGB")
         copy.thumbnail((_LONG_SIDE, _LONG_SIDE))
         buffer = io.BytesIO()
@@ -88,7 +95,8 @@ class OpenRouterTextReader:
             "usage": {"include": True},
         }
         try:
-            with httpx.Client(timeout=self._timeout_s, transport=self._transport) as client:
+            with (httpx.Client(timeout=self._timeout_s, transport=self._transport) as client,
+                  released()):  # a parallel build: the others run meanwhile
                 response = client.post(API_URL, json=body,
                                        headers={"Authorization": f"Bearer {self._api_key}"})
             payload = response.json()
@@ -96,7 +104,9 @@ class OpenRouterTextReader:
             raise TextReadError(f"the text check could not reach OpenRouter "
                                 f"({type(error).__name__})") from None
         if response.status_code != 200 or not isinstance(payload, dict) or payload.get("error"):
-            raise TextReadError(f"the text check failed (HTTP {response.status_code})")
+            status = response.status_code
+            raise TextReadError(f"the text check failed (HTTP {status})",
+                                service=status == 200 or status == 429 or status >= 500)
         try:
             content = payload["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError):
@@ -128,7 +138,7 @@ def reader_for(settings: Settings, image_path: Path | None = None) -> TextReader
             data = json.loads(sidecar.read_text(encoding="utf-8"))
             return MockTextReader([str(item) for item in data])
         return MockTextReader()
-    config = text_check_config()
+    config = text_check_config()  # a vision chat model: gpt-image-2 only makes images
     model = str(config.get("model") or settings.carousel_image_model)
     key = settings.openrouter_api_key.get_secret_value() if settings.openrouter_api_key else None
     return OpenRouterTextReader(key, model, str(config.get("prompt", "")))

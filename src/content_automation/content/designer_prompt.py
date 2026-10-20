@@ -5,13 +5,15 @@ category's platform and format (config/designer_prompts.json designerAdapt). Two
 
 - designer (the default for non-Roman feed posts, ads, LinkedIn and carousel slides): the model
   draws the whole ad, including the exact German headline, body, CTA and labels (quoted in the
-  prompt), with the R3.2 look in words and explicit negatives. Image inputs, in the adapter's
-  numbering: object_refs = 1 the colour section of the style guide (cropped from the JPEG inside
-  the guide PDF: never its logo or type specimen, which v5 images copied), 2 the official logo
-  (for recognition only; the app places the real file in the corner the prompt keeps empty);
-  style_refs = 3.. the variant's approved references with their logos masked (at most
-  maxReferences). The app reads the text back afterwards (workflows/text_reader.py).
-- composite (the fallback after two failed text checks): the model draws only the scene, with the
+  prompt, their places in words), with the R3.2 look in words and explicit negatives. Image
+  inputs, in the adapter's numbering: object_refs = 1 the colour section of the style guide
+  (cropped from the JPEG inside the guide PDF: never its logo or type specimen, which v5 images
+  copied); style_refs = 2.. the variant's approved references with their logos masked (at most
+  maxReferences). The logo file is never sent (2026-10-21: models drew wordmarks after seeing
+  it), and the prompt names no logo, wordmark or brand outside its negatives
+  (`check_brand_free`); the logo corner is described as plain empty dark space. The app places
+  the real logo afterwards and reads the text back (workflows/text_reader.py).
+- composite (the fallback after the designer attempts): the model draws only the scene, with the
   text side dark and empty, and gets no image inputs at all; the app draws everything else.
 
 Zones are described in words (the left half, the top-right corner), never as coordinates: v5's
@@ -45,6 +47,9 @@ _COORDINATES = re.compile(r"\b[xy]\s*[:=]?\s*\d|\d+(?:[.,]\d+)?\s*%|\b\d+(?:\.\d
                           r"\d+(?:\.\d+)?\b(?!\s*(?:px|x\d))|\b(?:zone|box)\s*\d",
                           re.IGNORECASE)
 Mode = Literal["designer", "composite"]
+# what never reaches an image prompt outside its negatives: the logo, a wordmark, the brand's name
+_BRAND = re.compile(r"\blogos?\b|wordmark|brand(?:ed|it)\s*genius|brandedgenius|\bgenius\b",
+                    re.IGNORECASE)
 TEXT_ZONE_ORDER = ("eyebrow", "number", "headline", "sub", "body", "tagline", "badge", "cta")
 
 
@@ -123,6 +128,30 @@ def check_clean(prompt: str, copy_texts: list[str] | None = None) -> None:
     if found:
         raise DesignerPromptError(f'the image prompt carries a coordinate ("{found.group(0)}"): '
                                   "zones go to the model in words only (PRD v6 R3.1)")
+
+
+def without_brand(text: str) -> str:
+    """A description without its logo, wordmark or brand-name parts: the clauses (split at ";"
+    and ",") that name one are left out; a bare brand name becomes "the brand"."""
+    parts = [part.strip() for part in re.split(r"[;,]", text)]
+    kept = [part for part in parts
+            if part and not re.search(r"\blogos?\b|wordmark", part, re.IGNORECASE)]
+    return re.sub(r"brand(?:ed|it)\s*genius(?:\.de)?|brandedgenius(?:\.de)?", "the brand",
+                  ", ".join(kept), flags=re.IGNORECASE)
+
+
+def check_brand_free(prompt: str, allowed: list[str]) -> None:
+    """No logo, wordmark or brand name in an image prompt outside its negatives and the quoted
+    copy (2026-10-21: the model drew what it was told about)."""
+    rest = prompt
+    for text in sorted(allowed, key=len, reverse=True):
+        if text:
+            rest = rest.replace(text, " ")
+    found = _BRAND.search(rest)
+    if found:
+        raise DesignerPromptError(f'the image prompt names "{found.group(0)}": the logo, '
+                                  "wordmarks and the brand name stay out of it (the app adds "
+                                  "the real logo afterwards)")
 
 
 def guide_image(pdf: Path, cache_dir: Path, crop: list[float] | None = None) -> Path:
@@ -220,6 +249,11 @@ def layout_words(layout: Layout) -> LayoutWords:
     logo = next((zone for zone in zones.values() if zone.kind == "logo"), None)
     logo_corner = place_words(logo.box).removeprefix("the ") if logo is not None else ""
     parts = [f"the text sits in {text_side}"]
+    for role, label in (("headline", "the headline"), ("sub", "the subline"),
+                        ("body", "the body text")):
+        zone = next((z for z in zones.values() if z.kind == "text" and z.role == role), None)
+        if zone is not None:
+            parts.append(f"{label} in {place_words(zone.box)}")
     if any(zone.kind == "shape" and zone.shape in ("panel", "glass") and zone.outline
            and not any(z.kind == "icons" and boxes_inside(z.box, zone.box)
                        for z in zones.values()) for zone in zones.values()):
@@ -245,7 +279,7 @@ def layout_words(layout: Layout) -> LayoutWords:
                      f"{(cta.icon or 'arrow-right').replace('-', ' ')} icon {side}, never "
                      "touching the text")
     if logo_corner:
-        parts.append(f"the {logo_corner} stays empty for the logo")
+        parts.append(f"the {logo_corner} stays plain empty dark space with nothing in it")
     if any(zone.kind == "footer" for zone in zones.values()):
         footer = next(zone for zone in zones.values() if zone.kind == "footer")
         parts.append(f"{place_words(footer.box)} keeps a small empty strip for the website")
@@ -351,7 +385,8 @@ def designer_inputs(direction: Direction, layout: Layout, catalog: DirectionCata
     values = {
         "category": category["category"], "platform": category["platform"],
         "purpose": category["purpose"], "mission": templates["mission"],
-        "topic": topic.strip() or "(no topic)", "variant": f"{direction.id} {direction.name}",
+        "topic": without_brand(topic.strip()) or "(no topic)",
+        "variant": f"{direction.id} {direction.name}",
         "layout": words.description, "picture": picture, "look": _look(direction),
         "format": direction.canvas, "size": f"{width}x{height}",
         "logoCorner": words.logo_corner or "corner",
@@ -362,6 +397,7 @@ def designer_inputs(direction: Direction, layout: Layout, catalog: DirectionCata
         prompt = " ".join([str(composite["core"]).format(**values),
                            str(composite["negatives"]), str(templates["format"]).format(**values)])
         check_clean(prompt, [picture])
+        check_brand_free(prompt, [str(composite["negatives"])])
         return DesignerInputs(prompt=prompt, mode="composite")
     limit = int(templates.get("maxReferences", 3))
     refs = _ref_files(direction, references_dir, limit, role)
@@ -380,12 +416,7 @@ def designer_inputs(direction: Direction, layout: Layout, catalog: DirectionCata
         objects.append(ReferenceImage(asset_id="brand-style-guide", path=guide,
                                       source=f"{guide_pdf.name} (colour section)", people=False,
                                       logo=False))
-    if logo_path is not None and logo_path.is_file():
-        objects.append(ReferenceImage(asset_id="brand-logo", path=logo_path,
-                                      source=f"official logo {logo_path.name}", people=False,
-                                      logo=True))
-    else:
-        missing.append(f"official logo {logo_path}")
+    del logo_path  # never sent: the app places the real logo afterwards (2026-10-21)
     styles: list[ReferenceImage] = []
     for ref_id, path, _, kind, own_boxes in refs:
         if not path.is_file():
@@ -405,21 +436,27 @@ def designer_inputs(direction: Direction, layout: Layout, catalog: DirectionCata
     values["referenceImages"] = (
         f"Images {first} to {first + len(styles) - 1} are" if len(styles) > 1
         else f"Image {first} is" if styles else "No images are attached as")
-    values["references"] = "; ".join(f"{ref_id}: {use}" for ref_id, path, use, _, _ in refs
-                                     if path.is_file()) or "the dark Branded Genius look above"
+    values["references"] = "; ".join(f"{ref_id}: {without_brand(use)}"
+                                     for ref_id, path, use, _, _ in refs
+                                     if path.is_file()) or "the dark look above"
     exact, described = designer_texts(layout, copy)
     values["texts"] = "; ".join(described) or "(no text on this image)"
     parts = [designer_text(category["platform"], direction.canvas),
              str(templates["inputs"]).format(**values), str(templates["brief"]).format(**values),
              _look(direction), str(templates["texts"]).format(**values),
              str(templates["negatives"]), str(templates["format"]).format(**values)]
+    if words.logo_corner:
+        parts.insert(-2, f"Leave the {words.logo_corner} as plain empty dark space: nothing "
+                         "drawn there, no text and no symbol.")
     prompt = " ".join(part for part in parts if part)
     check_clean(prompt, [*exact, topic, picture])
+    check_brand_free(prompt, [*exact, str(templates["negatives"])])
     return DesignerInputs(prompt=prompt, object_refs=objects, style_refs=styles,
                           missing=missing, mode="designer", texts=exact)
 
 
 __all__ = ["CONFIG_FILE", "DesignerInputs", "DesignerPromptError", "LayoutWords", "Mode",
-           "REFS_FILE", "check_clean", "default_mode", "designer_inputs", "designer_text",
+           "REFS_FILE", "check_brand_free", "check_clean", "default_mode", "designer_inputs",
+           "designer_text",
            "designer_texts", "guide_image", "layout_words", "load_refs", "load_templates",
-           "masked_reference", "mirror_words", "place_words"]
+           "masked_reference", "mirror_words", "place_words", "without_brand"]

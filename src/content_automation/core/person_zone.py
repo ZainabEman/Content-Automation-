@@ -114,4 +114,35 @@ def safe_crop(image: Image.Image, aspect: tuple[int, int], zone: PersonZone,
     return image.crop(box), box
 
 
-__all__ = ["Box", "CropError", "PersonZone", "detect", "safe_crop"]
+def shift_crop(image: Image.Image, zone: PersonZone, side: str, share: float, *,
+               min_keep: float = 0.7, margin: int = 8) -> tuple[Image.Image, Box]:
+    """A crop with the image's own aspect that moves the person into the outer `share` of the
+    width on his side (S-R: right) by trimming the strip beyond him on that side (and the same
+    share of the height), keeping his whole box (head and hands). At least `min_keep` of the
+    width stays. CropError when no such crop exists (then the operator decides; nothing is
+    regenerated)."""
+    if zone.box is None:
+        raise CropError("no person found to shift")
+    width, height = image.size
+    left, top, right, bottom = zone.box
+    if side == "S-L":  # mirrored: the left edge is the outer one
+        left, right = width - right, width - left
+    # keep the outer side up to the person's far edge plus a margin; trim beyond it
+    window = min(width, left / (1 - share)) if share < 1 else width
+    if window < min(width, right + margin) or window < width * min_keep:
+        raise CropError(f"no crop keeps him whole within the outer {share:.0%} (he starts at "
+                        f"{left / width:.0%} of the width)")
+    new_width = int(window)
+    new_height = round(height * new_width / width)
+    head = zone.head_top if zone.head_top is not None else top
+    hands = zone.hands_bottom if zone.hands_bottom is not None else bottom
+    y = max(0, min(head - margin, height - new_height))
+    if y + new_height < min(height, hands + margin):
+        raise CropError("no crop keeps his head and hands while moving him outward")
+    # S-R keeps the left (text) side and trims the strip beyond him on the right; S-L mirrors
+    x = width - new_width if side == "S-L" else 0
+    box = (x, y, x + new_width, y + new_height)
+    return image.crop(box), box
+
+
+__all__ = ["Box", "CropError", "PersonZone", "detect", "safe_crop", "shift_crop"]

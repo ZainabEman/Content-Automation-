@@ -10,9 +10,11 @@ approve / reject: Proposed -> Approved or Rejected, and Approved <-> Rejected; a
 never changes.
 generate: stage 1 (free, `ca content start` unchanged) for every Approved row without a
 package, then one combined dry run with the cost per row and the total. generate --build
-(after the user's "ok") builds each ready row once with the normal build; person and set
-checks then go on per package with `ca content build`. A finished package makes its row
-Generated; a failed row stays Approved, is reported, and is never retried by itself.
+(after the user's "ok") builds each ready row once with the normal build, IMAGE_PARALLEL rows
+at a time (core/parallel.py); person and set checks then go on per package with `ca content
+build`. A finished package makes its row Generated; a failed row stays Approved and is reported;
+the next generate puts every failed row in its one combined dry run (2026-10-21), except Roman's
+Higgsfield image, which waits for the operator (`ca higgsfield accept` or a new attempt).
 The row's Content ID and Research source are saved in its package.json (the package's
 Drive folder name and its Content Tracker row).
 
@@ -44,6 +46,7 @@ from content_automation.content.package import (
     DONE_STATUS,
     PACKAGE_FILE,
     ContentPackage,
+    PackageResult,
     build_package,
     load_package,
     save_package,
@@ -681,8 +684,9 @@ def generate_rows(
 
     after_build runs for each package the build finished (the Drive sync); its lines are
     shown under the row. Returns the lines for Codex and the failed rows (reported at the
-    end, never retried). Inside a `ca` command each Approved row is a registry item (created
-    from the row if needed) and the dry run's cost lines are added to `costs`.
+    end; a later generate retries them in its combined dry run). Inside a `ca` command each
+    Approved row is a registry item (created from the row if needed) and the dry run's cost
+    lines are added to `costs`.
     """
     path = calendar_path(settings, label)
     plan_types = plan_only_types(settings.calendar_file)
@@ -699,6 +703,7 @@ def generate_rows(
         raise CalendarError(f"{path.name} has no Approved rows: approve rows first.")
     lines: list[str] = []
     failed: list[str] = []
+    queued: list[tuple[str, Row, Path]] = []  # build: the rows the pool makes
     total = 0.0
     ready = 0
     for row in approved:
@@ -741,10 +746,11 @@ def generate_rows(
             write_calendar(path, rows)
             runtime.report_part(item_id, "done")
             lines.append(f"{where}: Generated ({folder})")
-        elif state == "failed":
+        elif state == "failed" and not retryable(detail):
             failed.append(
-                f"{where}: failed earlier ({detail}); not retried. Only if the user agrees to "
-                f'the cost: uv run ca content build "{folder}"'
+                f"{where}: failed earlier ({detail}); Roman's Higgsfield image waits for the "
+                "operator: uv run ca higgsfield accept <key> --file <attempt.png>, or a new "
+                "costed attempt after a dry run"
             )
         elif state == "review":
             lines.append(
@@ -759,35 +765,54 @@ def generate_rows(
             lines.append(f"{where}: write content.md and brief.json in {folder}")
         elif state == "missing":
             failed.append(f"{where}: package folder {folder} not found")
-        else:  # ready: a valid package with brief.json
+        else:  # ready, or a failed row retried in the combined dry run (one estimate for all)
+            if state == "failed":
+                where += f" (retry: {detail[:120]})"
+            if build:  # made in the pool below (IMAGE_PARALLEL rows at once)
+                queued.append((where, row, folder))
+                continue
             try:
-                result = build_package(folder, settings, dry_run=not build)
+                result = build_package(folder, settings, dry_run=True)
             except (OSError, ValueError) as error:
                 failed.append(f"{where}: {error}")
                 continue
             ready += 1
             total += result.estimated_usd or 0.0
-            if costs is not None and not build:
+            if costs is not None:
                 costs += result.cost_lines
-            cost = f"about ${result.estimated_usd:.3f}" if not build else "built"
-            lines.append(f"{where}: {cost}")
+            lines.append(f"{where}: about ${result.estimated_usd:.3f}")
             lines += [f"  {line}" for line in result.lines
                       if not line.startswith(("DRY RUN:", "Estimated image cost:"))]
-            if build and result.package is not None:
-                lines.append(f"  Status: {result.package.status}")
-                if result.package.status == DONE_STATUS and settings.storage_provider == "plugin":
-                    if after_build is not None:  # writes upload_manifest.json
-                        lines += [f"  {line}" for line in after_build(folder)]
-                    lines.append("  Row turns Generated once the Drive plugin uploaded it "
-                                 "(ca drive record).")
-                elif result.package.status == DONE_STATUS:
-                    row["Status"] = "Generated"
-                    write_calendar(path, rows)
-                    lines.append("  Row is Generated.")
-                    if after_build is not None:
-                        lines += [f"  {line}" for line in after_build(folder)]
-                elif failure := _failed_part(result.package):
-                    failed.append(f"{where}: {failure}; not retried")
+    for (where, row, folder), outcome in zip(queued, _build_all(
+            [folder for _, _, folder in queued], settings), strict=True):
+        if isinstance(outcome, (OSError, ValueError)):
+            failed.append(f"{where}: {outcome}")
+            continue
+        if isinstance(outcome, BaseException):
+            raise outcome
+        result = outcome
+        ready += 1
+        total += result.estimated_usd or 0.0
+        lines.append(f"{where}: built")
+        lines += [f"  {line}" for line in result.lines
+                  if not line.startswith(("DRY RUN:", "Estimated image cost:"))]
+        if result.package is None:
+            continue
+        lines.append(f"  Status: {result.package.status}")
+        if result.package.status == DONE_STATUS and settings.storage_provider == "plugin":
+            if after_build is not None:  # writes upload_manifest.json
+                lines += [f"  {line}" for line in after_build(folder)]
+            lines.append("  Row turns Generated once the Drive plugin uploaded it "
+                         "(ca drive record).")
+        elif result.package.status == DONE_STATUS:
+            row["Status"] = "Generated"
+            write_calendar(path, rows)
+            lines.append("  Row is Generated.")
+            if after_build is not None:
+                lines += [f"  {line}" for line in after_build(folder)]
+        elif failure := _failed_part(result.package):
+            failed.append(f"{where}: {failure}; not retried by itself (the next \"generate "
+                          "approved\" puts it in one combined dry run)")
     if not build and ready:
         lines.append(
             f"Combined dry run: {ready} row(s), about ${total:.3f} in total (per row: its "
@@ -826,7 +851,8 @@ def ready_cost_lines(settings: Settings, catalog: DeliverableCatalog, label: str
         if row["Status"] not in APPROVED_STATES or not row["Package"]:
             continue
         folder = Path(row["Package"])
-        if _package_state(folder)[0] != "ready":
+        state, detail = _package_state(folder)
+        if not (state == "ready" or (state == "failed" and retryable(detail))):
             continue
         _row_item(row, label, catalog)
         try:
@@ -895,6 +921,33 @@ def _row_research(row: Row, research_dir: Path) -> tuple[str, ResearchIdea | Non
         raise CalendarError(f"research source must be {SOURCE_HELP}")
     path = research_dir / NEWSLETTER_DIR / f"{found[1]}{LIST_SUFFIX}"
     return row["Topic"], load_idea(path, int(found[2]))
+
+
+def retryable(detail: str) -> bool:
+    """A failed row that "generate approved" retries in its one combined dry run; Roman's
+    Higgsfield image is never retried by itself (the operator accepts it or orders a new,
+    costed attempt)."""
+    return not any(word in detail.lower() for word in ("higgsfield", "roman's image"))
+
+
+def _build_all(folders: list[Path], settings: Settings) -> list[PackageResult | BaseException]:
+    """Build the packages, IMAGE_PARALLEL at a time (core/parallel.py: only the provider calls
+    overlap); each build gets its own registry scope (its own current item)."""
+    from collections.abc import Callable
+    from dataclasses import replace
+    from functools import partial
+
+    from content_automation.core.parallel import run_all
+
+    def task(folder: Path) -> PackageResult:
+        scope = runtime.current()
+        if scope is None:
+            return build_package(folder, settings, dry_run=False)
+        with runtime.activate(replace(scope)):
+            return build_package(folder, settings, dry_run=False)
+
+    tasks: list[Callable[[], PackageResult]] = [partial(task, folder) for folder in folders]
+    return run_all(tasks, settings.image_parallel)
 
 
 def _package_state(folder: Path) -> tuple[str, str]:

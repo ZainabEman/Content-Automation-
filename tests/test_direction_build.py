@@ -117,10 +117,10 @@ def test_designer_prompt_keeps_the_designers_six_elements(mock_settings: Setting
     full = prepare_workflow("social_creative", _inputs("LI-2", copy,
                                                        direction_platform="linkedin"),
                             mock_settings)
-    assert [ref.asset_id for ref in full.request.object_refs] == ["brand-style-guide",
-                                                                  "brand-logo"]
+    # 2026-10-21: the logo file is never sent; the app adds the real logo afterwards
+    assert [ref.asset_id for ref in full.request.object_refs] == ["brand-style-guide"]
     assert [ref.asset_id for ref in full.request.style_refs] == ["ref-A01", "ref-A06"]
-    assert "designerMissing" not in full.inputs and "Images 3 to 4 are" in full.request.prompt
+    assert "designerMissing" not in full.inputs and "Images 2 to 3 are" in full.request.prompt
     # the guide is sent as its colour section, the ads as their logo-masked copies (R3.4)
     assert full.request.object_refs[0].path.name == "brand_style_guide_colours.jpg"
     assert all("facebook_ads_masked" in ref.path.as_posix()

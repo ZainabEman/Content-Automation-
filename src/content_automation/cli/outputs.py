@@ -1,5 +1,7 @@
 """`ca outputs migrate [--apply]` (PRD v6 R8): the old local outputs into
-outputs/_system/rejected_legacy/ (a dry run by default; nothing deleted, no record changed)."""
+outputs/_system/rejected_legacy/ (a dry run by default; nothing deleted, no record changed).
+`ca outputs collect [--week YYYY-Www]` (2026-10-21): copies of the passed final images into
+outputs/_system/review/<week>/ for quick viewing (the packages keep theirs)."""
 
 from typing import Annotated
 
@@ -11,6 +13,7 @@ from content_automation.content.outputs_migrate import (
     plan_lines,
     plan_migration,
 )
+from content_automation.core.output_tree import collect_final
 
 outputs_app = typer.Typer(no_args_is_help=True, help="The output folder tree (v6).")
 
@@ -30,3 +33,24 @@ def outputs_migrate(
         _fail(f"migration stopped: {error}")
     for line in [*plan_lines(plan, applied=apply), *done]:
         typer.echo(line)
+
+
+@outputs_app.command("collect")
+def outputs_collect(
+    week: Annotated[str | None, typer.Option(
+        "--week", help="Only this ISO week, e.g. 2026-W44 (default: every week).")] = None,
+) -> None:
+    """Copy the passed final images of the platform tree into outputs/_system/review/<week>/
+    for quick viewing (copies; never move or edit a package's final/ folder)."""
+    settings = _settings()
+    if week is not None and not (len(week) == 8 and week[4:6] == "-W" and week[:4].isdigit()
+                                 and week[6:].isdigit()):
+        _fail(f'--week must look like 2026-W44, not "{week}"', 2)
+    try:
+        copied = collect_final(settings.packages_dir, week)
+    except OSError as error:
+        _fail(f"collect stopped: {error}")
+    folders = sorted({target.parent for _, target in copied})
+    typer.echo(f"{len(copied)} final image(s) copied" + (": " + ", ".join(
+        folder.as_posix() for folder in folders) if folders else
+        " (no passed final images" + (f" in {week}" if week else "") + ")") + ".")

@@ -8,6 +8,8 @@ import threading
 import time
 from collections.abc import Callable
 
+from content_automation.core.parallel import released
+
 
 class OperationTimeoutError(TimeoutError):
     """The call did not finish within its time budget."""
@@ -35,7 +37,8 @@ def run_with_timeout[T](fn: Callable[[], T], timeout_s: float) -> T:
 
     worker = threading.Thread(target=target, name="provider-call", daemon=True)
     worker.start()
-    worker.join(timeout_s)
+    with released():  # a parallel build: the others run while this provider call waits
+        worker.join(timeout_s)
     if worker.is_alive():
         raise OperationTimeoutError(f"The provider did not respond within {timeout_s:g} seconds.")
     if "error" in outcome:

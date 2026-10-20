@@ -119,7 +119,7 @@
   },
   "checks": {
     "_note": "workflows/roman_check.py; shares of the canvas width unless named px (at 1080 px width)",
-    "personZoneShare": 0.25,
+    "personZoneShare": 0.4,
     "hologramZoneShare": 0.3334,
     "minGapPx": 48,
     "textZoneMaxStd": 30,

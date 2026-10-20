@@ -2,8 +2,11 @@
 
 `ca content build` writes a job file per image (outputs/_system/higgsfield/<key>/job.json: the
 Soul 2.0 prompt, the saved character, the aspect ratio, the expected output path and the credit
-estimate). Codex runs the plugin, saves the image, then records it here and builds again. At
-most 2 attempts per image; every attempt's credits count. Free and local: no provider call."""
+estimate). Codex runs the plugin, saves the image, then records it here and builds again. A
+failed check never makes a new image by itself (2026-10-21): the row stops and the operator
+runs `accept` (manual approval of an attempt, logged) or `retry` (a new costed attempt after a
+new dry run and the "ok"). Every attempt's credits count once. Free and local: no provider
+call."""
 
 from pathlib import Path
 from typing import Annotated
@@ -13,9 +16,11 @@ import typer
 from content_automation.ai.image import ImageError
 from content_automation.ai.image.higgsfield import (
     HiggsfieldSoulProvider,
+    accept,
     fail,
     pending_jobs,
     record,
+    retry,
 )
 from content_automation.cli.jobs import _fail, _settings
 
@@ -30,8 +35,12 @@ def _root() -> Path:
 
 @higgsfield_app.command("list")
 def higgsfield_list() -> None:
-    """The pending jobs Codex still has to run, with their instructions."""
+    """The pending jobs Codex still has to run, with their instructions, and the stopped ones
+    waiting for the operator's choice."""
     jobs = pending_jobs(_root())
+    stopped = pending_jobs(_root(), "needs_operator")
+    for job in stopped:
+        typer.echo(f"{job.data['key']}: waits for the operator. {job.operator_message()}")
     if not jobs:
         typer.echo("No pending Higgsfield jobs.")
         return
@@ -74,9 +83,32 @@ def higgsfield_fail(
         job = fail(_root(), key, error)
     except ImageError as problem:
         _fail(str(problem), 2)
-    if job.data["status"] == "failed":
-        typer.echo(f"{key}: failed after {len(job.data['attempts'])} attempts; no fallback. "
-                   "Tell the user.")
-    else:
-        typer.echo(f"{key}: attempt {len(job.data['attempts'])} of {job.data['maxAttempts']} is "
-                   f"next: uv run ca higgsfield list")
+    typer.echo(f"{key}: stopped; no new attempt by itself. Tell the user: "
+               + job.operator_message())
+
+
+@higgsfield_app.command("accept")
+def higgsfield_accept(
+    key: Key,
+    file: Annotated[Path, typer.Option("--file", help="The attempt image to approve (PNG).")],
+) -> None:
+    """The operator approves an attempt by hand (logged in job.json); then the build continues
+    from it (no new image, no new credits)."""
+    try:
+        job = accept(_root(), key, file)
+    except ImageError as error:
+        _fail(str(error), 2)
+    typer.echo(f"{key}: {Path(job.data['accepted']['file']).name} accepted by the operator "
+               "(logged). Now: uv run ca content build \"<package folder>\".")
+
+
+@higgsfield_app.command("retry")
+def higgsfield_retry(key: Key) -> None:
+    """The operator orders one new, costed attempt; Codex makes it only after a new dry run of
+    the package and the user's "ok"."""
+    try:
+        job = retry(_root(), key)
+    except ImageError as error:
+        _fail(str(error), 2)
+    typer.echo(f"{key}: attempt {len(job.data['attempts'])} is open. Run the package's dry run, "
+               "show the cost, and after the user's \"ok\": uv run ca higgsfield list.")

@@ -1267,7 +1267,8 @@ def _cost_lines(
     providers: dict[str, str] | None = None,
 ) -> list[CostLine]:
     """The dry run per item, job type and provider: what an "ok" would authorize (D-4). The
-    max of a part with the person includes one automatic redo of each such image. providers:
+    max of a part with the person includes one redo of each such image; a designer-mode image's
+    max includes its one regeneration and a composite fallback generation. providers:
     the image provider per part (the static carousel: OpenRouter)."""
     config = _job_config(settings)
     items = runtime.package_items(folder)
@@ -2081,8 +2082,9 @@ def _higgsfield_dry_line(inputs: dict[str, str | bool]) -> str:
     credits = float(config["estimatedCreditsPerImage"])
     return (f"Roman via Higgsfield {config['model']} ({inputs.get('romanCombination', '?')}; "
             f"Codex runs the plugin after the \"ok\"; ≈ {credits:g} Higgsfield credits per "
-            f"attempt (estimate, not calibrated), at most {config['maxAttempts']} attempts, "
-            "every attempt counted; person zone, layout, German and visual checks after)")
+            "attempt (estimate, not calibrated), every attempt counted; never a new image by "
+            "itself: a failed placement check stops the row for the operator (ca higgsfield "
+            "accept, or a new costed attempt); layout, German and visual checks after)")
 
 
 def _fit_size(path: Path, size: tuple[int, int]) -> None:
@@ -2311,6 +2313,10 @@ def _dry_run_lines(
             batch.cold = batch.cold and part is not settings
             if prepared.person_shown:
                 redo += estimate_cost_usd(prepared.request, own, cold_start=False)
+            elif prepared.request.options.get("designMode") == "designer":
+                # the max covers the one regeneration and a composite fallback generation
+                # (2026-10-21); the estimate stays one image per slot
+                redo += 2 * estimate_cost_usd(prepared.request, own, cold_start=False)
         total += cost
         costs[kind] = round(cost, 6)
         redos[kind] = round(redo, 6)

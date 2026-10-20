@@ -351,3 +351,13 @@ Q1 static carousels (animation already deleted 2026-10-16) · Q2 references as a
 - **Check thresholds:** the calm-zone thresholds (brightness spread 30, detail 12) and the
   skin-tone person detection are calibrated only on drawn stand-ins. Real Soul 2.0 output
   should be checked on the first images.
+
+## 2026-10-21: image model and checks
+
+- OpenRouter image model: `openai/gpt-image-2` (IMAGE_MODEL and CAROUSEL_IMAGE_MODEL).
+  Previous model, kept only as a note (not a fallback): `google/gemini-3.1-flash-image`.
+- The gpt-image-2 request (size 1024x1536/1024x1024/1536x1024, quality high, PNG) and its
+  estimate (~$0.28 per image) are unverified until the first paid run: check
+  `GET /api/v1/images/models/openai/gpt-image-2/endpoints` and the recorded `usage.cost`.
+- The text check reads with `google/gemini-2.5-flash` (config/designer_prompts.json
+  textCheck.model), since gpt-image-2 only makes images.

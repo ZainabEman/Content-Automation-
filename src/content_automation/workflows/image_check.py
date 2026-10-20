@@ -109,18 +109,48 @@ def _words(text: str) -> list[str]:
     return normalise(text).split()
 
 
+def _joined_words(read: Sequence[ReadText]) -> list[str]:
+    """The words read, with a word hyphenated across two lines joined again ("Automati-" +
+    "sierung"); a hyphen before a capital stays ("KI-" + "Agenten" -> "KI-Agenten")."""
+    words: list[str] = []
+    for item in read:
+        line = _words(item.text)
+        if words and line and words[-1].endswith("-") and len(words[-1]) > 1:
+            words[-1] = (words[-1][:-1] if line[0][:1].islower() else words[-1]) + line.pop(0)
+        words += line
+    return words
+
+
+def _same_word(read: str, intended: str) -> bool:
+    """Spelling, umlauts and ß must match; edge punctuation and quote style do not, and a word
+    the model set in capitals matches its capitalised form (ß -> SS in capitals)."""
+    first, second = read.strip(_EDGE_PUNCT + ".,:;!?"), intended.strip(_EDGE_PUNCT + ".,:;!?")
+    if first == second:
+        return True
+    return bool(first) and first.replace("ẞ", "SS").isupper() and (
+        first.replace("ẞ", "SS") == second.upper())
+
+
 def match_text(read: Sequence[ReadText], intended: Iterable[str],
-               allowed: Iterable[str] = ()) -> TextMatch:
+               allowed: Iterable[str] = (), *, tolerant: bool = False) -> TextMatch:
     """Find every intended string, word for word and in order, in the text read; what is left
-    is stray text. `allowed`: strings the app drew itself (the wordmark once, the website)."""
-    words = [word for item in read for word in _words(item.text)]
+    is stray text. `allowed`: strings the app drew itself (the wordmark once, the website).
+    tolerant (a build's own check): line breaks, hyphenation at a line end, edge punctuation
+    and capitals are normalised; the letters themselves must match."""
+    words = (_joined_words(read) if tolerant else
+             [word for item in read for word in _words(item.text)])
     used = [False] * len(words)
     result = TextMatch()
+
+    def same(found: list[str], target: list[str]) -> bool:
+        if not tolerant:
+            return found == target
+        return all(_same_word(a, b) for a, b in zip(found, target, strict=True))
 
     def take(target: list[str]) -> bool:
         size = len(target)
         for start in range(len(words) - size + 1):
-            if not any(used[start:start + size]) and words[start:start + size] == target:
+            if not any(used[start:start + size]) and same(words[start:start + size], target):
                 for index in range(start, start + size):
                     used[index] = True
                 return True
@@ -228,9 +258,14 @@ def check_base(image: Image.Image, category: str, rules: dict[str, Any]) -> list
 
 
 def check_image(image: Image.Image, facts: ImageFacts, rules: dict[str, Any],
-                base: bool = True) -> list[str]:
+                base: bool = True, warnings: list[str] | None = None) -> list[str]:
     """Every image-level error, each with its reason code (base=False: not the base colour,
-    e.g. Roman's Higgsfield photo, checked by workflows/roman_check.py instead)."""
+    e.g. Roman's Higgsfield photo, checked by workflows/roman_check.py instead).
+
+    warnings (a build's own check, not `ca design check` of a fixture): the text fails only for
+    a wrong or missing intended string or a logo/wordmark; small glyphs inside the illustration
+    ("AI" on a chip, short UI lines in a mockup), as in the approved references, and other stray
+    words are only reported into `warnings`."""
     errors = check_base(image, facts.category, rules.get("base", {})) if base else []
     carousel = facts.category == "instagram_carousel"
     logo_allowed = not facts.roman and (not carousel or facts.last_slide)
@@ -265,13 +300,22 @@ def check_image(image: Image.Image, facts: ImageFacts, rules: dict[str, Any],
         allowed.append(" ".join(WORDMARK))
     if facts.website:
         allowed.append(WEBSITE)
-    matched = match_text(facts.read, facts.intended, allowed)
+    lenient = warnings is not None
+    matched = match_text(facts.read, facts.intended, allowed, tolerant=lenient)
     errors += [f"[text_mismatch] the intended text is not in the image exactly: \"{text}\""
                for text in matched.missing]
-    errors += classify_leftover(matched.leftover, carousel=carousel)
-    language = german_check(read_all, "image text")  # what the audience actually sees
-    errors += [f"[not_german] {problem}" for problem in language.errors
-               if "English" in problem or "englisch" in problem.lower()]
+    leftover = classify_leftover(matched.leftover, carousel=carousel)
+    language = [f"[not_german] {problem}" for problem in german_check(
+        read_all, "image text").errors if "English" in problem or "englisch" in problem.lower()]
+    if not lenient:
+        return errors + leftover + language
+    marks = [word for word in matched.leftover if WEBSITE in word.lower()]
+    if marks:
+        errors.append(f"[extra_logo] the model drew the website ({' '.join(marks)}): only the "
+                      "app places the logo and the website")
+    errors += [found for found in leftover if found.startswith("[extra_logo]")]
+    assert warnings is not None
+    warnings += [found for found in leftover + language if not found.startswith("[extra_logo]")]
     return errors
 
 

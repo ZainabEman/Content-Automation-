@@ -105,6 +105,34 @@ def test_no_image_model_prompt_carries_coordinates(tmp_path: Path) -> None:
         check_clean("Keep the headline zone (x 6-34%, y 47-60%) dark.")
 
 
+def test_third_party_logos_in_a_reference_are_masked_before_it_is_sent(tmp_path: Path) -> None:
+    """K07 frame 1 shows a Google search bar: its "mask" boxes are painted over like the slide
+    counters, so the model never sees a third-party logo to copy."""
+    from content_automation.content.designer_prompt import load_refs
+
+    entry = load_refs()["refs"]["K07"]
+    left, top, right, bottom = entry["mask"][0]
+    frame = Image.new("RGB", (960, 960), (4, 6, 20))
+    ImageDraw.Draw(frame).rectangle((left * 960, top * 960, right * 960, bottom * 960),
+                                    fill=(255, 255, 255))
+    path = tmp_path / "refs" / entry["file"]
+    path.parent.mkdir(parents=True)
+    frame.save(path)
+    catalog = load_directions()
+    direction = catalog.get("CS-4").model_copy(update={"reference_ids": ["K07"]})
+    name, layout = next(iter(direction.layouts.items()))
+    made = designer_inputs(direction, layout, catalog, picture=ILLUSTRATION, topic="KI",
+                           copy=dict(sample_copy()[f"CS-4/{name}"]),
+                           references_dir=tmp_path / "refs", logo_path=None,
+                           cache_dir=tmp_path, mock=True)
+    [sent] = made.style_refs
+    assert sent.path != path
+    with Image.open(sent.path) as masked:
+        centre = (round((left + right) / 2 * 960), round((top + bottom) / 2 * 960))
+        pixel = masked.convert("RGB").getpixel(centre)
+    assert isinstance(pixel, tuple) and max(pixel) < 40  # the base colour, not the white bar
+
+
 def test_layout_words_name_sides_and_corners() -> None:
     catalog = load_directions()
     words = layout_words(catalog.get("FB-1").layouts["post"])

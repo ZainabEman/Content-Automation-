@@ -4,7 +4,7 @@
 3:4 (LinkedIn), 1:1 (square) and 4:5 (Facebook: made at 3:4, then the person-safe crop), with
 the founder variants' sample German copy, on the drawn stand-in for Roman. Every tile also runs
 the strict checks (overlap, calm text zones, German). Writes
-outputs/previews/design/roman_higgsfield_layouts.png.
+outputs/_system/previews/roman_higgsfield_layouts.png.
 
     uv run python scripts/roman_higgsfield_preview.py
 """
@@ -30,7 +30,7 @@ from content_automation.workflows.design_render import (
 )
 from content_automation.workflows.roman_check import run_checks
 
-OUT = Path("outputs/previews/design/roman_higgsfield_layouts.png")
+OUT = Path("outputs/_system/previews/roman_higgsfield_layouts.png")
 COMBINATIONS = ["S-R/BG-1/P-1/H-1", "S-L/BG-1/P-2/H-2", "S-R/BG-1/P-3/H-3",
                 "S-L/BG-2/P-1/H-2", "S-R/BG-2/P-2/H-3", "S-L/BG-2/P-3/H-1",
                 "S-L/BG-3/P-1/H-3", "S-R/BG-3/P-2/H-1", "S-L/BG-3/P-3/H-2"]

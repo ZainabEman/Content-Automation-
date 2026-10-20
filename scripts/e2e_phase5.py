@@ -179,28 +179,26 @@ def c6_c7_c8(notes: dict[int, list[str]]) -> None:
             approve(conn, idea.id, gate="idea", note="e2e: the user's approval")
     finally:
         conn.close()
+    # v5/v6: the plan fills the four categories only (no short, podcast or YouTube rows; YouTube
+    # is planned by `ca plan month`, scripts/e2e_v5.py) and names the slots left empty.
     code, out = _ca("calendar", "plan", "--month", MONTH)
-    notes[6].append("targets met, balanced" if code == 0 and "Targets met." in out
-                    and "within ±" in out else f"failed: {out[:300]}")
     conn = _db()
     try:
-        videos = [i for i in list_items(conn) if i.deliverable == "youtube_longform"]
-        shorts = children(conn, videos[0].id) if videos else []
-        decision = list_decisions(conn, videos[0].id)[0] if videos else None
-        notes[7].append("child items, inherited approval" if shorts and decision
+        planned = [i for i in list_items(conn) if i.parent_id and i.planned_date]
+        kinds = {i.deliverable for i in planned}
+        notes[6].append(f"{len(planned)} rows, {len(kinds)} categories"
+                        if code == 0 and planned and kinds <= CATEGORIES
+                        else f"failed: {sorted(map(str, kinds))} {out[:300]}")
+        parent = planned[0].parent_id if planned else None
+        rows = children(conn, parent) if parent else []
+        decision = list_decisions(conn, rows[0].id)[0] if rows else None
+        notes[7].append("child items, inherited approval" if rows and decision
                         and decision.actor == "system" and "inherited" in (decision.text or "")
                         else "failed: no children or inheritance")
-        from content_automation.registry.items import set_planned_date
-
-        if videos and videos[0].planned_date:
-            set_planned_date(conn, videos[0].id, videos[0].planned_date + timedelta(days=3))
     finally:
         conn.close()
-    shown = _ca("calendar", "show", "--month", MONTH)[1]
-    notes[6].append("short blocked" if "blocked: waiting for" in shown
-                    else "failed: short not blocked")
     code, out = _ca("calendar", "generate", "--week", WEEK)
-    notes[8].append("plan-only rows skipped" if "not producible until Phase 8/9" in out
+    notes[8].append("drafts with a dry-run next step" if code == 0 and "--dry-run" in out
                     else f"failed: {out[-300:]}")
 
 
@@ -215,15 +213,16 @@ def c9(notes: list[str]) -> None:
                  else "failed: German sources")
 
 
+CATEGORIES = {"instagram_carousel", "facebook_post", "facebook_ad", "linkedin_post"}
 CRITERIA = {
     1: "newsletter list -> ideas with sources, purposes, original URLs, run counts",
     2: "a duplicate from another source is merged; sources kept",
     3: "claim rules: 1 secondary unverified, 2 publishers verified, old outdated, no --status",
     4: "a manual topic is kept verbatim and goes through dedupe and scoring",
     5: "an off-strategy idea is flagged, not dropped",
-    6: "calendar plan --month meets targets, keeps pillar balance, blocks shorts",
+    6: "calendar plan --month fills only the four v5 categories (no short/podcast/YouTube rows)",
     7: "planned rows are child items with inherited approval in the log",
-    8: "generate approved skips youtube/podcast/short with a clear message",
+    8: "calendar generate makes drafts and points to a --dry-run build (nothing paid)",
     9: "German candidate sources are present (enabled since the live fix d5d9607; v5 R9.3)",
 }
 

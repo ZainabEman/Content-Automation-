@@ -503,8 +503,8 @@ def _apply_deliverables(
             override=format_override if is_combination(format_override) else None)
         package.roman_combination = combination.id
         lines.append(f"Roman: {combination.id} ({why}); Higgsfield Soul 2.0 with "
-                     f"{character_token()}; text, logo and CTA on the "
-                     f"{'left' if combination.roman_right else 'right'}")
+                     f"{character_token()}; text and CTA on the "
+                     f"{'left' if combination.roman_right else 'right'} (no logo, no website)")
     package.variation = None
     if direction is not None:
         package.variation, why = _choose_variation(folder, package, direction[0], settings)

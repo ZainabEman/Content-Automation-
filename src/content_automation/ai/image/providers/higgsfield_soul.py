@@ -201,7 +201,8 @@ def instructions(job: HiggsfieldJob) -> list[str]:
         f"7. If it fails: uv run ca higgsfield fail {key} --error \"<the reason>\" (no retry "
         "by yourself; a second attempt only comes from ca).",
         "8. Then continue the build: uv run ca content build \"<package folder>\"; the app "
-        "checks Roman's position, crops, adds the German text, logo and CTA, and checks again.",
+        "checks Roman's position, crops, adds the German text and CTA (no logo, no website on "
+        "a Roman creative), and checks again.",
     ]
 
 

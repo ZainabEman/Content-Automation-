@@ -253,9 +253,9 @@ def main() -> int:
     results = run(keep="--keep" in sys.argv)
     for text, passed, note in results:
         print(f"{'PASS' if passed else 'FAIL'} {text}" + (f" ({note})" if note else ""))
-    passed = sum(ok for _, ok, _ in results)
-    print(f"{passed}/{len(results)} passed")
-    return 0 if passed == len(results) else 1
+    count = sum(ok for _, ok, _ in results)
+    print(f"{count}/{len(results)} passed")
+    return 0 if count == len(results) else 1
 
 
 if __name__ == "__main__":

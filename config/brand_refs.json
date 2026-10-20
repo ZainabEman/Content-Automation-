@@ -111,7 +111,21 @@
       "last": "creative/carousels/carousel_07/day 8 carasuals/_frames/1 animation day 8_2.jpg",
       "kind": "instagram_carousel",
       "use": "short headline left, neon line icon right, dot grids",
-      "sha256": "a9d0f0955a336f31c5a319b38feef3a2a78213b7a584b2b5c9940f59a92d9905"
+      "sha256": "a9d0f0955a336f31c5a319b38feef3a2a78213b7a584b2b5c9940f59a92d9905",
+      "mask": [
+        [
+          0.48,
+          0.535,
+          0.95,
+          0.645
+        ],
+        [
+          0.58,
+          0.445,
+          0.815,
+          0.705
+        ]
+      ]
     },
     "K08": {
       "file": "creative/carousels/carousel_08/_frames/day 9..1_2.jpg",

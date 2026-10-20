@@ -152,8 +152,9 @@ def guide_image(pdf: Path, cache_dir: Path, crop: list[float] | None = None) -> 
 
 
 def masked_reference(path: Path, boxes: list[list[float]], cache_dir: Path) -> Path:
-    """A carousel frame with its top corners (logo, old slide counters) painted in its own base
-    colour, so the model never sees a logo or a counter to copy."""
+    """A reference with its boxes (carousel top corners with logo and old slide counters, and any
+    third-party logo listed for that reference) painted in its own base colour, so the model never
+    sees a logo or a counter to copy."""
     import hashlib
 
     key = hashlib.sha256(f"{path.as_posix()}|{boxes}".encode()).hexdigest()[:16]
@@ -309,18 +310,21 @@ def designer_texts(layout: Layout, copy: dict[str, Any]) -> tuple[list[str], lis
 
 
 def _ref_files(direction: Direction, references_dir: Path, limit: int,
-               role: str | None) -> list[tuple[str, Path, str, str]]:
+               role: str | None) -> list[tuple[str, Path, str, str, list[list[float]]]]:
+    """(id, file, use, kind, mask boxes) per reference; the boxes cover third-party logos and
+    brand marks in that file ("mask" for the first frame, "lastMask" for the last one)."""
     refs = load_refs().get("refs", {})
-    found: list[tuple[str, Path, str, str]] = []
+    found: list[tuple[str, Path, str, str, list[list[float]]]] = []
     for ref_id in direction.reference_ids[:limit]:
         entry = refs.get(ref_id)
         if not isinstance(entry, dict):
             raise DesignerPromptError(f"{direction.id}: reference {ref_id} is not in "
                                       f"{REFS_FILE} (approved company references only)")
-        name = str(entry.get("last") if role == "cta" and entry.get("last") else
-                   entry.get("masked") or entry["file"])
+        last = role == "cta" and bool(entry.get("last"))
+        name = str(entry["last"] if last else entry.get("masked") or entry["file"])
+        boxes = [list(map(float, box)) for box in entry.get("lastMask" if last else "mask", [])]
         found.append((ref_id, references_dir / name, str(entry.get("use", "")),
-                      str(entry.get("kind", ""))))
+                      str(entry.get("kind", "")), boxes))
     return found
 
 
@@ -383,13 +387,13 @@ def designer_inputs(direction: Direction, layout: Layout, catalog: DirectionCata
     else:
         missing.append(f"official logo {logo_path}")
     styles: list[ReferenceImage] = []
-    for ref_id, path, _, kind in refs:
+    for ref_id, path, _, kind, own_boxes in refs:
         if not path.is_file():
             missing.append(f"reference {ref_id} {path}")
             continue
-        sent = path
-        if kind == "instagram_carousel":
-            sent = masked_reference(path, list(refs_config.get("carouselMask", [])), cache_dir)
+        boxes = list(refs_config.get("carouselMask", [])) if kind == "instagram_carousel" else []
+        boxes += own_boxes  # third-party logos (e.g. a search bar) the model must never copy
+        sent = masked_reference(path, boxes, cache_dir) if boxes else path
         styles.append(ReferenceImage(asset_id=f"ref-{ref_id}", path=sent,
                                      source=f"{ref_id} {path.name} (logo masked)", people=None,
                                      logo=False))
@@ -401,7 +405,7 @@ def designer_inputs(direction: Direction, layout: Layout, catalog: DirectionCata
     values["referenceImages"] = (
         f"Images {first} to {first + len(styles) - 1} are" if len(styles) > 1
         else f"Image {first} is" if styles else "No images are attached as")
-    values["references"] = "; ".join(f"{ref_id}: {use}" for ref_id, path, use, _ in refs
+    values["references"] = "; ".join(f"{ref_id}: {use}" for ref_id, path, use, _, _ in refs
                                      if path.is_file()) or "the dark Branded Genius look above"
     exact, described = designer_texts(layout, copy)
     values["texts"] = "; ".join(described) or "(no text on this image)"

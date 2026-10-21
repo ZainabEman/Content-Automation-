@@ -190,7 +190,8 @@ def run_image_job(
                 with Image.open(io.BytesIO(image.data)) as source:
                     picture = None if settings.image_provider == "template" else source.convert(
                         "RGB")
-                    drawn, report = design.render(picture, settings)
+                    drawn, report = design.render(
+                        picture, settings, manual_acceptances=result.manual_acceptances)
                 path = job.folder / f"image-{index}.png"
                 drawn.image.save(path, format="PNG", optimize=True)
                 manifest = drawn.manifest() | {"copy": design.copy, "check": {
@@ -204,6 +205,10 @@ def run_image_job(
                         f"{name} {value}" for name, value in report.checks.items()
                         if name != "spelling") + ".")
                     job.notes.append(report.checks.get("spelling", ""))
+                if result.manual_acceptances:
+                    job.notes.append("Operator-accepted checks: " + "; ".join(
+                        f"{name}: {reason}" for name, reason in
+                        sorted(result.manual_acceptances.items())) + ".")
                 if report.errors:
                     raise DirectionJobError(f"{path.name} failed the design check: "
                                             + "; ".join(report.errors))

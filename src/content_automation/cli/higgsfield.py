@@ -91,15 +91,23 @@ def higgsfield_fail(
 def higgsfield_accept(
     key: Key,
     file: Annotated[Path, typer.Option("--file", help="The attempt image to approve (PNG).")],
+    accept_text_zone_calm: Annotated[
+        bool,
+        typer.Option("--accept-text-zone-calm", help="Log the user's acceptance of the failed "
+                     "text-area calm check only; all other checks still run."),
+    ] = False,
 ) -> None:
     """The operator approves an attempt by hand (logged in job.json); then the build continues
     from it (no new image, no new credits)."""
     try:
-        job = accept(_root(), key, file)
+        job = accept(_root(), key, file,
+                     accept_text_zone_calm=accept_text_zone_calm)
     except ImageError as error:
         _fail(str(error), 2)
+    note = (" Text-area calm acceptance logged; other checks still run."
+            if accept_text_zone_calm else "")
     typer.echo(f"{key}: {Path(job.data['accepted']['file']).name} accepted by the operator "
-               "(logged). Now: uv run ca content build \"<package folder>\".")
+               f"(logged).{note} Now: uv run ca content build \"<package folder>\".")
 
 
 @higgsfield_app.command("retry")

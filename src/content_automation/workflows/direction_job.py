@@ -241,7 +241,9 @@ class DirectionDesign:
             raise DirectionJobError(f"{self.direction}: the image cannot be cut out "
                                     f"({error}); make it again, never a real photo") from None
 
-    def render(self, generated: Image.Image | None, settings: Settings) -> tuple[Rendered, Report]:
+    def render(self, generated: Image.Image | None, settings: Settings, *,
+               manual_acceptances: dict[str, str] | None = None
+               ) -> tuple[Rendered, Report]:
         """Draw the design on the picture (designer mode: only the logo and the website), then
         check it: the manifest, the image itself and the text read back (R3.6)."""
         catalog = load_directions()
@@ -281,7 +283,8 @@ class DirectionDesign:
                                 person_check=self.person_check)
         if direction.visual.subject == "roman_higgsfield":  # the strict checks (2026-10-20)
             side = "S-L" if self.layout == SIDE_LAYOUTS["S-L"] else "S-R"
-            roman, _ = run_checks(manifest, side, None if mock else generated)
+            roman, _ = run_checks(manifest, side, None if mock else generated,
+                                  manual_acceptances=manual_acceptances)
             report.errors += roman.errors
             report.checks = roman.results
         if generated is not None and settings.image_provider != "template":

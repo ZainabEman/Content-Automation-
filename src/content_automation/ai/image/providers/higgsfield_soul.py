@@ -124,6 +124,12 @@ class HiggsfieldJob:
         self.folder = folder
         self.data = data
 
+    @staticmethod
+    def key_for_request(request: ImageRequest) -> str:
+        key = (f"{request.prompt}|{request.aspect_ratio}|"
+               f"{request.options.get('combination', '')}")
+        return hashlib.sha256(key.encode()).hexdigest()[:12]
+
     @classmethod
     def for_request(cls, request: ImageRequest, root: Path) -> HiggsfieldJob:
         config = guidelines()
@@ -131,8 +137,7 @@ class HiggsfieldJob:
         aspect = generation_aspect(request.aspect_ratio, config)
         if aspect not in higgsfield["aspectRatios"]:
             raise ImageRequestError(f"{aspect} is not a Soul 2.0 aspect ratio")
-        key = hashlib.sha256(f"{request.prompt}|{request.aspect_ratio}|"
-                             f"{request.options.get('combination', '')}".encode()).hexdigest()[:12]
+        key = cls.key_for_request(request)
         folder = root / key
         path = folder / JOB_FILE
         if path.is_file():
@@ -195,13 +200,13 @@ class HiggsfieldJob:
         stamp = datetime.now(UTC).isoformat(timespec="seconds")
         self.data.setdefault("log", []).append(f"{stamp} {text}")
 
-    def uncharged_usd(self) -> float | None:
+    def uncharged_usd(self) -> float:
         """The credits not charged to a registry job yet, in USD (then marked charged)."""
         credits = self.credits() - float(self.data.get("chargedCredits") or 0)
         self.data["chargedCredits"] = self.credits()
         self.save()
         usd = float(guidelines()["higgsfield"]["usdPerCredit"])
-        return round(credits * usd, 4) if credits > 0 else None
+        return round(max(0.0, credits) * usd, 4)
 
     def operator_message(self) -> str:
         key = self.data["key"]
@@ -302,10 +307,12 @@ def fail(root: Path, key: str, error: str) -> HiggsfieldJob:
     return job
 
 
-def accept(root: Path, key: str, file: Path) -> HiggsfieldJob:
+def accept(root: Path, key: str, file: Path, *,
+           accept_text_zone_calm: bool = False) -> HiggsfieldJob:
     """`ca higgsfield accept`: the operator approves one attempt's image by hand (logged); the
     build continues from it without the placement check blocking (the shift crop is still used
-    when it helps). Credits a failed build charged already are not charged again."""
+    when it helps). The explicit text-zone option accepts only that failed check. Credits a
+    failed build charged already are not charged again."""
     job = _load(root, key)
     if not file.is_file():
         raise ImageRequestError(f"{file} is not a file")
@@ -327,12 +334,19 @@ def accept(root: Path, key: str, file: Path) -> HiggsfieldJob:
     if job.data["status"] == "failed" and "chargedCredits" not in job.data:
         job.data["chargedCredits"] = job.credits()  # its failed build charged them already
     number = attempt["n"] if attempt is not None else None
+    previous = job.data.get("accepted")
+    checks = dict(previous.get("checks", {})) if isinstance(previous, dict) else {}
+    if accept_text_zone_calm:
+        checks["textZoneCalm"] = "accepted by the user for this image"
     job.data["accepted"] = {"attempt": number, "file": str(target), "by": "operator",
-                            "at": datetime.now(UTC).isoformat(timespec="seconds")}
+                            "at": datetime.now(UTC).isoformat(timespec="seconds"),
+                            "checks": checks}
     if attempt is not None:
         attempt["accepted"] = True
     job.data["status"] = "delivered"
-    job.log(f"accepted by the operator: {target.name} (attempt {number or 'external'})")
+    accepted = ", accepted checks: textZoneCalm" if accept_text_zone_calm else ""
+    job.log(f"accepted by the operator: {target.name} (attempt {number or 'external'})"
+            f"{accepted}")
     job.save()
     return job
 
@@ -383,6 +397,15 @@ class HiggsfieldSoulProvider:
         base = self.settings.output_dir.parent if self.settings is not None else Path("outputs")
         return base / "higgsfield"
 
+    def has_charged_delivery(self, request: ImageRequest) -> bool:
+        """True only when this exact request already has a delivered, fully charged image."""
+        path = self.root() / HiggsfieldJob.key_for_request(request) / JOB_FILE
+        if not path.is_file():
+            return False
+        job = HiggsfieldJob(path.parent, json.loads(path.read_text(encoding="utf-8")))
+        charged = float(job.data.get("chargedCredits") or 0)
+        return job.delivered() is not None and job.credits() <= charged
+
     def waiting(self, request: ImageRequest) -> Path | None:
         """The job file while no checked image exists for this request (it is written)."""
         job = HiggsfieldJob.for_request(request, self.root())
@@ -420,8 +443,12 @@ class HiggsfieldSoulProvider:
         if problems:
             job.stop("placement: " + "; ".join(problems))
             raise ImageProviderError(job.operator_message(), cost_usd=job.uncharged_usd())
-        record_to["checks"] = {"personZone": "accepted by the operator"
-                               if isinstance(accepted, dict) else "passed"}
+        check_results = record_to.get("checks")
+        if not isinstance(check_results, dict):
+            check_results = {}
+        check_results["personZone"] = ("accepted by the operator"
+                                        if isinstance(accepted, dict) else "passed")
+        record_to["checks"] = check_results
         job.save()
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
@@ -431,7 +458,13 @@ class HiggsfieldSoulProvider:
             provider=self.name, model=str(job.data["model"]),
             provider_request_ids=[f"higgsfield-{job.data['key']}"],
             cost_usd=job.uncharged_usd(),
-            metrics={"credits": credits, "attempts": float(len(job.data["attempts"]))})
+            metrics={"credits": credits, "attempts": float(len(job.data["attempts"]))},
+            manual_acceptances={
+                name: str(reason)
+                for name, reason in ((accepted.get("checks") or {}).items()
+                                     if isinstance(accepted, dict) else [])
+                if name == "textZoneCalm"
+            })
 
 
 def create_provider(settings: Settings | None = None) -> HiggsfieldSoulProvider:

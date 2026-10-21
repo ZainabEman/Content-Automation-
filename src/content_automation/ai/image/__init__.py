@@ -136,6 +136,8 @@ class ImageResult(BaseModel):
     cost_usd: float | None = None  # actual charge, when the provider reports it
     # Provider-reported numbers kept in the job record (timings, the seed of each image).
     metrics: dict[str, float] = Field(default_factory=dict)
+    # Operator approvals that a later workflow check may honor, recorded by the provider job.
+    manual_acceptances: dict[str, str] = Field(default_factory=dict)
 
 
 class ProviderCapabilities(BaseModel):
@@ -231,6 +233,11 @@ def estimate_cost_usd(
     """cold_start=False: a request that follows another one on a warm worker, so the
     per-request cost (est_cost_usd_per_request) is not counted again."""
     settings = settings or load_settings(require_credentials=False)
+    if settings.image_provider == "higgsfield_soul":
+        from content_automation.ai.image.providers.higgsfield_soul import create_provider
+
+        if create_provider(settings).has_charged_delivery(request):
+            return 0.0
     capabilities = get_provider(settings.image_provider, settings).capabilities
     per_image = capabilities.est_cost_usd_per_image.get(request.image_size, 0.0)
     per_request = capabilities.est_cost_usd_per_request if cold_start else 0.0

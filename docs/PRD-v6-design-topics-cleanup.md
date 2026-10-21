@@ -223,6 +223,7 @@ Every image in `tests/fixtures/rejected/` must fail with the right reason.
   4. Contrast and margins pass.
   5. The German is correct and the tone is professional.
   6. Codex does a final visual check: readable, no overlap, German correct.
+- **Operator acceptance:** after the user's explicit approval, `ca higgsfield accept --accept-text-zone-calm` may waive only the calm-text-area check for the accepted image. The override is logged with the accepted attempt; all other checks, including the final visual check, still block on failure.
 - **R4.6 Roman creatives carry no logo and no company website.** This applies in every category.
 - **R4.7** Every Roman image gets the AI-disclosure field and label (EU AI Act Art. 50).
 - **R4.8** Images of people other than Roman may only show anonymous professionals, as in the references, and are never presented as Roman.

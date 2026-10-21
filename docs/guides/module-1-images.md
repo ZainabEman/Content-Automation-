@@ -420,6 +420,15 @@ Set these in `.env`:
 - Temporary errors (rate limit, server busy) are retried per image; images already made are
   never requested twice. Timeouts are not retried.
 
+### Roman images made with Higgsfield
+
+Roman's founder graphics use Soul 2.0 and the saved character. If a user accepts a generated
+image after the text-area calm check fails, record that decision with
+`uv run ca higgsfield accept <key> --file <attempt.png> --accept-text-zone-calm`. The decision
+is stored on that Higgsfield job and applies only to the accepted image and the calm-area check.
+The app still checks Roman's placement, text overlap, contrast, German and the finished image.
+Resuming an already charged image reports zero new provider cost.
+
 ## Troubleshooting
 
 | Message | What to do |

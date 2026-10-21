@@ -196,11 +196,12 @@ def test_person_left_stops_for_the_operator_never_regenerates(
     assert provider.waiting(request) is None  # no new attempt by itself
     with pytest.raises(ImageProviderError) as again:
         provider.generate(request, "soul")
-    assert again.value.cost_usd is None  # never charged twice
+    # never charged twice: 0.0, not None (None made the registry charge the estimate again)
+    assert again.value.cost_usd == 0.0
     job = accept(provider.root(), key, provider.root() / key / "attempt-1.png")
     assert job.data["accepted"]["by"] == "operator" and job.data["log"]
     result = provider.generate(request, "soul")  # the build continues from the accepted image
-    assert result.images and result.cost_usd is None
+    assert result.images and result.cost_usd == 0.0  # charged already (BG-137 job 56)
 
 
 def test_figure_in_the_middle_fails_the_zone(make_settings: Callable[..., Settings],

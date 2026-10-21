@@ -166,7 +166,9 @@ def german_problems(texts: list[tuple[str, str]]) -> tuple[list[str], str]:
 
 
 def run_checks(manifest: Mapping[str, Any], side: str, picture: Image.Image | None,
-               *, guidelines: dict[str, Any] | None = None) -> tuple[RomanChecks, str]:
+               *, guidelines: dict[str, Any] | None = None,
+               manual_acceptances: Mapping[str, str] | None = None
+               ) -> tuple[RomanChecks, str]:
     """The overlap, calm and German checks (design_check runs contrast, sizes, margins, logo);
     the second value says how spelling was checked."""
     rules = (guidelines or load_guidelines())["checks"]
@@ -178,9 +180,15 @@ def run_checks(manifest: Mapping[str, Any], side: str, picture: Image.Image | No
     if picture is None:
         checks.record("textZoneCalm", [], skipped="no picture (mock)")
     else:
-        checks.record("textZoneCalm", calm_problems(
-            picture, manifest, max_std=float(rules["textZoneMaxStd"]),
-            max_detail=float(rules["textZoneMaxDetail"])))
+        calm = calm_problems(picture, manifest,
+                             max_std=float(rules["textZoneMaxStd"]),
+                             max_detail=float(rules["textZoneMaxDetail"]))
+        accepted = (manual_acceptances or {}).get("textZoneCalm")
+        if calm and accepted:
+            checks.results["textZoneCalm"] = (
+                f"accepted by the operator despite: {'; '.join(calm)} ({accepted})")
+        else:
+            checks.record("textZoneCalm", calm)
     texts = [(str(text.get("zone")), str(text.get("text", "")))
              for text in manifest.get("texts") or []]
     problems, spelling = german_problems(texts)

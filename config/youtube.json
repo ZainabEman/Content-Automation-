@@ -22,6 +22,7 @@
   },
   "outputDir": "outputs/YouTube Long-Form",
   "wordsPerMinute": 130,
+  "_wordsPerMinuteNote": "PRD Phase 2 P2-R5: the speaking pace for the length and the storyboard timings; ~130 until calibrated on Roman's real takes (words of a recorded script / its minutes). The length target stays targetWords.",
   "targetWords": [
     1300,
     1600
@@ -31,24 +32,45 @@
     "A": {
       "folder": "Style A",
       "name": "Investigativ",
+      "opening": "incident",
       "approach": "Start with a real, documented incident; uncover its causes and consequences step by step, like an investigation; end with what companies and people should do now."
     },
     "B": {
       "folder": "Style B",
       "name": "Direkte Warnung",
+      "opening": "question",
       "approach": "Start with the immediate risk or a direct question to the viewer; give the evidence quickly; spend the most time on the practical response."
     },
     "C": {
       "folder": "Style C",
       "name": "Menschlich",
+      "opening": "scenario",
       "approach": "Start with a realistic everyday or workplace scenario, clearly framed as illustrative (\"Stellen Sie sich vor ...\"); tie it to the verified facts and end with solutions. Never present the scenario as a real event and never as something Roman experienced."
     }
+  },
+  "openingTypes": {
+    "_note": "P2-R3/R4: how a script opens; the outline (research.txt section 12) names one per style, each style a different one. The difference check reads the first sentence: question (it ends with ?), scenario (an illustrativeMarker), quote (it starts with a quotation mark), else a statement (incident, statistic or contradiction: the outline decides).",
+    "incident": "a documented case, told as it happened",
+    "question": "a direct question to the viewer",
+    "scenario": "an illustrative everyday scenario, framed as such (Stellen Sie sich vor ...)",
+    "statistic": "one verified number and what it means",
+    "quote": "an exact quotation from the research",
+    "contradiction": "a common belief, then what the facts show"
+  },
+  "spoken": {
+    "_note": "P2-R5 warnings of the teleprompter check (german-editorial references/german-style.md, Gesprochenes Deutsch): sentences over sentenceMaxWords words, symbols, brackets and slashes, written abbreviations, digits not written for speaking (numeric dates, ranges with a dash, a digit glued to a letter). Never blocking.",
+    "sentenceMaxWords": 15,
+    "abbreviations": ["z. B.", "z.B.", "bzw.", "ca.", "usw.", "d. h.", "d.h.", "u. a.", "u.a.", "inkl.", "evtl.", "ggf.", "Nr.", "Mio.", "Mrd.", "Tsd.", "etc.", "vgl.", "sog.", "Dr.", "Prof."],
+    "attributionWords": ["laut", "zufolge", "berichtet", "berichten", "meldet", "melden", "Studie", "Umfrage", "Befragung", "Polizei", "Ermittler", "Staatsanwaltschaft", "Bericht", "Statistik"]
   },
   "similarity": {
     "openingWords": 60,
     "maxOpeningOverlap": 0.35,
     "maxTextOverlap": 0.45,
-    "_note": "the free difference check between two styles: share of shared word trigrams in the openings and in the whole scripts; above the limit the pair is flagged as too similar"
+    "maxSentenceOverlap": 0.15,
+    "sentenceRatio": 0.8,
+    "minSameFactOrder": 3,
+    "_note": "the free difference check between two styles: share of shared word trigrams in the openings and in the whole scripts; above the limit the pair is flagged as too similar. 2026-10-22 (P2-R4): also the same opening type (the first sentence, or the outline's when both are statements), the same order of the outline points (section 12 order) or of the facts the scripts use (at least minSameFactOrder facts), and the share of near-identical sentences (difflib ratio at least sentenceRatio) above maxSentenceOverlap"
   },
   "firstPersonExperience": [
     "ich habe erlebt",

@@ -130,6 +130,36 @@ def fact_found(fact: str, text: str) -> bool:
     return hits / len(words) >= KEY_WORD_SHARE
 
 
+def _fact_id_lines(research: Research, pages: dict[str, Page], report: SourceReport) -> None:
+    """One line per fact ID: its source (publisher, date) and status. A quoted Beleg must be in
+    the page word for word (then the fact may paraphrase it, also from an English page); else the
+    fact's (or the paraphrase's) numbers and key words must be there. Never "verified"."""
+    report.lines.append("Facts by ID (sections 7 and 11a):")
+    for fact in research.fact_ids.values():
+        open_pages = [ref for ref in fact.refs if ref in pages and pages[ref].ok]
+        cited = "; ".join(f"{ref} {research.sources[ref].publisher}, "
+                          f"{research.sources[ref].date or 'no date'}"
+                          for ref in fact.refs if ref in research.sources) or "no source"
+        if fact.quoted:
+            found = [ref for ref in open_pages
+                     if normalize(fact.support) in normalize(pages[ref].text)]
+            status = (f"Beleg quotation FOUND in {', '.join(found)}: needs human check" if found
+                      else "Beleg quotation NOT FOUND")
+        else:
+            found = [ref for ref in open_pages if fact_found(fact.text, pages[ref].text)
+                     or (fact.support and fact_found(fact.support, pages[ref].text))]
+            status = (f"needs human check (words found in {', '.join(found)})" if found
+                      else "NOT FOUND")
+        report.lines.append(f'- {fact.id} ({cited}): {status}: "{fact.text[:80]}"')
+        if found:
+            report.human_checks += 1
+        elif fact.quoted:
+            report.failures.append(f"{fact.id}: the Beleg quotation is not in its source page")
+        else:
+            report.failures.append(f'{fact.id}: fact its source does not mention: '
+                                   f'"{fact.text[:60]}"')
+
+
 def check_sources(research: Research) -> SourceReport:
     """Fetch every source once, then check quotations and facts against the pages."""
     report = SourceReport()
@@ -162,22 +192,25 @@ def check_sources(research: Research) -> SourceReport:
             report.lines.append(f'- NOT FOUND in {", ".join(refs) or "no source"}: '
                                 f'"{quote[:80]}"')
             report.failures.append(f'quotation not in its source page: "{quote[:60]}"')
-    report.lines.append("Facts (sections 7 and 11a):")
-    seen: set[str] = set()
-    for fact, refs in [*research.facts, *research.verified]:
-        if fact in seen:
-            continue
-        seen.add(fact)
-        found = [ref for ref in refs if ref in pages and pages[ref].ok
-                 and fact_found(fact, pages[ref].text)]
-        if found:
-            report.human_checks += 1
-            report.lines.append(f'- needs human check (words found in {", ".join(found)}): '
-                                f'"{fact[:80]}"')
-        else:
-            report.lines.append(f'- NOT FOUND in {", ".join(refs) or "no source"}: '
-                                f'"{fact[:80]}"')
-            report.failures.append(f'fact its source does not mention: "{fact[:60]}"')
+    if research.fact_ids:  # P2-R2 (2026-10-22): the status per fact ID
+        _fact_id_lines(research, pages, report)
+    else:  # an older research file without fact IDs
+        report.lines.append("Facts (sections 7 and 11a):")
+        seen: set[str] = set()
+        for fact, refs in [*research.facts, *research.verified]:
+            if fact in seen:
+                continue
+            seen.add(fact)
+            found = [ref for ref in refs if ref in pages and pages[ref].ok
+                     and fact_found(fact, pages[ref].text)]
+            if found:
+                report.human_checks += 1
+                report.lines.append(f'- needs human check (words found in {", ".join(found)}): '
+                                    f'"{fact[:80]}"')
+            else:
+                report.lines.append(f'- NOT FOUND in {", ".join(refs) or "no source"}: '
+                                    f'"{fact[:80]}"')
+                report.failures.append(f'fact its source does not mention: "{fact[:60]}"')
     report.lines.append(f"Result: {'PASSED' if report.passed else 'FAILED'} "
                         f"({len(report.failures)} problem(s); {report.human_checks} fact(s) "
                         "need a human check before use)")

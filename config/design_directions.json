@@ -3277,7 +3277,7 @@
           },
           "fields": {
             "headline": "the cover hook in German, at most 9 words; key words *like this*",
-            "sub": "optional: one German line, at most 12 words",
+            "sub": "optional: one German line, at most 15 words (config/copy_rules.json bodyMaxWords)",
             "illustration": "this slide's picture in English for the image model: one object or icon cluster for this point, nothing written, no people"
           },
           "zones": {
@@ -3559,7 +3559,7 @@
           },
           "fields": {
             "headline": "the closing question or call in German, at most 9 words",
-            "sub": "optional: one German line, at most 12 words",
+            "sub": "optional: one German line, at most 15 words (config/copy_rules.json bodyMaxWords)",
             "website": "optional: write ja to show brandedgenius.de; leave empty for none",
             "illustration": "this slide's picture in English for the image model: one object or icon cluster for this point, nothing written, no people"
           },
@@ -3829,7 +3829,7 @@
           },
           "fields": {
             "headline": "the cover hook in German, at most 9 words; key words *like this*",
-            "sub": "optional: one German line, at most 12 words",
+            "sub": "optional: one German line, at most 15 words (config/copy_rules.json bodyMaxWords)",
             "illustration": "this slide's picture in English for the image model: one object or icon cluster for this point, nothing written, no people"
           },
           "zones": {
@@ -4123,7 +4123,7 @@
           },
           "fields": {
             "headline": "the closing question or call in German, at most 9 words",
-            "sub": "optional: one German line, at most 12 words",
+            "sub": "optional: one German line, at most 15 words (config/copy_rules.json bodyMaxWords)",
             "website": "optional: write ja to show brandedgenius.de; leave empty for none",
             "illustration": "this slide's picture in English for the image model: one object or icon cluster for this point, nothing written, no people"
           },
@@ -4392,7 +4392,7 @@
           },
           "fields": {
             "headline": "the cover hook in German, at most 9 words; key words *like this*",
-            "sub": "optional: one German line, at most 12 words",
+            "sub": "optional: one German line, at most 15 words (config/copy_rules.json bodyMaxWords)",
             "illustration": "this slide's picture in English for the image model: one object or icon cluster for this point, nothing written, no people"
           },
           "zones": {
@@ -4678,7 +4678,7 @@
           },
           "fields": {
             "headline": "the closing question or call in German, at most 9 words",
-            "sub": "optional: one German line, at most 12 words",
+            "sub": "optional: one German line, at most 15 words (config/copy_rules.json bodyMaxWords)",
             "website": "optional: write ja to show brandedgenius.de; leave empty for none",
             "illustration": "this slide's picture in English for the image model: one object or icon cluster for this point, nothing written, no people"
           },
@@ -4947,7 +4947,7 @@
           },
           "fields": {
             "headline": "the cover hook in German, at most 9 words; key words *like this*",
-            "sub": "optional: one German line, at most 12 words",
+            "sub": "optional: one German line, at most 15 words (config/copy_rules.json bodyMaxWords)",
             "illustration": "this slide's picture in English for the image model: one object or icon cluster for this point, nothing written, no people"
           },
           "zones": {
@@ -5220,7 +5220,7 @@
           },
           "fields": {
             "headline": "the closing question or call in German, at most 9 words",
-            "sub": "optional: one German line, at most 12 words",
+            "sub": "optional: one German line, at most 15 words (config/copy_rules.json bodyMaxWords)",
             "website": "optional: write ja to show brandedgenius.de; leave empty for none",
             "illustration": "this slide's picture in English for the image model: one object or icon cluster for this point, nothing written, no people"
           },

@@ -1,6 +1,6 @@
 ---
 name: german-editorial
-description: Write and check the German copy of every Branded Genius social piece (Instagram carousel, Facebook post, Facebook ad, LinkedIn post) for German business readers, the text on the image (headline, body, chips, CTA) and the caption with its hashtags. make-content, make-calendar ("rewrite copy for <week>"), make-carousel, write-script and distribute use it whenever they write social copy. Also "run editorial evals". Free; nothing is generated.
+description: Write and check the German copy of every Branded Genius social piece (Instagram carousel, Facebook post, Facebook ad, LinkedIn post) for German business readers, the text on the image (headline, body, chips, CTA) and the caption with its hashtags. make-content, make-calendar ("rewrite copy for <week>"), make-carousel, write-script and distribute use it whenever they write social copy; make-youtube uses its spoken-German rules for the teleprompter scripts. Also "run editorial evals". Free; nothing is generated.
 ---
 
 # German editorial
@@ -31,4 +31,4 @@ This is the one source of writing rules for social copy. Code enforces some of t
 
 ## Evals ("run editorial evals")
 
-[evals.json](evals.json) holds 8 cases (input → expectations, including negative cases). On request, write each case as above and report, per case, which expectations hold and which don't. It is not a test suite and costs nothing.
+[evals.json](evals.json) holds 12 cases (8 social, 4 YouTube; input → expectations, including negative cases). On request, write each case as above and report, per case, which expectations hold and which don't. It is not a test suite and costs nothing.

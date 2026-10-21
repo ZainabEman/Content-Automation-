@@ -50,9 +50,9 @@ from content_automation.core.files import atomic_write_text
 from content_automation.references.services import ServiceCatalog
 
 ROMAN_FORMAT = "roman"  # the calendar's Format value for a requires_roman row
-# R7.4 + the existing platform limits (config/formulas.json social_graphic: 3-5); LinkedIn is
-# planned with exactly 3 so it also fits the context doc's LinkedIn 0-3 (#BrandedGenius included)
-HASHTAGS = {"linkedin": (3, 3), "facebook": (3, 5), "instagram": (3, 5)}
+# R7.4 + the existing platform limits (config/formulas.json social_graphic: 3-5, #BrandedGenius
+# included); 2026-10-22: LinkedIn too 3-5, 3 by default (it was planned with exactly 3)
+HASHTAGS = {"linkedin": (3, 5), "facebook": (3, 5), "instagram": (3, 5)}
 _HOW_TO = re.compile(r"\b(wie|so |schritte?|tipps?|checkliste|fehler|anzeichen|regeln|"
                      r"how|steps?|tips?|checklist|mistakes?|signs)\b", re.IGNORECASE)
 _NEWS = re.compile(r"\b(studie|bericht|umfrage|gesetz|verordnung|ai act|ki-verordnung|bsi|"
@@ -163,7 +163,8 @@ def metadata_template(deliverable: str, platform: str, roman: bool) -> dict[str,
         "headline": "<German headline on the image>",
         "hook": "<German hook: line 1 of the caption>",
         "caption": "<German caption: hook, takeaways, one question, the CTA>",
-        "hashtags": f"<{low}-{high} hashtags incl. #BrandedGenius>" if low != high else
+        "hashtags": f"<{low}-{high} hashtags incl. #BrandedGenius, {low} by default>"
+                    if low != high else
                     f"<exactly {low} hashtags incl. #BrandedGenius>",
         "cta": "<German call to action>",
         "altText": "<German alt text>",

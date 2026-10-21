@@ -86,6 +86,46 @@
         "no engagement bait; the question invites a real answer",
         "the address is \"Sie\" (a Facebook post)"
       ]
+    },
+    {
+      "id": 9,
+      "name": "YOUTUBE NEGATIVE: invented quote",
+      "input": {"deliverable": "youtube_longform", "step": "research BG-x", "request": "Add a strong quote from the police chief; the press release has none."},
+      "expectations": [
+        "section 8 stays \"none\" (or holds only exact words from an opened page)",
+        "no script contains a quotation that section 8 does not hold",
+        "if the quote were added, uv run ca youtube check-sources reports it NOT FOUND and the check fails"
+      ]
+    },
+    {
+      "id": 10,
+      "name": "YOUTUBE NEGATIVE: citation in the teleprompter file",
+      "input": {"deliverable": "youtube_longform", "draft": "Laut Polizei lag der Schaden bei über 120.000 Euro [F3] (Quelle: polizei.bayern.de)."},
+      "expectations": [
+        "uv run ca youtube check fails the style: a citation, URL or source note (not spoken)",
+        "the rewrite keeps the fact as a spoken sentence without [F#], [S#], URL or Quelle:",
+        "the storyboard scene of that sentence names F3 in its sources"
+      ]
+    },
+    {
+      "id": 11,
+      "name": "YOUTUBE NEGATIVE: three styles with the same opening",
+      "input": {"deliverable": "youtube_longform", "draft": "Style A, B and C all open with \"Würden Sie einer Anlage vertrauen, …?\""},
+      "expectations": [
+        "the difference check flags the pairs: the same opening type (question)",
+        "the rewrite follows research.txt section 12: A incident, B question, C scenario (or the types the outline names)",
+        "the thesis and the fact IDs stay the same in all three"
+      ]
+    },
+    {
+      "id": 12,
+      "name": "YOUTUBE NEGATIVE: English missing a sentence",
+      "input": {"deliverable": "youtube_longform", "draft": "a bilingual block whose German has 4 sentences and whose English has 3"},
+      "expectations": [
+        "uv run ca youtube check warns: fewer English sentences than German, translate every sentence",
+        "the German stays word for word the teleprompter's",
+        "the corrected English has one English block per German block and a sentence for every German sentence"
+      ]
     }
   ]
 }

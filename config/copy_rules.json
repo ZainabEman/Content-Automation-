@@ -39,9 +39,18 @@
     "_note": "P1-R5: free, deterministic. In the graphic copy, the caption and the ad texts: numbers (a scenario timing before a scenarioUnits word, 24/7 and a count before an ownCounts word excepted), percentages, euro amounts, years, organisation names (organisations, or a name with an inner capital such as OpenAI) and studyWords statements must be found in the evidence: the editorial proof, the insights, research.md and the cited articles, brand/proof.md and the verified services (config/services.json). Otherwise the item fails with \"unbelegte Aussage\". allowNames are never claims (channels, the brand).",
     "studyWords": ["Studie", "Studien", "Umfrage", "Untersuchung", "Erhebung", "Forscher", "Forschende", "Forschenden", "laut", "Paper"],
     "scenarioUnits": ["Sekunde", "Sekunden", "Minute", "Minuten", "Stunde", "Stunden", "Tag", "Tage", "Tagen", "Woche", "Wochen", "Uhr"],
-    "ownCounts": ["Fragen", "Schritte", "Tipps", "Wege", "Gründe", "Punkte", "Ideen", "Regeln", "Fehler"],
+    "ownCounts": ["Fragen", "Schritte", "Tipps", "Wege", "Gründe", "Punkte", "Ideen", "Regeln", "Fehler", "Schritten", "Punkten", "Wegen", "Dinge", "Dingen"],
     "organisations": ["Google", "Meta", "Microsoft", "OpenAI", "Apple", "Amazon", "Cloudflare", "Anthropic", "DeepSeek", "Perplexity", "HubSpot", "Salesforce", "SAP", "Bitkom", "BSI", "IHK", "DIHK", "Statista", "McKinsey", "Gartner", "Deloitte", "PwC", "Fraunhofer", "Destatis", "EU-Kommission", "Bundesregierung", "Verbraucherzentrale", "Stiftung Warentest"],
-    "allowNames": ["Branded Genius", "BrandedGenius", "WhatsApp", "LinkedIn", "Facebook", "Instagram", "YouTube", "TikTok"]
+    "allowNames": ["Branded Genius", "BrandedGenius", "WhatsApp", "LinkedIn", "Facebook", "Instagram", "YouTube", "TikTok"],
+    "_numberWordsNote": "2026-10-22: written numbers from zwei upwards are claims like digits (\"vier Tools\", \"sieben von zehn\"); ein/eine never are. The evidence may hold the digits, the German word or the English word (englishNumberWords). shareWords: a share of a group is a claim too; one of its markers must be in the evidence.",
+    "numberWords": {"zwei": 2, "drei": 3, "vier": 4, "fünf": 5, "sechs": 6, "sieben": 7, "acht": 8, "neun": 9, "zehn": 10, "elf": 11, "zwölf": 12, "dreizehn": 13, "vierzehn": 14, "fünfzehn": 15, "sechzehn": 16, "siebzehn": 17, "achtzehn": 18, "neunzehn": 19, "zwanzig": 20, "dreißig": 30, "vierzig": 40, "fünfzig": 50, "sechzig": 60, "siebzig": 70, "achtzig": 80, "neunzig": 90, "hundert": 100, "tausend": 1000},
+    "englishNumberWords": {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90, "hundred": 100, "thousand": 1000},
+    "shareWords": {
+      "hälfte": ["hälfte", "half", "50"],
+      "drittel": ["drittel", "third", "33"],
+      "doppelt": ["doppelt", "double", "twice", "zweimal"],
+      "jede zweite": ["jede zweite", "jeder zweite", "jedes zweite", "every second", "half", "hälfte", "50"]
+    }
   },
   "style": {
     "_note": "P1-R2/R7 warnings in the copy review (never blocking): a caption or ad-text sentence over sentenceMaxWords words; a sentence with nounChainMin or more nouns ending in nounSuffixes (Nominalstil: write the verb).",
@@ -86,6 +95,7 @@
       "address": "du",
       "headlineMaxWords": 12,
       "bodyMaxWords": 15,
+      "bodyMaxWordsBySlide": {"_note": "2026-10-22: the slide type's layout limit (design_directions.json point body hint: at most 35 words) is the hard limit of the middle slides; bodyMaxWords is for the cover and the last slide only", "point": 35},
       "sentenceCase": true,
       "ctaRequired": false,
       "ctas": ["Jetzt speichern", "Mehr erfahren"]

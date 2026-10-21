@@ -25,8 +25,8 @@ Beispielartikel 1 erschienen am 2026-10-02 [S1]; Beispielartikel 2 erschienen am
 [S2] https://example.org/artikel-2
 
 == 7. KEY STATISTICS AND FACTS (each with its source) ==
-- Die Buchhaltung sollte nach dem Anruf eine Überweisung über 48.000 Euro freigeben [S1]
-- Eine feste Rückruf-Regel über eine bekannte Nummer verhinderte die Zahlung [S2]
+- [F1] Die Buchhaltung sollte nach dem Anruf eine Überweisung über 48.000 Euro freigeben [S1]
+- [F2] Eine feste Rückruf-Regel über eine bekannte Nummer verhinderte die Zahlung [S2]
 
 == 8. QUOTATIONS (accurately attributed) ==
 - "Die Stimme klang genau wie die unseres Geschäftsführers" — Leiterin der Buchhaltung (Beispielfall) [S1]
@@ -38,14 +38,25 @@ Ein Einzelfall aus einer Beispielquelle; keine Aussage über Häufigkeit.
 Beide Quellen sind Testseiten (MOCK); in echter Recherche hier Widersprüche und Lücken nennen.
 
 == 11a. VERIFIED FACTS ==
-- Die Buchhaltung sollte nach dem Anruf eine Überweisung über 48.000 Euro freigeben [S1]
-- Eine feste Rückruf-Regel über eine bekannte Nummer verhinderte die Zahlung [S2]
+- [F1] Die Buchhaltung sollte nach dem Anruf eine Überweisung über 48.000 Euro freigeben [S1]
+- [F2] Eine feste Rückruf-Regel über eine bekannte Nummer verhinderte die Zahlung [S2]
 
 == 11b. INTERPRETATION ==
 Stimme allein ist kein Beweis mehr für die Identität einer Person.
 
 == 11c. PROPOSED SOLUTIONS ==
 Rückruf über eine bekannte Nummer, Vier-Augen-Prinzip bei Zahlungen, ein vereinbartes Codewort, Schulung der Teams.
+
+== 12. ARGUMENT OUTLINE (before drafting the scripts) ==
+Thesis: Eine vertraute Stimme ist kein Beweis mehr; eine feste Rückruf-Regel schützt die Zahlung.
+Point 1: Eine geklonte Stimme forderte eine Eilüberweisung über 48.000 Euro. [F1]
+Point 2: Die Buchhaltung hätte auf Zuruf gezahlt. [F1]
+Point 3: Ein Rückruf über eine bekannte Nummer verhinderte die Zahlung. [F2]
+Meaning: Jedes Unternehmen, das Zahlungen auf Zuruf freigibt, ist angreifbar.
+Takeaway: Zahlungen nur nach einem Rückruf über eine bekannte Nummer freigeben.
+Style A: angle: der Ablauf des Falls | opening: incident | order: 1, 2, 3
+Style B: angle: das Risiko für Ihre Buchhaltung | opening: question | order: 3, 1, 2
+Style C: angle: der Moment am Telefon | opening: scenario | order: 2, 1, 3
 
 == VERIFICATION (written by ca youtube check-sources) ==
 (not checked yet)

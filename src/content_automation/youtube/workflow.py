@@ -34,10 +34,13 @@ from content_automation.youtube.scripts import (
     TELEPROMPTER,
     bilingual_problems,
     bilingual_text,
+    bilingual_warnings,
     brief_text,
     similarity_flags,
     storyboard_text,
+    storyboard_warnings,
     teleprompter_problems,
+    trace_warnings,
 )
 from content_automation.youtube.sources import check_sources
 from content_automation.youtube.topic import (
@@ -215,6 +218,8 @@ def check_scripts(conn: sqlite3.Connection, bg_id: str, *,
     item = _approved(conn, bg_id)
     folder = find_folder(item.id, root)
     data = read_package(folder)
+    path = research_file(folder)
+    found = research_file_module.read(path) if path.exists() else None
     texts: dict[str, str] = {}
     lines: list[str] = []
     ok = True
@@ -231,15 +236,25 @@ def check_scripts(conn: sqlite3.Connection, bg_id: str, *,
         bilingual = latest(target / BILINGUAL)
         errors += (bilingual_problems(text, bilingual.read_text(encoding="utf-8"))
                    if bilingual.exists() else [f"no {BILINGUAL}: uv run ca youtube bilingual"])
+        if bilingual.exists():
+            warnings += bilingual_warnings(text, bilingual.read_text(encoding="utf-8"))
+        traced = ""
+        if found is not None and found.fact_ids:  # P2-R2: script sentences → fact IDs
+            traced, untraced = trace_warnings(text, found)
+            warnings += untraced
+        board = latest(target / STORYBOARD)
+        if board.exists():  # P2-R7, once the storyboards are written and filled
+            warnings += storyboard_warnings(board.read_text(encoding="utf-8"))
         ok = ok and not errors
-        lines.append(f"Style {key}: {'PASS' if not errors else 'FAIL'}")
+        lines.append(f"Style {key}: {'PASS' if not errors else 'FAIL'}"
+                     + (f" ({traced})" if traced else ""))
         lines += [f"  error: {error}" for error in errors]
         lines += [f"  warning: {warning}" for warning in warnings]
         data.setdefault("styles", {})[key] = {
             "teleprompter": teleprompter.relative_to(folder).as_posix(),
             "bilingual": bilingual.relative_to(folder).as_posix(),
             "check": "passed" if not errors else "failed", "warnings": warnings}
-    flags = similarity_flags(texts)
+    flags = similarity_flags(texts, found)
     lines += [f"Difference check: {flag}" for flag in flags] or (
         ["Difference check: the styles differ."] if len(texts) > 1 else [])
     write_package(folder, data)

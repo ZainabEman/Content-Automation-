@@ -91,7 +91,7 @@ def test_metadata_topics_services_and_cost(settings: Settings) -> None:
             assert set(meta["adFields"]) == {"primaryText", "headline", "description",
                                              "ctaButton"}
         if asset.platform == "linkedin":
-            assert "exactly 3" in meta["hashtags"]
+            assert "3-5 hashtags" in meta["hashtags"]  # 2026-10-22: 3-5, 3 by default
         if asset.requires_roman:
             assert "KI-generiertes Bild" in meta["aiDisclosure"]
     with_topic = [a for a in assets if a.topic]

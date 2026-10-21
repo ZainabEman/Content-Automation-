@@ -354,9 +354,14 @@ def item_problems(item: CopyItem, brief: ContentBrief,
         if (carousel and rule.get("sentenceCase") and sum(c.isalpha() for c in page.headline) > 3
                 and page.headline == page.headline.upper()):
             problems.append(f"{at}: carousel headlines are in sentence case, not capitals")
-        if _words(page.body) > int(rule["bodyMaxWords"]):
+        middle = carousel and 1 < number < len(item.pages)  # a carousel's point slides
+        body_max = int(rule.get("bodyMaxWordsBySlide", {}).get(page.role or "",
+                                                               rule["bodyMaxWords"])
+                       if middle else rule["bodyMaxWords"])
+        if _words(page.body) > body_max:
             problems.append(f'{at}: body "{page.body}" has {_words(page.body)} words (at most '
-                            f"{rule['bodyMaxWords']}: one concrete benefit in one sentence)")
+                            f"{body_max}: " + ("one point, in short lines)" if middle else
+                                               "one concrete benefit in one sentence)"))
         if found := _unexplained(page.body, jargon, markers):
             problems.append(f"{at}: jargon in the body ({', '.join(found)}): explain it in plain "
                             "words right after it or leave it out")
@@ -569,10 +574,27 @@ def claim_problems(where: str, texts: list[tuple[str, str]], evidence: str,
                                                      claims["studyWords"])
                        + r")(?![\wäöüß])", re.IGNORECASE)
     allowed = {name.casefold() for name in claims["allowNames"]}
+    # 2026-10-22: written numbers ("vier Tools") and shares ("die Hälfte") are claims too; the
+    # evidence may hold the digits, the German word or the English one ("four")
+    evidence_words = set(re.findall(r"[a-zäöüß]+", evidence.lower()))  # lower keeps "ß"
+    values = {int(number) for number in numbers if number.isdigit()}
+    for table in (claims["numberWords"], claims["englishNumberWords"]):
+        values |= {int(value) for word, value in table.items() if word in evidence_words}
+    spoken = re.compile(r"(?<![\wäöüß])(" + "|".join(sorted(claims["numberWords"], key=len,
+                                                           reverse=True))
+                        + r")(?![\wäöüß])", re.IGNORECASE)
+    shares = {word: re.compile(r"(?<![\wäöüß])" + (r"jede[rs]?\s+zweite[nrs]?" if word ==
+                                                   "jede zweite" else re.escape(word) + r"\w*")
+                               + r"(?![\wäöüß])", re.IGNORECASE)
+              for word in claims["shareWords"]}
 
     def named(name: str) -> bool:  # "DeepSeeks" (genitive) is DeepSeek
         low = name.casefold()
         return low in allowed or low in known or (low.endswith("s") and low[:-1] in known)
+
+    def marked(marker: str) -> bool:
+        return marker in numbers or re.search(
+            rf"(?<![\wäöüß]){re.escape(marker)}(?![\wäöüß])", known) is not None
 
     found: list[str] = []
     for at, text in texts:
@@ -582,6 +604,15 @@ def claim_problems(where: str, texts: list[tuple[str, str]], evidence: str,
             number = match.group(0)  # "26,2" in German is "26.2" in an English source
             if not {number, number.replace(",", "."), number.replace(".", ",")} & numbers:
                 found.append(f'{at} "{number}"')
+        for match in spoken.finditer(text):
+            if after.match(text, match.end()):
+                continue
+            if int(claims["numberWords"][match.group(1).lower()]) not in values:
+                found.append(f'{at} "{match.group(1)}"')
+        for word, pattern in shares.items():
+            if (hit := pattern.search(text)) and not any(
+                    marked(marker) for marker in claims["shareWords"][word]):
+                found.append(f'{at} "{hit.group(0)}"')
         names = {match.group(0) for match in _INNER_CAPS.finditer(text)}
         names |= {name for name in claims["organisations"]
                   if re.search(rf"(?<![\w-]){re.escape(name)}(?![\w])", text)}

@@ -13,14 +13,14 @@ Each category has its own rule in `config/copy_rules.json` `categories.<category
 ## The caption (every category)
 - **Shape:** `hook` (line 1), 3–5 `takeaways`, one `question`, optional `closingDe`, then the `cta` line with the link and the hashtags, including #BrandedGenius.
 - **Limits** (code): the word range is `CAPTION_MIN_WORDS`/`CAPTION_MAX_WORDS` and `CAPTION_MAX_WORDS_BY_PLATFORM` in `content/quality.py`. Takeaways and hashtags follow `MIN_TAKEAWAYS`/`MAX_TAKEAWAYS` and `MIN_HASHTAGS`/`MAX_HASHTAGS` in `content/brief.py`.
-- **Takeaways** teach something usable today: who does what, when and through which channel, said as the reader's business step. Never a checklist for technicians. Don't start every line with the same label (such as "Website-Check:").
+- **Takeaways** teach something usable today, said as the reader's business step, never a checklist for technicians. The caption as a whole needs one concrete element (a channel or tool, a timing, a number, a quote or an example: checked once per caption, not per takeaway). No fixed label in front of the takeaways (such as "Website-Check:"): the dry run refuses a label that starts two or more of them.
 - **CTA:** with a verified service, the `cta` names the offer from the `Offer:` line in `brand/services.md` (checked). An insight-only post asks a question instead and makes no sales ask. It works on the platform: Instagram asks for a comment keyword, a save or a DM; Facebook points to the link in the caption.
 - **One specific element** from the proof. No invented anecdote.
 
 ## LinkedIn (`linkedin_post`, "Sie")
 - The hook sits in the first ~140 characters, on one line (before "…mehr anzeigen").
 - 1–2-line paragraphs, a business takeaway for decision makers, a soft CTA and the existing word range.
-- Hashtags: the code allows 3–5, but AGENTS.md asks for exactly 3 on LinkedIn, so write 3 until Roman decides.
+- Hashtags: 3–5, by default 3 (2026-10-22).
 - Professional tone: no slang, no emoji.
 
 ## Facebook post (`facebook_post`, "Sie")
@@ -36,6 +36,7 @@ Each category has its own rule in `config/copy_rules.json` `categories.<category
 ## Instagram carousel (`instagram_carousel`, "du")
 - "du"/"dein" on every slide AND in the caption, in sentence case.
 - The cover is a trend or provocation hook. Then one idea per slide. The last slide asks for engagement: a question to comment on, or save/share.
+- Body length: `bodyMaxWords` on the cover and the last slide; a point slide may use its layout's limit (`bodyMaxWordsBySlide`, the same number as the slide hint), in 2–4 short lines.
 - Caption hashtags as above.
 
 ## The same topic on several platforms

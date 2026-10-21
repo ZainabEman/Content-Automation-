@@ -36,3 +36,20 @@ This is business German, not Einfache Sprache: write the way a good German busin
 
 ## Read-aloud test
 Read the piece aloud once. If you stumble, run out of breath or would never say it to a customer, rewrite it.
+
+## Gesprochenes Deutsch (YouTube teleprompter scripts)
+
+Roman reads `script_de_teleprompter.txt` aloud, so write for the ear. Everything above still applies; these rules come on top. The settings are in `config/youtube.json`, and `uv run ca youtube check BG-x` warns about what it can see.
+
+- **One thought per sentence.** Aim for 8–15 words; `spoken.sentenceMaxWords` warns above that. No nested clauses: two short sentences beat one long one.
+- **Verb early, and the Verbklammer short.** "Die Polizei nahm den Mann im Juni fest." Not: "Die Polizei hat den Mann, der im März ein Video gesehen hatte, im Juni festgenommen."
+- **The most important point first**, in the script, in each paragraph and in each sentence.
+- **Spoken connectors without filler:** "Und genau hier …", "Das heißt …", "Was bedeutet das für Sie?". Never "Im Folgenden" or "Zusammenfassend lässt sich sagen".
+- **Numbers as spoken, and only the ones that are needed:** "21 Prozent", "über 120.000 Euro", "am 29. Juni". Never "%", "€", "29.06." or "10–12" (write "zehn bis zwölf"); the check warns about digits that aren't written for speaking.
+- **No brackets, slashes or symbols.** Say it as its own sentence. Write abbreviations out ("zum Beispiel", not "z. B."; `spoken.abbreviations`). Letter words that are spoken as letters (KI, BSI) are fine.
+- **Repeat names instead of switching synonyms.** "Die Polizei" stays "die Polizei", never "die Beamten" in one sentence and "die Behörde" in the next.
+- **Address the viewer as "Sie"** (`address`).
+- **Honesty:** Roman never claims an experience he didn't have (`firstPersonExperience` is refused). Style C's scenario is framed as illustrative ("Stellen Sie sich vor …", `illustrativeMarkers`) and is never presented as a real event.
+- **Facts only from research.txt**, written so that each factual sentence can be traced to its fact ID [F#]. The IDs themselves, sources, URLs, headings and English never appear in the teleprompter file.
+- **Length and pace:** the target is `targetWords`. `wordsPerMinute` (about 130) sets the timings until it is calibrated on Roman's own recordings.
+- **Read it aloud once, with a stopwatch.** Every sentence must work without punctuation, because the viewer only hears it.

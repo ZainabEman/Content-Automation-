@@ -13,14 +13,19 @@ with `research.txt` and `Style A/`, `Style B/`, `Style C/` (each: `script_de_tel
 
 ## Rules (always)
 
-- German for everything the audience hears or sees, natural for people in Germany, "Sie"
-  (config/youtube.json `address`). Internal notes and the agency's explanations may be English.
+- **Writing rules:** the german-editorial skill, `references/german-style.md` (including
+  "Gesprochenes Deutsch" for the teleprompter) and `references/review-rubric.md`. Everything the
+  audience hears or sees is German; internal notes and the agency's explanations may be English.
 - Real incidents, current developments and documented problems first; relevant to Germany; no
   exaggerated fear or clickbait.
 - **Never invent** a news story, statistic, URL, article title, quotation or event. Write only
   what you read on a page you opened. Unknown → leave it out or write "unknown".
-- German sources first (config/sources_de.json is a starting list, not a filter); international
-  primary sources may supplement.
+- **Source tiers** (P2-R1): 1. primary and official sources (BSI, Destatis, the EU, police,
+  courts, ministries, company statements) and studies named with their publisher (for example
+  Bitkom); 2. established German media (tagesschau, heise, Handelsblatt, FAZ, SZ, Zeit, t3n,
+  netzpolitik.org); 3. international primary sources as a supplement. Newsletters are leads only:
+  open and cite the original source. A social post only illustrates, with clear attribution, and
+  is never the sole proof of a fact. `config/sources_de.json` is a starting list, not a filter.
 - Never imply Roman experienced or witnessed something he did not. Style C scenarios are
   illustrative and say so ("Stellen Sie sich vor …").
 - Stop for the user's words where a step says so; never approve or override for the user.
@@ -36,31 +41,49 @@ with `research.txt` and `Style A/`, `Style B/`, `Style C/` (each: `script_de_tel
    `uv run ca item approve|reject …`).
 2. **"research BG-x"** → `uv run ca youtube research BG-x` writes `research.txt`. Fill
    every section from the pages you opened: sources as `[S1] Title | Publisher | YYYY-MM-DD`
-   (section 5) and `[S1] https://full-url` (section 6); facts as `- <fact exactly as the source
-   states it> [S1]`; quotations as `- "<exact words>" — <name, role> [S2]` (or "none");
-   sections 11a verified facts, 11b interpretation, 11c proposed solutions. Run the command again
-   until it says "complete".
+   (section 5) and `[S1] https://full-url` (section 6); facts with a fact ID as
+   `- [F1] <fact exactly as the source states it> [S1] | Beleg: "<the supporting words from the
+   page>"` (the Beleg is optional: quoted, the check finds it word for word, also on an English
+   page; unquoted, it is a paraphrase), the same fact keeps its ID in sections 7 and 11a;
+   quotations as `- "<exact words>" — <name, role> [S2]` (or "none"); sections 11a verified
+   facts, 11b interpretation, 11c proposed solutions; section 12 the **argument outline** the
+   three scripts are drafted from: `Thesis:`, `Point 1-4:` each with its `[F#]`, `Meaning:` (for
+   German businesses or people), `Takeaway:` and per style `Style A: angle: … | opening: <type>
+   | order: 1, 2, 3` (opening types: `openingTypes` in config/youtube.json; every style a
+   different opening and order). Run the command again until it says "complete".
 3. **"check sources BG-x"** → `uv run ca youtube check-sources BG-x` (opens each URL; free).
-   It writes status, final URL, title and date, checks every quotation in the page text and flags
-   facts the source does not mention, into the file's VERIFICATION section. "needs human check"
+   It writes status, final URL, title and date, checks every quotation in the page text and
+   reports every fact ID with its source and status (a quoted Beleg must be in the page), into
+   the file's VERIFICATION section. "needs human check"
    means words were found, not that the claim is true: read those yourself. FAILED → fix the
    research (another source, the exact quotation, a corrected fact) and run it again. Only the
    user may override: `--override "<their reason>"` with their own words (logged).
 4. **"write scripts BG-x"** → `uv run ca youtube scripts BG-x` (refused until the check passed or
-   was overridden). Read the three briefs in `outputs/_system/youtube/BG-x/briefs/` and write, per style
-   folder, `script_de_teleprompter.txt`: spoken German only, clean paragraphs separated by one empty line, no
-   headings, labels, notes, citations, URLs or English; about 1,300-1,600 words (Q4 default). The
-   three styles must differ in hook, story, delivery and structure, and use only the verified
-   facts. Then `uv run ca youtube bilingual BG-x` makes `script_de_en_bilingual.txt` from each teleprompter
+   was overridden). Read the three briefs in `outputs/_system/youtube/BG-x/briefs/` (they carry
+   the outline and the style's angle, opening and order) and write, per style folder,
+   `script_de_teleprompter.txt` from the outline: spoken German only (german-editorial
+   "Gesprochenes Deutsch"), clean paragraphs separated by one empty line, no headings, labels,
+   notes, citations, fact IDs, URLs or English; the length target is `targetWords`
+   (config/youtube.json). The three styles keep the same thesis and facts but differ in opening
+   type, order, perspective and tone; every factual sentence must come from a fact ID. Then `uv run ca youtube bilingual BG-x` makes `script_de_en_bilingual.txt` from each teleprompter
    file; replace every "<English translation …>" under "English:" with a faithful translation
-   (never change the German there). Then `uv run ca youtube check BG-x` until every style
-   passes; length warnings are reported, the difference check flags styles that are too similar
+   (never change the German there): faithful and complete, every sentence, the same term for
+   the same thing, not summarised and not localised. Then `uv run ca youtube check BG-x` until
+   every style passes. It also reports the traceability (factual sentences without a fact ID),
+   spoken-German and summarised-English warnings and the difference check: the same opening
+   type, the same order of points or facts, or near-identical sentences between two styles
    (rewrite one). Show the user the three openings, then create storyboards for all three styles;
    a style choice is not needed for storyboard creation.
 5. **"generate storyboards BG-x"** → `uv run ca youtube storyboards BG-x` writes
    `storyboard.txt` in each style folder (Style A, B and C), each matching its own script,
-   without recording a production style. Fill every `<…>` in all three files; factual visuals cite the research [S#]. The rest of
-   the storyboard spec is PENDING: do not invent extra sections.
+   without recording a production style. Each scene names its script paragraphs and the fact
+   IDs it found. Fill every `<…>` in all three files: the visual direction (never two
+   Roman-on-camera scenes in a row without a cutaway), an English b-roll or screen-capture
+   suggestion for the editor, the fact IDs [F#] of every factual visual or on-screen claim, and
+   no unverifiable visual shown as real (label illustrative footage). Then
+   `uv run ca youtube check BG-x` again: it warns about placeholders left, two on-camera scenes in
+   a row and numbers without a fact ID. The rest of the storyboard spec is PENDING: do not invent
+   extra sections.
 6. **"select style B for BG-x"** → `uv run ca youtube select-style BG-x B` records the style
    for production and ensures all three storyboards exist. It does not replace the other two.
 7. **"upload youtube BG-x"** → `uv run ca youtube upload BG-x` uploads research, six scripts,

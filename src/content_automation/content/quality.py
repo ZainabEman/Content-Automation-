@@ -9,7 +9,8 @@
 - Posts: the supporting line and the key points are specific too.
 - Insights: at least 6 specific findings from the research, each with its source; their
   numbers must be in the article they cite.
-- Captions: 120-200 words, 3-5 takeaways, a question, the CTA with the offer.
+- Captions: 120-200 words, 3-5 takeaways, a question, the CTA with the offer; one concrete
+  element per caption (not per takeaway) and no fixed label repeated on the takeaways.
 - Numbers that read as results come only from brand/proof.md or the cited research.
 """
 
@@ -103,6 +104,7 @@ BUZZWORDS = (
     "bahnbrechend", "nahtlos", "mühelos", "schnelllebigen",
 )
 _QUOTED = re.compile(r"[\"“”‘’]|'[^']{3,}'")
+_LABEL_PREFIX = re.compile(r"^\s*([\wÄÖÜäöüß-]{2,30}(?: [\wÄÖÜäöüß-]{2,30})?):\s")  # "Tipp:"
 
 
 def _has(text: str, words: Iterable[str]) -> bool:
@@ -368,10 +370,18 @@ def caption_problems(
             )
         if platform == "linkedin" and "\n" in caption.hook.strip():
             problems.append(f"{where}.hook: one line (LinkedIn shows it before \"see more\")")
-        for number, takeaway in enumerate(caption.takeaways, start=1):
-            reason = generic_reason(takeaway)
-            if reason:
-                problems.append(f'{where}.takeaways[{number}] "{takeaway}": {reason}')
+        # 2026-10-22: one concrete element per caption, not in every takeaway (the old
+        # per-takeaway rule made writers prefix every line with a label such as "Website-Check:")
+        reason = generic_reason(" ".join([caption.hook, *caption.takeaways, caption.question]))
+        if reason:
+            problems.append(f"{where}: {reason}; give the caption one concrete element (a "
+                            "channel or tool, a timing, a number, a quote or an example)")
+        labels = [found.group(1) for takeaway in caption.takeaways
+                  if (found := _LABEL_PREFIX.match(takeaway))]
+        for label in sorted({label for label in labels if labels.count(label) > 1}):
+            problems.append(f'{where}.takeaways: "{label}:" starts {labels.count(label)} '
+                            "takeaways; write each takeaway as its own sentence, without a fixed "
+                            "label")
     label = offer_label(offer)
     if label and label.lower() not in brief.cta.lower():
         problems.append(f'cta: name the offer "{label}" (from brand/services.md)')

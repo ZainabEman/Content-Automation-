@@ -164,9 +164,9 @@ def _slot_problems(name: str, slot: ImageSlot, catalog: DirectionCatalog, platfo
 
 def direction_problems(brief: ContentBrief, catalog: DirectionCatalog,
                        settings: Settings,
-                       parts: tuple[str, ...] = ("post", "carousel")) -> list[str]:
-    """Every direction slot of the brief, drawn with a stand-in picture (free). parts: the copy
-    review (content/copy_check.py) also draws the ad's direction copy."""
+                       parts: tuple[str, ...] = ("post", "carousel", "ad")) -> list[str]:
+    """Every direction slot of the brief, drawn with a stand-in picture (free); since 2026-10-22
+    the Facebook ad's direction copy too. parts: the copy review draws one part at a time."""
     slots = [(name, slot) for name in parts
              if (slot := getattr(brief, name)) is not None and slot.direction]
     if not slots:

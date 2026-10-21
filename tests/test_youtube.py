@@ -219,3 +219,49 @@ def test_plan_makes_at_most_8_proposed_topics_with_bg_ids() -> None:
         assert status.count("BG-") == 8 and "rejected" in status
         again = runner.invoke(app, ["youtube", "plan", "2026-11", "--topic", "Noch eins"]).output
         assert "8 topic(s) already planned" in again and "1 topic(s) not added" in again
+
+
+def test_fact_ids_trace_from_script_to_source(served: None) -> None:
+    """Phase 2 P2-R2: the source check reports each fact ID; script sentences map to them."""
+    from content_automation.youtube.scripts import trace
+
+    research = parse(_research())
+    assert set(research.fact_ids) == {"F1", "F2"} and research.outline.thesis
+    report = "\n".join(check_sources(research).lines)
+    assert "- F1 (S1 Beispiel-Nachrichten (MOCK), 2026-10-02): needs human check" in report
+    rows = trace("Die Buchhaltung sollte 48.000 Euro überweisen. Laut Polizei waren es zwölf "
+                 "Firmen.\n\nDas war ein ganz normaler Tag.", research)
+    assert [(number, ids) for number, _, ids in rows] == [(1, ["F1"]), (1, [])]
+    unnumbered = parse(_research(**{"- [F2] Eine feste": "- Eine feste"}))
+    assert any("has no fact ID" in p for p in structure_problems(unnumbered))
+
+
+def test_bilingual_blocks_are_counted() -> None:
+    """P2-R6: one English block per German block; a summarised English block is warned."""
+    from content_automation.youtube.scripts import bilingual_warnings
+
+    german = "Erster Satz hier. Zweiter Satz hier. Dritter Satz hier.\n\nNoch ein Absatz hier."
+    pairs = [("Erster Satz hier. Zweiter Satz hier. Dritter Satz hier.",
+              "First sentence here. Second sentence here."),
+             ("Noch ein Absatz hier.", "One more paragraph here.\n\nAn extra block.")]
+    text = "".join(f"German:\n{de}\n\nEnglish:\n{en}\n\n" for de, en in pairs)
+    assert any("2 German block(s), 3 English block(s)" in p
+               for p in bilingual_problems(german, text))
+    assert any("2 English sentence(s) for 3 German" in w
+               for w in bilingual_warnings(german, text))
+
+
+def test_style_difference_flags_opening_order_and_sentences() -> None:
+    """P2-R4: the same opening type, the same order of points, near-identical sentences."""
+    research = parse(_research(**{"opening: incident | order: 1, 2, 3":
+                                  "opening: question | order: 3, 1, 2"}))
+    body = ("Die Buchhaltung sollte nach einem Anruf eine Überweisung über 48.000 Euro freigeben. "
+            "Eine feste Rückruf-Regel über eine bekannte Nummer verhinderte am Ende die Zahlung.")
+    texts = {"A": f"Würden Sie zahlen, wenn Ihr Chef anruft? {body}",
+             "B": f"Würden Sie sofort überweisen? {body}",
+             "C": f"Stellen Sie sich vor, das Telefon klingelt. {body}"}
+    flags = " | ".join(similarity_flags(texts, research))
+    assert "styles A and B: the same opening type (question)" in flags
+    assert "styles A and B: the same order of the outline points (3, 1, 2)" in flags
+    assert "near-identical sentences" in flags
+    assert "styles A and C: the same opening type" not in flags

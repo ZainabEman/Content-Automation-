@@ -1390,7 +1390,7 @@ def _quality_problems(brief: ContentBrief, settings: Settings, folder: Path) -> 
         problems = carousel_problems(brief, system, platforms, offer) + problems
     except WorkflowError as error:
         problems.append(str(error))
-    if any(slot is not None and slot.direction for slot in (brief.post, brief.carousel)):
+    if any(slot is not None and slot.direction for slot in (brief.post, brief.carousel, brief.ad)):
         try:
             problems = direction_problems(brief, load_directions(), settings) + problems
         except DirectionError as error:

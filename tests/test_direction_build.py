@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw
 
-from content_automation.content import direction_brief
+from content_automation.content import designer_prompt, direction_brief
 from content_automation.content.brief import ContentBrief
 from content_automation.content.design_preview import sample_copy
 from content_automation.content.direction_brief import (
@@ -80,9 +80,17 @@ def _guide_pdf(path: Path) -> None:
                      b"/Length 1 >>\nstream\n" + page.getvalue() + b"\nendstream\n%%EOF")
 
 
-def test_designer_prompt_keeps_the_designers_six_elements(mock_settings: Settings,
-                                                          tmp_path: Path) -> None:
-    """R3: role and quality bar, the guide and the logo as inputs, purpose, latitude, format."""
+def _with_designer_images(monkeypatch: pytest.MonkeyPatch) -> None:
+    """designerImages true (config default false since 2026-10-21): the guide's colour section
+    and the masked references are sent, and a paid job needs them."""
+    templates = dict(designer_prompt.load_templates(), designerImages=True)
+    monkeypatch.setattr(designer_prompt, "load_templates", lambda *_: templates)
+
+
+def test_designer_prompt_keeps_the_designers_six_elements(
+        mock_settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """R3: role and quality bar, purpose, latitude, format; no image inputs by default
+    (designerImages false), the guide's colours and the masked references when switched on."""
     copy = dict(sample_copy()["LI-2/post"], illustration=ILLUSTRATION)
     prepared = prepare_workflow("social_creative", _inputs("LI-2", copy,
                                                            direction_platform="linkedin"),
@@ -90,11 +98,11 @@ def test_designer_prompt_keeps_the_designers_six_elements(mock_settings: Setting
     prompt = prepared.request.prompt
     # v6 R3.3/R3.4: the designer's own prompt (brand/designer_prompt.md) adapted to the
     # category, the exact German strings, the look in words, explicit negatives, the format
+    # 2026-10-21 (a6f240d): no brand or logo words outside the quoted copy, no image inputs
     for part in ("Be my expert graphic designer and show your skill and generate for me a "
                  "professional, creative, ad style post that I can post on LinkedIn using "
-                 "Brandit Genius brand style guide", "motive and aim of Branded Genius",
-                 "Must be 3:4", "colour section of the Branded Genius brand style guide",
-                 "official Branded Genius logo, for recognition only", "LinkedIn post",
+                 "the brand style guide's colours", "motive and aim of the brand",
+                 "Must be 3:4", "LinkedIn post",
                  "near-black, deep midnight-navy base", ILLUSTRATION,
                  '"EIN SYSTEM FÜR IHREN VERTRIEB" (the words "IHREN VERTRIEB" in light blue)',
                  '"VON DER ERSTEN ANFRAGE BIS ZUM GEBUCHTEN TERMIN."', "Never write coordinates",
@@ -102,7 +110,13 @@ def test_designer_prompt_keeps_the_designers_six_elements(mock_settings: Setting
         assert part in prompt, part
     assert "%" not in prompt and "x 6-" not in prompt  # R3.1 pattern 1: zones in words only
     assert prepared.inputs["designMode"] == "designer"
-    assert "designerMissing" in prepared.inputs  # mock: no guide/refs in this folder
+    assert prepared.request.object_refs == [] and prepared.request.style_refs == []
+    assert "Branded Genius" not in prepared.request.prompt
+    _with_designer_images(monkeypatch)
+    missing = prepare_workflow("social_creative", _inputs("LI-2", copy,
+                                                          direction_platform="linkedin"),
+                               mock_settings)
+    assert "designerMissing" in missing.inputs  # mock: no guide/refs in this folder
     composite = prepare_workflow("social_creative", _inputs(
         "LI-2", copy, direction_platform="linkedin", design_mode="composite"), mock_settings)
     assert composite.request.object_refs == [] and composite.request.style_refs == []
@@ -110,8 +124,8 @@ def test_designer_prompt_keeps_the_designers_six_elements(mock_settings: Setting
     assert "EIN SYSTEM" not in composite.request.prompt  # composite: never the copy
     refs = Path(mock_settings.references_dir)
     _guide_pdf(refs / "brand" / "guidelines" / "Branded Genius Brand Style Guide.pdf")
-    for name in ("01.png", "06.png"):  # v6: the logo-masked copies are sent
-        target = refs / "creative" / "facebook_ads_masked" / name
+    for name in ("01.jpg", "06.jpg"):  # the originals: masked by the app in the run
+        target = refs / "creative" / "facebook_ads" / name
         target.parent.mkdir(parents=True, exist_ok=True)
         Image.new("RGB", (64, 64), (3, 6, 18)).save(target)
     full = prepare_workflow("social_creative", _inputs("LI-2", copy,
@@ -119,15 +133,15 @@ def test_designer_prompt_keeps_the_designers_six_elements(mock_settings: Setting
                             mock_settings)
     # 2026-10-21: the logo file is never sent; the app adds the real logo afterwards
     assert [ref.asset_id for ref in full.request.object_refs] == ["brand-style-guide"]
-    assert [ref.asset_id for ref in full.request.style_refs] == ["ref-A01", "ref-A06"]
-    assert "designerMissing" not in full.inputs and "Images 2 to 3 are" in full.request.prompt
-    # the guide is sent as its colour section, the ads as their logo-masked copies (R3.4)
     assert full.request.object_refs[0].path.name == "brand_style_guide_colours.jpg"
-    assert all("facebook_ads_masked" in ref.path.as_posix()
-               for ref in full.request.style_refs)
+    # a reference without mask boxes in config/brand_refs.json is never sent unmasked (A01 and
+    # A06 have none; the ready-made masked copies are no longer used: they led to wordmarks)
+    assert full.request.style_refs == [] and "designerMissing" not in full.inputs
 
 
-def test_a_paid_job_never_runs_without_the_designer_inputs(mock_settings: Settings) -> None:
+def test_a_paid_job_never_runs_without_the_designer_inputs(
+        mock_settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    _with_designer_images(monkeypatch)  # by default nothing is sent, so nothing can be missing
     live = mock_settings.model_copy(update={"image_provider": "openrouter"})
     copy = dict(sample_copy()["FB-1/post"], illustration=ILLUSTRATION)
     with pytest.raises(WorkflowError, match="designer prompt needs its inputs"):

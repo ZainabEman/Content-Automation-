@@ -155,6 +155,17 @@ def run(copy_to: Path | None = PREVIEW, keep: bool = False) -> dict[str, Any]:
             result["rerun"]["changedBilingual"] = (code, out)
             result["rerun"]["versions"] = sorted(path.name for path in (folder / "Style A")
                                                  .iterdir())
+            # select-style again after Style B's storyboard was filled (Phase 3 follow-up A1):
+            # the filled one is kept and recorded, no empty storyboard_v2.txt
+            board = folder / "Style B" / "storyboard.txt"
+            board.write_text(board.read_text(encoding="utf-8").replace("<", "[").replace(
+                ">", "]"), encoding="utf-8")
+            code, _ = ca("youtube", "select-style", bg_id, "B")
+            meta = json.loads((work / "outputs" / "_system" / "youtube" / f"{bg_id}.json")
+                              .read_text(encoding="utf-8"))
+            result["reselect"] = {"code": code, "storyboard": meta.get("storyboard"),
+                                  "boards": sorted(path.name for path in board.parent.iterdir()
+                                                   if path.name.startswith("storyboard"))}
             if copy_to is not None:
                 target = copy_to / folder.name
                 shutil.rmtree(target, ignore_errors=True)

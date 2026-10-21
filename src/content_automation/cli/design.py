@@ -1,6 +1,7 @@
 """`ca design preview` (Phase D step 3) and `ca design check` (step 7): the design directions
-drawn locally with sample copy, and free checks of rendered designs. No provider is called, so
-no cost estimate is needed."""
+drawn locally with sample copy, and free checks of rendered designs; `ca design overlay`
+(GERMAN_CONTENT_AND_IMAGE_WORKFLOW_PRD.md Phase 3): Roman's overlay re-rendered on an existing
+picture, and the founder contact sheet. No provider is called, so no cost estimate is needed."""
 
 from pathlib import Path
 from typing import Annotated
@@ -11,6 +12,12 @@ from content_automation.cli.jobs import _fail, _settings
 from content_automation.content.design_preview import PREVIEW_DIR, preview
 from content_automation.content.design_sheet import SHEET_FILE, compare_sheet
 from content_automation.content.directions import DirectionError, load_directions
+from content_automation.content.overlay_preview import (
+    OVERLAY_DIR,
+    OverlayPreviewError,
+    overlay_preview,
+    overlay_sheet,
+)
 from content_automation.references import load_brand
 from content_automation.references.brand import BrandProfileError
 from content_automation.references.services import ServicesError, load_services
@@ -67,6 +74,41 @@ def design_check(
     failed = sum(not report.passed for report in reports)
     typer.echo(f"Design check: {len(reports) - failed} passed, {failed} failed (free).")
     if failed:
+        raise typer.Exit(code=1)
+
+
+@design_app.command("overlay")
+def design_overlay(
+    target: Annotated[str | None, typer.Argument(
+        help="A founder image: BG id, package folder, job folder or image-N.design.json.")]
+        = None,
+    copy: Annotated[Path | None, typer.Option(
+        "--copy", help="A JSON file with other copy for the same fields (e.g. shortened).")]
+        = None,
+    sheet: Annotated[bool, typer.Option(
+        "--sheet", help="The contact sheet: every founder variant with short, medium and "
+                        "maximum copy.")] = False,
+    out: Annotated[Path, typer.Option("--out", help="Folder for the PNGs.")] = OVERLAY_DIR,
+) -> None:
+    """Phase 3 (P3-R8): re-render Roman's text overlay on the picture a build already used,
+    with the build's checks (free: nothing is generated, the package is not changed)."""
+    settings = _settings()
+    if target is None and not sheet:
+        _fail("Name a founder image (e.g. BG-123) or use --sheet.")
+    try:
+        services = load_services(settings.services_file)
+        lines: list[str] = []
+        if target is not None:
+            lines += overlay_preview(target, settings.references_dir, services, copy_file=copy,
+                                     out_dir=out)
+        if sheet:
+            lines += overlay_sheet(settings.references_dir, services, out_dir=out)
+    except (DesignRenderError, DirectionError, BrandProfileError, ServicesError,
+            OverlayPreviewError, OSError, ValueError) as error:
+        _fail(str(error))
+    for line in lines:
+        typer.echo(line)
+    if any(line.startswith("FAIL ") or ": FAIL" in line for line in lines):
         raise typer.Exit(code=1)
 
 

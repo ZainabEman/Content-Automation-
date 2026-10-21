@@ -110,7 +110,12 @@ class OpenRouterTextReader:
                                 f"({type(error).__name__})") from None
         if response.status_code != 200 or not isinstance(payload, dict) or payload.get("error"):
             status = response.status_code
-            raise TextReadError(f"the text check failed (HTTP {status})",
+            # Phase 3 audit: the provider's reason is kept (Run 1 recorded only "HTTP 400")
+            reported = payload.get("error") if isinstance(payload, dict) else None
+            detail = reported.get("message") if isinstance(reported, dict) else reported
+            reason = " ".join(str(detail).split())[:160] if detail else ""
+            raise TextReadError(f"the text check failed (HTTP {status})"
+                                + (f": {reason}" if reason else ""),
                                 service=status == 200 or status == 429 or status >= 500)
         try:
             content = payload["choices"][0]["message"]["content"]

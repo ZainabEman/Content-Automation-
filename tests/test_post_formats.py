@@ -105,8 +105,13 @@ def test_provider_routing_and_the_free_template() -> None:
     assert "template" in available_providers()
     settings = Settings(image_provider="openrouter", image_model="google/gemini-3.1-flash-image")
     routed = format_settings(CATALOG.get("fb_tip"), settings)
-    assert routed.image_provider == "openrouter"
-    assert routed.image_model == settings.carousel_image_model
+    # already the format's provider: the settings stay as they are (stale before Phase 3: it
+    # passed only while both model defaults were the same Gemini id, until 59c2dd9)
+    assert routed.image_provider == "openrouter" and routed.image_model == settings.image_model
+    other = format_settings(CATALOG.get("fb_tip"), settings.model_copy(
+        update={"image_provider": "template"}))
+    assert other.image_provider == "openrouter"
+    assert other.image_model == settings.carousel_image_model
     assert format_settings(CATALOG.get("li_stat"), settings).image_provider == "template"
     assert format_settings(CATALOG.get("ig_steps"), settings, "body").image_provider == "template"
     template = get_provider("template", settings)

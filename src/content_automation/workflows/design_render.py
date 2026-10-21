@@ -19,6 +19,16 @@ or shrunk by the fit) until it clears his glowing holograms and icons by HOLOGRA
 boxes go into the manifest for the overlap check); the CTA icon follows its meaning (cta_icon).
 Designer mode (place_brand_marks) covers the logo zone with a soft-edged plate in the dark
 colour around it before the official logo goes on it.
+
+Founder overlays (Phase 3 of GERMAN_CONTENT_AND_IMAGE_WORKFLOW_PRD.md, 2026-10-22; Roman's
+variants only, every other layout is drawn as before): the fit is a binary search on the size
+with balanced German line breaks (workflows/line_breaks.py), down to the layout's minimum raised
+to config `roman.minFontPx`; text that still does not fit is "text too long". The text block is
+one column (_roman_plan): the zones' width minus Roman's person box and his holograms (each
+HOLOGRAM_GAP_PX away), one left axis for headline, body, chips and CTA, its top level with the
+top of his head. A text whose measured contrast is too low gets the design kit's scrim behind
+it; the brightness spread and detail under each text are recorded as drawn (the calm check).
+The picture of Roman is never moved, cropped or changed by the overlay.
 """
 
 import hashlib
@@ -42,6 +52,7 @@ from content_automation.content.directions import (
 )
 from content_automation.references.brand import BrandProfile, TokenRole
 from content_automation.workflows.design_system import OverlayFonts
+from content_automation.workflows.line_breaks import Piece, wrap
 from content_automation.workflows.logo import load_logo, white_version
 from content_automation.workflows.text_overlay import TextOverlayError, contrast, resolve_fonts
 
@@ -66,6 +77,7 @@ _DARK_BELOW = 0.55  # mean brightness under the logo below which the white versi
 _FADE = 0.16  # share of a faded picture's box that blends into the background
 STACK_GAP_PX = 32  # the design kit: a sub or body this far under the headline (at 1080 px)
 HOLOGRAM_GAP_PX = 48  # every text this far from Roman's holograms and icons (at 1080 px)
+HEADLINE_SIZE_SHARE = 0.9  # Phase 3: fewer headline lines when the size stays within 90%
 _STACKED = ("sub", "body")
 # a booking or an appointment: the only CTAs with the calendar icon (else the circle arrow)
 _BOOKING = re.compile(r"termin|buchen|buchung|vereinbar|kalender|erstgespräch|"
@@ -149,6 +161,9 @@ class TextRecord:
     needed: float
     large: bool
     drawn: list[str] = field(default_factory=list)  # v5: the lines as drawn (hyphens shown)
+    # Phase 3: brightness spread and mean edge strength under the text as drawn (founder only)
+    backdrop_std: float | None = None
+    backdrop_detail: float | None = None
 
 
 @dataclass
@@ -180,6 +195,7 @@ class Rendered:
     ctas: list[dict[str, Any]] = field(default_factory=list)
     emblem: str | None = None  # v6: the "bg" emblem file on a carousel's last slide
     holograms: list[PixelBox] = field(default_factory=list)  # Roman's glowing holograms/icons
+    person: PixelBox | None = None  # Phase 3: Roman's person box (skin and shirt) on the canvas
 
     def manifest(self) -> dict[str, Any]:
         return {
@@ -191,6 +207,7 @@ class Rendered:
             "footer": self.footer, "notes": self.notes, "fonts": self.fonts,
             "ctas": self.ctas, "emblem": self.emblem,
             "holograms": [list(box) for box in self.holograms],
+            "person": list(self.person) if self.person else None,
         }
 
 
@@ -346,6 +363,7 @@ class Painter:
         self.assets = assets
         self.record = record
         self.image = Image.new("RGBA", size, (0, 0, 0, 255))
+        self.german = False  # Phase 3: a founder overlay (balanced German breaks, scrim, calm)
 
     # --- geometry
     def px(self, box: tuple[float, float, float, float]) -> PixelBox:
@@ -385,6 +403,33 @@ class Painter:
         pixels: list[RGB] = sorted(region.getdata(), key=_luminance)
         return pixels[len(pixels) // 10], pixels[len(pixels) * 9 // 10]
 
+    def calm(self, box: PixelBox) -> tuple[float, float]:
+        """Phase 3: the brightness spread and the mean edge strength under a box as drawn
+        (the scrims and panels included), the numbers the founder calm check compares."""
+        import numpy as np
+
+        left, top = max(0, box[0]), max(0, box[1])
+        right, bottom = min(self.size[0], box[2]), min(self.size[1], box[3])
+        if right - left < 4 or bottom - top < 4:
+            return 0.0, 0.0
+        gray = self.image.crop((left, top, right, bottom)).convert("L")
+        edges = np.asarray(gray.filter(ImageFilter.FIND_EDGES), dtype=np.float64)[1:-1, 1:-1]
+        return (round(float(np.asarray(gray, dtype=np.float64).std()), 1),
+                round(float(edges.mean()), 1))
+
+    def scrim(self, name: str, box: PixelBox) -> None:
+        """Phase 3 (P3-R6): the design kit's scrim (bg_dark at the layout scrims' 0.72) behind
+        one text whose measured contrast is too low, soft-edged like the logo plate."""
+        soft = self.s(24)
+        mask = Image.new("L", self.size, 0)
+        ImageDraw.Draw(mask).rounded_rectangle(
+            (box[0] - soft, box[1] - soft, box[2] + soft, box[3] + soft), radius=soft,
+            fill=round(255 * 0.72))
+        layer = Image.new("RGBA", self.size, (*self.fill(name, "bg_dark"), 255))
+        self.image = Image.composite(layer, self.image, mask.filter(ImageFilter.GaussianBlur(
+            soft / 2)))
+        self.record.notes.append(f"{name}: the scrim (bg_dark 0.72) behind it for contrast")
+
     # --- fonts and text
     def font(self, weight: str, size: int) -> ImageFont.FreeTypeFont:
         return _font(self.assets.fonts[weight], size)
@@ -396,6 +441,8 @@ class Painter:
 
     def fit(self, words: list[Word], box: PixelBox, zone: Zone, limit: TextLimit) -> _Fitted:
         """The largest size at which the words wrap into the box within the limits."""
+        if self.german:
+            return self._fit_german(words, box, zone, limit)
         width = box[2] - box[0]
         height = box[3] - box[1]
         largest = self.s(zone.size or limit.min_font_px)
@@ -445,6 +492,73 @@ class Painter:
             + f" does not fit its zone at {limit.min_font_px} px or more in {limit.max_lines} "
             "line(s). Shorten it.")
 
+    def _fit_german(self, words: list[Word], box: PixelBox, zone: Zone,
+                    limit: TextLimit) -> _Fitted:
+        """Phase 3 (P3-R2/R3, founder overlays): binary search on the size between the zone's
+        size and the minimum, each size wrapped with balanced German line breaks (no break in a
+        word first; body text then at the writer's soft hyphens; never in a headline). A
+        headline takes the fewest lines whose size is at least HEADLINE_SIZE_SHARE of the
+        largest possible one (fuller, balanced lines over a tall stack of single words)."""
+        headline = zone.role == "headline"
+        smallest = self.s(limit.min_font_px)
+        largest = max(self.s(zone.size or limit.min_font_px), smallest)
+
+        def attempt(size: int, hyphenate: bool, lines_wanted: int | None) -> _Fitted | None:
+            pad = self._pill_pad(zone, size)
+            space = self.font(zone.weight, size).getlength(" ") + zone.tracking * size
+            pieces = [Piece(w.text, self.word_width(w, zone.weight, size, zone.tracking), w.glue,
+                            w.soft or w.text.endswith("-"),
+                            self.word_width(Word("-", w.style), zone.weight, size,
+                                            zone.tracking) if w.soft else 0.0) for w in words]
+            ranges = wrap(pieces, box[2] - box[0] - 2 * pad[0], space, limit.max_lines,
+                          headline=headline, hyphenate=hyphenate, lines_wanted=lines_wanted)
+            if ranges is None:
+                return None
+            lines: list[list[Word]] = []
+            for start, end in ranges:
+                line = [_unglued(words[start]), *words[start + 1:end]]
+                if end < len(words) and words[end].glue and words[end - 1].soft:
+                    last = line[-1]  # the soft hyphen shows at the line end
+                    line[-1] = Word(last.text + "-", last.style, last.group, last.glue)
+                lines.append(line)
+            line_px = size * zone.line_height
+            ascent, descent = self.font(zone.weight, size).getmetrics()
+            total = ascent + descent + (len(lines) - 1) * line_px + 2 * pad[1]
+            if total > box[3] - box[1]:
+                return None
+            widest = max(self._line_width(line, zone, size) for line in lines) + 2 * pad[0]
+            return _Fitted(size, lines, total, widest, line_px)
+
+        def search(hyphenate: bool, lines_wanted: int | None = None) -> _Fitted | None:
+            low, high, found = smallest, largest, None
+            while low <= high:
+                middle = (low + high) // 2
+                fitted = attempt(middle, hyphenate, lines_wanted)
+                if fitted is None:
+                    high = middle - 1
+                else:
+                    found, low = fitted, middle + 1
+            return found
+
+        if headline:
+            options = [found for count in range(1, limit.max_lines + 1)
+                       if (found := search(False, count)) is not None]
+            if options:
+                biggest = max(option.size for option in options)
+                return next(option for option in options
+                            if option.size >= HEADLINE_SIZE_SHARE * biggest)
+        else:
+            for hyphenate in (False, True):
+                found = search(hyphenate)
+                if found is not None:
+                    return found
+        raise DesignRenderError(
+            f"{self.record.direction} {zone.field or zone.kind}: text too long: "
+            + '"' + _joined(words) + '"'
+            + f" does not fit its zone at {limit.min_font_px} px or more in {limit.max_lines} "
+            "line(s) with natural German line breaks. Shorten it (german-editorial); never "
+            "regenerate the image for it.")
+
     def _pill_pad(self, zone: Zone, size: int) -> tuple[float, float]:
         return (size * 0.7, size * 0.38) if zone.pill is not None else (0.0, 0.0)
 
@@ -491,6 +605,12 @@ class Painter:
             zone.role in ("headline", "badge", "number") or size >= self.s(24) or (
                 zone.weight in ("bold", "extrabold", "semibold") and size >= self.s(19)))
         needed = 3.0 if large else 4.5
+        calm: tuple[float, float] | None = None
+        if self.german:  # Phase 3 (P3-R6): measured on the real pixels under this text
+            if min(contrast(self.color(base), shade) for shade in behind) < needed:
+                self.scrim(name, bounds)
+                behind = self.backdrop(bounds)
+            calm = self.calm(bounds)
         tokens: set[str] = {base}
         ascent, _ = self.font(zone.weight, size).getmetrics()
         layer = Image.new("RGBA", self.size, (0, 0, 0, 0))
@@ -554,7 +674,8 @@ class Painter:
             min_font_px=limit.min_font_px, lines=len(fitted.lines), max_lines=limit.max_lines,
             max_chars=limit.max_chars, tokens=sorted(tokens), backdrop=behind,
             contrast=round(worst, 2), needed=needed, large=large,
-            drawn=[_joined(line) for line in fitted.lines]))
+            drawn=[_joined(line) for line in fitted.lines],
+            backdrop_std=calm[0] if calm else None, backdrop_detail=calm[1] if calm else None))
         if len(plain(raw)) > limit.max_chars:
             raise DesignRenderError(f"{self.record.direction} {name}: {len(plain(raw))} "
                                     f"characters, at most {limit.max_chars}: shorten it")
@@ -1695,7 +1816,10 @@ def hologram_boxes(image: Image.Image, person_right: bool) -> list[PixelBox]:
     hue, sat, val = hsv[..., 0], hsv[..., 1], hsv[..., 2]
     raw = ((hue >= 85) & (hue <= 130) & (sat >= 80) & (val >= 140)).astype(np.uint8)
     opened = cv2.morphologyEx(raw, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
-    glow = cv2.dilate(opened, np.ones((9, 9), np.uint8))  # one box per icon, not per line
+    # one box per icon, not per line: 15 px at 1080 px (Phase 3; at 9 px the thin outline of
+    # BG-123's people icon fell apart into pieces under min_area and the headline touched it)
+    merge = max(9, round(width * 15 / BASE_WIDTH))
+    glow = cv2.dilate(opened, np.ones((merge, merge), np.uint8))
     count, _, stats, _ = cv2.connectedComponentsWithStats(glow, connectivity=8)
     min_area = max(30, round(width * height * 0.0004))
     boxes: list[PixelBox] = []
@@ -1745,18 +1869,23 @@ def render_layout(
     record = Rendered(image=Image.new("RGB", canvas), direction=direction.id,
                       layout=layout_name, size=canvas)
     painter = Painter(canvas, assets, record)
+    painter.german = direction.roman
     record.fonts = sorted({path.name for path in assets.fonts.values()})
     paint_background(painter, layout.background)
     visual_box: PixelBox | None = None
     texts = [zone.box for zone in layout.zones.values() if zone.kind == "text"]
     person_right = bool(texts) and sum(box[0] + box[2] for box in texts) / len(texts) < 1.0
     stacked: PixelBox | None = None  # the last headline/sub drawn: the next sub goes under it
+    floors = catalog.roman.min_font_px if direction.roman else {}
+    head_top: int | None = None
+    plan: dict[str, PixelBox] | None = None  # the founder text block (_roman_plan)
     for name, zone in layout.zones.items():
         if zone.kind == "visual":
             visual_box = painter.px(zone.box)
             place_picture(painter, name, zone, picture, person=direction.roman)
             if direction.roman and picture is not None:
                 record.holograms = hologram_boxes(painter.image, person_right)
+                record.person, head_top = _roman_person(painter.image, person_right)
         elif zone.kind == "shape":
             _shape(painter, name, zone)
         elif zone.kind == "logo":
@@ -1767,19 +1896,23 @@ def render_layout(
                 if zone.optional:
                     continue
                 raise DesignRenderError(f"{direction.id} {name}: fill copy.{zone.field}")
+            limit = _floored(layout.text_limits[name], zone.role, floors)
             area = painter.px(zone.box)
-            if (zone.role in _STACKED and stacked is not None and area[1] > stacked[1]
+            if direction.roman:
+                if plan is None:
+                    plan = _roman_plan(painter, layout, copy, record, person_right, head_top,
+                                       floors, catalog.margin_px)
+                area = plan.get(name, area)
+                if zone.role != "cta":
+                    zone = zone.model_copy(update={"valign": "top"})
+            elif (zone.role in _STACKED and stacked is not None and area[1] > stacked[1]
                     and area[0] < stacked[2] and stacked[0] < area[2]):
                 area = (area[0], stacked[3] + painter.s(STACK_GAP_PX), area[2], area[3])
                 zone = zone.model_copy(update={"valign": "top"})
-            if record.holograms:
-                area = _clear_of(area, record.holograms, painter.s(HOLOGRAM_GAP_PX),
-                                 person_right)
             if zone.role == "cta" and zone.icon:
-                _cta(painter, name, zone, value, layout, layout.text_limits[name], area)
+                _cta(painter, name, zone, value, layout, limit, area)
             else:
-                placed = painter.text(name, zone, value, layout, layout.text_limits[name],
-                                      box=area)
+                placed = painter.text(name, zone, value, layout, limit, box=area)
                 if zone.role == "headline" or zone.role in _STACKED:
                     stacked = placed
         elif zone.kind == "items":
@@ -1793,26 +1926,112 @@ def render_layout(
         elif zone.kind == "arrow":
             _arrow(painter, name, zone)
         elif zone.kind == "icons":
-            if direction.roman:  # his chips follow the body, clear of his holograms
-                zone = _roman_row(painter, zone, stacked, record.holograms, person_right)
+            if direction.roman:  # his chips follow the body, in the founder text block
+                if plan is None:
+                    plan = _roman_plan(painter, layout, copy, record, person_right, head_top,
+                                       floors, catalog.margin_px)
+                if name in plan:
+                    width, height = painter.size
+                    box = plan[name]
+                    zone = zone.model_copy(update={"box": (box[0] / width, box[1] / height,
+                                                           box[2] / width, box[3] / height)})
             _icons(painter, name, zone, layout, copy, catalog)
     record.image = painter.image.convert("RGB")
     return record
 
 
-def _roman_row(painter: Painter, zone: Zone, stacked: PixelBox | None,
-               holograms: Sequence[PixelBox], person_right: bool) -> Zone:
-    """Roman's benefit chips (2026-10-21): right under the body, not at the zone's fixed place,
-    and narrowed until they clear his holograms like every text."""
-    area = painter.px(zone.box)
-    if stacked is not None and area[1] > stacked[1]:
-        top = stacked[3] + painter.s(STACK_GAP_PX * 1.5)
-        area = (area[0], top, area[2], top + area[3] - area[1])
-    if holograms:
-        area = _clear_of(area, holograms, painter.s(HOLOGRAM_GAP_PX), person_right)
-    width, height = painter.size
-    return zone.model_copy(update={"box": (area[0] / width, area[1] / height, area[2] / width,
-                                           area[3] / height)})
+def _floored(limit: TextLimit, role: str | None, floors: Mapping[str, int]) -> TextLimit:
+    """Phase 3 (P3-R1): a founder text's minimum raised to config roman.minFontPx, never
+    lowered (body text stays readable on a phone)."""
+    floor = floors.get(role or "", 0)
+    return limit.model_copy(update={"min_font_px": floor}) if floor > limit.min_font_px else limit
+
+
+def _roman_person(image: Image.Image, person_right: bool) -> tuple[PixelBox | None, int | None]:
+    """Roman's person box and the top of his head on the canvas (core/person_zone: skin and the
+    shirt; the dark suit is not part of the box). None when the box reaches into the text side
+    beyond 60% of the width: the placement check speaks then, not the overlay."""
+    from content_automation.core.person_zone import detect
+
+    found = detect(image)
+    if found.box is None:
+        return None, None
+    width = image.size[0]
+    near = found.box[0] if person_right else width - found.box[2]
+    if near < width * 0.4:
+        return None, None
+    return found.box, found.head_top
+
+
+def _roman_plan(painter: Painter, layout: Layout, copy: Mapping[str, object], record: Rendered,
+                person_right: bool, head_top: int | None, floors: Mapping[str, int],
+                margin: int) -> dict[str, PixelBox]:
+    """Phase 3 (P3-R4/R5, 2026-10-22): the founder text block as one column. Its width is the
+    text zones' width minus Roman's person box and his holograms (each HOLOGRAM_GAP_PX away);
+    headline, body, chips and CTA share one left axis; the body sits STACK_GAP_PX under the
+    headline and the chips 1.5 times that under the body; the block's top is level with the
+    top of Roman's head (clamped between the top margin and the CTA) instead of the zones'
+    fixed tops. Text the block cannot hold is "text too long"; the picture is never touched."""
+    gap = painter.s(HOLOGRAM_GAP_PX)
+    zones = layout.zones
+
+    def filled(name: str) -> bool:
+        zone = zones[name]
+        return bool(_lines(copy.get(str(zone.field)))) if zone.field else bool(zone.labels)
+
+    block = [name for name, zone in zones.items() if filled(name) and (
+        (zone.kind == "text" and zone.role != "cta") or zone.kind == "icons")]
+    cta = next((name for name, zone in zones.items()
+                if zone.kind == "text" and zone.role == "cta" and filled(name)), None)
+    if not block:
+        return {}
+    boxes = {name: painter.px(zones[name].box) for name in block}
+    left = min(box[0] for box in boxes.values())
+    right = max(box[2] for box in boxes.values())
+    if record.person is not None:
+        if person_right:
+            right = min(right, record.person[0] - gap)
+        else:
+            left = max(left, record.person[2] + gap)
+    lowest = (painter.px(zones[cta].box)[1] - gap if cta
+              else painter.size[1] - painter.s(margin))
+    highest = painter.s(margin)
+    wanted = boxes[block[0]][1] if head_top is None else head_top
+    tall = {name: box[3] - box[1] for name, box in boxes.items()}
+    used = dict(tall)
+    axis, top = left, max(highest, wanted)
+    plan: dict[str, PixelBox] = {}
+    for _ in range(4):  # the axis, the top and the heights settle in two or three rounds
+        y, lefts, heights, plan = top, [], {}, {}
+        for index, name in enumerate(block):
+            zone = zones[name]
+            if index:
+                y += painter.s(STACK_GAP_PX * (1.5 if zone.kind == "icons" else 1))
+            clear = _clear_of((axis, y, right, y + used[name]), record.holograms, gap,
+                              person_right)
+            plan[name] = (clear[0], y, clear[2], y + tall[name])
+            lefts.append(clear[0])
+            heights[name] = tall[name]
+            if zone.kind == "text":
+                limit = _floored(layout.text_limits[name], zone.role, floors)
+                words = parse(" ".join(_lines(copy.get(str(zone.field)))), zone.upper)
+                heights[name] = math.ceil(painter.fit(words, plan[name], zone, limit).height)
+            y += heights[name]
+        settled_axis = max(lefts)
+        settled_top = max(highest, min(wanted, lowest - (y - top)))
+        if (settled_axis, settled_top, heights) == (axis, top, used):
+            break
+        axis, top, used = settled_axis, settled_top, heights
+    if y > lowest:
+        raise DesignRenderError(f"{record.direction}: text too long: the founder text block "
+                                "(headline, body, chips) is taller than the room above the CTA. "
+                                "Shorten it (german-editorial).")
+    plan = {name: (axis, box[1], box[2], box[3]) for name, box in plan.items()}
+    if cta:
+        box = painter.px(zones[cta].box)
+        plan[cta] = _clear_of((axis, box[1], axis + box[2] - box[0], box[3]), record.holograms,
+                              gap, person_right)
+    return plan
 
 
 def place_brand_marks(image: Image.Image, direction: Direction, layout_name: str, layout: Layout,

@@ -195,10 +195,17 @@ GROUPS: tuple[Group, ...] = (
         Phrase("generate storyboards BG-x", "ca youtube storyboards BG-x",
                "one editing storyboard for each checked style A, B and C"),
         Phrase("select style B for BG-x", "ca youtube select-style BG-x B",
-               "the production choice recorded; all three storyboards are kept"),
+               "the production choice recorded; all three storyboards are kept (a missing one "
+               "is created)"),
         Phrase("upload youtube BG-x", "ca youtube upload BG-x",
                "Drive YouTube/<YYYY-MM>/<BG-ID>_<slug>/ and the tracker row"),
         Phrase("youtube status", "ca youtube status", "every topic and its step"),
+    )),
+    Group("text-overlay", ".agents/skills/text-overlay/SKILL.md", (
+        Phrase("preview overlay BG-x", "ca design overlay BG-x [--copy FILE]",
+               "Roman's text re-drawn on the picture the build used, with its checks (free)"),
+        Phrase("overlay contact sheet", "ca design overlay --sheet",
+               "every founder variant with short, medium and maximum copy (free)"),
     )),
     Group("Playbooks (AGENTS.md)", "AGENTS.md", (
         Phrase("sync drive", "ca drive sync", "uploads finished files and the tracker rows"),

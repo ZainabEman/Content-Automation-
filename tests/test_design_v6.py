@@ -105,10 +105,16 @@ def test_no_image_model_prompt_carries_coordinates(tmp_path: Path) -> None:
         check_clean("Keep the headline zone (x 6-34%, y 47-60%) dark.")
 
 
-def test_third_party_logos_in_a_reference_are_masked_before_it_is_sent(tmp_path: Path) -> None:
+def test_third_party_logos_in_a_reference_are_masked_before_it_is_sent(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """K07 frame 1 shows a Google search bar: its "mask" boxes are painted over like the slide
-    counters, so the model never sees a third-party logo to copy."""
+    counters, so the model never sees a third-party logo to copy (references are sent only with
+    designerImages true, off by default since 2026-10-21)."""
+    from content_automation.content import designer_prompt
     from content_automation.content.designer_prompt import load_refs
+
+    templates = dict(designer_prompt.load_templates(), designerImages=True)
+    monkeypatch.setattr(designer_prompt, "load_templates", lambda *_: templates)
 
     entry = load_refs()["refs"]["K07"]
     left, top, right, bottom = entry["mask"][0]
@@ -188,7 +194,9 @@ def test_designer_mode_retries_once_then_composite(mock_settings: Settings,
     assert job.inputs["designMode"] == "composite"
     note = next(note for note in job.notes if note.startswith("Designer mode:"))
     assert "designer attempt 1" in note and "designer attempt 2" in note
-    assert "[coordinates]" in note and "composite mode used" in note
+    # 2026-10-21: stray glyphs such as "x 6-34%" are warnings in a build; the missing
+    # intended text fails the attempt
+    assert "[text_mismatch]" in note and "composite mode used" in note
     manifest = json.loads((job.folder / job.outputs[0]).with_suffix(MANIFEST_SUFFIX)
                           .read_text(encoding="utf-8"))
     assert manifest["check"]["errors"] == [] and manifest["texts"]  # the app drew the text

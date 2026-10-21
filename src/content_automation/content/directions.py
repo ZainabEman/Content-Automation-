@@ -368,6 +368,9 @@ class RomanRules(_Model):
     approved_photos: list[str] = Field(min_length=1)
     portrait_photos: list[str] = Field(default_factory=list)
     photo_notes: str = ""
+    # Phase 3 (P3-R1): the readable floor of the founder overlays per text role, px at 1080 px
+    # width; a layout's textLimits minFontPx is raised to it, never lowered
+    min_font_px: dict[str, int] = Field(default_factory=dict)
 
 
 class DirectionCatalog(_Model):

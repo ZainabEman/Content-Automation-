@@ -7,8 +7,11 @@ German text and the CTA (no logo or website, PRD v6). Any failure blocks the ite
 2. no overlap: every text and CTA (and a logo, if a manifest has one) stays at least 48 px (at
    1080 px width) away from the hologram third, which holds Roman, and from every glowing
    hologram or icon found on his side (manifest "holograms", 2026-10-21: one reached the
-   headline's last letter; the renderer rewraps or shrinks the text to clear them).
-3. calm text zones: behind each text box the picture's brightness spread and detail stay low.
+   headline's last letter; the renderer rewraps or shrinks the text to clear them), and from
+   his person box (manifest "person", Phase 3).
+3. calm text zones: behind each text box the brightness spread and detail stay low, measured
+   as drawn (the manifest's backdrop_std/backdrop_detail: the scrim and panels included; Phase
+   3, BG-137 failed twice on the raw scene under a 60-72% scrim), else on the picture.
 4. contrast, sizes, 64 px margins, logo hash and clear space: workflows/design_check.py (the
    `ca design check` thresholds), run on the same manifest.
 5. German: content/german.py on the drawn texts, plus noun capitalisation after an article,
@@ -86,11 +89,18 @@ def overlap_problems(manifest: Mapping[str, Any], side: str, *, share: float,
         boxes.append(("logo (with clear space)",
                       (mark[0] - clear, mark[1] - clear, mark[2] + clear, mark[3] + clear)))
     problems = []
+    person = manifest.get("person")
     for where, box in boxes:
         gap = _gap(box, third)
         if gap < need:
             state = "overlaps" if gap < 0 else f"is {gap:.0f} px from"
             problems.append(f"{where} {state} Roman's third (needs {need:.0f} px)")
+        if person:
+            mark = [float(value) for value in person]
+            apart = max(mark[0] - box[2], box[0] - mark[2], mark[1] - box[3], box[1] - mark[3])
+            if apart < need:
+                state = "overlaps" if apart < 0 else f"is {apart:.0f} px from"
+                problems.append(f"{where} {state} Roman (needs {need:.0f} px)")
         for found in manifest.get("holograms") or []:
             mark = [float(value) for value in found]
             # the larger of the horizontal and vertical distance (negative: they overlap)
@@ -104,8 +114,9 @@ def overlap_problems(manifest: Mapping[str, Any], side: str, *, share: float,
 
 def calm_problems(picture: Image.Image, manifest: Mapping[str, Any], *, max_std: float,
                   max_detail: float) -> list[str]:
-    """Brightness spread (std) and detail (mean edge strength) behind each text box, measured
-    on the picture as the renderer placed it (fitted to the canvas)."""
+    """Brightness spread (std) and detail (mean edge strength) behind each text box: as drawn
+    when the manifest records them (the renderer measures the canvas under the text, scrims and
+    panels included), else on the picture as the renderer placed it (fitted to the canvas)."""
     size = tuple(int(value) for value in manifest.get("size") or picture.size)
     fitted = ImageOps.fit(picture.convert("L"), (size[0], size[1]), Image.Resampling.LANCZOS)
     edges = np.asarray(fitted.filter(ImageFilter.FIND_EDGES), dtype=np.float64)
@@ -117,8 +128,12 @@ def calm_problems(picture: Image.Image, manifest: Mapping[str, Any], *, max_std:
         x1, y1 = min(x1, size[0]), min(y1, size[1])
         if x1 - x0 < 4 or y1 - y0 < 4:
             continue
-        spread = float(gray[y0:y1, x0:x1].std())
-        detail = float(edges[y0 + 1:y1 - 1, x0 + 1:x1 - 1].mean())
+        if text.get("backdrop_std") is not None:
+            spread = float(text["backdrop_std"])
+            detail = float(text.get("backdrop_detail") or 0.0)
+        else:
+            spread = float(gray[y0:y1, x0:x1].std())
+            detail = float(edges[y0 + 1:y1 - 1, x0 + 1:x1 - 1].mean())
         if spread > max_std or detail > max_detail:
             problems.append(f"{text.get('zone')}: busy background (brightness spread "
                             f"{spread:.0f} > {max_std:g} or detail {detail:.1f} > "

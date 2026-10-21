@@ -190,7 +190,8 @@
     "slide"
   ],
   "roman": {
-    "_note": "v6: the approved real photos of Roman in the identity set, used only for the identity sheet of the person check (never as a final image, never sent to a model). The LoRA prompt pools are archived (docs/history/README.md).",
+    "_note": "v6: the approved real photos of Roman in the identity set, used only for the identity sheet of the person check (never as a final image, never sent to a model). The LoRA prompt pools are archived (docs/history/README.md). minFontPx (Phase 3, P3-R1, 2026-10-22): the readable floor of the founder overlays per text role, px at 1080 px width (body text readable on a phone); a layout's textLimits minFontPx is raised to it, never lowered; copy that does not fit at the floor is 'text too long'.",
+    "minFontPx": {"sub": 28, "body": 28},
     "approvedPhotos": [
       "2.jpg",
       "4.jpg",

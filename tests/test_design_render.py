@@ -20,9 +20,12 @@ from content_automation.workflows.design_render import (
     Rendered,
     design_fonts,
     parse,
+    plain,
     render_layout,
     token_colors,
 )
+from content_automation.workflows.line_breaks import Piece, wrap
+from content_automation.workflows.roman_check import calm_problems, overlap_problems
 
 
 @pytest.fixture
@@ -158,3 +161,61 @@ def test_cli_design_preview(tmp_path: Path, logo: Path, monkeypatch: pytest.Monk
     assert "1 rendered, 0 failed" in result.output and "no provider called" in result.output
     unknown = CliRunner().invoke(app, ["design", "preview", "XX-1", "--out", str(tmp_path)])
     assert unknown.exit_code == 1
+
+
+def _wrapped(text: str, width: float, *, headline: bool = False, hyphenate: bool = False,
+             max_lines: int = 4) -> list[str] | None:
+    pieces = [Piece(w.text, 10.0 * len(w.text), w.glue, w.soft or w.text.endswith("-"),
+                    10.0 if w.soft else 0.0) for w in parse(text)]
+    ranges = wrap(pieces, width, 10.0, max_lines, headline=headline, hyphenate=hyphenate)
+    return None if ranges is None else [
+        "".join(("" if index == start or pieces[index].glue else " ") + pieces[index].text
+                for index in range(start, end)) for start, end in ranges]
+
+
+def test_german_line_breaks_keep_phrases_and_avoid_one_word_lines() -> None:
+    """Phase 3 (P3-R3): never after an article, a preposition or a number; no one-word last
+    line in a headline (a stack is fine); KI- compounds never split; hyphens only as the last
+    resort in body text."""
+    assert _wrapped("Ihre Daten bleiben bei Ihnen", 130) == ["Ihre Daten", "bleiben",
+                                                              "bei Ihnen"]
+    assert _wrapped("Über 30 Prozent sparen", 160) == ["Über 30 Prozent", "sparen"]
+    assert _wrapped("Über 30 Prozent sparen", 120) is None  # never "Über 30 / Prozent"
+    headline = "KI-ZITATE BRAUCHEN QUELLENPRÜFUNG"
+    assert _wrapped(headline, 240, headline=True) == ["KI-ZITATE", "BRAUCHEN QUELLENPRÜFUNG"]
+    assert _wrapped(headline, 190, headline=True) == ["KI-ZITATE", "BRAUCHEN", "QUELLENPRÜFUNG"]
+    assert _wrapped(headline, 190, headline=True, max_lines=2) is None  # not "… / QUELLEN…"
+    assert _wrapped("KI-Agenten", 80, hyphenate=True) is None
+    assert _wrapped("Daten-Schutz", 70) is None
+    assert _wrapped("Daten-Schutz", 70, hyphenate=True) == ["Daten-", "Schutz"]
+
+
+def test_founder_overlay_floor_text_too_long_and_calm_as_drawn(assets: Assets) -> None:
+    """Phase 3 (P3-R1/R2/R4/R6, audit row 18): the body stays at the 28 px floor, too much copy
+    is "text too long" (never clipped), the text keeps 48 px from a hologram beside it, and the
+    calm check reads the backdrop as drawn (under the scrim), not the busy raw scene."""
+    catalog = load_directions()
+    direction = catalog.get("LI-R1")
+    picture = Image.new("RGB", catalog.size(direction), (8, 12, 30))
+    draw = ImageDraw.Draw(picture)
+    for x in range(0, 640, 16):  # a busy text side: the raw scene fails the calm check
+        draw.line((x, 0, x, 1440), fill=(70, 80, 110), width=6)
+    draw.ellipse((590, 300, 640, 350), outline=(80, 200, 255), width=6)  # an icon on his side
+    copy = dict(sample_copy()["LI-R1/roman_right"])
+    rendered = render_layout(catalog, direction, "roman_right", copy, assets, picture=picture)
+    texts = {text.zone: text for text in rendered.texts}
+    assert texts["sub"].font_px >= 28 and texts["sub"].min_font_px == 28
+    assert texts["headline"].text == plain(str(copy["headline"]))  # the approved copy exactly
+    manifest = rendered.manifest()
+    assert rendered.holograms and overlap_problems(manifest, "S-R", share=0.3334,
+                                                   min_gap_px=48) == []
+    assert calm_problems(picture, manifest, max_std=30, max_detail=12) == []
+    raw = dict(manifest, texts=[{key: value for key, value in text.items()
+                                 if not key.startswith("backdrop_")}
+                                for text in manifest["texts"]])
+    assert calm_problems(picture, raw, max_std=30, max_detail=12)  # the old measurement
+    long = dict(copy, sub="Öffnen Sie vor jeder Veröffentlichung die Originalseite, prüfen Sie "
+                          "das Datum, den Autor und die Quelle, und vergleichen Sie jede Zahl "
+                          "mit der Studie, bevor Ihr Team den Beitrag freigibt.")
+    with pytest.raises(DesignRenderError, match="text too long"):
+        render_layout(catalog, direction, "roman_right", long, assets, picture=picture)

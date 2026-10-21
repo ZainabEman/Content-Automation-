@@ -93,7 +93,7 @@
     "instagram_carousel": {
       "goal": "a trend or provocation hook on the cover, one idea per slide, the last slide asks for engagement",
       "address": "du",
-      "headlineMaxWords": 12,
+      "headlineMaxWords": 9,
       "bodyMaxWords": 15,
       "bodyMaxWordsBySlide": {"_note": "2026-10-22: the slide type's layout limit (design_directions.json point body hint: at most 35 words) is the hard limit of the middle slides; bodyMaxWords is for the cover and the last slide only", "point": 35},
       "sentenceCase": true,

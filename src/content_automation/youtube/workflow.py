@@ -262,9 +262,11 @@ def check_scripts(conn: sqlite3.Connection, bg_id: str, *,
 
 
 def write_storyboards(conn: sqlite3.Connection, bg_id: str, *, root: Path | None = None,
-                      command: str | None = None) -> list[str]:
+                      command: str | None = None, missing_only: bool = False) -> list[str]:
     """R9.10 / v6 R7: one storyboard per style, in that style's folder and matching its script,
-    without selecting one; a changed storyboard is a new version, never an overwrite."""
+    without selecting one; a changed storyboard is a new version, never an overwrite.
+    missing_only (select-style, 2026-10-22): a style that has a storyboard keeps it (a filled
+    one is never followed by an empty template version); only missing ones are written."""
     item = _approved(conn, bg_id)
     folder = find_folder(item.id, root)
     data = read_package(folder)
@@ -278,6 +280,11 @@ def write_storyboards(conn: sqlite3.Connection, bg_id: str, *, root: Path | None
     lines: list[str] = []
     for key, style in styles().items():
         target = style_dir(folder, key)
+        if missing_only and latest(target / STORYBOARD).exists():
+            board = latest(target / STORYBOARD)
+            boards.append(board.relative_to(folder).as_posix())
+            lines.append(f"Storyboard {key} {style.name}: {board.as_posix()} (kept).")
+            continue
         board, how = write_versioned(target / STORYBOARD, storyboard_text(
             style, item.title, item.id, latest(target / TELEPROMPTER).read_text(encoding="utf-8"),
             latest(target / BILINGUAL).read_text(encoding="utf-8"), found))
@@ -293,7 +300,8 @@ def write_storyboards(conn: sqlite3.Connection, bg_id: str, *, root: Path | None
 
 def select_style(conn: sqlite3.Connection, bg_id: str, key: str, *, root: Path | None = None,
                  command: str | None = None) -> list[str]:
-    """Mark the production choice and make sure every style has a storyboard."""
+    """Mark the production choice and make sure every style has a storyboard (only missing
+    ones are written; the selected style's newest storyboard is the production one)."""
     item = _approved(conn, bg_id)
     folder = find_folder(item.id, root)
     data = read_package(folder)
@@ -304,7 +312,7 @@ def select_style(conn: sqlite3.Connection, bg_id: str, key: str, *, root: Path |
     if state.get("check") != "passed":
         raise YoutubeError(f"style {style.key} has not passed its check: uv run ca youtube "
                            f"check {item.id}")
-    write_storyboards(conn, item.id, root=root, command=command)
+    write_storyboards(conn, item.id, root=root, command=command, missing_only=True)
     data = read_package(folder)
     data["selectedStyle"] = style.key
     data["storyboard"] = latest(style_dir(folder, style.key) / STORYBOARD).relative_to(
@@ -312,7 +320,8 @@ def select_style(conn: sqlite3.Connection, bg_id: str, key: str, *, root: Path |
     write_package(folder, data)
     set_design(conn, item.id, script_style=style.key, command=command)
     return [f"{item.id}: style {style.key} {style.name} selected (registry and package.json).",
-            f"Created storyboards for every style: {', '.join(data['storyboards'])}.",
+            f"Storyboards of every style (existing kept, missing created): "
+            f"{', '.join(data['storyboards'])}.",
             "Production stays: Roman records, the editing agency edits (produce-video)."]
 
 

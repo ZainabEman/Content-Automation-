@@ -192,6 +192,8 @@ def test_one_topic_end_to_end(tmp_path: Path) -> None:
     code, out = rerun["changedBilingual"]
     assert code == 0 and "new version" in out
     assert "script_de_en_bilingual_v2.txt" in rerun["versions"]  # the earlier one is kept
+    assert result["reselect"] == {"code": 0, "storyboard": "Style B/storyboard.txt",
+                                  "boards": ["storyboard.txt"]}  # a filled one is kept
     tracker = result["tracker"]
     header = tracker.splitlines()[0]
     for column in ("Category", "Language", "Selected Script Style"):

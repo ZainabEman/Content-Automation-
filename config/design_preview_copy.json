@@ -187,5 +187,29 @@
     "sub": "Schreib es in die Kommentare.",
     "website": "ja",
     "illustration": "a glowing glass chat bubble and a calendar icon floating above a dark pedestal"
+  },
+  "_romanLengths": {
+    "_note": "Phase 3 (P3-R8): the founder contact sheet (ca design overlay --sheet) draws every founder variant with these three lengths; max is at the layout limits (headline 8 words / 56 characters, sub 14 words / 90, chips 2 words / 22, CTA 4 words / 28).",
+    "short": {
+      "headline": "KI braucht *klare* Regeln",
+      "sub": "Wir zeigen, wo Sie anfangen.",
+      "features": ["Zeit sparen", "Fehler senken", "Kunden halten"],
+      "icons": ["clock", "shield-check", "users"],
+      "cta": "Mehr erfahren"
+    },
+    "medium": {
+      "headline": "Erst der *Prozess*, dann das KI-Tool",
+      "sub": "Was ich jedem Team vor einem KI-Projekt mit auf den Weg gebe.",
+      "features": ["Prozesse klären", "Daten prüfen", "Team schulen"],
+      "icons": ["route", "database", "school"],
+      "cta": "Erstgespräch buchen"
+    },
+    "max": {
+      "headline": "Warum KI-Agenten ohne *saubere Daten* teure Fehler machen",
+      "sub": "Prüfen Sie vor dem Start, welche Daten Ihr KI-Agent liest und wer Ergebnisse freigibt.",
+      "features": ["Datenqualität sichern", "Freigaben regeln", "Risiken senken"],
+      "icons": ["database", "file-check", "shield-check"],
+      "cta": "Jetzt Beratung vereinbaren"
+    }
   }
 }

@@ -169,15 +169,46 @@ class VisualConcept(_BriefModel):
     callouts: list[str] = Field(default_factory=list, max_length=4)
 
 
+class EditorialProof(_BriefModel):
+    """The fact the piece stands on: a source fact with its source (a cited article ID or a
+    research.md link, "proof.md") or a verified service ("service:<id>")."""
+
+    fact: str = Field(min_length=1)
+    source: str = Field(min_length=1)
+
+
+class EditorialBrief(_BriefModel):
+    """Phase 1 P1-R1 (2026-10-22): the short brief written before the copy (german-editorial
+    skill, references/editorial-brief.md); the claims check reads its proof."""
+
+    audience: str = Field(min_length=1)  # which German business reader
+    problem: str = Field(min_length=1)  # the situation, in the reader's words
+    core_idea: str = Field(min_length=1)  # one sentence
+    proof: EditorialProof
+    objection: str = Field(min_length=1)  # the reader's likely doubt
+    action: str = Field(min_length=1)  # what the reader should do
+
+
+class PieceReview(_BriefModel):
+    """P1-R6: Codex's self-review of the whole piece (graphic and caption), one score per
+    criterion of config/copy_rules.json pieceRubric (0-2 each)."""
+
+    scores: dict[str, int] = Field(default_factory=dict)
+    why: str | None = None  # what keeps a score below 2
+
+
 class CopyPlan(_BriefModel):
     """How a graphic's copy was written (2026-10-21, config/copy_rules.json): the topic turned
     into the reader's angle, the 3 headline options and the visual concept; checked by the copy
-    check and shown in the copy review (content/copy_check.py)."""
+    check and shown in the copy review (content/copy_check.py). 2026-10-22: the editorial brief
+    and the piece review (optional for older briefs; the copy check asks for them)."""
 
     topic_type: Literal["news", "service"]
     angle: str = Field(min_length=1)  # what it means for the reader / the pain removed, the gain
     headline_options: list[HeadlineOption] = Field(min_length=3, max_length=3)
     visual: VisualConcept
+    editorial: EditorialBrief | None = None
+    review: PieceReview | None = None
 
 
 class AdFields(_BriefModel):

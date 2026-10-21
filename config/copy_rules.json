@@ -1,5 +1,5 @@
 {
-  "_note": "Copy rules for every social graphic (2026-10-21; content/copy_check.py, the make-content skill, brief.template.json _help.copyRules). The examples: brand/copy_examples.json (the approved brand references, verbatim). Checked for free before every dry run of a paid build (copy check), then shown to the user in the copy review (`ca content copy`, `ca calendar copy`); images are made only for approved copy. A failing item is rewritten once, then it stops (never sent to image generation). ctas: the button labels, each mapped to the verified service ids of config/services.json it fits (\"any\": every service; insightOnly: also for an insight-only post); the CTA icon follows its meaning (workflows/design_render.cta_icon: the calendar only for booking, else the circle arrow).",
+  "_note": "Copy rules for every social graphic and its caption (2026-10-21; 2026-10-22 Phase 1: editorialBrief, pieceRubric, claims, style, week; content/copy_check.py, the german-editorial skill, brief.template.json _help.copyRules). The examples: brand/copy_examples.json (the approved brand references, verbatim). Checked for free before every dry run of a paid build (copy check), then shown to the user in the copy review (`ca content copy`, `ca calendar copy`); images are made only for approved copy. A failing item is rewritten once, then it stops (never sent to image generation). ctas: the button labels, each mapped to the verified service ids of config/services.json it fits (\"any\": every service; insightOnly: also for an insight-only post); the CTA icon follows its meaning (workflows/design_render.cta_icon: the calendar only for booking, else the circle arrow).",
   "audience": "Inhaber, Geschäftsführer und Führungskräfte kleiner und mittlerer Unternehmen in Deutschland (Mittelstand): keine Techniker. Sie wollen wissen, was ein Thema für ihr Unternehmen bedeutet und was es ihnen bringt (Zeit, Kosten, Kunden, Wachstum, Sicherheit).",
   "angles": {
     "news": "a news or society topic: what does this mean for the reader's business (or life), and what should they do now?",
@@ -15,6 +15,45 @@
     "fitsVisual": "the visual concept can show it in one concrete scene"
   },
   "minScore": 5,
+  "editorialBrief": {
+    "_note": "Phase 1 P1-R1 (2026-10-22): copyPlan.editorial, written before any copy (german-editorial skill, references/editorial-brief.md). proof.source: a cited article ID (sourceArticleIds or an insight's source), a link listed in research.md, proof.md (brand/proof.md) or service:<verified service id>.",
+    "fields": ["audience", "problem", "coreIdea", "proof", "objection", "action"]
+  },
+  "pieceRubric": {
+    "_note": "P1-R6: copyPlan.review.scores, Codex's self-review of the whole piece (graphic and caption), 0 (missing), 1 (partly) or 2 (clearly) per criterion. Below minTotal, a criterion below minEach or a mustBeFull criterion below 2: one rewrite, then the copy review shows it STOPPED (never dropped).",
+    "criteria": {
+      "singleIdea": "one clear idea the reader can repeat in one sentence (the editorial coreIdea)",
+      "relevance": "matters to the German business reader of the brief: time, money, customers, risk or calm",
+      "specificity": "one real number, case or opinion from the proof; no line that fits any topic",
+      "naturalGerman": "reads like a German business writer: active verbs, short sentences, no Nominalstil, no anglicism where a common German word exists",
+      "hook": "the first words make the reader stop: a contrast, a benefit pair, a question or a bold statement (copy_examples.json patterns)",
+      "truth": "every fact, number, name and promise is covered by the editorial proof, the insights or the verified services; no invented case, client or result",
+      "ctaFit": "the action fits the piece and the service: action verb plus what the reader gets (the category's ctas)",
+      "platformFit": "follows the category's platform rules (german-editorial references/platforms.md) and differs from the same topic on other platforms"
+    },
+    "minTotal": 13,
+    "minEach": 1,
+    "mustBeFull": ["truth"]
+  },
+  "claims": {
+    "_note": "P1-R5: free, deterministic. In the graphic copy, the caption and the ad texts: numbers (a scenario timing before a scenarioUnits word, 24/7 and a count before an ownCounts word excepted), percentages, euro amounts, years, organisation names (organisations, or a name with an inner capital such as OpenAI) and studyWords statements must be found in the evidence: the editorial proof, the insights, research.md and the cited articles, brand/proof.md and the verified services (config/services.json). Otherwise the item fails with \"unbelegte Aussage\". allowNames are never claims (channels, the brand).",
+    "studyWords": ["Studie", "Studien", "Umfrage", "Untersuchung", "Erhebung", "Forscher", "Forschende", "Forschenden", "laut", "Paper"],
+    "scenarioUnits": ["Sekunde", "Sekunden", "Minute", "Minuten", "Stunde", "Stunden", "Tag", "Tage", "Tagen", "Woche", "Wochen", "Uhr"],
+    "ownCounts": ["Fragen", "Schritte", "Tipps", "Wege", "Gründe", "Punkte", "Ideen", "Regeln", "Fehler"],
+    "organisations": ["Google", "Meta", "Microsoft", "OpenAI", "Apple", "Amazon", "Cloudflare", "Anthropic", "DeepSeek", "Perplexity", "HubSpot", "Salesforce", "SAP", "Bitkom", "BSI", "IHK", "DIHK", "Statista", "McKinsey", "Gartner", "Deloitte", "PwC", "Fraunhofer", "Destatis", "EU-Kommission", "Bundesregierung", "Verbraucherzentrale", "Stiftung Warentest"],
+    "allowNames": ["Branded Genius", "BrandedGenius", "WhatsApp", "LinkedIn", "Facebook", "Instagram", "YouTube", "TikTok"]
+  },
+  "style": {
+    "_note": "P1-R2/R7 warnings in the copy review (never blocking): a caption or ad-text sentence over sentenceMaxWords words; a sentence with nounChainMin or more nouns ending in nounSuffixes (Nominalstil: write the verb).",
+    "sentenceMaxWords": 20,
+    "nounSuffixes": ["ung", "ungen", "heit", "heiten", "keit", "keiten", "tion", "tionen", "ität", "itäten"],
+    "nounChainMin": 3
+  },
+  "week": {
+    "_note": "P1-R3/R4 warnings of the week's copy review: a headline pattern chosen by more than maxSamePattern rows; headlines or captions of the same topic (the same research source) on different platforms at or above similarity (content/topic_pool.similarity, 0-1).",
+    "maxSamePattern": 2,
+    "similarity": 0.75
+  },
   "jargon": ["SEO", "SEA", "Frontend", "Backend", "Crawler", "Crawling", "API", "LLM", "Prompt", "Prompting", "Agent-Policy", "Browser-Agent", "Token", "Pipeline", "Deployment", "Framework", "Middleware", "Webhook", "Endpoint", "Schema", "Markup", "Scraping", "Scraper", "Embedding", "RAG", "Fine-Tuning", "Inference", "Latenz", "Headless", "DOM", "JavaScript", "MCP", "Robots.txt", "Sitemap", "Indexierung", "Rendering", "Server", "Bot-Traffic", "Benchmark", "Halluzination"],
   "explainedBy": ["(", " – ", " - ", ":", "also ", "das heißt", "d. h.", "heißt", "bedeutet", "sprich"],
   "categories": {

@@ -9,7 +9,7 @@ description: Prepare approved Branded Genius content for each platform (sizes an
 
 - Only an approved review is prepared. There are no publishing integrations (config/publishing.json): the user posts by hand.
 - Never mark anything published without the live post's URL from the user; a failure needs their reason.
-- Per-platform copy follows write-script's rules (only the template's claims, numbers need verified fact claims) and the platform's rules (LinkedIn 120–250 words, the hook on line 1, 3–5 hashtags).
+- Per-platform copy follows write-script's rules (only the template's claims, numbers need verified fact claims) and german-editorial references/platforms.md (the platform's rules).
 
 ## Steps
 

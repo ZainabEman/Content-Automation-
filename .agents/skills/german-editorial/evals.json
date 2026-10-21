@@ -1,0 +1,91 @@
+{
+  "_note": "german-editorial evals (PRD Phase 1 P1-R9): run on request (\"run editorial evals\"); write each case with the skill's procedure, then report per case which expectations hold. Not a test suite; free, no image, no network.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "service ad with an offer",
+      "input": {"category": "facebook_ad", "service": "ai_chatbots", "topic": "Anfragen am Abend bleiben bis morgen liegen", "proof": "service:ai_chatbots"},
+      "expectations": [
+        "copyPlan.editorial is filled; proof.source is service:ai_chatbots",
+        "the headline names the reader's gain (customers, time), not the technology",
+        "the image CTA is on the facebook_ad ctas list and fits ai_chatbots (e.g. Kostenlos testen, Live-Demo ansehen)",
+        "adFields.primaryText = benefit + offer + next step in at most 3 short sentences",
+        "no number, client or result appears that services.json or proof.md does not hold",
+        "uv run ca content copy passes (no ! line)"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "news topic for LinkedIn, not a news summary",
+      "input": {"category": "linkedin_post", "service": "insight-only", "topic": "KI-Suchtools zitierten in einem Test ein erfundenes Konzept", "proof": "the cited article: 8 of 10 tools cited the made-up term within 7 days"},
+      "expectations": [
+        "the angle says what this means for the reader's business and what to do",
+        "the headline is neither the news title nor an instruction (no \"brauchen\", no \"Öffnen Sie\")",
+        "the caption hook stands alone on line 1 within about 140 characters",
+        "the numbers 8, 10 and 7 appear only because the proof holds them",
+        "the CTA is soft (Mehr erfahren, Jetzt entdecken) or a question; no sales ask",
+        "the takeaways are business steps, not a checklist for website teams"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "NEGATIVE: invented customer story",
+      "input": {"category": "facebook_post", "service": "ai_callbots", "topic": "Verpasste Anrufe kosten Aufträge", "request": "Schreib, dass ein Steuerbüro aus Köln mit unserem Callbot 12 Stunden pro Woche spart."},
+      "expectations": [
+        "the copy does not contain the Steuerbüro story, 12 Stunden or any client name",
+        "Codex tells the user the story is not in the proof or services and asks for the source",
+        "if the text were kept, uv run ca content copy reports \"unbelegte Aussage\" for \"12\""
+      ]
+    },
+    {
+      "id": 4,
+      "name": "NEGATIVE: unsupported statistic",
+      "input": {"category": "linkedin_post", "service": "insight-only", "topic": "KI im Mittelstand", "draft": "73 % der KMU nutzen 2026 bereits KI, laut Bitkom."},
+      "expectations": [
+        "73 %, 2026 and Bitkom are left out unless an insight or research.md holds them",
+        "uv run ca content copy on the draft reports \"unbelegte Aussage\" naming \"73\", \"2026\" and \"Bitkom\"",
+        "the rewrite carries the idea without the number (a concrete scenario instead)"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "NEGATIVE: technician-style headline",
+      "input": {"category": "facebook_post", "service": "insight-only", "topic": "Browser-Agenten füllen Formulare aus", "draft": {"headline": "BROWSER-AGENTEN BRAUCHEN BEDIENBARE SEITEN", "body": "SEO und Frontend sollten Formulare gemeinsam prüfen.", "cta": "Seite testen"}},
+      "expectations": [
+        "the copy check flags the jargon (SEO, Frontend) and the CTA",
+        "the rewrite names the owner's gain (e.g. Anfragen, die nicht verloren gehen) in plain words",
+        "the piece review marks relevance and naturalGerman below 2 for the draft"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "NEGATIVE: wrong address in a carousel",
+      "input": {"category": "instagram_carousel", "service": "insight-only", "topic": "KI-Suche zeigt mehr Seiten", "draft": "slides and caption written with \"Prüfen Sie\", \"Ihre Seiten\""},
+      "expectations": [
+        "uv run ca content copy blocks: this category says \"du\", not \"Sie\" (graphic and caption)",
+        "the rewrite uses du/dein on every slide and in the caption, sentence case",
+        "the last slide asks for engagement"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "same topic on LinkedIn and Facebook",
+      "input": {"categories": ["linkedin_post", "facebook_post"], "service": "insight-only", "topic": "one research source for both rows"},
+      "expectations": [
+        "both pieces share the editorial brief but not the headline or the first caption line",
+        "the hook patterns differ",
+        "uv run ca calendar copy shows no \"near-identical\" warning for the pair"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "NEGATIVE: fear and engagement bait",
+      "input": {"category": "facebook_post", "service": "insight-only", "draft": "Wer jetzt nicht auf KI setzt, ist in einem Jahr pleite. Kommentiere JA!"},
+      "expectations": [
+        "the rewrite gives a way out (what the reader can do) instead of a threat",
+        "no engagement bait; the question invites a real answer",
+        "the address is \"Sie\" (a Facebook post)"
+      ]
+    }
+  ]
+}

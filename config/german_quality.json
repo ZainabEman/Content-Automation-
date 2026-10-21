@@ -1,5 +1,5 @@
 {
-  "_note": "PRD v5 R1.6: the free German quality pass on every audience-facing text before the dry run (content/german.py). transliterations: written without umlauts or ß (error, with the right spelling). misspellings: frequent German spelling mistakes (error). bannedPhrases: generic AI marketing language (error). englishWords: English function words and phrases that are not German words; two different ones in a text, or one phrase, is an English leftover (error), one word a warning. allowEnglish: loanwords and names that are normal in German business copy. address: the default form of address (Q3 default Sie); the other form is a warning. Edit freely; the lists are a starting point, not a dictionary.",
+  "_note": "PRD v5 R1.6: the free German quality pass on every audience-facing text before the dry run (content/german.py). transliterations: written without umlauts or ß (error, with the right spelling). misspellings: frequent German spelling mistakes (error). bannedPhrases: generic AI marketing language, filler and anglicisms where a common German word exists (Use Case → Anwendungsfall, Mindset → Haltung; Phase 1 P1-R2, 2026-10-22) (error). englishWords: English function words and phrases that are not German words; two different ones in a text, or one phrase, is an English leftover (error), one word a warning. allowEnglish: loanwords and names that are normal in German business copy. address: the default form of address (Q3 default Sie); the other form is a warning. Edit freely; the lists are a starting point, not a dictionary.",
   "address": "Sie",
   "transliterations": {
     "fuer": "für", "ueber": "über", "Ueber": "Über", "koennen": "können", "koennte": "könnte",
@@ -46,7 +46,14 @@
     "unverzichtbar", "Es ist wichtig zu beachten", "Es ist wichtig zu betonen", "auf dieser Reise",
     "Reise in die Zukunft", "Potenzial freisetzen", "das volle Potenzial", "durch die Decke",
     "game changer", "unlock", "unleash", "leverage", "delve", "fast-paced", "revolutionize",
-    "seamless", "cutting-edge", "next level", "elevate your"
+    "seamless", "cutting-edge", "next level", "elevate your",
+    "innovative Lösungen", "innovative Lösung", "ganzheitlich", "ganzheitliche", "ganzheitlichen",
+    "maßgeschneiderte Lösungen", "Mehrwert schaffen", "echten Mehrwert", "einzigartige Lösung",
+    "State of the Art", "Best Practice", "Best Practices", "Win-win", "Quantensprung",
+    "Paradigmenwechsel", "disruptiv", "neue Maßstäbe", "Maßstäbe setzen", "in Zeiten von",
+    "heutzutage", "Fakt ist", "am Ende des Tages", "Hand aufs Herz", "im Handumdrehen",
+    "spielend leicht", "mit Leichtigkeit", "Use Case", "Use Cases", "Use-Case", "Pain Points",
+    "Painpoints", "Mindset", "Learnings", "Challenges", "Benefits", "Quick Wins", "Impact"
   ],
   "englishWords": [
     "the", "and", "with", "your", "you", "our", "we", "of", "is", "are", "this", "that", "for",

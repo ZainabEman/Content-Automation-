@@ -480,7 +480,9 @@ def proof_problems(brief: ContentBrief, proof: str, research: Iterable[str]) -> 
             if _TIMING_BEFORE.search(text[: match.start()]) and "hour" in match.group(0).lower():
                 continue
             numbers = _NUMBER.findall(match.group(0))
-            if not all(number in allowed for number in numbers):
+            # German "26,2 %" is the source's "26.2%" (2026-10-22)
+            if not all({number, number.replace(",", "."), number.replace(".", ",")} & allowed
+                       for number in numbers):
                 problems.append(
                     f'{where}: "{match.group(0).strip()}" reads as a result; cite results only '
                     "from brand/proof.md (or a stat with its research source), otherwise "

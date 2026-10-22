@@ -1,15 +1,29 @@
 ---
 name: make-youtube
-description: Branded Genius YouTube research and production planning (PRD v5 R9): 8 German topics a month from real incidents, a verified research TXT per topic, three script styles (A investigativ, B direkte Warnung, C menschlich) as German teleprompter files plus German-English scripts, and a storyboard for each style for the editing agency. Roman records, the agency edits; nothing renders a video. Use for "plan youtube November", "research BG-x", "check sources BG-x", "write scripts BG-x", "generate storyboards BG-x", "select style B for BG-x", "upload youtube BG-x", "youtube status". Separate from the social skills; shares only BG IDs, approval, storage and the tracker.
+description: Branded Genius YouTube scripts in two pipelines (PRD v6 weekly): "make short video script" (about 1 min, HOST + ROMAN dialogue, one style) and "make long video script" (about 12 min, Roman only, 3 styles); per week 2 long-form and 4 short-form German topics from real incidents, a verified research TXT per topic, three script styles (A investigativ, B direkte Warnung, C menschlich) as German teleprompter files plus German-English scripts, and a storyboard for each style for the editing agency. Roman records, the agency edits; nothing renders a video. Use for "plan youtube November", "research BG-x", "check sources BG-x", "write scripts BG-x", "generate storyboards BG-x", "select style B for BG-x", "upload youtube BG-x", "youtube status". Separate from the social skills; shares only BG IDs, approval, storage and the tracker.
 ---
 
 # Make YouTube (research and production planning)
 
 Everything here is free: `ca youtube` makes folders, templates and checks; you research and
-write. No paid model is called by `ca`. Topic folder (PRD v6 R7): `outputs/YouTube Long-Form/<Topic Name>/`
-with `research.txt` and `Style A/`, `Style B/`, `Style C/` (each: `script_de_teleprompter.txt`,
-`script_de_en_bilingual.txt`, `storyboard.txt`). The BG ID and the briefs are in
-`outputs/_system/youtube/`. A re-run never overwrites: a changed file is written as `<name>_v2.txt`.
+write. No paid model is called by `ca`. Deliverables are scripts only (no video, voice or host).
+
+Two independent pipelines (config/youtube.json `formats`: own prompt, word target, presenter,
+folder and Drive folder):
+
+| | Short-form ("make short video script") | Long-form ("make long video script") |
+|---|---|---|
+| Plan | `ca youtube plan <YYYY-MM> --format short` | `ca youtube plan <YYYY-MM> --format long` |
+| Length | about 1 min, 140-160 words | about 12 min, 1,600-1,800 words |
+| Presenter | `HOST:` (AI host, asks) and `ROMAN:` (analyses), every paragraph labelled | Roman only, no labels |
+| Prompt | `references/short-form-prompt.md` | `references/long-form-prompt.md` (5-10 topics, hook → segments → conclusion, balanced) |
+| Folder | `outputs/YouTube Short-Form/<English Topic Title> <YYYY-MM-DD>/` with the 3 files directly | `outputs/YouTube Long-Form/<English Topic Title> <YYYY-MM-DD>/Style A|B|C/`, 3 files each |
+
+The 3 files: `script-en-de.md` (English + German, per paragraph), `teleprompter-de.txt` (German;
+in short-form Roman's lines are the `ROMAN:` ones), `storyboard.md` (references inline).
+`research.txt` stays in the topic folder as your local working file; it is never uploaded and
+there is no separate sources file. The BG ID, `titleEn` and the briefs are in
+`outputs/_system/youtube/`. A re-run never overwrites: a changed file is written as `<name>_v2`.
 
 ## Rules (always)
 
@@ -32,11 +46,15 @@ with `research.txt` and `Style A/`, `Style B/`, `Style C/` (each: `script_de_tel
 
 ## Steps
 
-1. **"plan youtube November"** → research real German incidents for the month with web access
-   (German sources first). Pick up to 8 distinct topics (AI risks, misuse, fraud, deepfakes,
-   security, data protection, poor implementation, real solutions). Then
-   `uv run ca youtube plan 2026-11 --topic "<German topic>" …` (one `--topic` each). It creates
-   Proposed items with BG IDs and folders. Show the list with one line of why each matters and
+1. **"make short video script"** / **"make long video script"** / "plan youtube November" →
+   research real German news with web access (German sources first). Short-form: one topic per
+   script (AI news, AI problems in Germany for business, work and society, the impact on people
+   and jobs, risks, limits, controversies, positive developments). Long-form: 5-10 topics per
+   script, risks and positive developments balanced. No topic twice in the week or month. Then
+   `uv run ca youtube plan 2026-11 --format short|long --topic "<German topic>" --title-en
+   "<English title, at most about 6 words>" …` (one pair each; the month holds 16 short-form and
+   8 long-form). It creates Proposed items with BG IDs and folders named
+   "<English Topic Title> <YYYY-MM-DD>". Show the list with one line of why each matters and
    its first sources; **stop** for "approve BG-x" / "reject BG-x <reason>" (manage-items:
    `uv run ca item approve|reject …`).
 2. **"research BG-x"** → `uv run ca youtube research BG-x` writes `research.txt`. Fill
@@ -59,35 +77,44 @@ with `research.txt` and `Style A/`, `Style B/`, `Style C/` (each: `script_de_tel
    research (another source, the exact quotation, a corrected fact) and run it again. Only the
    user may override: `--override "<their reason>"` with their own words (logged).
 4. **"write scripts BG-x"** → `uv run ca youtube scripts BG-x` (refused until the check passed or
-   was overridden). Read the three briefs in `outputs/_system/youtube/BG-x/briefs/` (they carry
-   the outline and the style's angle, opening and order) and write, per style folder,
-   `script_de_teleprompter.txt` from the outline: spoken German only (german-editorial
+   was overridden). Read the briefs in `outputs/_system/youtube/BG-x/briefs/` (long-form: three,
+   with the outline and the style's angle, opening and order; short-form: one, with the dialogue
+   rules) and write `teleprompter-de.txt` (long-form: per style folder; short-form: in the topic
+   folder, every paragraph starting `HOST:` or `ROMAN:`) from the outline: spoken German only (german-editorial
    "Gesprochenes Deutsch"), clean paragraphs separated by one empty line, no headings, labels,
-   notes, citations, fact IDs, URLs or English; the length target is `targetWords`
-   (config/youtube.json). The three styles keep the same thesis and facts but differ in opening
-   type, order, perspective and tone; every factual sentence must come from a fact ID. Then `uv run ca youtube bilingual BG-x` makes `script_de_en_bilingual.txt` from each teleprompter
+   notes, citations, fact IDs, URLs or English; the length target is the format's
+   `targetWords` (config/youtube.json formats). The three long-form styles keep the same thesis and facts but differ in opening
+   type, order, perspective and tone; every factual sentence must come from a fact ID. Then `uv run ca youtube bilingual BG-x` makes `script-en-de.md` from each teleprompter
    file; replace every "<English translation …>" under "English:" with a faithful translation
    (never change the German there): faithful and complete, every sentence, the same term for
    the same thing, not summarised and not localised. Then `uv run ca youtube check BG-x` until
    every style passes. It also reports the traceability (factual sentences without a fact ID),
    spoken-German and summarised-English warnings and the difference check: the same opening
    type, the same order of points or facts, or near-identical sentences between two styles
-   (rewrite one). Show the user the three openings, then create storyboards for all three styles;
-   a style choice is not needed for storyboard creation.
+   (rewrite one). Show the user the openings, then create the storyboards (long-form: all three
+   styles; a style choice is not needed for storyboard creation).
 5. **"generate storyboards BG-x"** → `uv run ca youtube storyboards BG-x` writes
-   `storyboard.txt` in each style folder (Style A, B and C), each matching its own script,
+   `storyboard.md` (long-form: in each style folder, each matching its own script and style;
+   short-form: one in the topic folder),
    without recording a production style. Each scene names its script paragraphs and the fact
    IDs it found. Fill every `<…>` in all three files: the visual direction (never two
    Roman-on-camera scenes in a row without a cutaway), an English b-roll or screen-capture
-   suggestion for the editor, the fact IDs [F#] of every factual visual or on-screen claim, and
-   no unverifiable visual shown as real (label illustrative footage). Then
-   `uv run ca youtube check BG-x` again: it warns about placeholders left, two on-camera scenes in
-   a row and numbers without a fact ID. The rest of the storyboard spec is PENDING: do not invent
+   suggestion for the editor, and no unverifiable visual shown as real (label illustrative
+   footage). **References inline:** every scene that states a fact, figure or news item is
+   followed directly by its `**Reference:** <article title>, <outlet>, <YYYY-MM-DD>, <URL>`
+   line(s) (filled from research.txt section 5 where the fact IDs are known; fill the rest from
+   the same section). Then `uv run ca youtube check BG-x` again: a reference URL that is not a
+   research.txt source is an error (the source check never opened it); it warns about
+   placeholders left, two on-camera scenes in a row and numbers without a reference line. The rest of the storyboard spec is PENDING: do not invent
    extra sections.
-6. **"select style B for BG-x"** → `uv run ca youtube select-style BG-x B` records the style
-   for production and ensures all three storyboards exist. It does not replace the other two.
-7. **"upload youtube BG-x"** → `uv run ca youtube upload BG-x` uploads research, six scripts,
-   all three storyboards and records their links in the tracker.
+6. **"select style B for BG-x"** (long-form) → `uv run ca youtube select-style BG-x B` records
+   the style for production and ensures all three storyboards exist. It does not replace the
+   other two.
+7. **"upload youtube BG-x"** → `uv run ca youtube upload BG-x` uploads the scripts and
+   storyboards to Drive `Content Automation/YouTube Short-form/` or `YouTube Long-form/`
+   (`<English Topic Title> <YYYY-MM-DD>/`, the same layout as locally) and upserts the tracker
+   row (BG ID) with the folder link and the upload status. A tracker failure is printed: report
+   it. (STORAGE_PROVIDER=plugin is not built for YouTube yet: it says so; use drive.)
 8. **"youtube status"** → `uv run ca youtube status [--month 2026-11]`.
 
 Production after the storyboard (recording, edits, finals, thumbnail): produce-video.

@@ -1,5 +1,5 @@
 {
-  "_note": "Two static social posts each day across LinkedIn, Facebook and Instagram (2026-10-20 user preference); the Instagram deliverable is a static carousel. Calendar v2 slots follow the same daily cadence.",
+  "_note": "Two static social posts each day across LinkedIn, Facebook and Instagram (2026-10-20 user preference); the Instagram deliverable is a static carousel. PRD v6 weekly (2026-10-22): 14 slots = config/deliverables.json weeklySet (2 Instagram carousels, 6 LinkedIn, 6 Facebook; Roman on at least 2 LinkedIn/Facebook rows). Calendar v2 slots follow the same daily cadence.",
   "slots": [
     {
       "weekday": "mon",
@@ -11,11 +11,11 @@
     },
     {
       "weekday": "tue",
-      "deliverable": "facebook_post"
+      "deliverable": "linkedin_post"
     },
     {
       "weekday": "tue",
-      "deliverable": "linkedin_post"
+      "deliverable": "instagram_carousel"
     },
     {
       "weekday": "wed",
@@ -59,7 +59,7 @@
     }
   ],
   "plan": {
-    "_note": "Daily static social cadence confirmed 2026-10-20: two posts per day across LinkedIn, Facebook and Instagram; one static Instagram carousel weekly. Long-form YouTube scripts are planned separately.",
+    "_note": "Daily static social cadence confirmed 2026-10-20: two posts per day across LinkedIn, Facebook and Instagram; two static Instagram carousels weekly (Tue, Fri). The 2 long-form and 4 short-form YouTube scripts are planned with ca youtube plan --format long|short.",
     "types": {
       "youtube_longform": {
         "platform": "youtube",
@@ -100,13 +100,13 @@
       {
         "weekday": "tue",
         "types": [
-          "facebook_post"
+          "linkedin_post"
         ]
       },
       {
         "weekday": "tue",
         "types": [
-          "linkedin_post"
+          "instagram_carousel"
         ]
       },
       {
@@ -179,7 +179,7 @@
       "postsPerDayMin": 2,
       "postsPerDayMax": 2,
       "perWeek": {
-        "instagram_carousel": 1
+        "instagram_carousel": 2
       }
     },
     "pillarTolerance": 0.15

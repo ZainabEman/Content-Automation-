@@ -88,6 +88,10 @@ GROUPS: tuple[Group, ...] = (
                "labelled claims with the status ca decided"),
     )),
     Group("make-calendar", ".agents/skills/make-calendar/SKILL.md", (
+        Phrase("make weekly calendar", "ca calendar new --week next",
+               "the weekly set: 14 posts (2 carousels, Roman at least 2) + 6 YouTube scripts"),
+        Phrase("make monthly calendar", "ca plan month 2026-11",
+               "the weekly set x4: 56 posts, 8 long + 16 short YouTube scripts"),
         Phrase("make calendar", "ca calendar new --week next", "a proposed week, BG IDs"),
         Phrase("make calendar next week", "ca calendar new --week next", "as make calendar"),
         Phrase("show calendar", "ca calendar show", "the week's rows and statuses (free)"),
@@ -184,8 +188,12 @@ GROUPS: tuple[Group, ...] = (
                "the same, in that variant"),
     )),
     Group("make-youtube", ".agents/skills/make-youtube/SKILL.md", (
-        Phrase("plan youtube November", 'ca youtube plan 2026-11 --topic "…"',
-               "up to 8 German topics as Proposed items with BG IDs and folders"),
+        Phrase("make short video script", 'ca youtube plan 2026-11 --format short --topic "…" '
+               '--title-en "…"', "1 min HOST + ROMAN dialogue, one style, 3 files"),
+        Phrase("make long video script", 'ca youtube plan 2026-11 --format long --topic "…" '
+               '--title-en "…"', "12 min, Roman only, Style A|B|C with 3 files each"),
+        Phrase("plan youtube November", 'ca youtube plan 2026-11 --format long|short --topic "…"',
+               "the month's German topics (8 long, 16 short) as Proposed items with folders"),
         Phrase("research BG-x", "ca youtube research BG-x",
                "the research TXT template, then its structure check"),
         Phrase("check sources BG-x", "ca youtube check-sources BG-x",
@@ -221,6 +229,8 @@ GROUPS: tuple[Group, ...] = (
         Phrase("export tracker", "ca tracking export", "the tracker as CSV"),
         Phrase("migrate outputs", "ca outputs migrate [--apply]",
                "old outputs into outputs/_system/rejected_legacy/ (dry run first)"),
+        Phrase("rename folders", "ca outputs rename [--apply]",
+               '"<English Topic Title> <YYYY-MM-DD>" locally and on Drive (dry run, then ok)'),
         Phrase("preview designs", "ca design preview",
                "every layout variant drawn with sample copy (free)"),
         Phrase("compare designs", "ca design compare",

@@ -49,7 +49,7 @@ from content_automation.content.tracking import (
 )
 from content_automation.core.config import Settings
 from content_automation.core.files import atomic_write_text
-from content_automation.core.output_tree import CAPTION_FILE, SOURCE_DIR
+from content_automation.core.output_tree import CAPTION_FILE, ITEM_FILE, SOURCE_DIR
 from content_automation.registry import runtime
 from content_automation.registry.audit import append_event
 from content_automation.registry.db import RegistryError
@@ -67,8 +67,11 @@ FOLDER_NAMES = {**PLATFORM_FOLDERS, "youtube": "YouTube", "shorts": "Shorts",
                 # moved (the restructuring spec is PENDING, R10.3)
                 "instagram_carousels": "Instagram Carousels",
                 "facebook_posts": "Facebook Posts",
-                # v6 (PRD R7/R8): YouTube packages mirror outputs/YouTube Long-Form/
-                "youtube_longform": "YouTube Long-Form"}
+                # PRD v6 weekly §6: the two YouTube script pipelines
+                "youtube_longform": "YouTube Long-form",
+                "youtube_shortform": "YouTube Short-form"}
+# folders named before PRD v6 weekly -> today's name (`ca outputs rename` renames them)
+LEGACY_FOLDER_NAMES = {"YouTube Long-Form": "YouTube Long-form"}
 # v5: a package's category (package.json `category`) -> its Drive folder key; a package
 # without a category (made before v5) keeps its platform folder
 CATEGORY_FOLDERS = {"instagram_carousel": "instagram_carousels",
@@ -183,6 +186,8 @@ def upload_names(folder: Path, package: ContentPackage) -> dict[str, str | None]
     if package.tree_path and names:
         if (folder / CAPTION_FILE).is_file():
             names[CAPTION_FILE] = None
+        if (folder / ITEM_FILE).is_file():  # PRD v6 weekly §6: the BG ID inside the folder
+            names[ITEM_FILE] = None
         for path in sorted((folder / SOURCE_DIR).glob("*")) if (folder / SOURCE_DIR).is_dir() \
                 else []:
             names[f"{SOURCE_DIR}/{path.name}"] = SOURCE_DIR

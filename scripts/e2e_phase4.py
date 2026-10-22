@@ -115,6 +115,11 @@ def _setup(work: Path) -> None:
     jobs = json.loads((work / "config" / "jobs.json").read_text(encoding="utf-8"))
     jobs["free_providers"] = [p for p in jobs["free_providers"] if p != "mock"]
     (work / "config" / "jobs.json").write_text(json.dumps(jobs), encoding="utf-8")
+    # this 3-row week was written for one Roman row (v6 weekly: romanMin 2 in a full week)
+    deliverables = json.loads((work / "config" / "deliverables.json").read_text(encoding="utf-8"))
+    deliverables["weeklySet"]["romanMin"] = 1
+    (work / "config" / "deliverables.json").write_text(json.dumps(deliverables),
+                                                        encoding="utf-8")
     # Phase 4 uploads after generation; Phase 7 waits for the review (requireReview: true).
     (work / "config" / "storage.json").write_text(
         json.dumps({"upload": {"requireReview": False}}), encoding="utf-8")

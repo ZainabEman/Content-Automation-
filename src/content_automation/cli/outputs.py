@@ -1,13 +1,22 @@
 """`ca outputs migrate [--apply]` (PRD v6 R8): the old local outputs into
 outputs/_system/rejected_legacy/ (a dry run by default; nothing deleted, no record changed).
 `ca outputs collect [--week YYYY-Www]` (2026-10-21): copies of the passed final images into
-outputs/_system/review/<week>/ for quick viewing (the packages keep theirs)."""
+outputs/_system/review/<week>/ for quick viewing (the packages keep theirs).
+`ca outputs rename [--apply]` (PRD v6 weekly §6): item folders to "<English Topic Title>
+<YYYY-MM-DD>", locally and on Drive (a dry run by default)."""
 
 from typing import Annotated
 
 import typer
 
 from content_automation.cli.jobs import _fail, _settings
+from content_automation.cli.scope import registry_scope
+from content_automation.content.folder_rename import (
+    apply_renames,
+    plan_renames,
+    write_titles_file,
+)
+from content_automation.content.folder_rename import plan_lines as rename_lines
 from content_automation.content.outputs_migrate import (
     apply_migration,
     plan_lines,
@@ -54,3 +63,26 @@ def outputs_collect(
     typer.echo(f"{len(copied)} final image(s) copied" + (": " + ", ".join(
         folder.as_posix() for folder in folders) if folders else
         " (no passed final images" + (f" in {week}" if week else "") + ")") + ".")
+
+
+@outputs_app.command("rename")
+def outputs_rename(
+    apply: Annotated[bool, typer.Option(
+        "--apply", help="Rename for real (only after the user's ok to the dry run).")] = False,
+) -> None:
+    """List every item folder (local and Drive) not named "<English Topic Title> <YYYY-MM-DD>"
+    with its new name; --apply renames them in place and updates the tracker."""
+    settings = _settings()
+    command = "ca outputs rename" + (" --apply" if apply else "")
+    try:
+        with registry_scope(settings, command) as scope:
+            plan = plan_renames(settings, scope.conn)
+            titles = write_titles_file(plan, settings)
+            done = apply_renames(plan, settings, scope.conn) if apply else []
+            lines = rename_lines(plan, settings, applied=apply) + done
+    except (OSError, ValueError) as error:
+        _fail(f"rename stopped: {error}")
+    for line in lines:
+        typer.echo(line)
+    if titles is not None:
+        typer.echo(f"Titles to fill: {titles.as_posix()}")

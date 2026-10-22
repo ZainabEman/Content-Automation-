@@ -108,10 +108,10 @@ def run(copy_to: Path | None = PREVIEW, keep: bool = False) -> dict[str, Any]:
             folders = {"A": "Style A", "B": "Style B", "C": "Style C"}
             for key, name in folders.items():
                 shutil.copy(FIXTURES / f"teleprompter_{key}.txt",
-                            folder / name / "script_de_teleprompter.txt")
+                            folder / name / "teleprompter-de.txt")
             result["steps"]["bilingual"] = ca("youtube", "bilingual", bg_id)[0]
             for key, name in folders.items():
-                path = folder / name / "script_de_en_bilingual.txt"
+                path = folder / name / "script-en-de.md"
                 text = path.read_text(encoding="utf-8")
                 for translation in english[key]:
                     text = text.replace("<English translation of the German paragraph above>",
@@ -148,7 +148,7 @@ def run(copy_to: Path | None = PREVIEW, keep: bool = False) -> dict[str, Any]:
                                "topicFolders": sorted(path.name for path in folder.parent.iterdir()
                                                       if path.is_dir()),
                                "unchanged": before == after}
-            changed = folder / "Style A" / "script_de_teleprompter.txt"
+            changed = folder / "Style A" / "teleprompter-de.txt"
             changed.write_text(changed.read_text(encoding="utf-8") + "\nEin neuer Absatz.\n",
                                encoding="utf-8")
             code, out = ca("youtube", "bilingual", bg_id)
@@ -156,8 +156,8 @@ def run(copy_to: Path | None = PREVIEW, keep: bool = False) -> dict[str, Any]:
             result["rerun"]["versions"] = sorted(path.name for path in (folder / "Style A")
                                                  .iterdir())
             # select-style again after Style B's storyboard was filled (Phase 3 follow-up A1):
-            # the filled one is kept and recorded, no empty storyboard_v2.txt
-            board = folder / "Style B" / "storyboard.txt"
+            # the filled one is kept and recorded, no empty storyboard_v2.md
+            board = folder / "Style B" / "storyboard.md"
             board.write_text(board.read_text(encoding="utf-8").replace("<", "[").replace(
                 ">", "]"), encoding="utf-8")
             code, _ = ca("youtube", "select-style", bg_id, "B")

@@ -36,6 +36,7 @@ from content_automation.storage import (
     CALENDAR_FOLDER,
     EXPORT_NAME,
     FOLDERS,
+    LEGACY_FOLDER_NAMES,
     NOT_SET_UP,
     ROOT_FOLDER,
     StorageError,
@@ -155,7 +156,9 @@ class DriveStorage:
         self, file: Path, platform: str, content_id: str, subfolder: str | None = None
     ) -> Uploaded:
         name = platform_folder(platform)
-        parent = self._state.folders.get(name)
+        parent = self._state.folders.get(name) or next(  # a folder named before v6 weekly
+            (self._state.folders[old] for old, new in LEGACY_FOLDER_NAMES.items()
+             if new == name and old in self._state.folders), None)
         if not parent and self._state.root_id and self._state.folders:
             # v6 (R8): a top folder added after setup (YouTube Long-Form) is created once under
             # the main folder; nothing that exists is moved or renamed
@@ -179,6 +182,27 @@ class DriveStorage:
             self._state.content_folders[key] = folder
             self._save_state()
         return folder
+
+    def rename_folder(self, path: str, new_name: str) -> str:
+        """PRD v6 weekly §6 (`ca outputs rename --apply`): rename a known folder in place (same
+        ID, contents unchanged); `path` is "<Platform folder>[/<content id>]" as remembered in
+        drive_state.json. Returns the folder's link (unchanged: it is the ID)."""
+        nested = "/" in path
+        folder_id = (self._state.content_folders.get(path) if nested
+                     else self._state.folders.get(path))
+        if not folder_id:
+            raise StorageError(f"no Drive folder {path} known")
+        self._run(self._service.files().update(fileId=folder_id, body={"name": new_name},
+                                               fields="id"))
+        new_path = f"{path.rpartition('/')[0]}/{new_name}" if nested else new_name
+        if not nested:
+            self._state.folders[new_name] = self._state.folders.pop(path)
+        for key in [key for key in self._state.content_folders
+                    if key == path or key.startswith(path + "/")]:
+            self._state.content_folders[new_path + key[len(path):]] = (
+                self._state.content_folders.pop(key))
+        self._save_state()
+        return f"https://drive.google.com/drive/folders/{folder_id}"
 
     def upload_calendar(self, file: Path) -> Uploaded:
         parent = self._state.folders.get(CALENDAR_FOLDER)

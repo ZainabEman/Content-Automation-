@@ -11,9 +11,16 @@ This manual is for the social media designer. You never need to write code. You 
 
 ## Your weekly routine
 
+Every week has the same set:
+
+- **14 image posts**: 2 Instagram carousels, the rest LinkedIn and Facebook posts. At least 2 of the 14 show Roman.
+- **2 long YouTube scripts** and **4 short YouTube scripts** (see "YouTube scripts" below).
+
+A month is the same set four times: 56 image posts (8 carousels, at least 8 with Roman), 8 long and 16 short scripts. Type `make weekly calendar` for one week or `make monthly calendar` for a whole month.
+
 | Step | Type this in Codex | What happens |
 | --- | --- | --- |
-| 1 | `make calendar next week` | Codex suggests next week's posts (date, topic, platform). |
+| 1 | `make weekly calendar` (or `make calendar next week`) | Codex suggests next week's 14 posts (date, topic, platform) and plans the week's 6 YouTube scripts. |
 | 2 | `approve all` or `approve 1 3 5` | You accept all rows or only the rows you name. |
 |   | `reject 2` | You turn a row down. Codex asks you why. |
 | 3 | `review copy for next week` | You read the headline, text and button of every graphic. |
@@ -22,7 +29,7 @@ This manual is for the social media designer. You never need to write code. You 
 | 5 | `ok` | Codex prepares the images. |
 | 6 | `generate images` | Codex creates the pictures (one per image, only once). |
 | 7 | `import images` | The pictures go into your designs: text, logo and button are added and checked. |
-| 8 | `sync drive` | The finished files go to Google Drive and into the Content Tracker. |
+| 8 | `sync drive` | The finished files go to Google Drive. Every successful upload also updates the post's row in the Content Tracker (with the Drive folder link). If the tracker could not be updated, Codex tells you. |
 
 Codex often runs steps 6 and 7 by itself. If it stops and says **"CODEX IMAGES … wait for Codex"**, just type `generate images`.
 
@@ -46,6 +53,25 @@ After each one, Codex shows the plan. Type `ok` to make it.
 | With Roman | FB-R1, FA-R1, LI-R1 (Founder) |
 
 If you don't choose one, Codex picks a layout so that posts don't repeat.
+
+## YouTube scripts
+
+There are two kinds of script. Codex only writes scripts; no video or voice is made.
+
+| Type this in Codex | What you get |
+| --- | --- |
+| `make short video script` | About 1 minute: a conversation between the AI host (`HOST:`) and Roman (`ROMAN:`) about one topic. |
+| `make long video script` | About 12 minutes: Roman alone, 5–10 news topics, in three styles (Style A, B and C). |
+
+Each script folder holds three files:
+
+- `script-en-de.md`: the script in English and German, paragraph by paragraph.
+- `teleprompter-de.txt`: the German text Roman reads (in short scripts, Roman's lines start with `ROMAN:`).
+- `storyboard.md`: the plan for the video editor. The source of each fact (article title, outlet, date and link) sits right under the scene it belongs to. There is no separate sources file.
+
+A short script has the three files directly in its folder. A long script has one folder per style (`Style A`, `Style B`, `Style C`), each with the same three files and its own storyboard.
+
+Then: `research BG-x`, `check sources BG-x`, `write scripts BG-x`, `generate storyboards BG-x` and `upload youtube BG-x`. The upload also updates the Content Tracker.
 
 ## When Codex stops and asks you to look
 
@@ -82,11 +108,22 @@ If something is wrong, say what is wrong. Nothing is made again until you agree.
 
 ## Where the finished files are
 
-On Google Drive and on this computer, in the `outputs` folder:
+On Google Drive (in `Content Automation`) and on this computer, in the `outputs` folder:
 
 - `Instagram/Carousels/…`, `Facebook/Posts/…`, `Facebook/Ads/…`, `LinkedIn/Posts/…`
-- One folder per post, named with its date and ID, for example `2026-11-03_BG-125_ki-im-vertrieb`.
-- In it: `final/` (the images ready to post) and `caption_de.txt` (the German caption).
+- YouTube scripts: `YouTube Short-form` and `YouTube Long-form` on Drive (`YouTube Short-Form` and `YouTube Long-Form` on this computer).
+- One folder per post or script, named with its English topic and its date, for example `AI in Sales 2026-11-03`. If two have the same name, the second gets ` (2)`.
+- File names are English; the text inside stays German.
+- The ID (for example `BG-125`) is not in the folder name. You find it in the Content Tracker and in the file `item.json` inside the folder.
+- In a post folder: `final/` (the images ready to post) and `caption_de.txt` (the German caption).
+
+### Renaming older folders
+
+Folders made before this change have the old names (for example `2026-11-03_BG-125_ki-im-vertrieb`). To give them the new names:
+
+1. Type `rename folders`. Codex only shows a list: each old name and its new name. Nothing changes yet. If a folder has no English title yet, Codex writes one first.
+2. Check the list. If it looks right, type `ok`.
+3. Codex renames the folders on this computer and on Google Drive (same folders, same files, only the name changes) and updates the Content Tracker.
 
 ## Brand rules the app follows for you
 
@@ -100,6 +137,6 @@ On Google Drive and on this computer, in the `outputs` folder:
 
 - Don't paste passwords or keys into the Codex chat.
 - Don't edit the calendar files by hand. Use `approve`, `reject` and `revise` instead.
-- Don't rename or move files inside the `outputs` folder.
+- Don't rename or move files inside the `outputs` folder yourself. Use `rename folders` instead.
 
 If something fails or looks strange, copy Codex's message and send it to the person who set up the system.

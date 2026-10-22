@@ -22,8 +22,8 @@ def test_package_dir_follows_the_tree() -> None:
     root = Path("outputs")
     path = package_dir(root, "instagram_carousel", date(2026, 11, 3), "BG-120",
                        "Deepfake-Anrufe: Wenn die Stimme des Chefs gefälscht ist")
-    assert path.as_posix() == ("outputs/Instagram/Carousels/2026-11/2026-11-03_BG-120_"
-                               "deepfake-anrufe-wenn-die-stimme-des-chef")  # 40 chars
+    assert path.as_posix() == ("outputs/Instagram/Carousels/2026-11/Deepfake-Anrufe Wenn die "
+                               "Stimme des Chefs gefälscht ist 2026-11-03")  # v6 weekly §6
     assert short_slug("Größe & Übermut!") == "groesse-uebermut"
     for category, start in (("facebook_post", "Facebook/Posts"), ("facebook_ad", "Facebook/Ads"),
                             ("linkedin_post", "LinkedIn/Posts")):

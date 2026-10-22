@@ -130,9 +130,11 @@ from content_automation.core.limits import DailyLimitError
 from content_automation.core.output_tree import (
     CAPTION_FILE,
     FINAL_DIR,
+    ITEM_FILE,
     SOURCE_DIR,
     SYSTEM,
     package_dir,
+    unique_name,
 )
 from content_automation.references import (
     BrandProfile,
@@ -301,6 +303,9 @@ class ContentPackage(CamelModel):
     # package's path in the tree, e.g. "Instagram/Carousels/2026-11/<folder>" (Drive mirrors it)
     planned_date: date | None = None
     tree_path: str | None = None
+    # PRD v6 weekly §6: the English short title (max ~6 words) of the folder name
+    # "<titleEn> <YYYY-MM-DD>", written with the copy (brief titleEn) or by `ca outputs rename`
+    title_en: str | None = None
     # v6 (R3.5): the layout variant's variation (side/panel/deco/cta), picked at stage 1 by
     # rotation over the platform's earlier packages (content/design_variation.py)
     variation: str | None = None
@@ -676,19 +681,28 @@ def place_package(folder: Path, settings: Settings, bg_id: str, planned: date) -
     package = load_package(folder)
     if package.category is None or folder.parent.resolve() != drafts_dir(settings).resolve():
         return folder
-    target = package_dir(settings.packages_dir, package.category, planned, bg_id, package.topic)
-    suffix = 1
-    while (candidate := target if suffix == 1 else target.with_name(
-            f"{target.name}-{suffix}")).exists():
-        suffix += 1
+    target = package_dir(settings.packages_dir, package.category, planned, bg_id,
+                         package.title_en or package.topic)
+    taken = {path.name for path in target.parent.iterdir()} if target.parent.is_dir() else set()
+    candidate = target.with_name(unique_name(target.name, taken))
     candidate.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(folder), str(candidate))
     package.package_id = candidate.name
     package.planned_date = planned
     package.tree_path = candidate.relative_to(settings.packages_dir).as_posix()
     _save(candidate, package)
+    write_item_file(candidate, package, bg_id)
     atomic_write_text(folder.with_name(folder.name + MOVED_SUFFIX), candidate.as_posix() + "\n")
     return candidate
+
+
+def write_item_file(folder: Path, package: ContentPackage, bg_id: str | None) -> None:
+    """PRD v6 weekly §6: item.json in the item folder: the BG ID and content ID (not in the
+    folder name), the English title and the planned date; it goes to Drive with the files."""
+    data = {"bgId": bg_id, "contentId": package.content_id, "titleEn": package.title_en,
+            "topic": package.topic, "plannedDate": package.planned_date.isoformat()
+            if package.planned_date else None, "category": package.category}
+    atomic_write_text(folder / ITEM_FILE, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 
 
 def resolve_package_folder(folder: Path) -> Path:

@@ -234,9 +234,9 @@ def run(keep: bool = False) -> list[tuple[str, bool, str]]:
     result = yt.run(copy_to=None)  # its own sandbox; the teleprompter check is the German pass
     youtube_ok = all(code == 0 for name, code in result["steps"].items() if name != "blocked")
     results.append(("§7.11 one YouTube topic: research, 3 styles x 3 files (v6 R7 tree)",
-                    youtube_ok and sum(path.endswith(("script_de_teleprompter.txt",
-                                                      "script_de_en_bilingual.txt",
-                                                      "storyboard.txt"))
+                    youtube_ok and sum(path.endswith(("teleprompter-de.txt",
+                                                      "script-en-de.md",
+                                                      "storyboard.md"))
                                        for path in result["files"]) == 9
                     and "research.txt" in result["files"],
                     ", ".join(f"{k} {v}" for k, v in result["steps"].items())))

@@ -103,7 +103,7 @@ def test_fetch_failure_never_raises() -> None:
 def test_teleprompter_rules() -> None:
     good = (FIXTURES / "teleprompter_B.txt").read_text(encoding="utf-8")
     errors, warnings = teleprompter_problems(good, "B")
-    assert errors == [] and any("target is 1300-1600" in w for w in warnings)
+    assert errors == [] and any("target is 1600-1800" in w for w in warnings)
     bad = ("HOOK:\n\nWarum das wichtig ist [S1], siehe https://example.org.\n\n"
            "Ich habe erlebt, wie so ein Anruf kam. Read more about the risk now.")
     errors, _ = teleprompter_problems(bad, "A")
@@ -159,41 +159,45 @@ def test_one_topic_end_to_end(tmp_path: Path) -> None:
     assert all(steps[name] == 0 for name in ("plan", "approve", "template", "check-sources",
                                              "scripts", "bilingual", "check", "select"))
     folder = tmp_path / result["folderName"]
-    assert result["folderName"] == "Deepfake-Anrufe im Namen der Geschäftsführung"  # readable
+    # v6 weekly §6: "<English Topic Title> <YYYY-MM-DD>" (no --title-en: the topic for now)
+    assert result["folderName"] == "Deepfake-Anrufe im Namen der Geschäftsführung 2026-11-02"
     assert result["meta"]["bgId"] == result["bgId"]  # the BG ID is in the metadata
     styles = ("Style A", "Style B", "Style C")
-    expected = {"research.txt"} | {f"{name}/{file}" for name in styles for file in (
-        "script_de_teleprompter.txt", "script_de_en_bilingual.txt", "storyboard.txt")}
-    assert set(result["files"]) == expected  # exactly the R7 tree, nothing else
+    uploaded = {f"{name}/{file}" for name in styles for file in (
+        "teleprompter-de.txt", "script-en-de.md", "storyboard.md")}
+    expected = {"research.txt"} | uploaded  # research.txt: the local working file only
+    assert set(result["files"]) == expected  # exactly the tree, nothing else
     for name in styles[1:]:  # Style A's teleprompter is changed by the re-run below
-        teleprompter = (folder / name / "script_de_teleprompter.txt").read_text(encoding="utf-8")
+        teleprompter = (folder / name / "teleprompter-de.txt").read_text(encoding="utf-8")
         assert teleprompter_problems(teleprompter, name[-1])[0] == []  # no English, no citation
-        bilingual = (folder / name / "script_de_en_bilingual.txt").read_text(encoding="utf-8")
+        bilingual = (folder / name / "script-en-de.md").read_text(encoding="utf-8")
         assert bilingual_problems(teleprompter, bilingual) == []  # identical German
     research = (folder / "research.txt").read_text(encoding="utf-8")
     assert "Result: PASSED" in research
-    boards = {name: (folder / name / "storyboard.txt").read_text(encoding="utf-8")
+    boards = {name: (folder / name / "storyboard.md").read_text(encoding="utf-8")
               for name in styles}
     assert len(set(boards.values())) == 3  # one per style, never shared
     board = boards["Style B"]
     assert board.count("## Scene ") >= 3 and "PENDING" in board
     for field in ("German (spoken by Roman)", "English (translation)", "Visual direction",
                   "On-screen text (German, exact)", "On-screen text (English explanation)",
-                  "Sources for factual visuals", "Transitions, pacing"):
+                  "Fact IDs", "Transitions, pacing"):
         assert field in board
+    assert "**Reference:** " in board and "https://" in board  # inline, after the scene
     package = result["meta"]
     assert package["selectedStyle"] == "B" and package["sourceCheck"]["status"] == "passed"
-    assert steps["upload"] == 0  # mock Drive mirrors YouTube Long-Form/<Topic Name>/ (R8)
-    base = f"YouTube Long-Form/{folder.name}/"
-    assert {base + path for path in expected} <= set(result["driveFiles"])
+    assert steps["upload"] == 0  # mock Drive: YouTube Long-form/<folder>/ (v6 weekly §6)
+    base = f"YouTube Long-form/{folder.name}/"
+    assert {base + path for path in uploaded} <= set(result["driveFiles"])
+    assert base + "research.txt" not in result["driveFiles"]  # no separate sources file
     rerun = result["rerun"]
     assert rerun["codes"] == [0, 0, 0] and rerun["unchanged"]
     assert rerun["topicFolders"] == [folder.name]  # no duplicate folder
     code, out = rerun["changedBilingual"]
     assert code == 0 and "new version" in out
-    assert "script_de_en_bilingual_v2.txt" in rerun["versions"]  # the earlier one is kept
-    assert result["reselect"] == {"code": 0, "storyboard": "Style B/storyboard.txt",
-                                  "boards": ["storyboard.txt"]}  # a filled one is kept
+    assert "script-en-de_v2.md" in rerun["versions"]  # the earlier one is kept
+    assert result["reselect"] == {"code": 0, "storyboard": "Style B/storyboard.md",
+                                  "boards": ["storyboard.md"]}  # a filled one is kept
     tracker = result["tracker"]
     header = tracker.splitlines()[0]
     for column in ("Category", "Language", "Selected Script Style"):

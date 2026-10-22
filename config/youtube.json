@@ -1,5 +1,6 @@
 {
-  "_note": "PRD v5 R9: YouTube research and production planning (`ca youtube`, skill make-youtube). Separate from the social workflow; shares only the registry (BG IDs, approval), storage, tracker and authorization layers. Roman records, the editing agency (Takwa) edits; the system never renders a video. Formula: config/formulas.json youtube_longform (the 8-step storytelling formula, R9.6). Length: Q4 default 10-12 minutes, about 1,300-1,600 spoken German words (130 words per minute); a script outside it is a warning, not an error, until Roman confirms Q4.",
+  "_note": "PRD v5 R9: YouTube research and production planning (`ca youtube`, skill make-youtube). Separate from the social workflow; shares only the registry (BG IDs, approval), storage, tracker and authorization layers. Roman records, the editing agency (Takwa) edits; the system never renders a video. Formula: config/formulas.json youtube_longform (the 8-step storytelling formula, R9.6). Length: formats.long.targetWords (about 12 minutes, 1,600-1,800 spoken German words) and formats.short.targetWords (about 1 minute, 140-160 words), at wordsPerMinute; a script outside it is a warning, not an error, until Roman confirms Q4.",
+  "_topicsPerMonthNote": "PRD v6 weekly (2026-10-22): the monthly count per format is config/deliverables.json weeklySet.youtube x monthMultiplier (long 8, short 16); topicsPerMonth is the fallback for long-form only.",
   "topicsPerMonth": 8,
   "editorialFocus": {
     "_note": "Persistent editorial preference; monthly capacity and approval gates remain unchanged.",
@@ -23,10 +24,68 @@
   "outputDir": "outputs/YouTube Long-Form",
   "wordsPerMinute": 130,
   "_wordsPerMinuteNote": "PRD Phase 2 P2-R5: the speaking pace for the length and the storyboard timings; ~130 until calibrated on Roman's real takes (words of a recorded script / its minutes). The length target stays targetWords.",
-  "targetWords": [
-    1300,
-    1600
-  ],
+  "formats": {
+    "_note": "PRD v6 weekly §3-4: two independent script pipelines, chosen with `ca youtube plan --format short|long` (skill make-youtube: \"make short video script\", \"make long video script\"). Each has its own prompt, word target, presenter, folder layout and Drive folder. Deliverables are scripts only (no video, voice or host generation).",
+    "long": {
+      "label": "Long-form",
+      "deliverable": "youtube_longform",
+      "outputDir": "outputs/YouTube Long-Form",
+      "driveFolder": "youtube_longform",
+      "minutes": 12,
+      "targetWords": [
+        1600,
+        1800
+      ],
+      "presenter": {
+        "speakers": [
+          "ROMAN"
+        ],
+        "rule": "Roman only, no host."
+      },
+      "topicsPerVideo": [
+        5,
+        10
+      ],
+      "minutesPerTopic": [
+        2,
+        3
+      ],
+      "structure": "Strong hook (a real, sourced statistic, risk or finding, not sensational; what viewers can do) -> topic segments (news -> why it matters -> analysis and implications) with transitions -> short conclusion. Balanced: risks and positive developments.",
+      "prompt": ".agents/skills/make-youtube/references/long-form-prompt.md",
+      "styles": [
+        "A",
+        "B",
+        "C"
+      ]
+    },
+    "short": {
+      "label": "Short-form",
+      "deliverable": "youtube_shortform",
+      "outputDir": "outputs/YouTube Short-Form",
+      "driveFolder": "youtube_shortform",
+      "minutes": 1,
+      "targetWords": [
+        140,
+        160
+      ],
+      "presenter": {
+        "speakers": [
+          "HOST",
+          "ROMAN"
+        ],
+        "rule": "Podcast-style dialogue: every paragraph starts with HOST: (the AI-generated host introduces and asks) or ROMAN: (Roman analyses); both speak."
+      },
+      "topicsPerVideo": [
+        1,
+        1
+      ],
+      "structure": "One topic; a strong hook in the first line; a natural ending (a takeaway, a question or a strong statement).",
+      "prompt": ".agents/skills/make-youtube/references/short-form-prompt.md",
+      "styles": [
+        "S"
+      ]
+    }
+  },
   "address": "Sie",
   "styles": {
     "A": {
@@ -46,6 +105,12 @@
       "name": "Menschlich",
       "opening": "scenario",
       "approach": "Start with a realistic everyday or workplace scenario, clearly framed as illustrative (\"Stellen Sie sich vor ...\"); tie it to the verified facts and end with solutions. Never present the scenario as a real event and never as something Roman experienced."
+    },
+    "S": {
+      "folder": "",
+      "name": "Dialog",
+      "opening": "question",
+      "approach": "Short-form only: one style, no style subfolder. HOST opens with the hook as a question or a striking statement, ROMAN explains what it means for German companies, workers or society, HOST asks one follow-up, ROMAN ends with a takeaway, a question or a strong statement."
     }
   },
   "openingTypes": {
@@ -60,8 +125,45 @@
   "spoken": {
     "_note": "P2-R5 warnings of the teleprompter check (german-editorial references/german-style.md, Gesprochenes Deutsch): sentences over sentenceMaxWords words, symbols, brackets and slashes, written abbreviations, digits not written for speaking (numeric dates, ranges with a dash, a digit glued to a letter). Never blocking.",
     "sentenceMaxWords": 15,
-    "abbreviations": ["z. B.", "z.B.", "bzw.", "ca.", "usw.", "d. h.", "d.h.", "u. a.", "u.a.", "inkl.", "evtl.", "ggf.", "Nr.", "Mio.", "Mrd.", "Tsd.", "etc.", "vgl.", "sog.", "Dr.", "Prof."],
-    "attributionWords": ["laut", "zufolge", "berichtet", "berichten", "meldet", "melden", "Studie", "Umfrage", "Befragung", "Polizei", "Ermittler", "Staatsanwaltschaft", "Bericht", "Statistik"]
+    "abbreviations": [
+      "z. B.",
+      "z.B.",
+      "bzw.",
+      "ca.",
+      "usw.",
+      "d. h.",
+      "d.h.",
+      "u. a.",
+      "u.a.",
+      "inkl.",
+      "evtl.",
+      "ggf.",
+      "Nr.",
+      "Mio.",
+      "Mrd.",
+      "Tsd.",
+      "etc.",
+      "vgl.",
+      "sog.",
+      "Dr.",
+      "Prof."
+    ],
+    "attributionWords": [
+      "laut",
+      "zufolge",
+      "berichtet",
+      "berichten",
+      "meldet",
+      "melden",
+      "Studie",
+      "Umfrage",
+      "Befragung",
+      "Polizei",
+      "Ermittler",
+      "Staatsanwaltschaft",
+      "Bericht",
+      "Statistik"
+    ]
   },
   "similarity": {
     "openingWords": 60,
@@ -93,5 +195,5 @@
     20,
     60
   ],
-  "_treeNote": "PRD v6 R7: outputs/YouTube Long-Form/<Topic Name>/ with research.txt and Style A|B|C/ (script_de_teleprompter.txt, script_de_en_bilingual.txt, storyboard.txt). The topic folder is the readable title (safe for Windows and Drive); the BG ID and the rest of the metadata live in outputs/_system/youtube/<BG-ID>.json. A re-run reuses the folder and writes a changed file as <name>_v2.txt (never overwrites)."
+  "_treeNote": "PRD v6 weekly §3-4, §6: long-form: outputs/YouTube Long-Form/<English Topic Title> <YYYY-MM-DD>/Style A|B|C/ (script-en-de.md, teleprompter-de.txt, storyboard.md); short-form: outputs/YouTube Short-Form/<English Topic Title> <YYYY-MM-DD>/ with the same 3 files directly (one style). research.txt stays local in the topic folder (the working file; never uploaded): every reference sits inline in storyboard.md, right after the scene it supports. The BG ID, titleEn and the rest of the metadata live in outputs/_system/youtube/<BG-ID>.json. A re-run reuses the folder and writes a changed file as <name>_v2 (never overwrites)."
 }

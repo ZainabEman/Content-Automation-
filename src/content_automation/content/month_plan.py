@@ -1,11 +1,13 @@
 """`ca plan month YYYY-MM` (PRD v5 R7): the monthly social plan at about 2 graphics a day.
 
-The count is graphicsPerDay x the days of the month, kept within 30-60 (a carousel is one
-asset); the category mix of config/deliverables.json monthlyPlan is scaled to it (largest
-remainder). Days are filled two at a time with the categories that are furthest behind their
-share, never the same category twice a day and, while another is left, not the category of the
-day before, so formats spread over the month. Every romanEvery-th LinkedIn/Facebook post or ad
-is planned with requires_roman (a founder variant, Higgsfield Soul 2.0).
+PRD v6 weekly (2026-10-22): the count is the weekly set x monthMultiplier (config/
+deliverables.json weeklySet: 14 x 4 = 56, a carousel is one asset); its fixed posts (8
+Instagram carousels) are kept and the rest is split by the monthlyPlan mix (largest remainder).
+Days are filled up to graphicsPerDay with the categories that are furthest behind their share,
+never the same category twice a day and, while another is left, not the category of the day
+before, so formats spread over the month. Every n-th LinkedIn/Facebook post or ad is planned
+with requires_roman (a founder variant, Higgsfield Soul 2.0): n = romanEvery, or smaller when
+weeklySet.romanMin x monthMultiplier (at least 8) needs it.
 
 Topics: approved, unplanned ideas of the backlog (best score first) and the --topic texts. Each
 topic goes to the slot whose category fits it best (a verified service fit favours an ad, how-to
@@ -39,7 +41,11 @@ from pathlib import Path
 from typing import Any
 
 from content_automation.ai.image import get_provider
-from content_automation.content.deliverables import DeliverableCatalog, MonthlyPlan
+from content_automation.content.deliverables import (
+    DeliverableCatalog,
+    MonthlyPlan,
+    WeeklySet,
+)
 from content_automation.content.direction_brief import slide_roles
 from content_automation.content.direction_pick import direction_format, pick_direction
 from content_automation.content.directions import DirectionCatalog
@@ -102,8 +108,30 @@ def scale_mix(mix: dict[str, int], total: int) -> dict[str, int]:
     return counts
 
 
-def month_total(config: MonthlyPlan, days: int) -> int:
+def month_total(config: MonthlyPlan, days: int, weekly: WeeklySet | None = None) -> int:
+    """The weekly set x monthMultiplier (PRD v6 weekly); the old 30-60 rule only without it."""
+    if weekly is not None:
+        return weekly.per_month(weekly.image_posts)
     return max(config.min_per_month, min(config.max_per_month, config.graphics_per_day * days))
+
+
+def month_counts(config: MonthlyPlan, weekly: WeeklySet) -> dict[str, int]:
+    """Assets per deliverable: the weekly set's fixed posts x monthMultiplier, the rest split
+    by the mix (its fixed deliverables left out)."""
+    fixed = {key: weekly.per_month(value) for key, value in weekly.fixed.items()}
+    rest = {key: value for key, value in config.mix.items() if key not in fixed}
+    left = month_total(config, 0, weekly) - sum(fixed.values())
+    return {**fixed, **(scale_mix(rest, left) if rest and left > 0 else {})}
+
+
+def roman_step(config: MonthlyPlan, weekly: WeeklySet, counts: dict[str, int]) -> int:
+    """Every n-th Roman-eligible asset has Roman: romanEvery, smaller when romanMin needs it."""
+    eligible = sum(counts.get(key, 0) for key in config.roman_deliverables)
+    wanted = weekly.per_month(weekly.roman_min)
+    if not wanted or not eligible:
+        return config.roman_every
+    step = max(1, eligible // wanted)
+    return min(config.roman_every, step) if config.roman_every else step
 
 
 def day_quotas(total: int, days: int, per_day: int) -> list[int]:
@@ -200,9 +228,12 @@ def plan_month(settings: Settings, deliverables: DeliverableCatalog, catalog: Di
     config = deliverables.monthly_plan
     if config is None:
         raise MonthPlanError("config/deliverables.json has no monthlyPlan (PRD R7.3)")
-    total = month_total(config, len(days))
-    counts = scale_mix(config.mix, total)
-    plan = schedule(counts, day_quotas(total, len(days), config.graphics_per_day))
+    weekly = deliverables.weekly_set
+    counts = month_counts(config, weekly)
+    total = sum(counts.values())
+    per_day = max(config.graphics_per_day, -(-total // len(days)))
+    plan = schedule(counts, day_quotas(total, len(days), per_day))
+    every = roman_step(config, weekly, counts)
     pool = list(topics)
     recent: dict[tuple[str, str], list[str]] = {key: list(value)
                                                 for key, value in (history or {}).items()}
@@ -217,9 +248,9 @@ def plan_month(settings: Settings, deliverables: DeliverableCatalog, catalog: Di
             if format_name is None:
                 raise MonthPlanError(f"{name} takes no layout variant (monthlyPlan.mix)")
             roman = False
-            if name in config.roman_deliverables and config.roman_every:
+            if name in config.roman_deliverables and every:
                 roman_count += 1
-                roman = roman_count % config.roman_every == 0
+                roman = roman_count % every == 0
             key = (format_name, platform)
             chosen, _ = pick_direction(catalog, format_name, platform,
                                        seed=f"{label}-{len(assets) + 1}",
@@ -262,7 +293,8 @@ def three_in_a_row(assets: list[Asset]) -> list[str]:
     return found
 
 
-def summary_lines(label: str, assets: list[Asset], days: int) -> list[str]:
+def summary_lines(label: str, assets: list[Asset], days: int,
+                  youtube: dict[str, int] | None = None) -> list[str]:
     by_category: dict[str, int] = {}
     for asset in assets:
         by_category[asset.category] = by_category.get(asset.category, 0) + 1
@@ -281,6 +313,10 @@ def summary_lines(label: str, assets: list[Asset], days: int) -> list[str]:
         "website are drawn by the app for free). Each build still has its own dry run and "
         "needs its own \"ok\".",
     ]
+    lines.append("YouTube scripts this month (ca youtube plan --format long|short): "
+                 + ", ".join(f"{name} {count}" for name, count in youtube.items()) + "."
+                 if youtube else "")
+    lines = [line for line in lines if line]
     rows = three_in_a_row(assets)
     lines.append("Rotation: no platform has three near-identical images in a row." if not rows
                  else "Rotation problem: " + "; ".join(rows))
@@ -310,8 +346,8 @@ def write_plan(settings: Settings, label: str, assets: list[Asset]) -> tuple[Pat
 
 
 __all__ = ["Asset", "MonthPlanError", "Topic", "day_quotas", "metadata_template",
-           "month_total", "plan_month", "scale_mix", "schedule", "summary_lines",
-           "three_in_a_row", "write_plan"]
+           "month_counts", "month_total", "plan_month", "roman_step", "scale_mix", "schedule",
+           "summary_lines", "three_in_a_row", "write_plan"]
 
 
 def apply_plan(settings: Settings, deliverables: DeliverableCatalog, assets: list[Asset],

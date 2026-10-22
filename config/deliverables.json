@@ -76,7 +76,7 @@
     }
   },
   "monthlyPlan": {
-    "_note": "v5 (PRD R7.3): `ca plan month YYYY-MM`. About 2 graphics a day, 30-60 a month; a carousel counts as one. mix: shares per 60 (PRD default LinkedIn 16, Facebook post 16, Instagram carousel 16, Facebook ad 12), scaled to the month. romanEvery: every n-th LinkedIn/Facebook post or ad is planned with Roman (requires_roman, his LoRA). Edit freely.",
+    "_note": "v5 (PRD R7.3): `ca plan month YYYY-MM`. PRD v6 weekly (2026-10-22): the month is weeklySet x monthMultiplier (56 image posts: 8 Instagram carousels, at least 8 with Roman); graphicsPerDay spreads them over the days. mix: the split of the posts that are not fixed in weeklySet (LinkedIn and Facebook; instagram_carousel is ignored here): equal shares since v6 weekly (16 LinkedIn, 16 Facebook posts, 16 Facebook ads), because a heavier share puts a category on 3 days in a row. romanEvery: at most every n-th LinkedIn/Facebook post or ad has Roman; more often when weeklySet.romanMin needs it. minPerMonth/maxPerMonth: unused since the weekly set.",
     "graphicsPerDay": 2,
     "minPerMonth": 30,
     "maxPerMonth": 60,
@@ -84,7 +84,7 @@
       "linkedin_post": 16,
       "facebook_post": 16,
       "instagram_carousel": 16,
-      "facebook_ad": 12
+      "facebook_ad": 16
     },
     "romanEvery": 8,
     "romanDeliverables": [
@@ -92,5 +92,18 @@
       "facebook_post",
       "facebook_ad"
     ]
+  },
+  "weeklySet": {
+    "_note": "PRD v6 weekly (docs/PRD-v6-weekly-youtube-drive.md §2): \"make weekly calendar\" = 14 image posts (the 2 Instagram carousels and at least 2 Roman posts count inside), the rest LinkedIn and Facebook posts (config/calendar.json slots; the month: monthlyPlan.mix), plus 2 long-form and 4 short-form YouTube scripts (ca youtube plan --format long|short). A month is this set x monthMultiplier.",
+    "imagePosts": 14,
+    "romanMin": 2,
+    "fixed": {
+      "instagram_carousel": 2
+    },
+    "youtube": {
+      "youtube_longform": 2,
+      "youtube_shortform": 4
+    },
+    "monthMultiplier": 4
   }
 }

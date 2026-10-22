@@ -186,7 +186,7 @@ def plan_calendar(settings: Settings, catalog: DeliverableCatalog, strategy: Str
                         planned.append(child.id)
     for week, rows in weeks.items():
         if rows:
-            assign_roman(rows, week, catalog)  # Roman exactly once a week
+            assign_roman(rows, week, catalog)  # Roman on weeklySet.romanMin rows a week
             write_calendar(calendar_path(settings, week), rows)
     used -= len(ideas)
     lines = [f"Plan {label}: {len(planned)} new row(s) from {used} approved idea(s); each row's "

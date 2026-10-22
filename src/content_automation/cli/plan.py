@@ -37,8 +37,9 @@ def plan_month_command(
         "--apply", help="Write the rows with an approved idea into the weekly calendars.")]
         = False,
 ) -> None:
-    """About 2 graphics a day across Instagram carousels, Facebook posts, Facebook ads and
-    LinkedIn (config/deliverables.json monthlyPlan), each with its layout variant, route,
+    """The weekly set x 4 (56 image posts: 8 Instagram carousels, at least 8 with Roman, the
+    rest Facebook posts, Facebook ads and LinkedIn; config/deliverables.json weeklySet and
+    monthlyPlan), each with its layout variant, route,
     German metadata to write and cost estimate; writes calendar/<YYYY-MM>-month-plan.json/csv."""
     settings = _settings()
     try:
@@ -61,7 +62,9 @@ def plan_month_command(
             topics, skipped = memory.allowed(topics, lambda item: item.title)
             assets = plan_month(settings, deliverables, catalog, label, days, topics, services)
             files = write_plan(settings, label, assets)
-            lines = summary_lines(label, assets, len(days)) + skipped
+            weekly = deliverables.weekly_set
+            youtube = {key: weekly.per_month(value) for key, value in weekly.youtube.items()}
+            lines = summary_lines(label, assets, len(days), youtube) + skipped
             if apply:
                 paths, applied = apply_plan(settings, deliverables, assets, scope.command)
                 lines += applied + [f"Week file: {path}" for path in paths]

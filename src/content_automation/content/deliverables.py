@@ -96,9 +96,27 @@ class MonthlyPlan(_Model):
         "linkedin_post", "facebook_post", "facebook_ad"])
 
 
+class WeeklySet(_Model):
+    """PRD v6 weekly (2026-10-22): the fixed set of "make weekly calendar"; a month is the
+    same set x monthMultiplier (it replaces the 30-60 mix). Carousels and Roman posts count
+    inside imagePosts; the rest is split across LinkedIn and Facebook by monthlyPlan.mix."""
+
+    note: str = Field(default="", alias="_note")
+    image_posts: int = Field(default=14, ge=1)
+    roman_min: int = Field(default=2, ge=0)
+    fixed: dict[str, int] = Field(default_factory=lambda: {"instagram_carousel": 2})
+    youtube: dict[str, int] = Field(default_factory=lambda: {
+        "youtube_longform": 2, "youtube_shortform": 4})
+    month_multiplier: int = Field(default=4, ge=1)
+
+    def per_month(self, value: int) -> int:
+        return value * self.month_multiplier
+
+
 class DeliverableCatalog(_Model):
     deliverables: dict[str, Deliverable] = Field(min_length=1)
     monthly_plan: MonthlyPlan | None = None
+    weekly_set: WeeklySet = Field(default_factory=WeeklySet)
 
     @model_validator(mode="after")
     def _check(self) -> Self:
@@ -127,6 +145,11 @@ class DeliverableCatalog(_Model):
                 problems.append(f"monthlyPlan.mix: unknown deliverables {unknown}")
             if self.monthly_plan.min_per_month > self.monthly_plan.max_per_month:
                 problems.append("monthlyPlan: minPerMonth is above maxPerMonth")
+        unknown_fixed = sorted(set(self.weekly_set.fixed) - set(self.deliverables))
+        if unknown_fixed:
+            problems.append(f"weeklySet.fixed: unknown deliverables {unknown_fixed}")
+        if sum(self.weekly_set.fixed.values()) > self.weekly_set.image_posts:
+            problems.append("weeklySet: the fixed posts are more than imagePosts")
         if problems:
             raise ValueError("; ".join(problems))
         return self

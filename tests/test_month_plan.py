@@ -55,7 +55,7 @@ def test_counts_mix_and_quotas() -> None:
     assert config is not None
     assert month_total(config, 30) == 60 and month_total(config, 31) == 60
     assert month_total(config, 28) == 56 and month_total(config, 10) == 30
-    assert scale_mix(config.mix, 60) == config.mix
+    assert scale_mix(config.mix, 64) == config.mix
     assert sum(scale_mix(config.mix, 56).values()) == 56
     assert sum(day_quotas(60, 31, 2)) == 60 and max(day_quotas(60, 31, 2)) == 2
 
@@ -64,7 +64,7 @@ def test_counts_mix_and_quotas() -> None:
 def test_a_simulated_month(settings: Settings, label: str) -> None:
     assets = _plan(settings, label, TOPICS)
     days = len(month_days(label))
-    assert 30 <= len(assets) <= 60  # §7.9; a carousel is one asset
+    assert len(assets) == 56  # PRD v6 weekly: the weekly set x 4; a carousel is one asset
     counts = Counter(asset.deliverable for asset in assets)
     assert set(counts) == {"linkedin_post", "facebook_post", "instagram_carousel", "facebook_ad"}
     per_day = Counter(asset.day for asset in assets)
@@ -121,12 +121,12 @@ def test_cli_plan_and_apply(settings: Settings, isolated: Path) -> None:
     conn.close()
     result = CliRunner().invoke(app, ["plan", "month", "2026-11", "--topic", TOPICS[0]])
     assert result.exit_code == 0, result.output
-    assert "Month plan 2026-11: 60 graphics" in result.output
+    assert "Month plan 2026-11: 56 graphics" in result.output
     data = json.loads((isolated / "calendar" / "2026-11-month-plan.json").read_text("utf-8"))
-    assert len(data["assets"]) == 60 and not list((isolated / "calendar").glob("*-W*.csv"))
+    assert len(data["assets"]) == 56 and not list((isolated / "calendar").glob("*-W*.csv"))
     applied = CliRunner().invoke(app, ["plan", "month", "2026-11", "--apply"])
     assert applied.exit_code == 0, applied.output
-    assert "Applied: 1 row(s)" in applied.output and "Not applied (59" in applied.output
+    assert "Applied: 1 row(s)" in applied.output and "Not applied (55" in applied.output
     weeks = list((isolated / "calendar").glob("2026-W*.csv"))
     assert len(weeks) == 1 and "Approved" in weeks[0].read_text(encoding="utf-8")
 

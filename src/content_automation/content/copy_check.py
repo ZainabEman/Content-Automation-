@@ -917,6 +917,13 @@ def package_review(folder: Path, settings: Settings, *, approve_it: bool = False
         digest = approve(folder, brief, problems)
         lines.append(f"Copy approved ({digest}): its images may be made after the dry run and "
                      "the user's ok. A change to the copy needs a new review.")
+        if brief.title_en:  # PRD v6 weekly §6: the folder follows the English title
+            from content_automation.content.folder_rename import rename_on_copy
+
+            moved = rename_on_copy(folder, brief.title_en.strip(), settings)
+            if moved != folder:
+                lines.append(f"Folder named after the English title: {moved}")
+                folder = moved
         for item_id in runtime.package_items(folder).values():
             runtime.log(item_id, "decision", {"gate": "copy", "decision": "approved",
                                               "digest": digest})

@@ -2,7 +2,9 @@
 
 plan → approve/reject (`ca item approve|reject`) → research → check-sources → scripts →
 bilingual → check → select-style. All free and local; check-sources opens the source URLs
-(no cost). The agent (Codex, with web access) researches and writes the German texts."""
+(no cost). The agent (Codex, with web access) researches and writes the German texts.
+PRD v6 weekly: `plan --format short|long` ("make short video script" / "make long video
+script"); every later step follows the topic's format."""
 
 from typing import Annotated
 
@@ -39,7 +41,8 @@ def _run(command: str, step: str, bg_id: str | None = None, **kwargs: object) ->
             if step == "plan":
                 return plan_topics(scope.conn, str(kwargs["month"]),
                                    list(kwargs["topics"]),  # type: ignore[call-overload]
-                                   command=scope.command)
+                                   command=scope.command, fmt=str(kwargs["fmt"]),
+                                   titles_en=list(kwargs["titles_en"]))  # type: ignore[call-overload]
             if step == "status":
                 return status_lines(scope.conn, kwargs.get("month"))  # type: ignore[arg-type]
             assert bg_id is not None
@@ -78,11 +81,21 @@ def _echo(lines: list[str]) -> None:
 def youtube_plan(
     month: Annotated[str, typer.Argument(help='"next", "this" or 2026-11.')],
     topic: Annotated[list[str] | None, typer.Option(
-        "--topic", help="A German topic from real research (repeat, up to 8 a month).")] = None,
+        "--topic", help="A German topic from real research (repeat).")] = None,
+    fmt: Annotated[str, typer.Option(
+        "--format", help="short (1 min, HOST + ROMAN) or long (12 min, Roman, 3 styles).")]
+        = "long",
+    title_en: Annotated[list[str] | None, typer.Option(
+        "--title-en", help="The English short title of each --topic, in the same order (the "
+                           "folder name).")] = None,
 ) -> None:
-    """Up to 8 German topics for the month as Proposed items with BG IDs and a folder each."""
+    """German topics for the month as Proposed items with BG IDs and a folder each (long-form 8,
+    short-form 16 a month: config/deliverables.json weeklySet x 4)."""
     label = month_label(month)
-    _echo(_run(f"ca youtube plan {label}", "plan", month=label, topics=topic or []))
+    if fmt not in ("short", "long"):
+        _fail('--format must be short or long', code=2)
+    _echo(_run(f"ca youtube plan {label} --format {fmt}", "plan", month=label,
+               topics=topic or [], fmt=fmt, titles_en=title_en or []))
 
 
 @youtube_app.command("research")
@@ -108,21 +121,21 @@ def youtube_check_sources(
 
 @youtube_app.command("scripts")
 def youtube_scripts(bg_id: BgId) -> None:
-    """The three style briefs (A investigativ, B direkte Warnung, C menschlich); needs a passed
-    or overridden source check."""
+    """The briefs: long-form one per style (A investigativ, B direkte Warnung, C menschlich),
+    short-form one (HOST + ROMAN dialogue); needs a passed or overridden source check."""
     _echo(_run(f"ca youtube scripts {bg_id}", "scripts", bg_id))
 
 
 @youtube_app.command("bilingual")
 def youtube_bilingual(bg_id: BgId) -> None:
-    """script_de_en_bilingual.txt from each teleprompter file (German word for word, English
-    below)."""
+    """script-en-de.md from each teleprompter-de.txt (German word for word, English below)."""
     _echo(_run(f"ca youtube bilingual {bg_id}", "bilingual", bg_id))
 
 
 @youtube_app.command("check")
 def youtube_check(bg_id: BgId) -> None:
-    """Teleprompter rules, German identity of the bilingual files, the difference check."""
+    """Teleprompter rules (short: HOST/ROMAN labels; long: Roman only), German identity of the
+    bilingual files, the inline storyboard references, the difference check."""
     _echo(_run(f"ca youtube check {bg_id}", "check", bg_id))
 
 
@@ -137,15 +150,16 @@ def youtube_select_style(
 
 @youtube_app.command("storyboards")
 def youtube_storyboards(bg_id: BgId) -> None:
-    """Write one editing storyboard for each checked style A, B and C."""
+    """Write one editing storyboard per checked style (long: A, B, C; short: one), with the
+    references inline after each scene."""
     _echo(_run(f"ca youtube storyboards {bg_id}", "storyboards", bg_id))
 
 
 @youtube_app.command("upload")
 def youtube_upload(bg_id: BgId) -> None:
-    """Drive YouTube Long-Form/<Topic Name>/ (research, 6 scripts, 3 storyboards) and one
-    tracker row with their links (STORAGE_PROVIDER=mock: outputs/_system/drive-mock/, fake
-    links)."""
+    """Drive YouTube Long-form|Short-form/<English Topic Title> <YYYY-MM-DD>/ (the scripts and
+    storyboards) and the tracker row with the folder link (STORAGE_PROVIDER=mock:
+    outputs/_system/drive-mock/, fake links)."""
     _echo(_run(f"ca youtube upload {bg_id}", "upload", bg_id))
 
 

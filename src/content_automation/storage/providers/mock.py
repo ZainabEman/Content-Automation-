@@ -58,6 +58,14 @@ class MockStorage:
         folder = self._root / platform_folder(platform) / content_id
         return self._copy(file, (folder / subfolder if subfolder else folder) / file.name)
 
+    def rename_folder(self, path: str, new_name: str) -> str:
+        """PRD v6 weekly §6: rename <path> (e.g. "Instagram/Carousels/2026-11/<old>") in place."""
+        source = self._root / path
+        if not source.is_dir():
+            raise StorageError(f"no mock Drive folder {path}")
+        source.rename(source.with_name(new_name))
+        return (source.with_name(new_name)).resolve().as_uri()
+
     def upload_calendar(self, file: Path) -> Uploaded:
         return self._copy(file, self._root / CALENDAR_FOLDER / file.name, read_only=True)
 

@@ -28,6 +28,13 @@ points or facts and near-identical sentences; the bilingual check counts the blo
 when an English block looks summarised; the storyboard names each scene's script paragraphs and
 fact IDs and asks for a b-roll or screen-capture suggestion; `storyboard_warnings` flags two
 Roman-on-camera scenes in a row, factual scenes without a fact ID and placeholders left.
+
+PRD v6 weekly (2026-10-22): two formats. Long-form (Roman only, about 1,700 words, 3 styles) and
+short-form (HOST: and ROMAN: dialogue, about 150 words, one style); each has its own prompt file,
+word target and presenter (config/youtube.json formats). Files: teleprompter-de.txt,
+script-en-de.md, storyboard.md. No separate sources file: every storyboard scene with a fact is
+followed directly by its reference lines (article title, outlet, date, URL) from research.txt
+section 5; `reference_problems` makes sure each inline URL is a source the source check opened.
 """
 
 from __future__ import annotations
@@ -41,11 +48,14 @@ from typing import Any
 from content_automation.content.german import check_text, load_rules
 from content_automation.youtube.research import Research
 from content_automation.youtube.sources import normalize
-from content_automation.youtube.topic import Style, load_config
+from content_automation.youtube.topic import LONG, SHORT, Style, format_config, load_config
 
-TELEPROMPTER = "script_de_teleprompter.txt"  # PRD v6 R7 file names
-BILINGUAL = "script_de_en_bilingual.txt"
-STORYBOARD = "storyboard.txt"
+TELEPROMPTER = "teleprompter-de.txt"  # PRD v6 weekly §3 file names
+BILINGUAL = "script-en-de.md"
+STORYBOARD = "storyboard.md"
+LEGACY_NAMES = {"script_de_teleprompter": TELEPROMPTER, "script_de_en_bilingual": BILINGUAL,
+                "storyboard": STORYBOARD}  # v6 R7 names -> today's (`ca outputs rename`)
+REFERENCE = "**Reference:**"
 BRIEF = "brief.md"
 ENGLISH_PLACEHOLDER = "<English translation of the German paragraph above>"
 # TODO(PENDING, PRD R9.10): the brief was cut off at "Clear placeholders s…". The remaining
@@ -74,6 +84,8 @@ _BRACKET = re.compile(r"[()\[\]{}]")
 _UNSPOKEN = re.compile(r"\b\d{1,2}\.\d{1,2}\.(?:\d{2,4})?(?!\d)|\b\d{4}-\d{2}-\d{2}\b"
                        r"|\b\d+\s*[-–]\s*\d+\b|\b\d+[A-Za-zÄÖÜäöüß]+\b")
 _ON_CAMERA = re.compile(r"\broman\b[^.\n]*\b(?:on camera|camera|kamera)\b", re.I)
+_SPEAKER = re.compile(r"^(HOST|ROMAN):\s*")
+_REFERENCE_URL = re.compile(r"https?://[^\s)>]+")
 _CUTAWAY = re.compile(r"b-roll|cutaway|screen|graphic|grafik|insert|footage|screenshot|"
                       r"animation|map|chart|document", re.I)
 
@@ -87,6 +99,24 @@ def words(text: str) -> int:
     return len(re.findall(r"\S+", text))
 
 
+def speakers(text: str) -> list[str]:
+    """The speaker label of each paragraph (short-form), "" where there is none."""
+    return [match.group(1) if (match := _SPEAKER.match(block)) else ""
+            for block in paragraphs(text)]
+
+
+def spoken_text(text: str) -> str:
+    """The text without the HOST:/ROMAN: labels (what is counted and checked as German)."""
+    return "\n\n".join(_SPEAKER.sub("", block) for block in paragraphs(text))
+
+
+def _prompt(fmt: str) -> str:
+    """The format's own writing prompt (config/youtube.json formats.<fmt>.prompt)."""
+    path = Path(str(format_config(fmt).get("prompt", "")))
+    found = path if path.is_file() else Path(__file__).resolve().parents[3] / path
+    return found.read_text(encoding="utf-8").strip() if found.is_file() else ""
+
+
 def _formula() -> list[dict[str, Any]]:
     path = Path("config/formulas.json")
     found = path if path.is_file() else Path(__file__).resolve().parents[3] / path
@@ -95,9 +125,10 @@ def _formula() -> list[dict[str, Any]]:
     return sections
 
 
-def brief_text(style: Style, title: str, research: Research) -> str:
+def brief_text(style: Style, title: str, research: Research, fmt: str = LONG) -> str:
     config = load_config()
-    low, high = config["targetWords"]
+    spec = format_config(fmt)
+    low, high = spec["targetWords"]
     facts = ([f"- [{fact.id}] {fact.text} ({', '.join(fact.refs)})"
               for fact in research.fact_ids.values()]
              or [f"- {fact} [{', '.join(refs)}]" for fact, refs in research.verified]
@@ -110,23 +141,34 @@ def brief_text(style: Style, title: str, research: Research) -> str:
             f"({config.get('openingTypes', {}).get(plan.opening, '')})",
             f"- Order of the points: {', '.join(map(str, plan.order)) or 'as in the outline'}"]
            if plan is not None else ["- (no plan for this style in research.txt section 12)"])
-    steps = [f"{n}. {step['key']}: {step['what']} ({step['words'][0]}-{step['words'][1]} words)"
-             for n, step in enumerate(_formula(), start=1)]
+    steps = ([f"{n}. {step['key']}: {step['what']} ({step['words'][0]}-{step['words'][1]} "
+              "words)" for n, step in enumerate(_formula(), start=1)] if fmt == LONG else [])
+    presenter = spec.get("presenter", {})
+    per_topic = spec.get("minutesPerTopic")
     return "\n".join([
-        f"# Brief: style {style.key} {style.name} — {title}",
+        f"# Brief: {spec.get('label', fmt)} · style {style.key} {style.name} — {title}",
         "",
         "Internal brief for the writer (English). The teleprompter file is German only.",
         "",
+        f"## Format ({spec.get('label', fmt)}, about {spec.get('minutes')} min, {low}-{high} "
+        "spoken German words)",
+        f"Presenter: {presenter.get('rule', '')}", f"Structure: {spec.get('structure', '')}",
+        *([f"Topics in the video: {spec['topicsPerVideo'][0]}-{spec['topicsPerVideo'][1]}, "
+           f"{per_topic[0]}-{per_topic[1]} min each by importance (the total stays at the "
+           "target)"] if per_topic else []), "",
+        f"## Prompt ({spec.get('prompt', '')})", _prompt(fmt) or "-", "",
         f"## Approach ({style.name})", style.approach, "",
         "## Argument outline (research.txt section 12: the same thesis and facts for all styles)",
         f"Thesis: {outline.thesis or '-'}", *points,
         f"Meaning for Germany: {outline.meaning or '-'}", f"Takeaway: {outline.takeaway or '-'}",
-        "", "## This style's plan (differs from the other two styles)", *own, "",
-        "## Formula (PRD R9.6, adapt the weight per topic)", *steps, "",
+        "", *(["## This style's plan (differs from the other two styles)", *own, ""]
+              if fmt == LONG else []),
+        *(["## Formula (PRD R9.6, adapt the weight per topic)", *steps, ""] if steps else []),
         "## Verified facts (use only these; numbers exactly as written; the IDs stay out of the "
         "teleprompter file)", *facts, "",
         "## Rules",
-        f"- Write {TELEPROMPTER} in this folder: natural spoken German for a CEO, address the "
+        f"- Write {TELEPROMPTER} in the {'topic' if fmt == SHORT else 'style'} folder: natural "
+        "spoken German for a CEO, address the "
         f"viewer with \"{config.get('address', 'Sie')}\", {low}-{high} words (about "
         f"{low // config['wordsPerMinute']}-{high // config['wordsPerMinute']} minutes), clean "
         "paragraphs separated by one empty line, readable line breaks.",
@@ -137,21 +179,39 @@ def brief_text(style: Style, title: str, research: Research) -> str:
         "slashes or abbreviations, numbers as spoken.",
         "- Never imply that Roman experienced or witnessed something he did not; no invented "
         "story, number, quotation or event.",
-        "- Style C: the scenario is illustrative and says so (\"Stellen Sie sich vor …\").",
-        "- The three styles differ in hook, story, delivery and structure, not only in wording.",
+        *(["- Style C: the scenario is illustrative and says so (\"Stellen Sie sich vor …\").",
+           "- The three styles differ in hook, story, delivery and structure, not only in "
+           "wording."] if fmt == LONG else
+          ["- Every paragraph starts with HOST: or ROMAN: (the only labels allowed; they mark "
+           "Roman's lines on the teleprompter). Both speak; the first line is the hook."]),
         f"- Then run: uv run ca youtube bilingual <BG-ID> (it makes {BILINGUAL} from your "
         "German; fill every English block).",
     ]) + "\n"
 
 
-def teleprompter_problems(text: str, style_key: str) -> tuple[list[str], list[str]]:
-    """(errors, warnings) of one teleprompter file."""
+def teleprompter_problems(text: str, style_key: str,
+                          fmt: str = LONG) -> tuple[list[str], list[str]]:
+    """(errors, warnings) of one teleprompter file. Short-form: every paragraph starts with
+    HOST: or ROMAN: and both speak; long-form: Roman only, no speaker labels."""
     config = load_config()
+    spec = format_config(fmt)
     errors: list[str] = []
     warnings: list[str] = []
-    blocks = paragraphs(text)
-    if not blocks:
+    if not paragraphs(text):
         return ["the file is empty"], []
+    labels = speakers(text)
+    if fmt == SHORT:
+        unlabelled = [str(n) for n, label in enumerate(labels, start=1) if not label]
+        if unlabelled:
+            errors.append(f"paragraph(s) {', '.join(unlabelled)}: start with HOST: or ROMAN: "
+                          "(short-form dialogue)")
+        missing = sorted({"HOST", "ROMAN"} - set(labels))
+        if missing:
+            errors.append(f"short-form dialogue: {' and '.join(missing)} never speaks")
+    elif "HOST" in labels:
+        errors.append("long-form is Roman only: no HOST: lines")
+    text = spoken_text(text)
+    blocks = paragraphs(text)
     for number, block in enumerate(blocks, start=1):
         first = block.splitlines()[0].strip()
         if _CITATION.search(block):
@@ -170,10 +230,11 @@ def teleprompter_problems(text: str, style_key: str) -> tuple[list[str], list[st
     if style_key.upper() == "C" and not any(marker in lowered
                                            for marker in config.get("illustrativeMarkers", [])):
         errors.append('style C: frame the scenario as illustrative ("Stellen Sie sich vor …")')
-    low, high = config["targetWords"]
+    low, high = spec["targetWords"]
     count = words(text)
     if not low <= count <= high:
-        warnings.append(f"{count} words; the target is {low}-{high} (Q4 default, 10-12 min)")
+        warnings.append(f"{count} words; the {spec.get('label', fmt)} target is {low}-{high} "
+                        f"(about {spec.get('minutes')} min)")
     return errors, warnings + spoken_warnings(text)
 
 
@@ -455,10 +516,22 @@ def _clock(seconds: float) -> str:
     return f"{int(seconds // 60):02d}:{int(seconds % 60):02d}"
 
 
+def reference_lines(ids: list[str], research: Research) -> list[str]:
+    """One inline reference line per source of these fact IDs: title, outlet, date, URL."""
+    refs = sorted({ref for fact in ids for ref in research.fact_ids[fact].refs},
+                  key=lambda ref: int(ref[1:]) if ref[1:].isdigit() else 0)
+    found = [research.sources[ref] for ref in refs if ref in research.sources]
+    return [f"{REFERENCE} {source.title}, {source.publisher}, {source.date}, {source.url}"
+            for source in found]
+
+
 def storyboard_text(style: Style, title: str, bg_id: str, teleprompter: str, bilingual: str,
-                    research: Research) -> str:
-    """One Markdown block per scene (paragraphs merged up to the scene length)."""
+                    research: Research, fmt: str = LONG) -> str:
+    """One Markdown block per scene (paragraphs merged up to the scene length); the references
+    follow the scene's spoken text directly (no separate sources file)."""
     config = load_config()
+    spec = format_config(fmt)
+    voice = "HOST and ROMAN" if fmt == SHORT else "Roman"
     per_second = float(config["wordsPerMinute"]) / 60
     shortest = float(config["storyboardSecondsPerScene"][0])
     english = dict(read_bilingual(bilingual))
@@ -469,28 +542,32 @@ def storyboard_text(style: Style, title: str, bg_id: str, teleprompter: str, bil
         else:
             scenes.append([(number, block)])
     lines = [f"# Storyboard: {title}", "",
-             f"{bg_id} · style {style.key} {style.name} · for the editing agency (English "
-             "explanations; Roman records the German lines)", "",
+             f"{bg_id} · {spec.get('label', fmt)} · style {style.key} {style.name} · for the "
+             f"editing agency (English explanations; {voice} record the German lines)", "",
+             f"Style: {style.approach}", "",
              f"> {STORYBOARD_PENDING}", "",
-             "Fill every <…> before handing it over. Factual visuals and on-screen claims cite "
-             "the research file's fact IDs [F#] (their sources [S#] follow). Never show an "
-             "unverifiable event as real: illustrative footage is labelled as such. Never two "
-             "Roman-on-camera scenes in a row without a cutaway (b-roll, screen capture, "
-             "graphic).", ""]
+             "Fill every <…> before handing it over. Every scene that states a fact, figure or "
+             f"news item is followed directly by its {REFERENCE} line(s): article title, outlet, "
+             "date, URL. Never show an unverifiable event as real: illustrative footage is "
+             "labelled as such. Never two Roman-on-camera scenes in a row without a cutaway "
+             "(b-roll, screen capture, graphic).", ""]
     start = 0.0
     for number, blocks in enumerate(scenes, start=1):
         spoken = "\n\n".join(text for _, text in blocks)
         seconds = words(spoken) / per_second
         ids = sorted({fact for _, _, found in trace(spoken, research) for fact in found},
                      key=lambda fact: int(fact[1:]))
-        refs = sorted({ref for fact in ids for ref in research.fact_ids[fact].refs})
+        references = reference_lines(ids, research) or (
+            [f"{REFERENCE} <article title, outlet, YYYY-MM-DD, URL from research.txt section 5, "
+             "or none>"] if any(ch.isdigit() for ch in spoken) else [])
         translated = "\n\n".join(english.get(text, ENGLISH_PLACEHOLDER) for _, text in blocks)
         numbers = [block for block, _ in blocks]
         span = f"{numbers[0]}" if len(numbers) == 1 else f"{numbers[0]}–{numbers[-1]}"
         lines += [
             f"## Scene {number} · {_clock(start)}–{_clock(start + seconds)} (≈ {seconds:.0f} s)",
             "", f"**Script paragraphs:** {span}", "",
-            "**German (spoken by Roman):**", "", spoken, "",
+            f"**German (spoken by {voice}):**", "", spoken, "",
+            *(line for reference in references for line in (reference, "")),
             "**English (translation):**", "", translated, "",
             "**Visual direction:** <what the viewer sees: Roman on camera, or a cutaway (b-roll, "
             "screen capture, graphic); never two Roman-on-camera scenes in a row>", "",
@@ -500,14 +577,28 @@ def storyboard_text(style: Style, title: str, bg_id: str, teleprompter: str, bil
             "",
             "**On-screen text (German, exact):** <the exact German text, or none>", "",
             "**On-screen text (English explanation):** <what it says, for the editor>", "",
-            "**Sources for factual visuals (fact IDs):** "
-            + (f"{', '.join(ids)} (research.txt; {', '.join(refs)})" if ids else
-               "<[F#] of every factual visual or on-screen claim, or none>"), "",
+            f"**Fact IDs:** {', '.join(ids) or 'none'}", "",
             "**Transitions, pacing, supporting footage:** <cut, tempo, music, footage>", "",
             "**Placeholders:** TODO (PENDING spec, PRD R9.10)", "",
         ]
         start += seconds
     return "\n".join(lines).rstrip() + "\n"
+
+
+def reference_problems(text: str, research: Research | None) -> list[str]:
+    """PRD v6 weekly §5: every inline reference URL of a storyboard is a research.txt source,
+    so the source check (dead URL, misquote) has opened it."""
+    if research is None:
+        return []
+    known = {source.url.rstrip("/") for source in research.sources.values()}
+    problems: list[str] = []
+    for line in text.splitlines():
+        if line.startswith(REFERENCE):
+            for url in _REFERENCE_URL.findall(line):
+                if url.rstrip("/.,") not in known and url.rstrip("/") not in known:
+                    problems.append(f"storyboard reference {url}: not a source in research.txt "
+                                    "section 5, so the source check never opened it")
+    return problems
 
 
 def storyboard_warnings(text: str) -> list[str]:
@@ -527,11 +618,12 @@ def storyboard_warnings(text: str) -> list[str]:
         cut = bool(_CUTAWAY.search(seen)) or bool(roll and roll.group(1).strip()
                                                     and "<" not in roll.group(1))
         on_camera.append(bool(_ON_CAMERA.search(seen)) and not cut)
-        german = scene.split("**German (spoken by Roman):**", 1)[-1].split("**English", 1)[0]
-        sources = re.search(r"\*\*Sources for factual visuals[^*]*\*\*\s*(.*)", scene)
-        if re.search(r"\d", german) and not (sources and re.search(r"\bF\d+", sources.group(1))):
+        german = re.split(r"\*\*German \(spoken by [^)]*\):\*\*", scene, maxsplit=1)[-1]
+        german = german.split(REFERENCE, 1)[0].split("**English", 1)[0]
+        if re.search(r"\d", german) and not _REFERENCE_URL.search(
+                scene.split("**English", 1)[0]):
             warnings.append(f"storyboard scene {number}: a number in the German line but no "
-                            "fact ID [F#] in the sources")
+                            f"{REFERENCE} line with a URL right after it")
     for number in range(1, len(on_camera)):
         if on_camera[number - 1] and on_camera[number]:
             warnings.append(f"storyboard scenes {number} and {number + 1}: Roman on camera twice "
@@ -539,8 +631,9 @@ def storyboard_warnings(text: str) -> list[str]:
     return warnings
 
 
-__all__ = ["BILINGUAL", "BRIEF", "ENGLISH_PLACEHOLDER", "STORYBOARD", "STORYBOARD_PENDING",
-           "TELEPROMPTER",
+__all__ = ["BILINGUAL", "BRIEF", "ENGLISH_PLACEHOLDER", "LEGACY_NAMES", "REFERENCE", "STORYBOARD",
+           "STORYBOARD_PENDING", "TELEPROMPTER", "reference_lines", "reference_problems",
+           "speakers", "spoken_text",
            "bilingual_problems", "bilingual_text", "bilingual_warnings", "brief_text",
            "fact_ids_for", "factual", "opening_type", "paragraphs", "read_bilingual",
            "sentences", "similarity_flags", "spoken_warnings", "storyboard_text",

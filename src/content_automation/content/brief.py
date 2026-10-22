@@ -315,6 +315,9 @@ class ReelSlot(_BriefModel):
 
 class ContentBrief(_BriefModel):
     topic: str = Field(min_length=1)
+    # PRD v6 weekly §6: the English short title (at most about 6 words) of the item folder
+    # "<titleEn> <YYYY-MM-DD>"; stored on the package when the copy is approved
+    title_en: str | None = Field(default=None, max_length=60)
     deliverables: list[str] = Field(default_factory=list)  # what the user named; sets formats
     platform: Platform
     formats: list[Format] = Field(min_length=1)

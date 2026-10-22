@@ -33,7 +33,7 @@ import csv
 import io
 import re
 import sqlite3
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
@@ -300,15 +300,23 @@ def is_roman(value: str) -> bool:
     return value.strip().lower().startswith(ROMAN)
 
 
-def assign_roman(rows: list[Row], label: str, catalog: DeliverableCatalog) -> str | None:
-    """Roman exactly once a week: one LinkedIn or Facebook post row gets Format "roman" (one of
-    the 4 Roman formats, rotated at stage 1), the platform alternating week by week; nothing
-    when the week already has one. Returns the row number it went to."""
-    if any(is_roman(row.get("Format", "")) for row in rows):
-        return None
+def assign_roman(rows: list[Row], label: str, catalog: DeliverableCatalog,
+                 existing: Sequence[Row] = ()) -> str | None:
+    """Roman on at least weeklySet.romanMin rows a week (PRD v6 weekly: 2): LinkedIn or Facebook
+    post rows get Format "roman" (one of the Roman formats, rotated at stage 1), the platforms
+    taking turns and the first one alternating week by week; rows that already show Roman
+    count, also the `existing` ones that are not changed. Returns the row numbers it went to
+    ("3, 9"), None when nothing was added."""
+    wanted = catalog.weekly_set.roman_min - sum(is_roman(row.get("Format", ""))
+                                                for row in [*rows, *existing])
     weeks = week_days(label)[0].toordinal() // 7
     first = ROMAN_PLATFORMS[weeks % 2]
-    for platform in (first, *(name for name in ROMAN_PLATFORMS if name != first)):
+    order = (first, *(name for name in ROMAN_PLATFORMS if name != first))
+    added: list[str] = []
+    for turn in range(max(0, wanted) * len(order)):
+        if len(added) >= wanted:
+            break
+        platform = order[turn % len(order)]
         options = sorted(
             (row for row in rows
              if row["Platform"] == platform and not row.get("Format") and not row["Package"]
@@ -317,10 +325,11 @@ def assign_roman(rows: list[Row], label: str, catalog: DeliverableCatalog) -> st
              and item.part == "post"),
             key=lambda row: row["Planned date"],
         )
-        if options:
-            options[0]["Format"] = ROMAN
-            return options[0]["Row"]
-    return None
+        if options:  # the second one later in the week: Roman's posts spread out
+            chosen = options[0] if not added else options[len(options) // 2]
+            chosen["Format"] = ROMAN
+            added.append(chosen["Row"])
+    return ", ".join(added) or None
 
 
 def _pillar_fit(settings: Settings) -> Callable[[str], bool] | None:
@@ -440,8 +449,14 @@ def new_calendar(
     write_calendar(path, rows, force=True)
     lines = [f"Calendar {label}: {path} ({len(rows)} rows, all Proposed; nothing generated)."]
     if roman is not None:
-        lines.append(f"Roman's post this week: row {roman} (Format roman; one of the 4 Roman "
+        lines.append(f"Roman's posts this week: row(s) {roman} (Format roman; one of the Roman "
                      "formats is picked at stage 1).")
+    weekly = catalog.weekly_set
+    lines.append(f"Weekly set (config/deliverables.json weeklySet): {weekly.image_posts} image "
+                 f"posts ({', '.join(f'{v} {k}' for k, v in weekly.fixed.items())}, Roman on at "
+                 f"least {weekly.roman_min}); YouTube: "
+                 + ", ".join(f"{v} {k}" for k, v in weekly.youtube.items())
+                 + " (ca youtube plan --format long|short).")
     if any(ids):
         lines.append("Items: " + ", ".join(
             f"row {row['Row']} {row['BG ID']}" for row in rows if row["BG ID"]))
@@ -509,14 +524,13 @@ def fill_calendar(settings: Settings, catalog: DeliverableCatalog, label: str
     if added:
         for row in added:
             row["BG ID"] = _row_item(row, label, catalog) or ""
-        roman = (None if any(is_roman(row["Format"]) for row in active)
-                 else assign_roman(added, label, catalog))
+        roman = assign_roman(added, label, catalog, existing=active)
         write_calendar(path, rows + added)
         lines.append(f"Calendar {label}: {len(added)} empty slot(s) filled from the topic pool "
                      f"(rows {', '.join(row['Row'] for row in added)}, Proposed); the other "
                      f"{len(rows)} rows are unchanged.")
         if roman is not None:
-            lines.append(f"Roman's post this week: row {roman} (Format roman).")
+            lines.append(f"Roman's posts this week: row(s) {roman} (Format roman).")
     lines += skipped[:5] + ([f"... and {len(skipped) - 5} more skipped"] if len(skipped) > 5
                             else [])
     if left:

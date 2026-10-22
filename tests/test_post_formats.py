@@ -119,7 +119,7 @@ def test_provider_routing_and_the_free_template() -> None:
     assert len(result.images) == 1
 
 
-def test_roman_exactly_once_a_week_alternating_platforms() -> None:
+def test_roman_twice_a_week_alternating_platforms() -> None:
     catalog = load_deliverables(ROOT / "config" / "deliverables.json")
 
     def week(label: str) -> list[dict[str, str]]:
@@ -137,10 +137,12 @@ def test_roman_exactly_once_a_week_alternating_platforms() -> None:
     platforms = []
     for label in ("2026-W43", "2026-W44"):
         rows = week(label)
-        marked = [row for row in rows if row["Format"] == ROMAN]
-        assert len(marked) == 1 and marked[0]["Platform"] != "instagram"
+        marked = sorted((row for row in rows if row["Format"] == ROMAN),
+                        key=lambda row: row["Planned date"])
+        assert len(marked) == 2  # PRD v6 weekly: weeklySet.romanMin, one per platform
+        assert {row["Platform"] for row in marked} == {"linkedin", "facebook"}
         platforms.append(marked[0]["Platform"])
-        assert assign_roman(rows, label, catalog) is None  # never a second one
+        assert assign_roman(rows, label, catalog) is None  # never a third one
     assert platforms[0] != platforms[1]
 
 

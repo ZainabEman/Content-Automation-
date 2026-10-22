@@ -1,19 +1,25 @@
-"""YouTube config, the topic folder (R9.11) and its package.json."""
+"""YouTube config, the topic folder (R9.11) and its package.json.
+
+PRD v6 weekly (2026-10-22): two formats (config/youtube.json formats): "long" (Roman only, 3
+styles, one subfolder each) and "short" (HOST + ROMAN dialogue, one style, the files directly in
+the topic folder). Topic folders are "<English Topic Title> <YYYY-MM-DD>" under the format's
+outputDir; the metadata (format, titleEn, plannedDate, BG ID) stays in _system/youtube/."""
 
 from __future__ import annotations
 
 import json
 import re
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from content_automation.core.files import atomic_write_text
-from content_automation.core.output_tree import SYSTEM, safe_title
+from content_automation.core.output_tree import SYSTEM, item_folder_name, unique_name
 
 CONFIG_FILE = Path("config/youtube.json")
+LONG, SHORT = "long", "short"  # the two script pipelines (formats)
 PACKAGE_FILE = "package.json"  # legacy (v5): the metadata now lives in _system/youtube/
 RESEARCH_FILE = "research.txt"
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -42,9 +48,23 @@ def load_config(path: Path = CONFIG_FILE) -> dict[str, Any]:
     return data
 
 
-def styles() -> dict[str, Style]:
+def format_config(fmt: str = LONG) -> dict[str, Any]:
+    """formats.long|short of config/youtube.json (prompt, word target, presenter, styles)."""
+    found = load_config().get("formats", {}).get(fmt)
+    if not isinstance(found, dict):
+        raise YoutubeError(f'format "{fmt}": use short or long (config/youtube.json formats)')
+    return found
+
+
+def format_of(data: dict[str, Any]) -> str:
+    """The topic's format from its metadata; topics made before v6 weekly are long-form."""
+    return str(data.get("format") or LONG)
+
+
+def styles(fmt: str = LONG) -> dict[str, Style]:
+    keys = [str(key) for key in format_config(fmt).get("styles", ["A", "B", "C"])]
     return {key: Style(key, str(value["folder"]), str(value["name"]), str(value["approach"]))
-            for key, value in load_config()["styles"].items()}
+            for key, value in load_config()["styles"].items() if key in keys}
 
 
 def slug(text: str, max_length: int = 48) -> str:
@@ -53,8 +73,18 @@ def slug(text: str, max_length: int = 48) -> str:
     return value[:max_length].rstrip("-") or "thema"
 
 
-def output_root() -> Path:
-    return Path(str(load_config().get("outputDir", "outputs/YouTube Long-Form")))
+def output_root(fmt: str = LONG) -> Path:
+    found = format_config(fmt).get("outputDir") if fmt != LONG else (
+        format_config(fmt).get("outputDir") or load_config().get("outputDir"))
+    return Path(str(found or "outputs/YouTube Long-Form"))
+
+
+def _base(fmt: str, root: Path | None) -> Path:
+    """The format's topic root; `root` (tests) names the long-form root, the short one is its
+    sibling."""
+    if root is None:
+        return output_root(fmt)
+    return root if fmt == LONG else root.parent / output_root(fmt).name
 
 
 def meta_dir(root: Path | None = None) -> Path:
@@ -66,24 +96,23 @@ def _meta_file(bg_id: str, root: Path | None = None) -> Path:
     return meta_dir(root) / f"{bg_id}.json"
 
 
-def topic_folder(month: str, bg_id: str, title: str, root: Path | None = None) -> Path:
-    """The topic's folder: the readable title, safe for Windows and Drive (R7). A re-run for the
-    same BG ID gets its own folder back; another topic with the same title gets "Title (2)"."""
-    del month  # the month stays in the metadata, not in the path
-    base = root or output_root()
+def topic_folder(month: str, bg_id: str, title: str, root: Path | None = None, *,
+                 fmt: str = LONG, title_en: str | None = None,
+                 planned: date | None = None) -> Path:
+    """The topic's folder "<English Topic Title> <YYYY-MM-DD>" (PRD v6 weekly §6), safe for
+    Windows and Drive, under the format's root. A re-run for the same BG ID gets its own folder
+    back; another topic with the same name gets "<name> (2)"."""
+    base = _base(fmt, root)
     known = _meta_file(bg_id, root)
     if known.is_file():
         data = json.loads(known.read_text(encoding="utf-8"))
         if isinstance(data, dict) and data.get("folder"):
-            return base / str(data["folder"])
-    name = safe_title(title)
-    taken = {str(json.loads(path.read_text(encoding="utf-8")).get("folder", "")).lower()
+            return _base(format_of(data), root) / str(data["folder"])
+    name = item_folder_name(title_en or title, planned or date.fromisoformat(f"{month}-01"))
+    taken = {str(json.loads(path.read_text(encoding="utf-8")).get("folder", ""))
              for path in meta_dir(root).glob("*.json")} if meta_dir(root).is_dir() else set()
-    candidate, number = name, 1
-    while candidate.lower() in taken or (base / candidate).exists():
-        number += 1
-        candidate = f"{name} ({number})"
-    return base / candidate
+    taken |= {path.name for path in base.iterdir()} if base.is_dir() else set()
+    return base / unique_name(name, taken)
 
 
 def find_folder(bg_id: str, root: Path | None = None) -> Path:
@@ -92,7 +121,7 @@ def find_folder(bg_id: str, root: Path | None = None) -> Path:
         raise YoutubeError(f"{bg_id}: no YouTube topic folder (plan it first: "
                            "uv run ca youtube plan <YYYY-MM>)")
     data = json.loads(path.read_text(encoding="utf-8"))
-    return (root or output_root()) / str(data["folder"])
+    return _base(format_of(data), root) / str(data["folder"])
 
 
 def _meta_for(folder: Path) -> Path:
@@ -103,7 +132,8 @@ def _meta_for(folder: Path) -> Path:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        if isinstance(data, dict) and data.get("folder") == folder.name:
+        if isinstance(data, dict) and data.get("folder") == folder.name and (
+                output_root(format_of(data)).name == folder.parent.name):
             return path
     raise YoutubeError(f"{folder}: no metadata in {meta_dir(folder.parent)} (plan the topic "
                        "first)")
@@ -170,14 +200,16 @@ def write_versioned(path: Path, text: str) -> tuple[Path, str]:
     return target, f"new version (the earlier {current.name} is kept)"
 
 
-def style_dir(folder: Path, key: str) -> Path:
-    found = styles().get(key.upper())
+def style_dir(folder: Path, key: str, fmt: str = LONG) -> Path:
+    """The style's folder; short-form has one style whose files sit in the topic folder."""
+    found = styles(fmt).get(key.upper())
     if found is None:
-        raise YoutubeError(f'style "{key}": use A, B or C')
-    return folder / found.folder
+        raise YoutubeError(f'style "{key}": use {", ".join(styles(fmt))}')
+    return folder / found.folder if found.folder else folder
 
 
-__all__ = ["CONFIG_FILE", "PACKAGE_FILE", "RESEARCH_FILE", "Style", "YoutubeError", "briefs_dir",
-           "find_folder", "latest", "load_config", "meta_dir", "output_root", "read_package",
+__all__ = ["CONFIG_FILE", "LONG", "PACKAGE_FILE", "RESEARCH_FILE", "SHORT", "Style", "YoutubeError",
+           "briefs_dir", "find_folder", "format_config", "format_of", "latest", "load_config",
+           "meta_dir", "output_root", "read_package",
            "research_file", "slug", "style_dir", "styles", "topic_folder", "versions",
            "write_package", "write_versioned"]

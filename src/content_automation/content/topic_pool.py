@@ -4,8 +4,9 @@ generated topics from coming back.
 The pool (config/topic_pool.json): the German-society AI themes, the verified services and the
 newsletters, mixed by sourceMix; `theme_of` names a topic's theme and `spread` orders topics so
 the same theme is never planned back to back. No topic has to map to a service. Its `topics` are
-the candidates `ca topics refill` saved (content/topic_refill.py); the calendar fills slots with
-them when the newsletters and articles run out.
+the candidates `ca topics refill` and `ca topics search` saved (content/topic_refill.py), each
+with its checked sources (URL, publisher, date, quote) so later copy and research steps can trace
+it back; the calendar fills slots with them when the newsletters and articles run out.
 
 The memory is read fresh from what is stored (so it holds across restarts and new runs): the
 registry (idea rejected or deleted, generation generated), the weekly calendars (Rejected,
@@ -42,7 +43,7 @@ STOP_WORDS = frozenset({
     "zur", "ist", "sind", "wie", "was", "warum", "wenn", "nicht", "ihr", "ihre", "sie", "du",
     "dein", "deine", "wir", "es", "als", "aus", "vor", "nach", "über"})
 BLOCKING = ("rejected", "deleted", "generated")
-SOURCES = ("society", "services", "newsletters")
+SOURCES = ("society", "services", "newsletters", "search")
 
 
 class TopicPoolError(ValueError):
@@ -57,21 +58,44 @@ class Theme:
 
 
 @dataclass(frozen=True)
+class TopicSource:
+    """A checked source of a pool topic (content/topic_sources.py)."""
+
+    url: str
+    publisher: str
+    date: str  # YYYY-MM-DD, as found on the page
+    title: str
+    quote: str
+    tier: int
+
+    def as_json(self) -> dict[str, str | int]:
+        return {"url": self.url, "publisher": self.publisher, "date": self.date,
+                "title": self.title, "quote": self.quote, "tier": self.tier}
+
+
+@dataclass(frozen=True)
 class PoolTopic:
-    """A topic candidate saved by `ca topics refill` (Codex wrote it, ca checked it)."""
+    """A topic candidate saved by `ca topics refill|search` (Codex wrote it, ca checked it)."""
 
     topic: str
-    source: str  # society | services | newsletters
+    source: str  # society | services | newsletters | search
     reader_angle: str  # what it means for a German business reader
     theme: str | None = None
     service: str | None = None
     ref: str | None = None  # newsletter:<YYYY-MM-DD>#<n> for a newsletter topic
     added: str = ""
+    sources: tuple[TopicSource, ...] = ()
+    search_theme: str | None = None  # the theme `ca topics search` was given
+    week: str | None = None  # YYYY-Www: planned first in that week (search --week)
+    evergreen: bool = False  # a timeless theme: the source may be older than maxAgeDays
 
-    def as_json(self) -> dict[str, str]:
-        data = {"topic": self.topic, "source": self.source, "theme": self.theme,
-                "service": self.service, "readerAngle": self.reader_angle, "ref": self.ref,
-                "added": self.added}
+    def as_json(self) -> dict[str, Any]:
+        data: dict[str, Any] = {
+            "topic": self.topic, "source": self.source, "theme": self.theme,
+            "searchTheme": self.search_theme, "service": self.service,
+            "readerAngle": self.reader_angle, "ref": self.ref, "week": self.week,
+            "evergreen": self.evergreen,
+            "sources": [source.as_json() for source in self.sources], "added": self.added}
         return {key: value for key, value in data.items() if value}
 
 
@@ -107,7 +131,16 @@ def load_pool(path: Path = CONFIG_FILE) -> TopicPool:
         topics = tuple(PoolTopic(str(item["topic"]), str(item["source"]),
                                  str(item.get("readerAngle", "")), _text(item.get("theme")),
                                  _text(item.get("service")), _text(item.get("ref")),
-                                 str(item.get("added", "")))
+                                 str(item.get("added", "")),
+                                 tuple(TopicSource(str(found["url"]),
+                                                   str(found.get("publisher", "")),
+                                                   str(found.get("date", "")),
+                                                   str(found.get("title", "")),
+                                                   str(found.get("quote", "")),
+                                                   int(found.get("tier", 0)))
+                                       for found in item.get("sources", [])),
+                                 _text(item.get("searchTheme")), _text(item.get("week")),
+                                 bool(item.get("evergreen", False)))
                        for item in data.get("topics", []))
     except (OSError, ValueError, KeyError, TypeError) as error:
         raise TopicPoolError(f"{path}: {error}") from None
@@ -296,6 +329,6 @@ def topic_memory(*, conn: sqlite3.Connection | None, calendar_dir: Path | None =
 
 
 __all__ = ["BLOCKING", "CONFIG_FILE", "SOURCES", "Known", "PoolTopic", "Theme", "TopicMemory",
-           "TopicPool", "TopicPoolError", "add_topics", "content_words", "load_pool",
-           "normalise_topic", "render_pool", "similarity", "spread", "theme_of",
+           "TopicPool", "TopicPoolError", "TopicSource", "add_topics", "content_words",
+           "load_pool", "normalise_topic", "render_pool", "similarity", "spread", "theme_of",
            "topic_memory"]

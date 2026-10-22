@@ -384,7 +384,7 @@ def new_calendar(
                 "automation) or pick another topic."
             )
         automatic = [idea for idea in automatic if fits(idea.topic)]
-    automatic += _pool_ideas()  # checked by `ca topics refill`, so no pillar filter
+    automatic += _pool_ideas(label)  # checked by `ca topics refill|search`: no pillar filter
     # v6 R6: nothing generated, rejected or deleted before comes back, nor a close rewording
     scope = runtime.current()
     memory = topic_memory(conn=scope.conn if scope is not None else None,
@@ -481,7 +481,8 @@ def fill_calendar(settings: Settings, catalog: DeliverableCatalog, label: str
                           calendar_dir=settings.calendar_dir, packages_dir=settings.packages_dir)
     planned = _planned_sources(settings.calendar_dir, skip=path)
     pool, skipped = memory.allowed(
-        [idea for idea in _pool_ideas() if idea.source not in planned], lambda idea: idea.topic)
+        [idea for idea in _pool_ideas(label) if idea.source not in planned],
+        lambda idea: idea.topic)
     candidates = iter(spread(pool, lambda idea: idea.topic))
     used_topics = {_topic_key(row["Topic"]) for row in rows}
     used_sources = {row["Research source"] for row in rows}
@@ -561,9 +562,13 @@ def _free_content_id(label: str, number: int, rows: list[Row]) -> str:
     return content_id
 
 
-def _pool_ideas() -> list[Idea]:
-    """The topic pool's refilled topics (`ca topics refill`), oldest first."""
-    return [Idea(topic.topic, f"topic:{topic.topic}") for topic in load_pool().topics]
+def _pool_ideas(label: str) -> list[Idea]:
+    """The topic pool's saved topics (`ca topics refill|search`), oldest first: the ones
+    searched for this week first, then the ones for no week; another week's topics wait."""
+    topics = load_pool().topics
+    ordered = [topic for topic in topics if topic.week == label]
+    ordered += [topic for topic in topics if topic.week is None]
+    return [Idea(topic.topic, f"topic:{topic.topic}") for topic in ordered]
 
 
 def service_lines(rows: list[Row], services_file: Path) -> list[str]:

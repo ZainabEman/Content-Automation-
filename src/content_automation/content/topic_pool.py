@@ -3,7 +3,9 @@ generated topics from coming back.
 
 The pool (config/topic_pool.json): the German-society AI themes, the verified services and the
 newsletters, mixed by sourceMix; `theme_of` names a topic's theme and `spread` orders topics so
-the same theme is never planned back to back. No topic has to map to a service.
+the same theme is never planned back to back. No topic has to map to a service. Its `topics` are
+the candidates `ca topics refill` saved (content/topic_refill.py); the calendar fills slots with
+them when the newsletters and articles run out.
 
 The memory is read fresh from what is stored (so it holds across restarts and new runs): the
 registry (idea rejected or deleted, generation generated), the weekly calendars (Rejected,
@@ -28,6 +30,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from content_automation.core.files import atomic_write_text
+
 CONFIG_FILE = Path("config/topic_pool.json")
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _WORD = re.compile(r"[a-zäöüß0-9]+")
@@ -38,6 +42,7 @@ STOP_WORDS = frozenset({
     "zur", "ist", "sind", "wie", "was", "warum", "wenn", "nicht", "ihr", "ihre", "sie", "du",
     "dein", "deine", "wir", "es", "als", "aus", "vor", "nach", "über"})
 BLOCKING = ("rejected", "deleted", "generated")
+SOURCES = ("society", "services", "newsletters")
 
 
 class TopicPoolError(ValueError):
@@ -52,32 +57,93 @@ class Theme:
 
 
 @dataclass(frozen=True)
+class PoolTopic:
+    """A topic candidate saved by `ca topics refill` (Codex wrote it, ca checked it)."""
+
+    topic: str
+    source: str  # society | services | newsletters
+    reader_angle: str  # what it means for a German business reader
+    theme: str | None = None
+    service: str | None = None
+    ref: str | None = None  # newsletter:<YYYY-MM-DD>#<n> for a newsletter topic
+    added: str = ""
+
+    def as_json(self) -> dict[str, str]:
+        data = {"topic": self.topic, "source": self.source, "theme": self.theme,
+                "service": self.service, "readerAngle": self.reader_angle, "ref": self.ref,
+                "added": self.added}
+        return {key: value for key, value in data.items() if value}
+
+
+@dataclass(frozen=True)
 class TopicPool:
     themes: tuple[Theme, ...]
     source_mix: dict[str, float]
     threshold: float
     min_shared: int
+    topics: tuple[PoolTopic, ...] = ()
 
     def label(self, theme_id: str | None) -> str:
         return next((theme.label for theme in self.themes if theme.id == theme_id), "")
 
 
+def _pool_file(path: Path) -> Path:
+    return path if path.is_file() or path.is_absolute() else _PROJECT_ROOT / path
+
+
+def _text(value: object) -> str | None:
+    return str(value) if value else None
+
+
 @lru_cache(maxsize=4)
 def load_pool(path: Path = CONFIG_FILE) -> TopicPool:
-    found = path if path.is_file() or path.is_absolute() else _PROJECT_ROOT / path
     try:
-        data = json.loads(found.read_text(encoding="utf-8"))
+        data = json.loads(_pool_file(path).read_text(encoding="utf-8"))
         themes = tuple(Theme(str(item["id"]), str(item["label"]),
                              tuple(str(word).lower() for word in item["keywords"]))
                        for item in data["themes"])
         duplicates = data.get("duplicates", {})
         mix = {str(key): float(value) for key, value in data.get("sourceMix", {}).items()}
+        topics = tuple(PoolTopic(str(item["topic"]), str(item["source"]),
+                                 str(item.get("readerAngle", "")), _text(item.get("theme")),
+                                 _text(item.get("service")), _text(item.get("ref")),
+                                 str(item.get("added", "")))
+                       for item in data.get("topics", []))
     except (OSError, ValueError, KeyError, TypeError) as error:
         raise TopicPoolError(f"{path}: {error}") from None
     if not themes or abs(sum(mix.values()) - 1.0) > 0.01:
         raise TopicPoolError(f"{path}: needs themes and a sourceMix that adds up to 1")
     return TopicPool(themes, mix, float(duplicates.get("threshold", 0.6)),
-                     int(duplicates.get("minSharedWords", 3)))
+                     int(duplicates.get("minSharedWords", 3)), topics)
+
+
+def render_pool(data: dict[str, Any]) -> str:
+    """The pool file as it is written by hand: two-space indent, one theme or topic per line,
+    short objects on one line."""
+    parts: list[str] = []
+    for key, value in data.items():
+        if isinstance(value, list) and value and all(isinstance(item, dict) for item in value):
+            text = "[\n" + ",\n".join(f"    {json.dumps(item, ensure_ascii=False)}"
+                                      for item in value) + "\n  ]"
+        else:
+            text = json.dumps(value, ensure_ascii=False)
+            if len(text) > 100:
+                text = json.dumps(value, ensure_ascii=False, indent=2).replace("\n", "\n  ")
+        parts.append(f"  {json.dumps(key)}: {text}")
+    return "{\n" + ",\n".join(parts) + "\n}\n"
+
+
+def add_topics(topics: Sequence[PoolTopic], path: Path = CONFIG_FILE) -> int:
+    """Append refilled topics to the pool file (everything else is kept); the pool's size."""
+    found = _pool_file(path)
+    try:
+        data = json.loads(found.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise TopicPoolError(f"{path}: {error}") from None
+    data["topics"] = [*data.get("topics", []), *(topic.as_json() for topic in topics)]
+    atomic_write_text(found, render_pool(data))
+    load_pool.cache_clear()
+    return len(data["topics"])
 
 
 def normalise_topic(text: str) -> str:
@@ -229,6 +295,7 @@ def topic_memory(*, conn: sqlite3.Connection | None, calendar_dir: Path | None =
     return TopicMemory(known)
 
 
-__all__ = ["BLOCKING", "CONFIG_FILE", "Known", "Theme", "TopicMemory", "TopicPool",
-           "TopicPoolError", "content_words", "load_pool", "normalise_topic", "similarity",
-           "spread", "theme_of", "topic_memory"]
+__all__ = ["BLOCKING", "CONFIG_FILE", "SOURCES", "Known", "PoolTopic", "Theme", "TopicMemory",
+           "TopicPool", "TopicPoolError", "add_topics", "content_words", "load_pool",
+           "normalise_topic", "render_pool", "similarity", "spread", "theme_of",
+           "topic_memory"]

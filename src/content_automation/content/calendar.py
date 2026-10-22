@@ -2,8 +2,11 @@
 
 new: fill the week's cadence slots (config/calendar.json) in weekday order, first with the
 picks (--topic values, then --idea numbers from the newest newsletter content list, then
---article IDs), then with the newest list's other ideas and the newest scraper articles.
-Ideas and articles already planned in another week are skipped. Every row starts as Proposed.
+--article IDs), then with the newest list's other ideas, the newest scraper articles and the
+topic pool's refilled topics (`ca topics refill`). Ideas, articles and topics already planned in
+another week are skipped. Every row starts as Proposed.
+fill: only the week's empty cadence slots get Proposed rows from the topic pool; every row
+already there (Approved, Generated, ...) is kept as it is.
 check: dates inside the week, known platforms and deliverables, a research source on every
 row, no topic twice in one week. Nothing is generated or charged by new, check or show.
 approve / reject: Proposed -> Approved or Rejected, and Approved <-> Rejected; a Generated row
@@ -61,7 +64,7 @@ from content_automation.content.plan_config import (
 )
 from content_automation.content.relevance import service_fit
 from content_automation.content.research_input import ResearchFile, ResearchIdea, load_idea
-from content_automation.content.topic_pool import spread, theme_of, topic_memory
+from content_automation.content.topic_pool import load_pool, spread, theme_of, topic_memory
 from content_automation.core.config import Settings
 from content_automation.core.files import CamelModel, atomic_write_text
 from content_automation.core.parallel import batch_stopped
@@ -73,7 +76,7 @@ from content_automation.registry.dryruns import CostLine
 from content_automation.registry.files import edited_diff, last_written, record_written
 from content_automation.registry.gates import gate_open
 from content_automation.registry.items import get_item, set_planned_date, set_title
-from content_automation.registry.link import register_row
+from content_automation.registry.link import by_alias, register_row
 from content_automation.registry.strategy import load_strategy
 from content_automation.research.run import digest
 from content_automation.research.store import find_article
@@ -381,6 +384,7 @@ def new_calendar(
                 "automation) or pick another topic."
             )
         automatic = [idea for idea in automatic if fits(idea.topic)]
+    automatic += _pool_ideas()  # checked by `ca topics refill`, so no pillar filter
     # v6 R6: nothing generated, rejected or deleted before comes back, nor a close rewording
     scope = runtime.current()
     memory = topic_memory(conn=scope.conn if scope is not None else None,
@@ -453,6 +457,113 @@ def new_calendar(
         )
     lines.append(f"Next: uv run ca calendar check --week {label}")
     return path, lines
+
+
+def fill_calendar(settings: Settings, catalog: DeliverableCatalog, label: str
+                  ) -> tuple[Path, list[str], int]:
+    """Fill only the week's empty cadence slots from the topic pool; every row already in the
+    week is kept as it is. Returns the path, the lines for Codex and the number of new rows."""
+    path = calendar_path(settings, label)
+    if not path.exists():
+        raise CalendarError(f"No calendar for {label}: make it first with `uv run ca calendar "
+                            f"new --week {label}`.")
+    check_edits(path)
+    rows = read_view(path)
+    days = week_days(label)
+    slots = sorted(load_cadence(settings.calendar_file, catalog).slots,
+                   key=lambda item: WEEKDAYS.index(item.weekday))
+    active = [row for row in rows if row["Status"] not in CLOSED]
+    empty = _empty_slots(slots, active, days)
+    if not empty:
+        return path, [f"Calendar {label}: no empty slot; nothing changed."], 0
+    scope = runtime.current()
+    memory = topic_memory(conn=scope.conn if scope is not None else None,
+                          calendar_dir=settings.calendar_dir, packages_dir=settings.packages_dir)
+    planned = _planned_sources(settings.calendar_dir, skip=path)
+    pool, skipped = memory.allowed(
+        [idea for idea in _pool_ideas() if idea.source not in planned], lambda idea: idea.topic)
+    candidates = iter(spread(pool, lambda idea: idea.topic))
+    used_topics = {_topic_key(row["Topic"]) for row in rows}
+    used_sources = {row["Research source"] for row in rows}
+    number = max((int(row["Row"]) for row in rows if row["Row"].isdigit()), default=0)
+    added: list[Row] = []
+    left: list[str] = []
+    for slot, day in empty:
+        idea = _next_idea(candidates, used_topics, used_sources)
+        if idea is None:
+            left.append(f"{slot.weekday.title()} {slot.deliverable}")
+            continue
+        used_topics.add(_topic_key(idea.topic))
+        used_sources.add(idea.source)
+        number += 1
+        added.append({
+            "Row": str(number), "BG ID": "", "Planned date": day.isoformat(),
+            "Topic": idea.topic, "Research source": idea.source,
+            "Platform": catalog.deliverables[slot.deliverable].platform or "",
+            "Content type": slot.deliverable, "Status": "Proposed", "Version": "",
+            "Package": "", "Content ID": _free_content_id(label, number, rows + added),
+            "Format": "",
+        })
+    lines: list[str] = []
+    if added:
+        for row in added:
+            row["BG ID"] = _row_item(row, label, catalog) or ""
+        roman = (None if any(is_roman(row["Format"]) for row in active)
+                 else assign_roman(added, label, catalog))
+        write_calendar(path, rows + added)
+        lines.append(f"Calendar {label}: {len(added)} empty slot(s) filled from the topic pool "
+                     f"(rows {', '.join(row['Row'] for row in added)}, Proposed); the other "
+                     f"{len(rows)} rows are unchanged.")
+        if roman is not None:
+            lines.append(f"Roman's post this week: row {roman} (Format roman).")
+    lines += skipped[:5] + ([f"... and {len(skipped) - 5} more skipped"] if len(skipped) > 5
+                            else [])
+    if left:
+        lines.append(f"No pool topic left for: {', '.join(left)}. Say \"refill topics\" "
+                     f"(uv run ca topics refill), then fill again.")
+    if added:
+        lines.append(f"Next: uv run ca calendar check --week {label}")
+    return path, lines, len(added)
+
+
+def _empty_slots(slots: list[Slot], active: list[Row], days: list[date]
+                 ) -> list[tuple[Slot, date]]:
+    """The cadence slots without an active row: one of its deliverable on that day, else one
+    moved to another day."""
+    waiting = list(active)
+    open_slots: list[tuple[Slot, date]] = []
+    for slot in slots:
+        day = days[WEEKDAYS.index(slot.weekday)]
+        row = next((row for row in waiting if row["Content type"] == slot.deliverable
+                    and row["Planned date"] == day.isoformat()), None)
+        if row is None:
+            open_slots.append((slot, day))
+        else:
+            waiting.remove(row)
+    empty: list[tuple[Slot, date]] = []
+    for slot, day in open_slots:
+        moved = next((row for row in waiting if row["Content type"] == slot.deliverable), None)
+        if moved is None:
+            empty.append((slot, day))
+        else:
+            waiting.remove(moved)
+    return empty
+
+
+def _free_content_id(label: str, number: int, rows: list[Row]) -> str:
+    """The row's Content ID, skipping one a row or a registry item still has (the item of a
+    row dropped by --replace keeps its Content ID)."""
+    scope = runtime.current()
+    used = {row["Content ID"] for row in rows}
+    while (content_id := f"{label}-{number:02d}") in used or (
+            scope is not None and by_alias(scope.conn, content_id) is not None):
+        number += 1
+    return content_id
+
+
+def _pool_ideas() -> list[Idea]:
+    """The topic pool's refilled topics (`ca topics refill`), oldest first."""
+    return [Idea(topic.topic, f"topic:{topic.topic}") for topic in load_pool().topics]
 
 
 def service_lines(rows: list[Row], services_file: Path) -> list[str]:

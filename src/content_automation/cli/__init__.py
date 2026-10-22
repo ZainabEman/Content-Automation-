@@ -37,6 +37,7 @@ from content_automation.cli.scope import (
     save_dry_run_lines,
 )
 from content_automation.cli.scripts import brief_app, script_app
+from content_automation.cli.topics import topics_app
 from content_automation.cli.verify import verify_app
 from content_automation.cli.youtube import youtube_app
 from content_automation.content.backlog import RunCounts, newest_list, run_newsletters, run_sources
@@ -48,6 +49,7 @@ from content_automation.content.calendar import (
     calendar_path,
     check_calendar,
     check_edits,
+    fill_calendar,
     generate_rows,
     mark_generated,
     new_calendar,
@@ -110,6 +112,7 @@ from content_automation.content.review import show_lines as review_show_lines
 from content_automation.content.scripts import template_json as script_template_json
 from content_automation.content.scripts import template_lines as script_template_lines
 from content_automation.content.thumbnail import make_thumbnail
+from content_automation.content.topic_pool import TopicPoolError
 from content_automation.content.tracking import TrackerError, status_lines
 from content_automation.core.agent_steps import record_agent_output, request_path
 from content_automation.core.config import ConfigurationError, Settings, load_settings
@@ -251,6 +254,7 @@ app.add_typer(publish_app, name="publish")
 app.add_typer(audit_app, name="audit")
 app.add_typer(jobs_app, name="jobs")
 app.add_typer(help_app, name="help")
+app.add_typer(topics_app, name="topics")
 app.add_typer(design_app, name="design")
 app.add_typer(plan_app, name="plan")
 app.add_typer(outputs_app, name="outputs")
@@ -1562,6 +1566,27 @@ def calendar_new(
     for line in [*lines, *show_lines(rows)]:
         typer.echo(line)
     typer.echo(sync_calendar(path, settings))
+
+
+@calendar_app.command("fill")
+def calendar_fill(week: WeekOption = "next") -> None:
+    """Fill only the week's empty cadence slots from the topic pool (`ca topics refill`); every
+    row already in the week (Approved, Generated, ...) stays as it is."""
+    _utf8_output()
+    settings = _settings(check_keys=False)
+    try:
+        label = week_label(week)
+        catalog = load_deliverables(settings.deliverables_file)
+        with _registry(settings, f"ca calendar fill --week {label}"):
+            path, lines, added = fill_calendar(settings, catalog, label)
+            rows = read_view(path)
+    except (CalendarError, DeliverableError, TopicPoolError) as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=2) from None
+    for line in [*lines, *show_lines(rows)]:
+        typer.echo(line)
+    if added:
+        typer.echo(sync_calendar(path, settings))
 
 
 @calendar_app.command("check")

@@ -2,7 +2,7 @@ HOW TO INSTALL CONTENT AUTOMATION
 =================================
 
 You need: a Windows 10 or 11 PC, internet, your GitHub account (with access to the project)
-and two private things I send you: the .env file and the .secrets folder. About 30 minutes.
+and the private .secrets folder I send you. About 30 minutes.
 
 
 1. Install Git with SETUP.bat
@@ -24,16 +24,14 @@ and two private things I send you: the .env file and the .secrets folder. About 
 
 3. Set up the project
    - Open the new project folder and double-click SETUP.bat (the one inside the folder).
-   - It installs uv, Python, the app and FFmpeg, creates the .env file and the empty folders,
-     and checks everything. The first run takes 5-15 minutes.
+   - It installs uv, Python, the app and FFmpeg, creates the empty folders and checks
+     everything. The first run takes 5-15 minutes. (The .env settings file comes with the project.)
    - Green OK = good. Red PROBLEM = read the yellow line under it.
-   - It will still say ".env is still the empty template" and "key file missing": step 4 fixes that.
+   - It will still say "key file missing": step 4 fixes that.
 
-4. Add the private files I send you (USB stick or password manager, never e-mail)
-   - In File Explorer turn on View > "File name extensions" (so .env is not saved as .env.txt).
-   - .env      -> copy it into the project folder and replace the .env that is there.
-   - .secrets  -> copy the whole folder into the project folder, so that you have
-                  <project folder>\.secrets\google_oauth_client.json and the other files.
+4. Add the private .secrets folder I send you (USB stick or password manager, never e-mail)
+   - Copy the whole .secrets folder into the project folder, so that you have
+     <project folder>\.secrets\google_oauth_client.json and the other files.
    - Double-click SETUP.bat again. It should end with "ALL OK".
 
 5. Codex Desktop
@@ -61,8 +59,9 @@ and two private things I send you: the .env file and the .secrets folder. About 
 
 DON'T EDIT, DON'T COMMIT
    - These stay only on your PC and never go to GitHub (git ignores them):
-       .env   .secrets\   outputs\   state\
-     Never send .env or .secrets to anyone. Never paste a key into Codex, a chat or a screenshot.
+       .secrets\   outputs\   state\
+     Never send .secrets to anyone. Never paste a key into .env, Codex, a chat or a screenshot.
+   - .env comes with the project and is shared on GitHub: don't edit it (a change blocks git pull).
    - Don't change the project's other files yourself, and don't run git commit or git push.
      You only use git pull. Your finished content is in outputs\.
 

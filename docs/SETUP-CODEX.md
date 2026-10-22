@@ -70,23 +70,26 @@ back to **Ask for approval** afterwards.
 2. Ask Codex: **"Run uv sync in this project."** This installs everything else, including
    FFmpeg for videos.
 
-## 5. Create your `.env` file (your private settings)
+## 5. The `.env` file (settings, no keys)
 
-1. In the project folder, copy `.env.example` and name the copy `.env`.
-2. Open `.env` in Notepad and set:
+1. `.env` comes with the project (git clone); it is committed and holds no keys. Without git,
+   copy `.env.example` and name the copy `.env`.
+2. Its settings:
 
    | Line | Value | Why |
    | --- | --- | --- |
    | `IMAGE_PROVIDER=` | `codex_builtin` | real non-Roman images by Codex's built-in image generation, $0 (`openrouter` to opt in to OpenRouter; `mock` for free test pictures) |
-   | `OPENROUTER_API_KEY=` | your key from <https://openrouter.ai> (Settings → Keys; add credits first) | only with `IMAGE_PROVIDER=openrouter` |
+   | `OPENROUTER_API_KEY=` | stays empty in `.env`; your key from <https://openrouter.ai> (Settings → Keys; add credits first) goes into a Windows environment variable (step 3) | only with `IMAGE_PROVIDER=openrouter` |
    | `IMAGE_MODEL=` | `google/gemini-3.1-flash-image` | the image model |
    | `SCRAPER_PROVIDER=` | `free` | real news (our own free scraper) |
    | `USER_NAME=` | your name | saved in every job record |
 
    `VIDEO_PROVIDER=higgsfield-plugin` and `VOICE_PROVIDER=none`
    are already set (see step 8); `IMAGE_DAILY_LIMIT=30`.
-3. Save the file. **Never paste a key into the Codex chat, a document or a screenshot**:
-   it belongs only in `.env`, which is never shared or uploaded.
+3. Keys: `.env` is committed to git, so a key never goes into it. Set it as a Windows user
+   environment variable instead, in PowerShell: `setx OPENROUTER_API_KEY "<key>"`, then restart
+   Codex (it overrides the empty `.env` line). **Never paste a key into the Codex chat, a
+   document or a screenshot.**
 
 ## 6. Add the reference photos
 

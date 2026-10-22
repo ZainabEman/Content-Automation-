@@ -216,7 +216,7 @@ function Initialize-Data {
         Show-Ok '.env is already there (left unchanged).'
     } elseif (Test-Path -LiteralPath $example -PathType Leaf) {
         Copy-Item -LiteralPath $example -Destination $envFile
-        Show-Ok 'Created .env from .env.example (replace it with the .env you were sent).'
+        Show-Ok 'Created .env from .env.example.'
     }
     foreach ($folder in $DataFolders) {
         New-Item -ItemType Directory -Force -Path (Join-Path $Root $folder) | Out-Null
@@ -251,15 +251,11 @@ function Test-Setup {
         Show-Problem 'FFmpeg does not run.' 'Double-click SETUP.bat again.'
     }
 
-    $envFile = Join-Path $Root '.env'
-    $example = Join-Path $Root '.env.example'
-    if (-not (Test-Path -LiteralPath $envFile -PathType Leaf)) {
-        Show-Problem 'The settings file (.env) is missing.' "Ask for it (USB or password manager, never e-mail) and put it in $Root"
-    } elseif ((Test-Path -LiteralPath $example -PathType Leaf) -and
-              (Get-FileHash -LiteralPath $envFile).Hash -eq (Get-FileHash -LiteralPath $example).Hash) {
-        Show-Problem 'The settings file (.env) is still the empty template.' "Replace it with the .env you were sent (USB or password manager), in $Root"
-    } else {
+    # .env is committed (no keys), so a clone always has it.
+    if (Test-Path -LiteralPath (Join-Path $Root '.env') -PathType Leaf) {
         Show-Ok 'The settings file (.env) is there.'
+    } else {
+        Show-Problem 'The settings file (.env) is missing.' 'Open a terminal in this folder and run: git checkout -- .env'
     }
 
     foreach ($name in 'google_oauth_client.json', 'google_token.json', 'drive_state.json') {

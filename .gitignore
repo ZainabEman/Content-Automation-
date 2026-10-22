@@ -1,4 +1,3 @@
-.env
 .venv/
 /outputs/
 # Reference photos (Roman, logo, past ads) stay local

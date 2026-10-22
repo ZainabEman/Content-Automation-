@@ -55,7 +55,8 @@ def _logo(settings: Settings) -> LogoOverlay | None:
                               preferred=brand.logo_file if brand else None)
     except ReferenceLibraryError:
         return None
-    return LogoOverlay(path=ref.path, source=ref.source, asset_id=ref.asset_id)
+    return LogoOverlay(path=ref.path, source=ref.source, asset_id=ref.asset_id,
+                       keep_colours=bool(brand and brand.logo_keeps_colours()))
 
 
 def preview(conn: sqlite3.Connection, settings: Settings, ref: str, mode: Mode | None,

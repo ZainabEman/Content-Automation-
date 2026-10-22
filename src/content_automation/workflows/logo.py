@@ -36,8 +36,9 @@ class LogoError(ValueError):
 @dataclass(frozen=True)
 class LogoOverlay:
     path: Path  # the original logo file
-    source: str  # e.g. brand/logo/logo (1).png
+    source: str  # e.g. brand/logo/Flavicon.png
     asset_id: str
+    keep_colours: bool = False  # brand.json logoSpec.keepColours: never the white version
 
     def describe(self) -> str:
         return (
@@ -116,7 +117,8 @@ def paste_logo(target: Image.Image, backdrop: Image.Image, overlay: LogoOverlay)
     logo = load_logo(overlay.path)
     box = logo_box(target.size, logo.size)
     version: LogoVersion = (
-        "white" if corner_brightness(backdrop, box) < DARK_BELOW else "full colour"
+        "white" if not overlay.keep_colours and corner_brightness(backdrop, box) < DARK_BELOW
+        else "full colour"
     )
     chosen = white_version(logo) if version == "white" else logo
     left, top, width, height = box

@@ -408,7 +408,8 @@ def _logo(settings: Settings, brand: BrandProfile | None) -> LogoOverlay:
     """The logo the app pastes on; checked now, so a bad file stops before any cost."""
     try:
         ref = select_logo_ref(settings.references_dir, preferred=brand.logo_file if brand else None)
-        overlay = LogoOverlay(path=ref.path, source=ref.source, asset_id=ref.asset_id)
+        overlay = LogoOverlay(path=ref.path, source=ref.source, asset_id=ref.asset_id,
+                              keep_colours=bool(brand and brand.logo_keeps_colours()))
         check_logo(overlay)
     except (ReferenceLibraryError, LogoError) as error:
         raise WorkflowError(str(error)) from None

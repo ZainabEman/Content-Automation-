@@ -100,8 +100,9 @@ def test_repo_brand_tokens_are_the_guide_colours(tmp_path: Path) -> None:
     assert all(token.source for token in (brand.tokens.get(role) for role in
                                           ("bg_dark", "accent", "muted", "panel")))
     assert brand.typography.families() == ["Futura", "Jost"]
-    assert brand.logo_variant("dark").id == "white"
-    assert brand.logo_variant("light").sha256.startswith("ff800645c78e")
+    assert brand.logo_variant("dark").id == "favicon"  # 2026-10-22: the favicon everywhere
+    assert brand.logo_variant("light").sha256.startswith("e95307534145")
+    assert brand.logo_keeps_colours()
     assert brand.social_handles() == {}
     assert brand.website is not None and brand.website.display == "brandedgenius.de"
     assert brand.contact.phone is not None and not brand.contact.phone.on_graphics

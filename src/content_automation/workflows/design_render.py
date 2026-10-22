@@ -1757,8 +1757,10 @@ def place_logo(painter: Painter, zone: Zone, layout: Layout, emblem: bool = Fals
     target = (round(x), round(y), round(x) + whole_w, round(y) + whole_h)
     region = painter.image.crop(target).convert("L")
     brightness = sum(region.getdata()) / max(1, region.width * region.height) / 255
+    keep = spec is not None and spec.keep_colours  # the favicon in its own colours
     version: Literal["white", "full colour"] = (
-        "white" if layout.theme == "photo" or brightness < _DARK_BELOW else "full colour")
+        "white" if not keep and (layout.theme == "photo" or brightness < _DARK_BELOW)
+        else "full colour")
     chosen = white_version(logo) if version == "white" else logo
     sized = chosen.resize((target[2] - target[0], target[3] - target[1]),
                           Image.Resampling.LANCZOS)

@@ -145,6 +145,10 @@ class LogoVariant(Sourced):
 class LogoSpec(Sourced):
     min_width_px: int = Field(gt=0)
     clear_space_ratio: float = Field(ge=0, le=1)
+    # the logo keeps its own colours on every background (the favicon, 2026-10-22); False: the
+    # app's white version on dark and photo backgrounds
+    keep_colours: bool = False
+
 
 
 class Website(Sourced):
@@ -219,6 +223,10 @@ class BrandProfile(_BrandModel):
 
     def social_handles(self) -> dict[str, str]:
         return {name: value for name, value in self.handles.items() if not name.startswith("_")}
+
+    def logo_keeps_colours(self) -> bool:
+        """logoSpec.keepColours: the logo (the favicon) is never turned white on dark."""
+        return self.logo_spec is not None and self.logo_spec.keep_colours
 
     def logo_variant(self, background: Literal["light", "dark", "photo"]) -> LogoVariant:
         """The approved logo version for a background kind."""

@@ -10,7 +10,13 @@ from PIL import Image, ImageDraw, ImageFont
 
 from content_automation.content.formats import ICONS, FormatCatalog, PostFormat, load_formats
 from content_automation.core.config import Settings
-from content_automation.references import ReferenceLibraryError, select_logo_ref
+from content_automation.references import (
+    BrandProfile,
+    BrandProfileError,
+    ReferenceLibraryError,
+    load_brand,
+    select_logo_ref,
+)
 from content_automation.workflows.design_system import DesignSystem, load_design_system
 from content_automation.workflows.logo import LogoError, LogoOverlay, apply_logo, check_logo
 from content_automation.workflows.text_overlay import TextOverlay, compose_format, format_overlay
@@ -72,8 +78,14 @@ def stand_in(size: tuple[int, int], person: bool) -> Image.Image:
 
 def _logo(settings: Settings) -> LogoOverlay | None:
     try:
-        ref = select_logo_ref(settings.references_dir)
-        overlay = LogoOverlay(path=ref.path, source=ref.source, asset_id=ref.asset_id)
+        try:
+            brand: BrandProfile | None = load_brand(settings.references_dir)
+        except BrandProfileError:
+            brand = None
+        ref = select_logo_ref(settings.references_dir,
+                              preferred=brand.logo_file if brand else None)
+        overlay = LogoOverlay(path=ref.path, source=ref.source, asset_id=ref.asset_id,
+                              keep_colours=bool(brand and brand.logo_keeps_colours()))
         check_logo(overlay)
     except (ReferenceLibraryError, LogoError):
         return None

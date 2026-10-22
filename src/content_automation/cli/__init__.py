@@ -2082,7 +2082,8 @@ def overlay_preview(
             ref = select_logo_ref(
                 settings.references_dir, preferred=brand.logo_file if brand else None
             )
-            logo = LogoOverlay(path=ref.path, source=ref.source, asset_id=ref.asset_id)
+            logo = LogoOverlay(path=ref.path, source=ref.source, asset_id=ref.asset_id,
+                               keep_colours=bool(brand and brand.logo_keeps_colours()))
             data, version = apply_logo(data, logo)
             logo_line = f"Logo: {version} ({ref.source})"
         except (ReferenceLibraryError, LogoError) as error:

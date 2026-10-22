@@ -86,33 +86,21 @@
     "AI chatbots"
   ],
   "servicesFile": "config/services.json",
-  "logoFile": "logo (1).png",
+  "logoFile": "Flavicon.png",
   "logoVariants": [
     {
-      "id": "full_colour",
-      "file": "brand/logo/logo (1).png",
-      "sha256": "ff800645c78e76732368fd56ddd12aea5041dfaab5112a9e697a65b9bc2df418",
-      "backgrounds": ["light"],
-      "source": "guide p.1 LOGO-NUTZUNG: full-colour wordmark; brand.json logoFile since Module 1"
-    },
-    {
-      "id": "white",
-      "derivedFrom": "full_colour",
-      "backgrounds": ["dark", "photo"],
-      "source": "guide p.1 LOGO-NUTZUNG: \"Dunkles Logo\" (white lettering); made by the app from the logo's own shape (workflows/logo.py white_version)"
-    },
-    {
-      "id": "emblem",
+      "id": "favicon",
       "file": "brand/logo/Flavicon.png",
       "sha256": "e95307534145d7ffcc38528ea425f264f6c742bae86460626755616f4c690a3c",
-      "backgrounds": ["dark"],
-      "source": "the \"bg\" emblem (assets/reference/brand/logo/Flavicon.png); PRD v6 R3.2: above the wordmark on the last carousel slide only"
+      "backgrounds": ["light", "dark", "photo"],
+      "source": "user 2026-10-22: the favicon (assets/reference/brand/logo/Flavicon.png) replaces the logo on every image, in its own colours; the wordmark (brand/logo/logo (1).png) and the separate emblem above it are no longer placed"
     }
   ],
   "logoSpec": {
-    "minWidthPx": 160,
+    "minWidthPx": 100,
     "clearSpaceRatio": 0.25,
-    "source": "project default (Phase D): the guide gives no clear-space or minimum-size rule; clear space = 0.25 x the logo's height on every side; minimum width at a 1080 px canvas"
+    "keepColours": true,
+    "source": "project default (Phase D): the guide gives no clear-space or minimum-size rule; clear space = 0.25 x the logo's height on every side; minimum width at a 1080 px canvas (100 px for the favicon since 2026-10-22; 160 px was set for the wider wordmark)"
   },
   "website": {
     "url": "https://brandedgenius.de",

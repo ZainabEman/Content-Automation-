@@ -220,7 +220,9 @@ def _pattern(size: tuple[int, int], spec: dict[str, Any], accent: RGB, mask: Ima
 
 def _logo_white(logo: LogoOverlay, width: int | None = None, height: int | None = None
                 ) -> Image.Image:
-    white = white_version(load_logo(logo.path))
+    white = load_logo(logo.path)
+    if not logo.keep_colours:  # brand.json logoSpec.keepColours: the favicon's own colours
+        white = white_version(white)
     scale = (width / white.width) if width else ((height or white.height) / white.height)
     return white.resize((max(1, round(white.width * scale)), max(1, round(white.height * scale))),
                         Image.Resampling.LANCZOS)

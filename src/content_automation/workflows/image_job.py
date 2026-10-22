@@ -19,6 +19,7 @@ from content_automation.ai.image import (
     ImageRequest,
     ImageResult,
     ReferenceImage,
+    authorization_amount,
     estimate_cost_usd,
     generate_image,
     get_provider,
@@ -33,7 +34,14 @@ from content_automation.core.parallel import batch_stopped, stop_batch
 from content_automation.core.retry import call_with_retry
 from content_automation.references import asset_id_for
 from content_automation.registry import runtime
-from content_automation.registry.jobs import JobRecord, NotAuthorized, load_job_config
+from content_automation.registry.auth import get_authorization
+from content_automation.registry.jobs import (
+    BudgetExceeded,
+    JobRecord,
+    NotAuthorized,
+    cancel_job,
+    load_job_config,
+)
 from content_automation.workflows.direction_job import (
     MANIFEST_SUFFIX,
     DirectionDesign,
@@ -122,7 +130,8 @@ def run_image_job(
         check_daily_limit(
             settings.output_dir, limit=settings.image_daily_limit, requested=request.count
         )
-    _await_agent(request, settings)  # Higgsfield: no registry job before Codex delivers
+    # Higgsfield: no registry job before Codex delivers; codex_builtin: a queued one (v5b)
+    await_agent(request, settings, workflow_id=workflow_id, inputs=inputs)
     registered, reused = _registry_job(request, settings, workflow_id, inputs, cold_start)
     if reused is not None:
         return reused
@@ -258,7 +267,7 @@ def run_image_job(
         raise
     except ImageAwaitingAgent:  # no image yet for this attempt; Codex makes it
         _remove(written)
-        job.cancel("Higgsfield: waiting for Codex.")
+        job.cancel("Waiting for Codex.")
         if registered is not None:  # failed, never left running: the next build opens a redo
             # (rejecting a running job raised and left a stale record that blocked the build)
             runtime.fail(registered.id, "Higgsfield: waiting for Codex")
@@ -284,25 +293,33 @@ def run_image_job(
         job.fail(message)
         logger.error("Job %s failed: %s", job.job_id, message)
     if registered is not None:
+        # codex_builtin is authorized in images (codex_images): a made image counts as one
+        codex = settings.image_provider == "codex_builtin"
         if job.status == "completed":
-            runtime.succeed(registered.id, actual=job.actual_cost_usd,
+            runtime.succeed(registered.id,
+                            actual=float(request.count) if codex else job.actual_cost_usd,
                             result_path=job.folder.as_posix())
         else:
             reported = result.cost_usd if result is not None else job.actual_cost_usd
             runtime.fail(registered.id, job.error or "failed",
-                         actual=job.actual_cost_usd if reported is not None else None,
+                         actual=(float(request.count) if codex and result is not None else
+                                 job.actual_cost_usd if reported is not None else None),
                          billed=result is not None,
                          count_attempt=not network)
     return job
 
 
-def _await_agent(request: ImageRequest, settings: Settings) -> None:
-    """An agent-mode image provider (higgsfield_soul): Codex makes the image with its plugin.
-    Until the image is delivered only its job file is written (no registry job, nothing spent)
-    and ImageAwaitingAgent is raised; a paid one only after the user's "ok"."""
+def await_agent(request: ImageRequest, settings: Settings, *, workflow_id: str = "direct",
+                inputs: dict[str, str | bool] | None = None) -> None:
+    """An agent-mode image provider: Codex makes the image (higgsfield_soul: with its plugin;
+    codex_builtin: its built-in image generation). Until the image is delivered only its job
+    file is written and ImageAwaitingAgent is raised (Higgsfield: no registry job; codex_builtin:
+    a queued one inside the authorization's image count); a paid one only after the user's
+    "ok"."""
     provider = get_provider(settings.image_provider, settings)
     waiting = getattr(provider, "waiting", None)
-    if getattr(provider, "mode", "code") != "agent" or waiting is None:
+    codex = settings.image_provider == "codex_builtin"
+    if getattr(provider, "mode", "code") != "agent" or (waiting is None and not codex):
         return
     scope = runtime.current()
     config = scope.config if scope is not None else load_job_config(settings.jobs_file)
@@ -314,9 +331,64 @@ def _await_agent(request: ImageRequest, settings: Settings) -> None:
             f"Image jobs via {name} cost credits and run only under an authorization: run the "
             "dry run, show the estimate, and after the user's \"ok\" run with --authorize "
             "<dryrun_id>.")
+    if codex:
+        _queue_codex(request, settings, provider, workflow_id, inputs)
+        return
+    assert waiting is not None
     job_file = waiting(request)
     if job_file is not None:
         raise ImageAwaitingAgent(f"waiting for Codex: {job_file}", Path(job_file))
+
+
+def _queue_codex(request: ImageRequest, settings: Settings, provider: object,
+                 workflow_id: str, inputs: dict[str, str | bool] | None) -> None:
+    """codex_builtin (v5b): the registry job is queued with the usual idempotency key and a job
+    file is written for Codex; a delivered (imported) image lets the job run. The queued and
+    running Codex jobs of an authorization never exceed its image count."""
+    from content_automation.ai.image.codex import CodexBuiltinProvider
+
+    assert isinstance(provider, CodexBuiltinProvider)
+    scope = runtime.current()
+    name = settings.image_provider
+    if scope is None:
+        raise NotAuthorized("Codex images run only inside a ca command under an authorization.")
+    unit = scope.config.unit(name)
+    estimate = authorization_amount(request, settings)
+    opened = runtime.open_scoped_job(
+        "image", name, _job_inputs(request, settings, workflow_id, inputs), estimate=estimate,
+        unit=unit, direct=scope.item is None)
+    if opened is None or opened.reused:
+        return  # an earlier result: run_image_job reuses it
+    record = opened.job
+    if provider.delivered(request) is not None:
+        return  # imported: the job runs now
+    if not opened.in_progress:  # a new job: inside the authorization's image count
+        auth = (get_authorization(scope.conn, record.authorization_id)
+                if record.authorization_id else None)
+        row = scope.conn.execute(
+            "SELECT COALESCE(SUM(estimate), 0) FROM jobs WHERE authorization_id = ? AND "
+            "provider = ? AND status IN ('queued', 'running') AND id != ?",
+            (record.authorization_id, name, record.id)).fetchone()
+        waiting = float(row[0]) if auth is not None else 0.0
+        if auth is None or auth.status != "open" or waiting + estimate > auth.remaining + 1e-9:
+            cancel_job(scope.conn, record.id, "no room in the authorization's image count",
+                       actor="system", command=scope.command)
+            if auth is None:
+                raise NotAuthorized(
+                    f"Image jobs via {name} run only under an authorization: run the dry run, "
+                    "show the image count, and after the user's \"ok\" run with --authorize "
+                    "<dryrun_id>.")
+            raise BudgetExceeded(
+                f"Codex image not queued: authorization #{auth.id} allows "
+                f"{auth.max_amount:g} {unit} and {auth.spent + waiting:g} are made or waiting. "
+                "Ask the user; a new dry run and \"ok\" can authorize more.")
+    package = None
+    if scope.item is not None:
+        item = runtime.get(scope.item)
+        package = item.package_path if item is not None else None
+    job_file = provider.queue(request, idempotency_key=record.key, meta={
+        "bg_id": scope.item, "package": package, "registry_job_id": record.id})
+    raise ImageAwaitingAgent(f"waiting for Codex: {job_file}", job_file)
 
 
 def _job_inputs(
@@ -344,7 +416,7 @@ def _registry_job(
     provider = settings.image_provider
     paid = config.paid(provider)
     if scope is not None:
-        estimate = estimate_cost_usd(request, settings, cold_start=cold_start)
+        estimate = authorization_amount(request, settings, cold_start=cold_start)
         job_inputs = _job_inputs(request, settings, workflow_id, inputs)
         unit = config.unit(provider) if paid else None
         opened = runtime.open_scoped_job("image", provider, job_inputs, estimate=estimate,

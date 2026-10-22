@@ -23,6 +23,8 @@ MAX_COUNT = 4
 # Provider name -> adapter module. Adding a provider = one adapter file + one line here.
 _ADAPTERS: dict[str, str] = {
     "mock": "content_automation.ai.image.providers.mock",
+    # Non-Roman images (the default): Codex makes them with its built-in image generation
+    "codex_builtin": "content_automation.ai.image.providers.codex_builtin",
     # Roman's images: Codex makes them with the Higgsfield plugin (Soul 2.0, his character)
     "higgsfield_soul": "content_automation.ai.image.providers.higgsfield_soul",
     "openrouter": "content_automation.ai.image.providers.openrouter",
@@ -243,14 +245,28 @@ def estimate_cost_usd(
     per_request = capabilities.est_cost_usd_per_request if cold_start else 0.0
     # v6 R3.4: the text read back after each image (a vision check through OpenRouter)
     check = float(request.options.get("textCheckUsd", 0) or 0) if (
-        settings.image_provider not in ("mock", "template")) else 0.0
+        settings.image_provider not in ("mock", "template", "codex_builtin")) else 0.0
     return round((per_image + check) * request.count + per_request, 4)
+
+
+def authorization_amount(
+    request: ImageRequest, settings: Settings, *, cold_start: bool = True
+) -> float:
+    """The estimate in the provider's authorization unit: codex_builtin counts images
+    (codex_images, $0), every other provider USD."""
+    if settings.image_provider == "codex_builtin":
+        return float(request.count)
+    return estimate_cost_usd(request, settings, cold_start=cold_start)
 
 
 def model_for(settings: Settings) -> str:
     """The model the selected provider runs: IMAGE_MODEL ("template" for the free template)."""
     if settings.image_provider == "template":
         return "template"
+    if settings.image_provider == "codex_builtin":
+        from content_automation.ai.image.providers.codex_builtin import load_config
+
+        return str(load_config()["model"])
     return settings.image_model
 
 

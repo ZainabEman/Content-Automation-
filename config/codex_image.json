@@ -1,0 +1,18 @@
+{
+  "_note": "Non-Roman images made by Codex with its built-in image generation (IMAGE_PROVIDER=codex_builtin, the default; openrouter is the opt-in alternative). `ca` writes one job per image under outputs/<jobs_dir>/<batch>/<job>/job.json; Codex generates it once and runs `ca image import`. sizes: the size Codex generates per requested aspect; the app then crops it to the aspect and draws the design on the final canvas. $0 per image: the authorization caps the count (unit codex_images). Roman stays on Higgsfield Soul 2.0.",
+  "model": "gpt-image-2",
+  "tool": "Codex built-in image generation",
+  "jobs_dir": "codex_jobs",
+  "sizes": {
+    "1:1": "1024x1024",
+    "4:5": "1024x1536",
+    "3:4": "1024x1536",
+    "2:3": "1024x1536",
+    "9:16": "1024x1536",
+    "16:9": "1536x1024",
+    "3:2": "1536x1024",
+    "4:3": "1536x1024"
+  },
+  "max_images_per_batch": 10,
+  "max_reference_images": 10
+}

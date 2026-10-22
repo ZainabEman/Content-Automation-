@@ -142,26 +142,32 @@ def jobs_resume(
     """Resume unfinished work of the registered job types ("resume unfinished jobs"): the
     carousel's next step; other types are listed as not resumable yet. --all: carousels,
     queued image jobs, uploads, plugin requests and video jobs; the rest "needs manual
-    action"."""
+    action". Codex images (codex_builtin, v5b) are re-imported, never generated again."""
     settings = _settings()
     lines: list[str] = []
+    codex: set[str] = set()  # queued Codex image jobs: `ca image import` for their keys
     if every:
         if ref is not None:
             _fail("--all resumes every item; leave out the BG ID.", 2)
         try:
             with registry_scope(settings, "ca jobs resume --all") as scope:
+                codex = _codex_keys(list_jobs(scope.conn, statuses=("queued",)))
                 lines = resume_all(scope.conn, settings, scope.config, command=scope.command)
         except (RegistryError, WorkflowError, OSError, ValueError) as error:
             _fail(str(error))
-        for line in lines or ["Nothing to resume."]:
+        for line in lines or ([] if codex else ["Nothing to resume."]):
             typer.echo(line)
+        _reimport(settings, codex)
         return
     try:
         with registry_scope(settings, "ca jobs resume" + (f" {ref}" if ref else "")) as scope:
             item_id = resolve(scope.conn, ref) if ref else None
             open_jobs = list_jobs(scope.conn, item_id=item_id, statuses=("queued", "running"))
+            codex = _codex_keys(open_jobs)
             by_item: dict[str | None, list[JobRecord]] = {}
             for job in open_jobs:
+                if job.key in codex:
+                    continue
                 by_item.setdefault(job.item_id, []).append(job)
             for owner, jobs in by_item.items():
                 stale = [job for job in jobs if job.stale()]
@@ -173,11 +179,26 @@ def jobs_resume(
                              f"(jobs {', '.join(f'#{job.id}' for job in jobs)}).")
     except (RegistryError, WorkflowError, OSError, ValueError) as error:
         _fail(str(error))
-    if not lines:
+    if not lines and not codex:
         typer.echo("No unfinished jobs.")
         return
     for line in lines:
         typer.echo(line)
+    _reimport(settings, codex)
+
+
+def _codex_keys(jobs: list[JobRecord]) -> set[str]:
+    return {job.key for job in jobs if job.provider == "codex_builtin" and job.status == "queued"}
+
+
+def _reimport(settings: Settings, keys: set[str]) -> None:
+    """Queued Codex images: import what Codex saved and continue those builds (v5b)."""
+    if not keys:
+        return
+    from content_automation.cli.codex_images import import_and_continue
+
+    typer.echo(f"Codex images: {len(keys)} queued job(s); re-import (never generated again).")
+    import_and_continue(settings, keys=keys)
 
 
 @auth_app.command("list")

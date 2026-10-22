@@ -201,6 +201,14 @@ GROUPS: tuple[Group, ...] = (
                "Drive YouTube/<YYYY-MM>/<BG-ID>_<slug>/ and the tracker row"),
         Phrase("youtube status", "ca youtube status", "every topic and its step"),
     )),
+    Group("generate-images-codex", ".agents/skills/generate-images-codex/SKILL.md", (
+        Phrase("generate images", "(Codex built-in image generation), then ca image import B-x",
+               "each pending non-Roman image job made once by Codex after the \"ok\" (no text "
+               "or logo in it), then imported"),
+        Phrase("import images", "ca image import B-x | --all",
+               "checks the saved files, marks the jobs done, continues the builds (missing: "
+               "pending)"),
+    )),
     Group("text-overlay", ".agents/skills/text-overlay/SKILL.md", (
         Phrase("preview overlay BG-x", "ca design overlay BG-x [--copy FILE]",
                "Roman's text re-drawn on the picture the build used, with its checks (free)"),

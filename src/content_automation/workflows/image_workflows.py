@@ -48,7 +48,7 @@ from content_automation.content.roman_prompt import (
     pick_combination,
 )
 from content_automation.content.roman_prompt import build_prompt as roman_prompt_text
-from content_automation.content.routing import RoutingError, check_route
+from content_automation.content.routing import RoutingError, check_route, illustration_route
 from content_automation.core.config import Settings
 from content_automation.core.jobs import DETAILS_FILE, Job, JobReference
 from content_automation.references import (
@@ -84,7 +84,12 @@ from content_automation.workflows.direction_job import (
     illustration_prompt,
     picture_aspect,
 )
-from content_automation.workflows.image_job import job_references, raw_image, run_image_job
+from content_automation.workflows.image_job import (
+    await_agent,
+    job_references,
+    raw_image,
+    run_image_job,
+)
 from content_automation.workflows.logo import LogoError, LogoOverlay, check_logo
 from content_automation.workflows.prompt import RefCounts, build_design_prompt, build_prompt
 from content_automation.workflows.registry import (
@@ -695,6 +700,8 @@ def format_settings(chosen: PostFormat, settings: Settings,
     if image is None:
         return settings.model_copy(update={"image_provider": "template"})
     provider = chosen.provider or settings.image_provider
+    if provider == "openrouter":  # v5b: codex_builtin unless IMAGE_PROVIDER=openrouter
+        provider = illustration_route(settings)
     if settings.image_provider in ("mock", provider):
         return settings
     update: dict[str, str] = {"image_provider": provider}
@@ -810,7 +817,9 @@ def _prepare_direction(
         recorded["route"] = route
         own = direction_settings(direction, picture, settings)
         person = direction.roman and picture
-        mode = "composite" if person or not picture else (
+        # a Codex image has no text in it (v5b): the app draws the whole design
+        codex = own.image_provider == "codex_builtin"
+        mode = "composite" if person or not picture or codex else (
             "composite" if inputs.design_mode == "composite" else
             "designer" if inputs.design_mode == "designer" else default_mode())
         layout = _varied(direction, layout, catalog, inputs.variation)
@@ -858,6 +867,7 @@ def _prepare_direction(
     if combination is not None or mode == "designer":  # the canvas aspect: the model draws the
         # whole ad (designer) or higgsfield_soul maps and crops it (Roman)
         aspect = cast(AspectRatio, CANVAS[direction.format])
+    canvas = "x".join(str(side) for side in catalog.size(direction))
     request = ImageRequest(
         prompt=prompt,
         object_refs=designer.object_refs if designer is not None else [],
@@ -865,7 +875,8 @@ def _prepare_direction(
         options=({"combination": combination.id, "side": combination.side}
                  if combination is not None else
                  # v6 R3.4: the text read back costs one vision check (in the estimate)
-                 {"designMode": mode, "textCheckUsd": f"{estimated_check_usd():.4f}"}
+                 {"designMode": mode, "textCheckUsd": f"{estimated_check_usd():.4f}",
+                  "canvas": canvas}
                  if picture else {}),
         aspect_ratio=aspect,
         image_size=settings.image_design_size if picture else "1K",
@@ -900,6 +911,14 @@ def _designer(direction: Direction, layout: Layout, catalog: DirectionCatalog, p
         cache_dir=settings.output_dir.parent / "cache", role=role,
         mock=settings.image_provider == "mock",
         mode="composite" if mode == "composite" else "designer")
+
+
+def queue_workflow(workflow_id: str, inputs: WorkflowInputs, settings: Settings) -> None:
+    """An agent provider's job file only (v5b, codex_builtin): no image is made; raises
+    ImageAwaitingAgent while Codex has not delivered it."""
+    prepared = prepare_workflow(workflow_id, inputs, settings)
+    await_agent(prepared.request, prepared.settings or settings,
+                workflow_id=prepared.spec.workflow_id, inputs=prepared.inputs)
 
 
 def run_workflow(

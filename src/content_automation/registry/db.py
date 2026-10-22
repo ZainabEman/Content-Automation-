@@ -377,6 +377,75 @@ ALTER TABLE items ADD COLUMN language TEXT;
 ALTER TABLE items ADD COLUMN script_style TEXT;
 """
 
+# v5b: Codex's built-in images are authorized and counted in images (unit codex_images, $0).
+# SQLite cannot change a CHECK, so both tables are rebuilt: copies first, the child (jobs) dropped
+# before its parent, then both made again and filled (every reference is checked on insert).
+SCHEMA_12 = """
+CREATE TABLE authorizations_copy AS SELECT * FROM authorizations;
+CREATE TABLE jobs_copy AS SELECT * FROM jobs;
+DROP TABLE jobs;
+DROP TABLE authorizations;
+CREATE TABLE authorizations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_ids TEXT NOT NULL,
+    job_types TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    unit TEXT NOT NULL CHECK (unit IN ('usd', 'credits', 'codex_images')),
+    max_amount REAL NOT NULL CHECK (max_amount >= 0),
+    spent REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL CHECK (status IN ('open', 'closed', 'exceeded')),
+    actor TEXT NOT NULL CHECK (actor IN ('user', 'system')),
+    command TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    dryrun_id TEXT,
+    closed_at TEXT,
+    note TEXT
+);
+INSERT INTO authorizations (id, item_ids, job_types, provider, unit, max_amount, spent,
+    status, actor, command, created_at, updated_at, dryrun_id, closed_at, note)
+SELECT id, item_ids, job_types, provider, unit, max_amount, spent, status, actor, command,
+    created_at, updated_at, dryrun_id, closed_at, note FROM authorizations_copy;
+CREATE INDEX authorizations_dryrun ON authorizations (dryrun_id);
+CREATE TABLE jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id TEXT REFERENCES items (id),
+    version INTEGER,
+    job_type TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    base_key TEXT NOT NULL,
+    redo_n INTEGER NOT NULL DEFAULT 0,
+    idempotency_key TEXT NOT NULL,
+    inputs TEXT NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL
+        CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'cancelled')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 1,
+    estimate REAL,
+    actual REAL,
+    unit TEXT CHECK (unit IN ('usd', 'credits', 'codex_images')),
+    authorization_id INTEGER REFERENCES authorizations (id),
+    result_path TEXT,
+    error TEXT,
+    rejected_at TEXT,
+    reject_reason TEXT,
+    timeout_seconds INTEGER,
+    created_at TEXT NOT NULL,
+    started_at TEXT,
+    finished_at TEXT,
+    updated_at TEXT NOT NULL
+);
+INSERT INTO jobs SELECT id, item_id, version, job_type, provider, base_key, redo_n,
+    idempotency_key, inputs, status, attempts, max_attempts, estimate, actual, unit,
+    authorization_id, result_path, error, rejected_at, reject_reason, timeout_seconds,
+    created_at, started_at, finished_at, updated_at FROM jobs_copy;
+DROP TABLE jobs_copy;
+DROP TABLE authorizations_copy;
+CREATE INDEX jobs_key ON jobs (idempotency_key);
+CREATE INDEX jobs_base ON jobs (base_key);
+CREATE INDEX jobs_item ON jobs (item_id);
+"""
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "registry core", SCHEMA_1),
     Migration(2, "item deliverable", SCHEMA_2),
@@ -389,6 +458,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(9, "production status and media artifacts", SCHEMA_9),
     Migration(10, "integration verifications", SCHEMA_10),
     Migration(11, "v5 layout variant, requires_roman, language, script style", SCHEMA_11),
+    Migration(12, "codex_images unit", SCHEMA_12),
 )
 
 _SCHEMA_TABLE = """

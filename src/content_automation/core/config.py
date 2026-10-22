@@ -6,7 +6,9 @@ from typing import Any, Literal
 from pydantic import Field, SecretStr, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ImageProvider = Literal["mock", "openrouter", "template", "higgsfield_soul"]
+# codex_builtin: non-Roman images by Codex's built-in image generation (the .env default);
+# openrouter: the opt-in alternative for them
+ImageProvider = Literal["mock", "codex_builtin", "openrouter", "template", "higgsfield_soul"]
 # Roman's images: Higgsfield Soul 2.0 via Codex (PRD v6 R5: the only route for Roman)
 RomanImageProvider = Literal["higgsfield_soul"]
 # PRD v6 R8: the old flat output folders. An .env that still names one runs with the new tree

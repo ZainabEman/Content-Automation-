@@ -44,6 +44,7 @@ from content_automation.content.direction_brief import slide_roles
 from content_automation.content.direction_pick import direction_format, pick_direction
 from content_automation.content.directions import DirectionCatalog
 from content_automation.content.relevance import service_fit
+from content_automation.content.routing import illustration_route
 from content_automation.content.topic_pool import theme_of
 from content_automation.core.config import Settings
 from content_automation.core.files import atomic_write_text
@@ -234,7 +235,7 @@ def plan_month(settings: Settings, deliverables: DeliverableCatalog, catalog: Di
                 pool.remove(topic)
                 last_theme = theme
             pictures = len(slide_roles(chosen)) if chosen.format == "carousel" else 1
-            provider = chosen.provider if chosen.roman else "openrouter"
+            provider = chosen.provider if chosen.roman else illustration_route(settings)
             assets.append(Asset(
                 number=len(assets) + 1, day=day.isoformat(), deliverable=name,
                 category=chosen.category, platform=platform, requires_roman=chosen.roman,

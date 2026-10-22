@@ -8,7 +8,7 @@ Type every phrase below in Codex Desktop. Codex runs the matching `uv run ca …
 1. Install and check: `uv sync`, then `uv run ca doctor`. Follow any fix it prints.
 2. Create `.env`: copy `.env.example` to `.env` and fill it in a text editor (never paste keys into a chat). Keys by name:
    - `STORAGE_PROVIDER` and `DRIVE_SHARE_WITH`: the Drive route (step 3)
-   - `OPENROUTER_API_KEY`: every non-Roman image (OpenRouter, the configured model)
+   - `IMAGE_PROVIDER=codex_builtin` (default): every non-Roman image is made by Codex's built-in image generation ("generate images", then "import images"); `OPENROUTER_API_KEY` only with `IMAGE_PROVIDER=openrouter` (opt-in)
 3. Choose the Drive route:
    - `STORAGE_PROVIDER=plugin`: the Google Drive plugin uploads each request, then "upload approved files".
    - `STORAGE_PROVIDER=drive`: the Drive API. Run `uv run ca drive setup` once.

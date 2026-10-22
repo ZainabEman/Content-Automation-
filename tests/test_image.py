@@ -37,7 +37,8 @@ def test_registry_picks_mock_and_rejects_unknown() -> None:
 
 
 def test_registry_lists_all_image_providers() -> None:
-    assert available_providers() == ("higgsfield_soul", "mock", "openrouter", "template")
+    assert available_providers() == ("codex_builtin", "higgsfield_soul", "mock", "openrouter",
+                                   "template")
 
 
 @pytest.mark.parametrize(

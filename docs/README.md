@@ -120,7 +120,7 @@ All choices are lines in `.env`; nothing else changes.
 
 | What | Setting | Options |
 | --- | --- | --- |
-| Images | `IMAGE_PROVIDER` | `openrouter` (real, paid) or `mock` (free placeholders) |
+| Images | `IMAGE_PROVIDER` | `codex_builtin` (default: Codex's built-in image generation, $0; `ca image import`), `openrouter` (opt-in, paid) or `mock` (free placeholders) |
 | Video clips | `VIDEO_PROVIDER` | `higgsfield-plugin` (Codex plugin), `mock` or `none` |
 | Avatar clips | `AVATAR_PROVIDER` | `heygen-plugin` (Codex plugin), `mock` or `none` |
 | Voiceover | `VOICE_PROVIDER` | `none` (MVP) |

@@ -1,8 +1,9 @@
 """Phase D step 8: a design direction as one image job of the existing build.
 
 The direction fixes the provider (never swapped; IMAGE_PROVIDER=mock stays mock for local tests):
-no picture = the free template, an illustration = OpenRouter (Nano Banana 2, CAROUSEL_IMAGE_MODEL),
-Roman = Higgsfield Soul 2.0 with his saved character (a real photo is never the final image).
+no picture = the free template, an illustration = Codex's built-in image generation (codex_builtin,
+v5b; OpenRouter with CAROUSEL_IMAGE_MODEL only when IMAGE_PROVIDER=openrouter opts in), Roman =
+Higgsfield Soul 2.0 with his saved character (a real photo is never the final image).
 
 v6 (PRD R3.4-R3.6), two modes for a non-Roman picture:
 - designer (the default): the model drew the whole ad with the exact German strings; the app
@@ -49,6 +50,7 @@ from content_automation.content.directions import (
     Layout,
     load_directions,
 )
+from content_automation.content.routing import illustration_route
 from content_automation.core.config import Settings
 from content_automation.core.parallel import released
 from content_automation.references import load_brand
@@ -132,10 +134,13 @@ def direction_settings(direction: Direction, picture: bool, settings: Settings) 
     """The direction's own provider: never swapped (mock stays mock in local tests)."""
     if not picture or direction.provider == "template":
         return settings.model_copy(update={"image_provider": "template"})
-    if settings.image_provider in ("mock", direction.provider):
+    # an illustration: codex_builtin, or OpenRouter when IMAGE_PROVIDER=openrouter opts in
+    provider = (illustration_route(settings) if direction.provider == "openrouter"
+                else direction.provider)
+    if settings.image_provider in ("mock", provider):
         return settings
-    update: dict[str, str] = {"image_provider": direction.provider}
-    if direction.provider == "openrouter":  # Nano Banana 2 via OpenRouter
+    update: dict[str, str] = {"image_provider": provider}
+    if provider == "openrouter":  # Nano Banana 2 via OpenRouter
         update["image_model"] = settings.carousel_image_model
     return settings.model_copy(update=update)
 
@@ -313,13 +318,18 @@ class DirectionDesign:
             if text.zone not in ("footer",)]
         facts = ImageFacts(
             category=direction.category, roman=direction.roman,
-            provider="higgsfield_soul" if direction.roman else "openrouter",
+            provider="higgsfield_soul" if direction.roman else settings.image_provider,
             last_slide=direction.format != "carousel" or self.layout == direction.last_layout(),
             logo_box=(logo[0] / width, logo[1] / height, logo[2] / width, logo[3] / height)
             if logo else None, website=bool(rendered.footer), intended=intended)
         if direction.roman:  # Higgsfield: no logo, no website, never a real photo; the text
             # and the German are checked by run_checks and Codex's visual review (R4.5)
             report.errors += check_image(rendered.image, facts, image_rules(), base=False)
+            return
+        if settings.image_provider == "codex_builtin":  # no OpenRouter call for a Codex image
+            report.checks["textRead"] = "skipped (codex_builtin)"
+            report.warnings.append("[text_check_skipped] a Codex image: the text was not read "
+                                   "back; the visual review must confirm it")
             return
         reader = reader_for(settings)
         read, problem = None, ""

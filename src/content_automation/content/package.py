@@ -33,6 +33,7 @@ from pydantic import Field
 from content_automation.ai.image import (
     ImageAwaitingAgent,
     ImageError,
+    authorization_amount,
     estimate_cost_usd,
     get_provider,
 )
@@ -170,6 +171,7 @@ from content_automation.workflows.image_workflows import (
     WorkflowInputs,
     format_settings,
     prepare_workflow,
+    queue_workflow,
     run_workflow,
 )
 from content_automation.workflows.person_check import check_job_image
@@ -1236,7 +1238,8 @@ def build_package(folder: Path, settings: Settings, *, dry_run: bool,
         _report(registered.get(kind), package.items[kind])
         lines.append(_item_line(kind, package.items[kind]))
         _save(folder, package)
-        if check and not batch.warm:  # the person check stops the build: build nothing more
+        codex = bool(check) and check[0].startswith("CODEX IMAGES")  # v5b: queue every part
+        if check and not batch.warm and not codex:  # a person check stops the build
             lines += check
             break
         waiting += check  # warm batch: every part first (one cold start), then the checks
@@ -1880,6 +1883,39 @@ def _higgsfield_lines(job_file: Path, folder: Path) -> list[str]:
     ]
 
 
+def _codex_job(job_file: Path) -> bool:
+    try:
+        data = json.loads(job_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return isinstance(data, dict) and data.get("provider") == "codex_builtin"
+
+
+def _queue_rest(plan: _ImagePlan, queue: list[int], settings: Settings) -> list[Path]:
+    """codex_builtin (v5b): the job files of the part's other images too, so one Codex batch
+    holds them (a direction's slides do not depend on slide 1); nothing is made here."""
+    files: list[Path] = []
+    if any(prepared.design is None for prepared in plan.prepared):
+        return files
+    for position in queue:
+        try:
+            queue_workflow("social_creative", plan.jobs[position], settings)
+        except ImageAwaitingAgent as waiting:
+            files.append(waiting.job_file)
+        except _IMAGE_ERRORS:
+            break  # e.g. the authorization's image count: the next build queues the rest
+    return files
+
+
+def _codex_lines(files: list[Path]) -> list[str]:
+    """Codex's next step for the part's images (each job.json has the prompt and the size)."""
+    batches = sorted({path.parent.parent.name for path in files})
+    target = batches[0] if len(batches) == 1 else "--all"
+    return [f"CODEX IMAGES: {len(files)} image job(s) in {', '.join(batches)} wait for Codex "
+            "(\"generate images\": skill generate-images-codex).",
+            f"  Then: uv run ca image import {target}   (checks the files, continues the build)"]
+
+
 def _visual_lines(
     item: PackageItem, position: int, folder: Path, settings: Settings
 ) -> list[str]:
@@ -2035,8 +2071,12 @@ def _make_images(
             inputs = replace(inputs, first_slide=item.image_refs[0])
         try:
             job = run_workflow("social_creative", inputs, settings, cold_start=batch.cold)
-        except ImageAwaitingAgent as waiting:  # Codex makes Roman's image with Higgsfield
+        except ImageAwaitingAgent as waiting:  # Codex makes the image (Higgsfield or built-in)
             item.status = "waiting"
+            if _codex_job(waiting.job_file):  # v5b: the part's other images join the batch
+                files = [waiting.job_file, *_queue_rest(plan, queue, settings)]
+                item.error = f"waiting for Codex images: {len(files)} job(s)"
+                return item, _codex_lines(files)
             item.error = f"waiting for Codex (Higgsfield): {waiting.job_file}"
             return item, _higgsfield_lines(waiting.job_file, folder)
         except _IMAGE_ERRORS as error:
@@ -2332,6 +2372,7 @@ def _dry_run_lines(
         lines.append("Design direction: " + (found.label if found is not None else
                      f"{package.direction} (not in config/design_directions.json)"))
     total = 0.0
+    codex_images = 0  # v5b: Codex's built-in images, counted (unit codex_images), $0
     used: set[str] = set()
     names = _part_names(brief, settings)
     batch = _batch(settings)  # a warm batch counts one cold start for the whole package
@@ -2349,10 +2390,13 @@ def _dry_run_lines(
         used.add(part.image_provider)
         todo = [plan.prepared[position] for position in _todo(plan, item, part)]
         cost = redo = 0.0
+        counted = 0.0  # codex_builtin images
         for prepared in todo:
             own = prepared.settings or part  # a template slide: no picture, free
             cold = batch.cold if part is settings else True
             cost += estimate_cost_usd(prepared.request, own, cold_start=cold)
+            if own.image_provider == "codex_builtin":
+                counted += authorization_amount(prepared.request, own)
             batch.cold = batch.cold and part is not settings
             if prepared.person_shown:
                 redo += estimate_cost_usd(prepared.request, own, cold_start=False)
@@ -2361,8 +2405,11 @@ def _dry_run_lines(
                 # (2026-10-21); the estimate stays one image per slot
                 redo += 2 * estimate_cost_usd(prepared.request, own, cold_start=False)
         total += cost
-        costs[kind] = round(cost, 6)
-        redos[kind] = round(redo, 6)
+        # the cost line is in the provider's unit: codex_builtin counts images
+        codex = part.image_provider == "codex_builtin"
+        codex_images += int(counted)
+        costs[kind] = counted if codex else round(cost, 6)
+        redos[kind] = 0.0 if codex else round(redo, 6)
         lead = plan.prepared[0]
         request = lead.request
         slot = plan.slot
@@ -2463,6 +2510,10 @@ def _dry_run_lines(
             lines.append("video: waiting (video pending); build checks it again")
         else:
             lines += _video_dry_run(brief, seconds, settings)
+    if codex_images:
+        lines.append(f"Codex images: {codex_images} (codex_images, $0; Codex's built-in image "
+                     "generation after the \"ok\", each image once; the authorization caps the "
+                     "count)")
     lines.append(
         f"Estimated image cost: ${total:.3f} ({', '.join(sorted(used)) or settings.image_provider}"
         "). Run again without --dry-run to build."

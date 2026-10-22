@@ -1,6 +1,7 @@
 """`ca jobs resume --all` (Phase 10 Step 1, UC-21): every resumable type at once.
 
 - carousel (still and clip jobs): the carousel's next step (its existing continue logic);
+- queued Codex images (codex_builtin): re-imported by `ca jobs resume`, never generated again;
 - queued image jobs: within an open authorization the build that continues them; without
   one, a new dry run and the user's "ok" (never run here);
 - uploads: a stale (running too long) or failed upload is re-queued (a new request file);
@@ -100,6 +101,8 @@ def resume_all(conn: sqlite3.Connection, settings: Settings, config: JobConfig, 
                 request = settings.state_dir / REQUESTS_DIR / f"{job.id}.json"
                 lines.append(f"{job.line()}: plugin request {request.as_posix()} (upload "
                              "skill)")
+        elif job.provider == "codex_builtin" and job.status == "queued":
+            continue  # a Codex image: `ca jobs resume` re-imports it (cli/codex_images.py)
         elif job.stale():
             lines.append(_manual(job, f'stale: ca jobs cancel {job.id} "<reason>" first; '
                                       "never re-run by itself"))

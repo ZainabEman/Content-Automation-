@@ -21,6 +21,7 @@ from content_automation.cli.bridge import (
     reject_image_job,
     video_cost_lines,
 )
+from content_automation.cli.codex_images import image_app
 from content_automation.cli.design import design_app
 from content_automation.cli.help import help_app
 from content_automation.cli.higgsfield import higgsfield_app
@@ -260,6 +261,7 @@ app.add_typer(plan_app, name="plan")
 app.add_typer(outputs_app, name="outputs")
 app.add_typer(youtube_app, name="youtube")
 app.add_typer(higgsfield_app, name="higgsfield")
+app.add_typer(image_app, name="image")
 app.add_typer(ideas_app, name="ideas")
 app.add_typer(claims_app, name="claims")
 app.add_typer(script_app, name="script")
@@ -325,8 +327,9 @@ def hello() -> None:
         typer.echo(f"  {line}")
 
 
-@app.command()
+@image_app.callback(invoke_without_command=True)
 def image(
+    ctx: typer.Context,
     prompt: Annotated[
         str,
         typer.Option(
@@ -499,7 +502,10 @@ def image(
     authorize_id: AuthorizeOption = None,
 ) -> None:
     """Generate images and save them with a details.json record. A paid provider needs the
-    dry run's ID after the user's "ok": --authorize <dryrun_id>."""
+    dry run's ID after the user's "ok": --authorize <dryrun_id>. `ca image import`: Codex's
+    images (v5b)."""
+    if ctx.invoked_subcommand is not None:
+        return
     _utf8_output()
     settings = _settings(dry_run=dry_run)
     if not dry_run:
@@ -1393,7 +1399,8 @@ def content_build(
     authorize_id: AuthorizeOption = None,
     provider: Annotated[
         str | None, typer.Option("--provider", help="Image provider for this build (default: "
-                                 "the deliverable's, else IMAGE_PROVIDER).")
+                                 "the deliverable's, else IMAGE_PROVIDER): mock, codex_builtin "
+                                 "or openrouter.")
     ] = None,
 ) -> None:
     """Make what is still missing: post images, ad image, reel, post.md, package.json.
@@ -1409,8 +1416,9 @@ def content_build(
     settings = _settings(dry_run=dry_run, check_keys=False)
     if not dry_run:
         configure_logging(settings)
-    if provider is not None and provider not in ("mock", "openrouter"):
-        typer.echo(f'--provider must be mock or openrouter, not "{provider}"', err=True)
+    if provider is not None and provider not in ("mock", "codex_builtin", "openrouter"):
+        typer.echo(f'--provider must be mock, codex_builtin or openrouter, not "{provider}"',
+                   err=True)
         raise typer.Exit(code=2)
     key = f"content build {folder.resolve().as_posix()}"
     command = f'ca content build "{folder}"' + (" --dry-run" if dry_run else "")

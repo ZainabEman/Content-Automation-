@@ -75,7 +75,7 @@ def _inputs(direction: str, copy: dict[str, object], **extra: object) -> Workflo
 
 
 def test_the_route_follows_requires_roman() -> None:
-    assert image_route(True) == "higgsfield_soul" and image_route(False) == "openrouter"
+    assert image_route(True) == "higgsfield_soul" and image_route(False) == "codex_builtin"
     assert image_route(True, picture=False) == "template"
 
 
@@ -99,9 +99,9 @@ def test_roman_goes_to_higgsfield_others_to_openrouter(mock_settings: Settings) 
     _designer_files(Path(live.references_dir), "LI-1")
     other = prepare_workflow("social_creative", _inputs("LI-1", dict(
         sample_copy()["LI-1/post"], illustration=ILLUSTRATION)), live.model_copy(update={
-            "image_provider": "template"}))  # a global IMAGE_PROVIDER does not decide
-    assert other.inputs["route"] == "openrouter" and other.settings is not None
-    assert other.settings.image_provider == "openrouter" and not other.request.person
+            "image_provider": "template"}))  # v5b: codex_builtin unless openrouter opts in
+    assert other.inputs["route"] == "codex_builtin" and other.settings is not None
+    assert other.settings.image_provider == "codex_builtin" and not other.request.person
 
 
 def test_a_variant_must_match_the_planned_flag(mock_settings: Settings) -> None:

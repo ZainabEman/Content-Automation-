@@ -110,8 +110,7 @@ def test_provider_routing_and_the_free_template() -> None:
     assert routed.image_provider == "openrouter" and routed.image_model == settings.image_model
     other = format_settings(CATALOG.get("fb_tip"), settings.model_copy(
         update={"image_provider": "template"}))
-    assert other.image_provider == "openrouter"
-    assert other.image_model == settings.carousel_image_model
+    assert other.image_provider == "codex_builtin"  # v5b: openrouter only when opted in
     assert format_settings(CATALOG.get("li_stat"), settings).image_provider == "template"
     assert format_settings(CATALOG.get("ig_steps"), settings, "body").image_provider == "template"
     template = get_provider("template", settings)

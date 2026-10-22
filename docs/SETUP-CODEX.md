@@ -29,7 +29,7 @@ posts, ads and reels.
 ## 3. Allow internet access for commands
 
 Several commands need the internet: installing the tools (`uv sync`), reading news sites,
-and making images with OpenRouter. By default Codex runs commands without internet. To allow
+and making images with OpenRouter (only when opted in). By default Codex runs commands without internet. To allow
 it, edit Codex's settings file:
 
 1. Open the file `C:\Users\<your name>\.codex\config.toml` in Notepad (create the `.codex`
@@ -77,8 +77,8 @@ back to **Ask for approval** afterwards.
 
    | Line | Value | Why |
    | --- | --- | --- |
-   | `OPENROUTER_API_KEY=` | your key from <https://openrouter.ai> (Settings → Keys; add credits first) | real images |
-   | `IMAGE_PROVIDER=` | `openrouter` | real images (use `mock` for free test pictures) |
+   | `IMAGE_PROVIDER=` | `codex_builtin` | real non-Roman images by Codex's built-in image generation, $0 (`openrouter` to opt in to OpenRouter; `mock` for free test pictures) |
+   | `OPENROUTER_API_KEY=` | your key from <https://openrouter.ai> (Settings → Keys; add credits first) | only with `IMAGE_PROVIDER=openrouter` |
    | `IMAGE_MODEL=` | `google/gemini-3.1-flash-image` | the image model |
    | `SCRAPER_PROVIDER=` | `free` | real news (our own free scraper) |
    | `USER_NAME=` | your name | saved in every job record |

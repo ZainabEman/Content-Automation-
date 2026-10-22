@@ -1,5 +1,5 @@
 {
-  "_note": "Registry jobs (PRD Phase 4 §14 D-4..D-6): dry-run expiry, free providers (no authorization needed), the unit each paid provider is charged in, per-type timeouts (a running job past it is stale), and the credit estimates of video scenes. higgsfield_soul (Roman via Higgsfield Soul 2.0, 2026-10-20) is authorised in USD-equivalent: credits x usdPerCredit of config/roman_image_guidelines.json (an estimate); the job records the real credits.",
+  "_note": "Registry jobs (PRD Phase 4 §14 D-4..D-6): dry-run expiry, free providers (no authorization needed), the unit each paid provider is charged in, per-type timeouts (a running job past it is stale), and the credit estimates of video scenes. higgsfield_soul (Roman via Higgsfield Soul 2.0, 2026-10-20) is authorised in USD-equivalent: credits x usdPerCredit of config/roman_image_guidelines.json (an estimate); the job records the real credits. codex_builtin (non-Roman images by Codex's built-in image generation, $0) is authorised in images (codex_images): the authorization caps the count.",
   "dryrun_expiry_hours": 24,
   "free_providers": [
     "mock",
@@ -15,7 +15,8 @@
     "openrouter": "usd",
     "elevenlabs": "usd",
     "higgsfield-plugin": "credits",
-    "higgsfield_soul": "usd"
+    "higgsfield_soul": "usd",
+    "codex_builtin": "codex_images"
   },
   "timeouts_seconds": {
     "image": 900,

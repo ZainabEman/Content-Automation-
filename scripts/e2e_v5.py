@@ -96,6 +96,7 @@ def fill_brief(template_file: Path, deliverable: str, e2e4: ModuleType) -> dict[
                         "takeaways": e2e4.TAKEAWAYS[:5],
                         "question": "Welche Fragen stellen Ihre Patienten nach Praxisschluss "
                                     "am häufigsten, und wer beantwortet sie heute?"})
+    e2e4.fill_copy_plans(brief)
     (template_file.parent / "brief.json").write_text(json.dumps(brief, indent=2,
                                                                 ensure_ascii=False),
                                                      encoding="utf-8")

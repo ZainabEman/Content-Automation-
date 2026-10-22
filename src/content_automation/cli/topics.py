@@ -2,7 +2,7 @@
 refill: candidates across the 50/30/20 mix; search: candidates for one theme from authentic
 German sources only (config/topic_sources.json). Without --from each writes the brief Codex
 fills (Codex writes and browses, no paid API); with --from it checks the candidates, their
-source URLs included (one free GET each), and saves what passes to config/topic_pool.json."""
+source URLs included (one free GET each), and saves what passes to state/topic_pool.json."""
 
 from pathlib import Path
 from typing import Annotated

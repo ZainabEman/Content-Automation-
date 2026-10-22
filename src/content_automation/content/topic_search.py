@@ -8,7 +8,7 @@ memory and the pool (content/topic_pool.py), then its sources (content/topic_sou
 allowlist, HTTP 200, a title, dated within maxAgeDays unless evergreen, the quote in the page,
 every number and named study in the source text). One line per candidate: title, source domain,
 date and PASS, or why it was refused or blocked; nothing is dropped silently. Without --dry-run
-the passing ones are appended to config/topic_pool.json `topics` with the theme, the week and
+the passing ones are appended to state/topic_pool.json `topics` with the theme, the week and
 their sources, so later copy and research steps can trace each topic back to its URLs.
 """
 
@@ -191,7 +191,7 @@ def search_lines(settings: Settings, path: Path, memory: TopicMemory, *,
     summary = (f'theme "{theme}": {len(result.accepted)} pass, {result.blocked} blocked, '
                f"{result.refused} refused")
     if dry_run:
-        lines.append(f"Dry run, {summary}; nothing written to config/topic_pool.json. Save "
+        lines.append(f"Dry run, {summary}; nothing written to state/topic_pool.json. Save "
                      f"after the user's ok: uv run ca topics search --from {path.as_posix()}")
     elif result.accepted:
         size = add_topics(result.accepted)

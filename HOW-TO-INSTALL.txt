@@ -29,10 +29,15 @@ and the private .secrets folder I send you. About 30 minutes.
    - Green OK = good. Red PROBLEM = read the yellow line under it.
    - It will still say "key file missing": step 4 fixes that.
 
-4. Add the private .secrets folder I send you (USB stick or password manager, never e-mail)
-   - Copy the whole .secrets folder into the project folder, so that you have
-     <project folder>\.secrets\google_oauth_client.json and the other files.
+4. Your data from Zainu
+   - At setup, Zainu copies state\registry.db, .env and .secrets\ to your PC
+     (USB stick or password manager, never e-mail), into the project folder:
+       <project folder>\state\registry.db
+       <project folder>\.env
+       <project folder>\.secrets\google_oauth_client.json and the other files
    - Double-click SETUP.bat again. It should end with "ALL OK".
+   - SETUP.bat also puts two shortcuts on your desktop:
+     "Content Automation - Update" and "Content Automation folder".
 
 5. Codex Desktop
    - If Codex Desktop is missing, SETUP.bat opens the download page. Install it and sign in.
@@ -50,19 +55,17 @@ and the private .secrets folder I send you. About 30 minutes.
    Full check: type  Run uv run ca doctor  (every [FAIL] line has a "Fix:" line under it).
 
 7. Get updates
-   - Open the project folder in File Explorer, type  cmd  in the address bar, press Enter, then:
-         git pull
-   - If the list that git pull shows contains pyproject.toml or uv.lock (or if I tell you),
-     double-click SETUP.bat again. Running it again is always safe.
-   - If git pull says that local changes would be overwritten: don't fix it yourself,
-     send me a screenshot.
+   - To update: double-click UPDATE.bat (or the "Content Automation - Update" desktop shortcut).
+   - It ends with "Update OK". If it says "Please send this screen to Zainu", do exactly that
+     and change nothing yourself. It never deletes or resets anything.
+   - If I tell you to, double-click SETUP.bat again. Running it again is always safe.
 
 DON'T EDIT, DON'T COMMIT
    - These stay only on your PC and never go to GitHub (git ignores them):
        .secrets\   outputs\   state\
      Never send .secrets to anyone. Never paste a key into .env, Codex, a chat or a screenshot.
-   - .env comes with the project and is shared on GitHub: don't edit it (a change blocks git pull).
-   - Don't change the project's other files yourself, and don't run git commit or git push.
-     You only use git pull. Your finished content is in outputs\.
+   - .env comes with the project and is shared on GitHub: don't edit it (a change blocks updates).
+   - Never edit files in config\ or commit anything (no git commit, no git push).
+     You only update with UPDATE.bat. Your finished content is in outputs\.
 
 Something wrong? Double-click SETUP.bat again. If a red PROBLEM line stays, send me a photo of it.

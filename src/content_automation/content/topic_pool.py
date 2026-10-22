@@ -1,9 +1,11 @@
 """PRD v6 R2/R6: the topic pool, and the memory that keeps rejected, deleted and already
 generated topics from coming back.
 
-The pool (config/topic_pool.json): the German-society AI themes, the verified services and the
-newsletters, mixed by sourceMix; `theme_of` names a topic's theme and `spread` orders topics so
-the same theme is never planned back to back. No topic has to map to a service. Its `topics` are
+The pool (state/topic_pool.json, git-ignored: a copy of the tracked seed config/topic_pool.json
+made on first use, so a `git pull` never meets a locally changed file): the German-society AI
+themes, the verified services and the newsletters, mixed by sourceMix; `theme_of` names a
+topic's theme and `spread` orders topics so the same theme is never planned back to back.
+No topic has to map to a service. Its `topics` are
 the candidates `ca topics refill` and `ca topics search` saved (content/topic_refill.py), each
 with its checked sources (URL, publisher, date, quote) so later copy and research steps can trace
 it back; the calendar fills slots with them when the newsletters and articles run out.
@@ -23,6 +25,7 @@ import csv
 import difflib
 import json
 import re
+import shutil
 import sqlite3
 import unicodedata
 from collections.abc import Callable, Sequence
@@ -33,7 +36,8 @@ from typing import Any
 
 from content_automation.core.files import atomic_write_text
 
-CONFIG_FILE = Path("config/topic_pool.json")
+SEED_FILE = Path("config/topic_pool.json")  # tracked: themes, sourceMix, the curated topics
+CONFIG_FILE = Path("state/topic_pool.json")  # the live pool: the seed + the saved topics
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _WORD = re.compile(r"[a-zäöüß0-9]+")
 STOP_WORDS = frozenset({
@@ -47,7 +51,7 @@ SOURCES = ("society", "services", "newsletters", "search")
 
 
 class TopicPoolError(ValueError):
-    """config/topic_pool.json is missing or invalid."""
+    """The topic pool (state/topic_pool.json or its seed) is missing or invalid."""
 
 
 @dataclass(frozen=True)
@@ -112,7 +116,15 @@ class TopicPool:
 
 
 def _pool_file(path: Path) -> Path:
-    return path if path.is_file() or path.is_absolute() else _PROJECT_ROOT / path
+    if path != CONFIG_FILE:
+        return path if path.is_file() or path.is_absolute() else _PROJECT_ROOT / path
+    # the live pool sits beside the seed it copies (the project, or a folder with its own config)
+    base = Path() if SEED_FILE.is_file() or CONFIG_FILE.is_file() else _PROJECT_ROOT
+    live, seed = base / CONFIG_FILE, base / SEED_FILE
+    if not live.is_file() and seed.is_file():
+        live.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(seed, live)
+    return live
 
 
 def _text(value: object) -> str | None:
@@ -328,7 +340,7 @@ def topic_memory(*, conn: sqlite3.Connection | None, calendar_dir: Path | None =
     return TopicMemory(known)
 
 
-__all__ = ["BLOCKING", "CONFIG_FILE", "SOURCES", "Known", "PoolTopic", "Theme", "TopicMemory",
-           "TopicPool", "TopicPoolError", "TopicSource", "add_topics", "content_words",
-           "load_pool", "normalise_topic", "render_pool", "similarity", "spread", "theme_of",
-           "topic_memory"]
+__all__ = ["BLOCKING", "CONFIG_FILE", "SEED_FILE", "SOURCES", "Known", "PoolTopic", "Theme",
+           "TopicMemory", "TopicPool", "TopicPoolError", "TopicSource", "add_topics",
+           "content_words", "load_pool", "normalise_topic", "render_pool", "similarity",
+           "spread", "theme_of", "topic_memory"]

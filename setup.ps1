@@ -224,6 +224,24 @@ function Initialize-Data {
     Show-Ok "Folders are ready: $($DataFolders -join ', ')"
 }
 
+function New-Shortcuts {
+    Show-Step 'Desktop shortcuts'
+    try {
+        $desktop = [Environment]::GetFolderPath('Desktop')
+        $shell = New-Object -ComObject WScript.Shell
+        $update = $shell.CreateShortcut((Join-Path $desktop 'Content Automation - Update.lnk'))
+        $update.TargetPath = Join-Path $Root 'UPDATE.bat'
+        $update.WorkingDirectory = $Root
+        $update.Save()
+        $folder = $shell.CreateShortcut((Join-Path $desktop 'Content Automation folder.lnk'))
+        $folder.TargetPath = $Root
+        $folder.Save()
+        Show-Ok "Desktop shortcuts: 'Content Automation - Update' and 'Content Automation folder'."
+    } catch {
+        Show-Problem 'The desktop shortcuts could not be made.' 'Not needed: double-click UPDATE.bat in the project folder instead.'
+    }
+}
+
 function Test-Setup {
     Show-Step 'Step 7 of 8: Checks'
     Update-SessionPath
@@ -292,6 +310,7 @@ if (-not $CheckOnly) {
     Initialize-Data
 }
 Test-Setup
+if (-not $CheckOnly) { New-Shortcuts }
 
 Show-Step 'Step 8 of 8: Result'
 if ($Missing.Count -eq 0) {

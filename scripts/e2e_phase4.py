@@ -174,6 +174,44 @@ def _direction_copy(direction: str, template: dict[str, Any]) -> dict[str, Any]:
     raise KeyError(f"no sample copy for {direction} with {sorted(wanted)}")
 
 
+def fill_copy_plans(brief: dict[str, Any]) -> None:
+    """2026-10-21/22: every graphic with a direction carries a copyPlan (editorial brief, 3 scored
+    headline options, visual concept, piece review); the copy's headline is the best option."""
+    from content_automation.content.brief import ContentBrief
+    from content_automation.content.copy_check import copy_items, load_rules
+    from content_automation.content.directions import load_directions
+
+    plain = json.loads(json.dumps(brief))
+    for slot in plain.values():
+        if isinstance(slot, dict):
+            slot.pop("copyPlan", None)
+    items = copy_items(ContentBrief.model_validate(plain), load_directions())
+    criteria = list(load_rules()["pieceRubric"]["criteria"])
+    sources = [*brief.get("sourceArticleIds", []), "proof.md"]
+    for item in items:
+        headline = item.headline
+        brief[item.part]["copyPlan"] = {
+            "topicType": "service",
+            "angle": "Die Praxis verliert keine Anfragen mehr nach Feierabend.",
+            "editorial": {
+                "audience": "Inhaberin einer Zahnarztpraxis mit 12 Mitarbeitenden",
+                "problem": "Nach 18:00 Uhr bleiben Patientenanfragen bis zum Morgen liegen.",
+                "coreIdea": "Ein Chatbot beantwortet Fragen und bucht Termine nach Praxisschluss.",
+                "proof": {"fact": INSIGHTS[0], "source": sources[0]},
+                "objection": "Patienten wollen lieber mit Menschen sprechen.",
+                "action": "Eine kostenfreie KI-Potenzialanalyse anfordern."},
+            "headlineOptions": [
+                {"text": headline, "pattern": "benefit_promise", "score": 6},
+                {"text": "Termine buchen, auch wenn die Praxis zu ist",
+                 "pattern": "benefit_pair", "score": 5, "why": "weniger konkret"},
+                {"text": "Wer beantwortet Ihre Patienten nach 18 Uhr?",
+                 "pattern": "reader_question", "score": 4, "why": "kein Nutzen genannt"}],
+            "visual": {"scene": ILLUSTRATION,
+                       "callouts": [] if item.part == "carousel" else
+                       ["Termin gebucht", "Antwort in Sekunden"]},
+            "review": {"scores": dict.fromkeys(criteria, 2)}}
+
+
 def _fill_brief(template: Path) -> None:
     data: dict[str, Any] = json.loads(template.read_text(encoding="utf-8"))
     brief = {key: value for key, value in data.items() if key != "_help"}
@@ -216,6 +254,7 @@ def _fill_brief(template: Path) -> None:
         "question": "Welche Fragen stellen Ihre Patienten nach Praxisschluss am häufigsten, "
                     "und wer beantwortet sie heute?",
     })
+    fill_copy_plans(brief)
     (template.parent / "brief.json").write_text(json.dumps(brief, indent=2), encoding="utf-8")
 
 

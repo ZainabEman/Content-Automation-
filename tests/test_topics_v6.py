@@ -17,8 +17,12 @@ from content_automation.content.month_plan import Topic, plan_month
 from content_automation.content.plan import month_days
 from content_automation.content.relevance import INSIGHT_ONLY, unverified_claims
 from content_automation.content.topic_pool import (
+    CONFIG_FILE,
+    SEED_FILE,
     Known,
+    PoolTopic,
     TopicMemory,
+    add_topics,
     load_pool,
     spread,
     theme_of,
@@ -40,6 +44,25 @@ def test_the_pool_has_the_society_themes_and_the_mix() -> None:
         "society": 0.5, "services": 0.3, "newsletters": 0.2}
     assert theme_of("Deepfake-Anruf: die Stimme des Chefs war gefälscht") == "deepfakes"
     assert theme_of("Neue Betrugsmasche mit KI-Stimmen") == "ai_scams"
+
+
+def test_the_live_pool_is_a_git_ignored_copy_of_the_tracked_seed(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (tmp_path / "config").mkdir()
+    shutil.copy(REPO / SEED_FILE, tmp_path / SEED_FILE)
+    seed = (tmp_path / SEED_FILE).read_text(encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    load_pool.cache_clear()
+    try:
+        before = len(load_pool().topics)
+        assert (tmp_path / CONFIG_FILE).read_text(encoding="utf-8") == seed  # copied on first use
+        size = add_topics([PoolTopic("Ein neues Thema zur KI im Handwerk", "society", "Nutzen")])
+        assert size == before + 1 and len(load_pool().topics) == before + 1
+        assert (tmp_path / SEED_FILE).read_text(encoding="utf-8") == seed  # the seed is kept
+        add_topics([PoolTopic("Noch ein Thema zur KI im Büro", "society", "Nutzen")])
+        assert len(load_pool().topics) == before + 2  # an existing live pool is never re-seeded
+    finally:
+        load_pool.cache_clear()
 
 
 @pytest.fixture

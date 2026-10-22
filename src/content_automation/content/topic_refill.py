@@ -8,7 +8,7 @@ German source domains (config/topic_sources.json) and the topics to avoid; Codex
 names, a short reader angle, no number and no unverified service claim, then the topic memory
 (generated, rejected, deleted and close rewordings), the pool itself and the candidates before
 it, then its source URLs (content/topic_sources.py: allowlisted, HTTP 200, dated, the quote in
-the page; a candidate without one is refused). What passes is appended to config/topic_pool.json
+the page; a candidate without one is refused). What passes is appended to state/topic_pool.json
 `topics` with its sources (--dry-run: shown, nothing written); every skipped candidate is named
 and counted.
 """
@@ -298,7 +298,7 @@ def refill_lines(settings: Settings, path: Path, memory: TopicMemory, *,
     summary = (f"{len(result.accepted)} pass, {result.blocked} blocked, {result.refused} "
                "refused")
     if dry_run:
-        lines.append(f"Dry run: {summary}; nothing written to config/topic_pool.json.")
+        lines.append(f"Dry run: {summary}; nothing written to state/topic_pool.json.")
     elif result.accepted:
         size = add_topics(result.accepted)
         lines.append(f"Saved: {summary}; the pool has {size} topics. Next: \"fill empty slots "

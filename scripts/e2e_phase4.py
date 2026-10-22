@@ -115,9 +115,11 @@ def _setup(work: Path) -> None:
     jobs = json.loads((work / "config" / "jobs.json").read_text(encoding="utf-8"))
     jobs["free_providers"] = [p for p in jobs["free_providers"] if p != "mock"]
     (work / "config" / "jobs.json").write_text(json.dumps(jobs), encoding="utf-8")
-    # this 3-row week was written for one Roman row (v6 weekly: romanMin 2 in a full week)
+    # this 3-row week was written for one Roman row and the fixed config/calendar.json slots
+    # (v6 weekly: romanMin 2 and slots made from weeklySet.split in a full week)
     deliverables = json.loads((work / "config" / "deliverables.json").read_text(encoding="utf-8"))
     deliverables["weeklySet"]["romanMin"] = 1
+    deliverables["weeklySet"]["split"] = []
     (work / "config" / "deliverables.json").write_text(json.dumps(deliverables),
                                                         encoding="utf-8")
     # Phase 4 uploads after generation; Phase 7 waits for the review (requireReview: true).

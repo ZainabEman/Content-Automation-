@@ -76,7 +76,7 @@
     }
   },
   "monthlyPlan": {
-    "_note": "v5 (PRD R7.3): `ca plan month YYYY-MM`. PRD v6 weekly (2026-10-22): the month is weeklySet x monthMultiplier (56 image posts: 8 Instagram carousels, at least 8 with Roman); graphicsPerDay spreads them over the days. mix: the split of the posts that are not fixed in weeklySet (LinkedIn and Facebook; instagram_carousel is ignored here): equal shares since v6 weekly (16 LinkedIn, 16 Facebook posts, 16 Facebook ads), because a heavier share puts a category on 3 days in a row. romanEvery: at most every n-th LinkedIn/Facebook post or ad has Roman; more often when weeklySet.romanMin needs it. minPerMonth/maxPerMonth: unused since the weekly set.",
+    "_note": "v5 (PRD R7.3): `ca plan month YYYY-MM`. Since PRD v6 weekly the month is 4 weeks of weeklySet: 56 assets = 8 Instagram carousels + 8 Roman posts (LinkedIn or Facebook posts) + 40 split 14/13/13 across LinkedIn posts, Facebook posts and Facebook ads; graphicsPerDay spreads them (no category on 3 days in a row). mix, romanEvery, romanDeliverables, minPerMonth and maxPerMonth are the v5 rule, unused while weeklySet names a split.",
     "graphicsPerDay": 2,
     "minPerMonth": 30,
     "maxPerMonth": 60,
@@ -94,12 +94,21 @@
     ]
   },
   "weeklySet": {
-    "_note": "PRD v6 weekly (docs/PRD-v6-weekly-youtube-drive.md §2): \"make weekly calendar\" = 14 image posts (the 2 Instagram carousels and at least 2 Roman posts count inside), the rest LinkedIn and Facebook posts (config/calendar.json slots; the month: monthlyPlan.mix), plus 2 long-form and 4 short-form YouTube scripts (ca youtube plan --format long|short). A month is this set x monthMultiplier.",
+    "_note": "PRD v6 weekly (2026-10-23 counts): \"make weekly calendar\" = 14 image posts: 2 Roman posts (romanDeliverables, one LinkedIn and one Facebook post) + 2 Instagram carousels (fixed) + 10 split fairly across `split` (4/3/3; the one with 4 rotates by ISO week, so 4 weeks are 14/13/13), two a day, no category on 3 days in a row; plus 2 long-form and 4 short-form YouTube scripts (ca youtube plan --format long|short). A month is 4 weeks (monthMultiplier): 8 Roman, 8 carousels, 40 split 14/13/13.",
     "imagePosts": 14,
     "romanMin": 2,
+    "romanDeliverables": [
+      "linkedin_post",
+      "facebook_post"
+    ],
     "fixed": {
       "instagram_carousel": 2
     },
+    "split": [
+      "linkedin_post",
+      "facebook_post",
+      "facebook_ad"
+    ],
     "youtube": {
       "youtube_longform": 2,
       "youtube_shortform": 4

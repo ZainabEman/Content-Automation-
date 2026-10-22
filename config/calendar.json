@@ -1,5 +1,5 @@
 {
-  "_note": "Two static social posts each day across LinkedIn, Facebook and Instagram (2026-10-20 user preference); the Instagram deliverable is a static carousel. PRD v6 weekly (2026-10-22): 14 slots = config/deliverables.json weeklySet (2 Instagram carousels, 6 LinkedIn, 6 Facebook; Roman on at least 2 LinkedIn/Facebook rows). Calendar v2 slots follow the same daily cadence.",
+  "_note": "Two static social posts each day. Since 2026-10-23 the week's 14 slots come from config/deliverables.json weeklySet (2 Roman LinkedIn/Facebook posts, 2 Instagram carousels, 10 split 4/3/3 across LinkedIn posts, Facebook posts and Facebook ads, rotating by week; no category on 3 days in a row); the slots below are used only when weeklySet names no split. Calendar v2 (plan) slots keep their own list.",
   "slots": [
     {
       "weekday": "mon",

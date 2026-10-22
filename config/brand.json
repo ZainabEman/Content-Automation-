@@ -86,14 +86,14 @@
     "AI chatbots"
   ],
   "servicesFile": "config/services.json",
-  "logoFile": "Flavicon.png",
+  "logoFile": "favicon.png",
   "logoVariants": [
     {
       "id": "favicon",
-      "file": "brand/logo/Flavicon.png",
+      "file": "brand/logo/favicon.png",
       "sha256": "e95307534145d7ffcc38528ea425f264f6c742bae86460626755616f4c690a3c",
       "backgrounds": ["light", "dark", "photo"],
-      "source": "user 2026-10-22: the favicon (assets/reference/brand/logo/Flavicon.png) replaces the logo on every image, in its own colours; the wordmark (brand/logo/logo (1).png) and the separate emblem above it are no longer placed"
+      "source": "user 2026-10-22: the favicon (assets/reference/brand/logo/favicon.png) replaces the logo on every image, in its own colours; the wordmark (brand/logo/logo (1).png) and the separate emblem above it are no longer placed"
     }
   ],
   "logoSpec": {

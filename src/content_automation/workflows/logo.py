@@ -36,7 +36,7 @@ class LogoError(ValueError):
 @dataclass(frozen=True)
 class LogoOverlay:
     path: Path  # the original logo file
-    source: str  # e.g. brand/logo/Flavicon.png
+    source: str  # e.g. brand/logo/favicon.png
     asset_id: str
     keep_colours: bool = False  # brand.json logoSpec.keepColours: never the white version
 

@@ -201,6 +201,23 @@ def load_cadence(path: Path, catalog: DeliverableCatalog) -> Cadence:
     return cadence
 
 
+def week_slots(path: Path, catalog: DeliverableCatalog, label: str) -> list[Slot]:
+    """The week's slots: the weekly set (config/deliverables.json weeklySet, 2026-10-23: 2
+    Roman LinkedIn/Facebook posts, 2 carousels, 10 split 4/3/3 rotating by ISO week), two a
+    day, never one category twice a day or on 3 days in a row; config/calendar.json slots only
+    when the weekly set names no split."""
+    from content_automation.content.month_plan import schedule
+
+    cadence = load_cadence(path, catalog)
+    weekly = catalog.weekly_set
+    if not weekly.split:
+        return list(cadence.slots)
+    week = week_days(label)[0].isocalendar()[1]
+    days = schedule(weekly.week_counts(week), [2] * len(WEEKDAYS))
+    return [Slot(weekday=WEEKDAYS[index], deliverable=name)
+            for index, names in enumerate(days) for name in names]
+
+
 def read_calendar(path: Path) -> list[Row]:
     try:
         with path.open(encoding="utf-8-sig", newline="") as handle:
@@ -370,7 +387,7 @@ def new_calendar(
                 f"{path.name} cannot be replaced: rows {', '.join(decided)} are no longer "
                 "Proposed."
             )
-    cadence = load_cadence(settings.calendar_file, catalog)
+    slots = week_slots(settings.calendar_file, catalog, label)
     newest = _newest_list(settings.research_dir)
     if idea_numbers and newest is None:
         raise CalendarError("--idea needs a newsletter content list: run show content first.")
@@ -413,7 +430,7 @@ def new_calendar(
     empty: list[str] = []
     used_topics: set[str] = set()
     used_sources: set[str] = set()
-    for slot in sorted(cadence.slots, key=lambda item: WEEKDAYS.index(item.weekday)):
+    for slot in sorted(slots, key=lambda item: WEEKDAYS.index(item.weekday)):
         idea = _next_idea(candidates, used_topics, used_sources)
         if idea is None:
             empty.append(f"{slot.weekday.title()} {slot.deliverable}")
@@ -485,7 +502,7 @@ def fill_calendar(settings: Settings, catalog: DeliverableCatalog, label: str
     check_edits(path)
     rows = read_view(path)
     days = week_days(label)
-    slots = sorted(load_cadence(settings.calendar_file, catalog).slots,
+    slots = sorted(week_slots(settings.calendar_file, catalog, label),
                    key=lambda item: WEEKDAYS.index(item.weekday))
     active = [row for row in rows if row["Status"] not in CLOSED]
     empty = _empty_slots(slots, active, days)

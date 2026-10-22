@@ -89,7 +89,7 @@ GROUPS: tuple[Group, ...] = (
     )),
     Group("make-calendar", ".agents/skills/make-calendar/SKILL.md", (
         Phrase("make weekly calendar", "ca calendar new --week next",
-               "the weekly set: 14 posts (2 carousels, Roman at least 2) + 6 YouTube scripts"),
+               "14 posts (2 Roman, 2 carousels, 10 split 4/3/3) + 6 YouTube scripts"),
         Phrase("make monthly calendar", "ca plan month 2026-11",
                "the weekly set x4: 56 posts, 8 long + 16 short YouTube scripts"),
         Phrase("make calendar", "ca calendar new --week next", "a proposed week, BG IDs"),

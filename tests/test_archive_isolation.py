@@ -54,12 +54,11 @@ def opened() -> Iterator[list[str]]:
 
 def _references(root: Path) -> Path:
     """A references folder with a stand-in logo, one approved set and an archived set."""
-    logo = root / "brand" / "logo"
-    logo.mkdir(parents=True)
-    Image.new("RGBA", (600, 400), (0, 75, 160, 255)).save(logo / "logo (1).png")
     brand = json.loads((REPO / "config" / "brand.json").read_text(encoding="utf-8"))
-    brand["logoVariants"][0]["sha256"] = hashlib.sha256(
-        (logo / "logo (1).png").read_bytes()).hexdigest()
+    logo = root / brand["logoVariants"][0]["file"]  # the logo file brand.json names
+    logo.parent.mkdir(parents=True)
+    Image.new("RGBA", (600, 400), (0, 75, 160, 255)).save(logo)
+    brand["logoVariants"][0]["sha256"] = hashlib.sha256(logo.read_bytes()).hexdigest()
     (root / "brand" / "brand.json").write_text(json.dumps(brand), encoding="utf-8")
     approved = root / "creative" / "facebook_ads"
     approved.mkdir(parents=True)

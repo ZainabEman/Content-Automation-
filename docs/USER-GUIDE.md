@@ -13,10 +13,11 @@ This manual is for the social media designer. You never need to write code. You 
 
 Every week has the same set:
 
-- **14 image posts**: 2 Instagram carousels, the rest LinkedIn and Facebook posts. At least 2 of the 14 show Roman.
+- **14 image posts**: 2 posts with Roman (one LinkedIn post, one Facebook post), 2 Instagram carousels and 10 more posts shared fairly between LinkedIn posts, Facebook posts and Facebook ads (4, 3 and 3; which one gets 4 changes every week).
+- Two posts a day. The same kind of post never appears on 3 days in a row.
 - **2 long YouTube scripts** and **4 short YouTube scripts** (see "YouTube scripts" below).
 
-A month is the same set four times: 56 image posts (8 carousels, at least 8 with Roman), 8 long and 16 short scripts. Type `make weekly calendar` for one week or `make monthly calendar` for a whole month.
+A month is four weeks: 56 image posts (8 with Roman, 8 carousels, and 40 shared 14, 13 and 13 between LinkedIn posts, Facebook posts and Facebook ads), 8 long and 16 short scripts. Type `make weekly calendar` for one week or `make monthly calendar` for a whole month.
 
 | Step | Type this in Codex | What happens |
 | --- | --- | --- |

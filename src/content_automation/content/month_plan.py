@@ -1,13 +1,13 @@
 """`ca plan month YYYY-MM` (PRD v5 R7): the monthly social plan at about 2 graphics a day.
 
-PRD v6 weekly (2026-10-22): the count is the weekly set x monthMultiplier (config/
-deliverables.json weeklySet: 14 x 4 = 56, a carousel is one asset); its fixed posts (8
-Instagram carousels) are kept and the rest is split by the monthlyPlan mix (largest remainder).
-Days are filled up to graphicsPerDay with the categories that are furthest behind their share,
-never the same category twice a day and, while another is left, not the category of the day
-before, so formats spread over the month. Every n-th LinkedIn/Facebook post or ad is planned
-with requires_roman (a founder variant, Higgsfield Soul 2.0): n = romanEvery, or smaller when
-weeklySet.romanMin x monthMultiplier (at least 8) needs it.
+PRD v6 weekly (2026-10-22, counts 2026-10-23): the month is 4 weeks of the weekly set
+(config/deliverables.json weeklySet): 56 assets = 8 Instagram carousels + 8 Roman posts
+(LinkedIn or Facebook posts) + 40 split 14/13/13 across LinkedIn posts, Facebook posts and
+Facebook ads (the one with the extra post rotates week by week). Days are filled up to
+graphicsPerDay, never the same category twice a day nor on 3 days in a row, the most urgent
+first (left / days left), preferring one not used the day before. Every n-th LinkedIn or
+Facebook post is planned with requires_roman (a founder variant, Higgsfield Soul 2.0), exactly
+weeklySet.romanMin x 4 of them.
 
 Topics: approved, unplanned ideas of the backlog (best score first) and the --topic texts. Each
 topic goes to the slot whose category fits it best (a verified service fit favours an ad, how-to
@@ -115,23 +115,21 @@ def month_total(config: MonthlyPlan, days: int, weekly: WeeklySet | None = None)
     return max(config.min_per_month, min(config.max_per_month, config.graphics_per_day * days))
 
 
-def month_counts(config: MonthlyPlan, weekly: WeeklySet) -> dict[str, int]:
-    """Assets per deliverable: the weekly set's fixed posts x monthMultiplier, the rest split
-    by the mix (its fixed deliverables left out)."""
-    fixed = {key: weekly.per_month(value) for key, value in weekly.fixed.items()}
-    rest = {key: value for key, value in config.mix.items() if key not in fixed}
-    left = month_total(config, 0, weekly) - sum(fixed.values())
-    return {**fixed, **(scale_mix(rest, left) if rest and left > 0 else {})}
+def month_counts(config: MonthlyPlan, weekly: WeeklySet, first_week: int = 0
+                 ) -> dict[str, int]:
+    """Assets per deliverable: monthMultiplier weeks of the weekly set (8 carousels, 8 Roman
+    LinkedIn/Facebook posts, the rest 14/13/13 across weeklySet.split)."""
+    del config
+    return weekly.month_counts(first_week)
 
 
 def roman_step(config: MonthlyPlan, weekly: WeeklySet, counts: dict[str, int]) -> int:
-    """Every n-th Roman-eligible asset has Roman: romanEvery, smaller when romanMin needs it."""
-    eligible = sum(counts.get(key, 0) for key in config.roman_deliverables)
+    """Every n-th Roman-eligible asset has Roman, so weeklySet.romanMin x 4 fit."""
+    eligible = sum(counts.get(key, 0) for key in weekly.roman_deliverables)
     wanted = weekly.per_month(weekly.roman_min)
     if not wanted or not eligible:
         return config.roman_every
-    step = max(1, eligible // wanted)
-    return min(config.roman_every, step) if config.roman_every else step
+    return max(1, eligible // wanted)
 
 
 def day_quotas(total: int, days: int, per_day: int) -> list[int]:
@@ -145,24 +143,26 @@ def day_quotas(total: int, days: int, per_day: int) -> list[int]:
 
 
 def schedule(counts: dict[str, int], quotas: list[int]) -> list[list[str]]:
-    """Deliverables per day: the furthest behind its share first, never twice a day, and not
-    the category of the day before while another is left."""
+    """Deliverables per day: never twice a day, never on 3 days in a row while another is
+    left; the most urgent first (left / days left), a category not used the day before
+    preferred."""
     left = dict(counts)
-    total = {key: max(1, value) for key, value in counts.items()}
     days: list[list[str]] = []
-    previous: set[str] = set()
-    for quota in quotas:
+    for index, quota in enumerate(quotas):
+        remaining = len(quotas) - index
         today: list[str] = []
         for _ in range(quota):
             options = [key for key in left if left[key] > 0 and key not in today]
             if not options:
                 break
-            fresh = [key for key in options if key not in previous] or options
-            best = max(fresh, key=lambda key: (left[key] / total[key], left[key]))
+            allowed = [key for key in options
+                       if not (len(days) >= 2 and key in days[-1] and key in days[-2])] or options
+            best = max(allowed, key=lambda key: (
+                left[key] / remaining + (0.3 if not days or key not in days[-1] else 0.0),
+                left[key]))
             today.append(best)
             left[best] -= 1
         days.append(today)
-        previous = set(today)
     return days
 
 
@@ -229,7 +229,7 @@ def plan_month(settings: Settings, deliverables: DeliverableCatalog, catalog: Di
     if config is None:
         raise MonthPlanError("config/deliverables.json has no monthlyPlan (PRD R7.3)")
     weekly = deliverables.weekly_set
-    counts = month_counts(config, weekly)
+    counts = month_counts(config, weekly, days[0].isocalendar()[1])
     total = sum(counts.values())
     per_day = max(config.graphics_per_day, -(-total // len(days)))
     plan = schedule(counts, day_quotas(total, len(days), per_day))
@@ -238,7 +238,7 @@ def plan_month(settings: Settings, deliverables: DeliverableCatalog, catalog: Di
     recent: dict[tuple[str, str], list[str]] = {key: list(value)
                                                 for key, value in (history or {}).items()}
     assets: list[Asset] = []
-    roman_count = 0
+    roman_count = roman_total = 0
     last_theme: str | None = None
     for day, names in zip(days, plan, strict=True):
         for name in names:
@@ -248,9 +248,11 @@ def plan_month(settings: Settings, deliverables: DeliverableCatalog, catalog: Di
             if format_name is None:
                 raise MonthPlanError(f"{name} takes no layout variant (monthlyPlan.mix)")
             roman = False
-            if name in config.roman_deliverables and every:
+            if name in weekly.roman_deliverables and every and (
+                    roman_total < weekly.per_month(weekly.roman_min)):
                 roman_count += 1
                 roman = roman_count % every == 0
+                roman_total += roman
             key = (format_name, platform)
             chosen, _ = pick_direction(catalog, format_name, platform,
                                        seed=f"{label}-{len(assets) + 1}",
@@ -259,8 +261,11 @@ def plan_month(settings: Settings, deliverables: DeliverableCatalog, catalog: Di
             recent[key] = [chosen.id, *recent.get(key, [])][:5]
             choices = [item for item in pool
                        if last_theme is None or theme_of(item.title) != last_theme] or pool
-            topic = (max(choices, key=lambda item: _affinity(item, name, services))
-                     if choices else None)
+            topic = (max(choices, key=lambda item: (  # a tie keeps a topic that fits other
+                _affinity(item, name, services),     # categories for them
+                -sum(max(0.0, _affinity(item, other, services))
+                     for other in counts if other != name)))
+                if choices else None)
             theme = theme_of(topic.title) if topic is not None else None
             if topic is not None:
                 pool.remove(topic)

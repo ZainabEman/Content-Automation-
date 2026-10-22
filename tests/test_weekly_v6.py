@@ -6,7 +6,7 @@ from collections import Counter
 from datetime import date
 from pathlib import Path
 
-from content_automation.content.calendar import ROMAN, assign_roman, load_cadence
+from content_automation.content.calendar import ROMAN, assign_roman, week_slots
 from content_automation.content.deliverables import load_deliverables
 from content_automation.content.folder_rename import plan_lines, plan_renames, titles_path
 from content_automation.content.month_plan import month_counts, roman_step
@@ -22,20 +22,33 @@ REPO = Path(__file__).resolve().parents[1]
 def test_weekly_set_and_month_counts() -> None:
     catalog = load_deliverables(REPO / "config" / "deliverables.json")
     weekly = catalog.weekly_set
-    slots = load_cadence(REPO / "config" / "calendar.json", catalog).slots
-    week = Counter(slot.deliverable for slot in slots)
-    assert len(slots) == weekly.image_posts == 14 and week["instagram_carousel"] == 2
-    rows = [{"Row": str(n), "Planned date": f"2026-11-{n + 1:02d}", "Package": "", "Format": "",
-             "Status": "Proposed", "Content type": slot.deliverable,
-             "Platform": catalog.deliverables[slot.deliverable].platform or ""}
-            for n, slot in enumerate(slots, start=1)]
-    assign_roman(rows, "2026-W45", catalog)
-    assert sum(row["Format"] == ROMAN for row in rows) >= weekly.roman_min == 2
+    split = Counter()
+    for week, label in enumerate(("2026-W45", "2026-W46", "2026-W47", "2026-W48")):
+        slots = week_slots(REPO / "config" / "calendar.json", catalog, label)
+        counts = Counter(slot.deliverable for slot in slots)
+        assert len(slots) == 14 and counts["instagram_carousel"] == 2
+        days = [{slot.deliverable for slot in slots if slot.weekday == day}
+                for day in ("mon", "tue", "wed", "thu", "fri", "sat", "sun")]
+        assert all(len(day) == 2 for day in days)  # two a day, never one category twice
+        assert not any(name in a and name in b and name in c for name in counts
+                       for a, b, c in zip(days, days[1:], days[2:], strict=False))
+        rows = [{"Row": str(n), "Planned date": f"2026-11-{n:02d}", "Package": "",
+                 "Format": "", "Status": "Proposed", "Content type": slot.deliverable,
+                 "Platform": catalog.deliverables[slot.deliverable].platform or ""}
+                for n, slot in enumerate(slots, start=1)]
+        assign_roman(rows, label, catalog)
+        roman = [row for row in rows if row["Format"] == ROMAN]
+        assert {row["Content type"] for row in roman} == {"linkedin_post", "facebook_post"}
+        week_split = weekly.split_counts(45 + week)
+        assert sorted(week_split.values()) == [3, 3, 4]  # 10 split fairly, 4/3/3
+        split.update(week_split)
+    assert sorted(split.values()) == [13, 13, 14]  # the 4 rotates: a month is 14/13/13
     assert weekly.youtube == {"youtube_longform": 2, "youtube_shortform": 4}
     assert catalog.monthly_plan is not None
-    counts = month_counts(catalog.monthly_plan, weekly)
+    counts = month_counts(catalog.monthly_plan, weekly, 45)
     assert sum(counts.values()) == 56 and counts["instagram_carousel"] == 8
-    eligible = sum(counts[key] for key in catalog.monthly_plan.roman_deliverables)
+    assert counts["linkedin_post"] + counts["facebook_post"] == 27 + 8  # split + 8 Roman
+    eligible = sum(counts[key] for key in weekly.roman_deliverables)
     assert eligible // roman_step(catalog.monthly_plan, weekly, counts) >= 8
 
 

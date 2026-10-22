@@ -98,19 +98,55 @@ class MonthlyPlan(_Model):
 
 class WeeklySet(_Model):
     """PRD v6 weekly (2026-10-22): the fixed set of "make weekly calendar"; a month is the
-    same set x monthMultiplier (it replaces the 30-60 mix). Carousels and Roman posts count
-    inside imagePosts; the rest is split across LinkedIn and Facebook by monthlyPlan.mix."""
+    same set x monthMultiplier (it replaces the 30-60 mix). imagePosts = romanMin Roman posts
+    (romanDeliverables, taking turns) + the fixed posts (2 carousels) + the rest split fairly
+    across `split` (10: 4/3/3; the one with the extra post rotates week by week, so a month
+    of 4 weeks is 14/13/13)."""
 
     note: str = Field(default="", alias="_note")
     image_posts: int = Field(default=14, ge=1)
     roman_min: int = Field(default=2, ge=0)
+    roman_deliverables: list[str] = Field(default_factory=lambda: [
+        "linkedin_post", "facebook_post"])
     fixed: dict[str, int] = Field(default_factory=lambda: {"instagram_carousel": 2})
+    split: list[str] = Field(default_factory=lambda: [
+        "linkedin_post", "facebook_post", "facebook_ad"])  # []: config/calendar.json slots
     youtube: dict[str, int] = Field(default_factory=lambda: {
         "youtube_longform": 2, "youtube_shortform": 4})
     month_multiplier: int = Field(default=4, ge=1)
 
     def per_month(self, value: int) -> int:
         return value * self.month_multiplier
+
+    def split_counts(self, week: int) -> dict[str, int]:
+        """The rest split fairly across `split`; week (e.g. the ISO week number) rotates
+        which deliverables get the extra posts."""
+        rest = self.image_posts - self.roman_min - sum(self.fixed.values())
+        if not self.split:
+            return {}
+        base, extra = divmod(max(0, rest), len(self.split))
+        start = week % len(self.split)
+        lucky = {self.split[(start + n) % len(self.split)] for n in range(extra)}
+        return {key: base + (key in lucky) for key in self.split}
+
+    def week_counts(self, week: int) -> dict[str, int]:
+        """Deliverables of one week: fixed + split + the Roman posts (they are LinkedIn or
+        Facebook posts, one per platform in turn; Format "roman" marks them in the calendar)."""
+        counts = dict(self.fixed)
+        for key, value in self.split_counts(week).items():
+            counts[key] = counts.get(key, 0) + value
+        for n in range(self.roman_min):
+            key = self.roman_deliverables[(week + n) % len(self.roman_deliverables)]
+            counts[key] = counts.get(key, 0) + 1
+        return counts
+
+    def month_counts(self, first_week: int) -> dict[str, int]:
+        """monthMultiplier weeks from first_week (14/13/13 split, 8 Roman, 8 carousels)."""
+        total: dict[str, int] = {}
+        for week in range(first_week, first_week + self.month_multiplier):
+            for key, value in self.week_counts(week).items():
+                total[key] = total.get(key, 0) + value
+        return total
 
 
 class DeliverableCatalog(_Model):
@@ -145,10 +181,13 @@ class DeliverableCatalog(_Model):
                 problems.append(f"monthlyPlan.mix: unknown deliverables {unknown}")
             if self.monthly_plan.min_per_month > self.monthly_plan.max_per_month:
                 problems.append("monthlyPlan: minPerMonth is above maxPerMonth")
-        unknown_fixed = sorted(set(self.weekly_set.fixed) - set(self.deliverables))
+        unknown_fixed = sorted((set(self.weekly_set.fixed) | set(self.weekly_set.split)
+                                | set(self.weekly_set.roman_deliverables))
+                               - set(self.deliverables))
         if unknown_fixed:
             problems.append(f"weeklySet.fixed: unknown deliverables {unknown_fixed}")
-        if sum(self.weekly_set.fixed.values()) > self.weekly_set.image_posts:
+        if sum(self.weekly_set.fixed.values()) + self.weekly_set.roman_min > (
+                self.weekly_set.image_posts):
             problems.append("weeklySet: the fixed posts are more than imagePosts")
         if problems:
             raise ValueError("; ".join(problems))

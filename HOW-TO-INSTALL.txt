@@ -1,31 +1,69 @@
 HOW TO INSTALL CONTENT AUTOMATION
 =================================
 
-1. Unzip
-   Right-click the zip file > "Extract All..." > type this folder:
-       C:\BrandedGenius\content-automation
-   > click "Extract".
+You need: a Windows 10 or 11 PC, internet, your GitHub account (with access to the project)
+and two private things I send you: the .env file and the .secrets folder. About 30 minutes.
 
-2. Set up
-   Open that folder and double-click SETUP.bat.
-   If Windows shows a blue warning: click "More info" > "Run anyway".
-   Wait until it says ALL OK (5-15 minutes). Green OK = good, red PROBLEM = read the yellow line under it.
 
-3. Install Codex Desktop
-   If it is missing, SETUP.bat opens the download page for you. Install it and sign in.
+1. Install Git with SETUP.bat
+   - Open the project page on GitHub (the link I sent you) and sign in.
+   - Click SETUP.bat, then the "Download raw file" button. Save it in Downloads.
+   - Double-click SETUP.bat in Downloads.
+     Blue "Windows protected your PC" warning: click "More info", then "Run anyway".
+     "Do you want to allow this app to make changes?": click Yes.
+   - It installs Git. When it says "Press any key", close the window.
 
-4. Open the folder in Codex
-   In Codex Desktop, open the folder C:\BrandedGenius\content-automation.
+2. Get the project (clone)
+   - Open File Explorer and go to the folder where the project should live (e.g. Documents).
+     Choose it now: don't move the project folder later.
+   - Click the address bar at the top, type  cmd  and press Enter. A black window opens.
+   - Type this line (with the link I sent you) and press Enter:
+         git clone <repo-url>
+     If a GitHub sign-in window opens, sign in.
+   - A new project folder appears. Close the black window.
 
-5. Connect Gmail
-   In Codex, connect the Gmail plugin with brandedgenius.de@gmail.com.
+3. Set up the project
+   - Open the new project folder and double-click SETUP.bat (the one inside the folder).
+   - It installs uv, Python, the app and FFmpeg, creates the .env file and the empty folders,
+     and checks everything. The first run takes 5-15 minutes.
+   - Green OK = good. Red PROBLEM = read the yellow line under it.
+   - It will still say ".env is still the empty template" and "key file missing": step 4 fixes that.
 
-6. Connect Higgsfield and Google Drive
-   In Codex, connect the Higgsfield and Google Drive plugins with the company accounts.
+4. Add the private files I send you (USB stick or password manager, never e-mail)
+   - In File Explorer turn on View > "File name extensions" (so .env is not saved as .env.txt).
+   - .env      -> copy it into the project folder and replace the .env that is there.
+   - .secrets  -> copy the whole folder into the project folder, so that you have
+                  <project folder>\.secrets\google_oauth_client.json and the other files.
+   - Double-click SETUP.bat again. It should end with "ALL OK".
 
-7. Test
+5. Codex Desktop
+   - If Codex Desktop is missing, SETUP.bat opens the download page. Install it and sign in.
+   - In Codex: "Add new project" (Ctrl+O) > choose the project folder (it contains AGENTS.md).
+   - Under the message box keep "Ask for approval".
+   - Internet for commands: do section 3 of docs\SETUP-CODEX.md once.
+   - Connect these plugins in Codex and sign in:
+       Gmail         with brandedgenius.de@gmail.com (reads the newsletters)
+       Higgsfield    with the company account (Roman's images and video clips)
+       Google Drive  with the company account (uploads and the Content Tracker)
+
+6. First test
    Type in Codex:  show calendar
    You should see this week's or next week's content plan.
+   Full check: type  Run uv run ca doctor  (every [FAIL] line has a "Fix:" line under it).
 
-8. Something wrong?
-   Double-click SETUP.bat again. If a red PROBLEM line stays, send a photo of it.
+7. Get updates
+   - Open the project folder in File Explorer, type  cmd  in the address bar, press Enter, then:
+         git pull
+   - If the list that git pull shows contains pyproject.toml or uv.lock (or if I tell you),
+     double-click SETUP.bat again. Running it again is always safe.
+   - If git pull says that local changes would be overwritten: don't fix it yourself,
+     send me a screenshot.
+
+DON'T EDIT, DON'T COMMIT
+   - These stay only on your PC and never go to GitHub (git ignores them):
+       .env   .secrets\   outputs\   state\
+     Never send .env or .secrets to anyone. Never paste a key into Codex, a chat or a screenshot.
+   - Don't change the project's other files yourself, and don't run git commit or git push.
+     You only use git pull. Your finished content is in outputs\.
+
+Something wrong? Double-click SETUP.bat again. If a red PROBLEM line stays, send me a photo of it.

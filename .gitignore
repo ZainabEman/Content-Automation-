@@ -1,6 +1,7 @@
 .env
 .venv/
 /outputs/
+# Reference photos (Roman, logo, past ads) stay local
 assets/reference/
 __pycache__/
 .pytest_cache/
@@ -16,6 +17,27 @@ htmlcov/
 .uv-cache/
 .pytest-tmp/
 .secrets/
+# OAuth client/token JSON, key files and .env copies, wherever they end up
+client_secret*.json
+*oauth_client*.json
+*token.json
+*.pem
+*.p12
+.env.*
+!.env.example
+# Registry databases and their backups, model weights (LoRA, rembg)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.bak
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.gguf
 # Licensed brand fonts (e.g. Futura) stay local; only the OFL fallback (Jost) is tracked.
 /assets/fonts/*
 !/assets/fonts/Jost-*.ttf

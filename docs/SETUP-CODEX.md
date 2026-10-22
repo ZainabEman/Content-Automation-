@@ -32,7 +32,7 @@ Several commands need the internet: installing the tools (`uv sync`), reading ne
 and making images with OpenRouter (only when opted in). By default Codex runs commands without internet. To allow
 it, edit Codex's settings file:
 
-1. Open the file `C:\Users\<your name>\.codex\config.toml` in Notepad (create the `.codex`
+1. Open the file `%USERPROFILE%\.codex\config.toml` in Notepad (create the `.codex`
    folder and the file if they do not exist). The Codex app, the Codex CLI and the IDE
    extension all use this file.
 2. Add these lines:

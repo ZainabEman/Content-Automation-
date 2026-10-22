@@ -1,6 +1,7 @@
 <#
   Builds dist\content-automation-<date>.zip of this project for a new laptop.
-  Unzip it straight into C:\BrandedGenius\content-automation (the zip has no top folder).
+  Unzip it into any folder (spaces are fine; the zip has no top folder). Sharing via GitHub
+  (git clone, HOW-TO-INSTALL.txt) replaces this zip; it stays for offline handovers.
 
   Left out: .venv, caches, .git, dist, outputs\jobs (and .env + .secrets\ unless -IncludeSecrets).
   Kept: everything else, e.g. calendar\, outputs\content\, assets\, vendor\, state\.

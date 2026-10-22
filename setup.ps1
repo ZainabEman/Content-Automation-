@@ -1,12 +1,15 @@
 <#
-  Content Automation setup for a fresh Windows 10/11 laptop (SETUP.bat runs this).
+  Content Automation setup for a fresh Windows 10/11 PC (SETUP.bat runs this).
 
-  Step 1  uv (runs the app)          Step 3  FFmpeg (video tool)
-  Step 2  Python + the app           Step 4  Checks
-  Step 5  What is still missing (and the Codex Desktop download page)
+  Step 1  Git (gets updates)         Step 5  FFmpeg (video tool)
+  Step 2  uv (runs the app)          Step 6  .env and the data folders
+  Step 3  Python                     Step 7  Checks
+  Step 4  The app (uv sync)          Step 8  What is still missing (and the Codex Desktop page)
 
-  Safe to run twice. Never prints secret values.
-  -CheckOnly   only run the checks (step 4) and the summary; install nothing.
+  Installs with winget; uv and FFmpeg have a download fallback. Safe to run twice: it skips
+  what is already there and never overwrites .env. Never prints secret values.
+  Every path comes from this script's folder, so any clone location works (spaces too).
+  -CheckOnly   only run the checks (step 7) and the summary; install nothing.
 #>
 param([switch]$CheckOnly)
 
@@ -17,6 +20,9 @@ $Root = $PSScriptRoot
 Set-Location -LiteralPath $Root
 $Missing = New-Object System.Collections.Generic.List[string]
 $CodexPage = 'https://openai.com/codex/'
+$WingetFix = 'Install "App Installer" from the Microsoft Store (it brings winget), then double-click SETUP.bat again.'
+# Folders the app and the user fill; all git-ignored.
+$DataFolders = @('.secrets', 'outputs', 'state', 'research', 'calendar', 'assets\reference')
 
 function Show-Step([string]$Text) {
     Write-Host ''
@@ -73,16 +79,55 @@ function Test-CodexDesktop {
     return [bool]$links
 }
 
+function Get-PythonVersion {
+    $pyproject = Get-Content -LiteralPath (Join-Path $Root 'pyproject.toml') -Raw
+    $match = [regex]::Match($pyproject, 'requires-python\s*=\s*"[^0-9]*(\d+\.\d+)')
+    if ($match.Success) { return $match.Groups[1].Value }
+    return '3.13'
+}
+
+function Invoke-Winget([string]$Id, [string]$Name) {
+    # Installs one winget package; False when winget is missing. The caller checks the program.
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Write-Host "  winget is missing, so $Name cannot be installed automatically." -ForegroundColor Yellow
+        return $false
+    }
+    Write-Host "  Installing $Name with winget (if Windows asks for permission, click Yes) ..."
+    & winget install --id $Id -e --source winget --silent --accept-source-agreements --accept-package-agreements | Out-Host
+    Update-SessionPath
+    return $true
+}
+
+function Install-Git {
+    Show-Step 'Step 1 of 8: Git (gets updates with git pull)'
+    Update-SessionPath
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        Show-Ok 'Git is already installed.'
+        return
+    }
+    $winget = Invoke-Winget 'Git.Git' 'Git'
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        Show-Ok 'Git is installed.'
+    } elseif ($winget) {
+        Show-Problem 'Git could not be installed.' 'Check the internet connection, then double-click SETUP.bat again.'
+    } else {
+        Show-Problem 'Git is missing.' "$WingetFix Or install Git by hand: https://git-scm.com/download/win"
+    }
+}
+
 function Install-Uv {
-    Show-Step 'Step 1 of 5: uv (runs the app)'
+    Show-Step 'Step 2 of 8: uv (runs the app)'
     Update-SessionPath
     if (Get-Command uv -ErrorAction SilentlyContinue) {
         Show-Ok 'uv is already installed.'
         return
     }
-    Write-Host '  Installing uv from astral.sh (about 1 minute) ...'
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor 3072; irm https://astral.sh/uv/install.ps1 | iex"
-    Update-SessionPath
+    $null = Invoke-Winget 'astral-sh.uv' 'uv'
+    if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
+        Write-Host '  Installing uv from astral.sh (about 1 minute) ...'
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor 3072; irm https://astral.sh/uv/install.ps1 | iex"
+        Update-SessionPath
+    }
     if (Get-Command uv -ErrorAction SilentlyContinue) {
         Show-Ok 'uv is installed.'
     } else {
@@ -90,22 +135,33 @@ function Install-Uv {
     }
 }
 
-function Install-App {
-    Show-Step 'Step 2 of 5: Python and the app'
+function Install-Python {
+    Show-Step 'Step 3 of 8: Python'
     if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
-        Show-Problem 'Skipped: uv is missing.' 'Fix step 1 first, then double-click SETUP.bat again.'
+        Show-Problem 'Skipped: uv is missing.' 'Fix step 2 first, then double-click SETUP.bat again.'
         return
     }
-    $pyproject = Get-Content -LiteralPath (Join-Path $Root 'pyproject.toml') -Raw
-    $match = [regex]::Match($pyproject, 'requires-python\s*=\s*"[^0-9]*(\d+\.\d+)')
-    $version = '3.13'
-    if ($match.Success) { $version = $match.Groups[1].Value }
-    Write-Host "  Installing Python $version (a few minutes the first time) ..."
-    & uv python install $version
-    if ($LASTEXITCODE -eq 0) {
+    $version = Get-PythonVersion
+    if (Test-Native { uv python find $version }) {
+        Show-Ok "Python $version is already installed."
+        return
+    }
+    $null = Invoke-Winget "Python.Python.$version" "Python $version"
+    if (-not (Test-Native { uv python find $version })) {
+        Write-Host "  Installing Python $version with uv (a few minutes the first time) ..."
+        & uv python install $version
+    }
+    if (Test-Native { uv python find $version }) {
         Show-Ok "Python $version is installed."
     } else {
         Show-Problem "Python $version could not be installed." 'Check the internet connection, then double-click SETUP.bat again.'
+    }
+}
+
+function Install-App {
+    Show-Step 'Step 4 of 8: The app (uv sync)'
+    if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
+        Show-Problem 'Skipped: uv is missing.' 'Fix step 2 first, then double-click SETUP.bat again.'
         return
     }
     Write-Host '  Installing the app and its parts (a few minutes the first time) ...'
@@ -118,16 +174,12 @@ function Install-App {
 }
 
 function Install-Ffmpeg {
-    Show-Step 'Step 3 of 5: FFmpeg (video tool)'
+    Show-Step 'Step 5 of 8: FFmpeg (video tool)'
     if (Find-Ffmpeg) {
         Show-Ok 'FFmpeg is already installed.'
         return
     }
-    if (Get-Command winget -ErrorAction SilentlyContinue) {
-        Write-Host '  Installing FFmpeg with winget ...'
-        & winget install --id Gyan.FFmpeg -e --silent --accept-source-agreements --accept-package-agreements
-        Update-SessionPath
-    }
+    $null = Invoke-Winget 'Gyan.FFmpeg' 'FFmpeg'
     if (-not (Find-Ffmpeg)) {
         Write-Host '  Downloading FFmpeg from gyan.dev into tools\ffmpeg (about 100 MB) ...'
         $tools = Join-Path $Root 'tools'
@@ -156,9 +208,34 @@ function Install-Ffmpeg {
     }
 }
 
+function Initialize-Data {
+    Show-Step 'Step 6 of 8: Settings file (.env) and data folders'
+    $envFile = Join-Path $Root '.env'
+    $example = Join-Path $Root '.env.example'
+    if (Test-Path -LiteralPath $envFile -PathType Leaf) {
+        Show-Ok '.env is already there (left unchanged).'
+    } elseif (Test-Path -LiteralPath $example -PathType Leaf) {
+        Copy-Item -LiteralPath $example -Destination $envFile
+        Show-Ok 'Created .env from .env.example (replace it with the .env you were sent).'
+    }
+    foreach ($folder in $DataFolders) {
+        New-Item -ItemType Directory -Force -Path (Join-Path $Root $folder) | Out-Null
+    }
+    Show-Ok "Folders are ready: $($DataFolders -join ', ')"
+}
+
 function Test-Setup {
-    Show-Step 'Step 4 of 5: Checks'
+    Show-Step 'Step 7 of 8: Checks'
     Update-SessionPath
+    if (Test-Native { git --version }) {
+        Show-Ok 'Git runs.'
+        if (-not (Test-Path -LiteralPath (Join-Path $Root '.git'))) {
+            Show-Problem 'This folder is not a git clone, so git pull cannot update it.' 'Clone the project with git clone (HOW-TO-INSTALL.txt, step 2).'
+        }
+    } else {
+        Show-Problem 'Git does not run.' 'Double-click SETUP.bat again.'
+    }
+
     if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
         Show-Problem 'uv is not installed.' 'Double-click SETUP.bat (without -CheckOnly).'
     } elseif (Test-Native { uv run --no-sync ca --help }) {
@@ -174,10 +251,15 @@ function Test-Setup {
         Show-Problem 'FFmpeg does not run.' 'Double-click SETUP.bat again.'
     }
 
-    if (Test-Path -LiteralPath (Join-Path $Root '.env') -PathType Leaf) {
-        Show-Ok 'The settings file (.env) is there.'
-    } else {
+    $envFile = Join-Path $Root '.env'
+    $example = Join-Path $Root '.env.example'
+    if (-not (Test-Path -LiteralPath $envFile -PathType Leaf)) {
         Show-Problem 'The settings file (.env) is missing.' "Ask for it (USB or password manager, never e-mail) and put it in $Root"
+    } elseif ((Test-Path -LiteralPath $example -PathType Leaf) -and
+              (Get-FileHash -LiteralPath $envFile).Hash -eq (Get-FileHash -LiteralPath $example).Hash) {
+        Show-Problem 'The settings file (.env) is still the empty template.' "Replace it with the .env you were sent (USB or password manager), in $Root"
+    } else {
+        Show-Ok 'The settings file (.env) is there.'
     }
 
     foreach ($name in 'google_oauth_client.json', 'google_token.json', 'drive_state.json') {
@@ -193,7 +275,7 @@ function Test-Setup {
     if ($fonts) {
         Show-Ok "Fonts are there ($(@($fonts).Count) files)."
     } else {
-        Show-Problem 'No font in assets\fonts.' 'Unzip the whole project again into this folder.'
+        Show-Problem 'No font in assets\fonts.' 'Open a terminal in this folder and run: git pull'
     }
 
     if (Test-CodexDesktop) {
@@ -204,14 +286,18 @@ function Test-Setup {
 }
 
 if (-not $CheckOnly) {
-    Write-Host 'Setting up Content Automation. This window can stay open; it takes 5-15 minutes.'
+    Write-Host "Setting up Content Automation in $Root"
+    Write-Host 'This window can stay open; the first run takes 5-15 minutes.'
+    Install-Git
     Install-Uv
+    Install-Python
     Install-App
     Install-Ffmpeg
+    Initialize-Data
 }
 Test-Setup
 
-Show-Step 'Step 5 of 5: Result'
+Show-Step 'Step 8 of 8: Result'
 if ($Missing.Count -eq 0) {
     Write-Host '  ALL OK. Open this folder in Codex Desktop and type: show calendar' -ForegroundColor Green
     exit 0

@@ -61,7 +61,7 @@ There are two kinds of script. Codex only writes scripts; no video or voice is m
 
 | Type this in Codex | What you get |
 | --- | --- |
-| `make short video script` | About 1 minute: a conversation between the AI host (`HOST:`) and Roman (`ROMAN:`) about one topic. |
+| `make short video script` | About 1 minute: a conversation between the AI host (`HOST:`) and Roman (`ROMAN:`) about one problem in Germany: bad news in tech, AI risks, harm to people and jobs, or AI limits. It starts with a negative hook, then one number, 2–3 points and a solution. |
 | `make long video script` | About 12 minutes: Roman alone, 5–10 news topics, in three styles (Style A, B and C). |
 
 Each script folder holds three files:

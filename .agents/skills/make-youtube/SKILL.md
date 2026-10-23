@@ -47,9 +47,10 @@ there is no separate sources file. The BG ID, `titleEn` and the briefs are in
 ## Steps
 
 1. **"make short video script"** / **"make long video script"** / "plan youtube November" →
-   research real German news with web access (German sources first). Short-form: one topic per
-   script (AI news, AI problems in Germany for business, work and society, the impact on people
-   and jobs, risks, limits, controversies, positive developments). Long-form: 5-10 topics per
+   research real German news with web access (German sources first). Short-form: one negative German topic
+   per script (a global story only when it clearly hits Germany) (negative tech developments in Germany, AI risks, harm to people and jobs, AI
+   limits and controversies; never positive news), built as negative hook → one sourced stat →
+   2-3 points → solution (`references/short-form-prompt.md`). Long-form: 5-10 topics per
    script, risks and positive developments balanced. No topic twice in the week or month. Then
    `uv run ca youtube plan 2026-11 --format short|long --topic "<German topic>" --title-en
    "<English title, at most about 6 words>" …` (one pair each; the month holds 16 short-form and

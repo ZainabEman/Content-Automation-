@@ -79,11 +79,18 @@
         1,
         1
       ],
-      "structure": "One topic; a strong hook in the first line; a natural ending (a takeaway, a question or a strong statement).",
+      "structure": "One negative topic: negative hook (HOST) -> one sourced stat (ROMAN) -> 2-3 points on why it happens and who it hits (HOST asks, ROMAN answers) -> solution: what companies or people can do now (ROMAN).",
       "prompt": ".agents/skills/make-youtube/references/short-form-prompt.md",
       "styles": [
         "S"
-      ]
+      ],
+      "topics": [
+        "negative developments in tech in Germany",
+        "AI risks (errors, misuse, fraud, deepfakes, data protection, loss of control)",
+        "harm to people and jobs",
+        "AI limits and controversies"
+      ],
+      "_topicsNote": "User decision 2026-10-23: short-form topics are negative only (no positive developments) and about Germany (a global story only when it clearly hits German companies, workers or citizens); long-form stays balanced."
     }
   },
   "address": "Sie",
@@ -110,7 +117,7 @@
       "folder": "",
       "name": "Dialog",
       "opening": "question",
-      "approach": "Short-form only: one style, no style subfolder. HOST opens with the hook as a question or a striking statement, ROMAN explains what it means for German companies, workers or society, HOST asks one follow-up, ROMAN ends with a takeaway, a question or a strong statement."
+      "approach": "Short-form only: one style, no style subfolder. HOST opens with a negative hook, ROMAN gives one sourced stat, HOST asks 2-3 short questions and ROMAN answers each in one point, ROMAN ends with a concrete solution."
     }
   },
   "openingTypes": {

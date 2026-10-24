@@ -6,9 +6,10 @@ from collections import Counter
 from datetime import date
 from pathlib import Path
 
-from content_automation.content.calendar import ROMAN, assign_roman, week_slots
+from content_automation.content.calendar import assign_roman, week_slots
 from content_automation.content.deliverables import load_deliverables
 from content_automation.content.folder_rename import plan_lines, plan_renames, titles_path
+from content_automation.content.formats import ROMAN
 from content_automation.content.month_plan import month_counts, roman_step
 from content_automation.content.package import ContentPackage
 from content_automation.core.config import load_settings
@@ -22,7 +23,7 @@ REPO = Path(__file__).resolve().parents[1]
 def test_weekly_set_and_month_counts() -> None:
     catalog = load_deliverables(REPO / "config" / "deliverables.json")
     weekly = catalog.weekly_set
-    split = Counter()
+    split: Counter[str] = Counter()
     for week, label in enumerate(("2026-W45", "2026-W46", "2026-W47", "2026-W48")):
         slots = week_slots(REPO / "config" / "calendar.json", catalog, label)
         counts = Counter(slot.deliverable for slot in slots)
@@ -45,11 +46,11 @@ def test_weekly_set_and_month_counts() -> None:
     assert sorted(split.values()) == [13, 13, 14]  # the 4 rotates: a month is 14/13/13
     assert weekly.youtube == {"youtube_longform": 2, "youtube_shortform": 4}
     assert catalog.monthly_plan is not None
-    counts = month_counts(catalog.monthly_plan, weekly, 45)
-    assert sum(counts.values()) == 56 and counts["instagram_carousel"] == 8
-    assert counts["linkedin_post"] + counts["facebook_post"] == 27 + 8  # split + 8 Roman
-    eligible = sum(counts[key] for key in weekly.roman_deliverables)
-    assert eligible // roman_step(catalog.monthly_plan, weekly, counts) >= 8
+    monthly_counts = month_counts(catalog.monthly_plan, weekly, 45)
+    assert sum(monthly_counts.values()) == 56 and monthly_counts["instagram_carousel"] == 8
+    assert monthly_counts["linkedin_post"] + monthly_counts["facebook_post"] == 27 + 8
+    eligible = sum(monthly_counts[key] for key in weekly.roman_deliverables)
+    assert eligible // roman_step(catalog.monthly_plan, weekly, monthly_counts) >= 8
 
 
 def test_short_and_long_folder_layout(tmp_path: Path) -> None:

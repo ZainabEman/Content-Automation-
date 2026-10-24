@@ -166,6 +166,13 @@ def run(keep: bool = False) -> list[tuple[str, bool, str]]:
     notes: dict[str, list[str]] = {"errors": [], "variants": []}
     with e2e4._sandbox(keep) as work:
         e2e4._setup(work)
+        # _setup narrows weeklySet for the Phase 4 three-row calendar fixture. Restore the
+        # current v6 weekly cadence here so this monthly-plan check exercises the real mix.
+        deliverables_path = work / "config" / "deliverables.json"
+        deliverables = json.loads(deliverables_path.read_text(encoding="utf-8"))
+        current = json.loads((REPO / "config" / "deliverables.json").read_text(encoding="utf-8"))
+        deliverables["weeklySet"] = current["weeklySet"]
+        deliverables_path.write_text(json.dumps(deliverables, indent=2), encoding="utf-8")
         code, out, err = e2e4._ca("plan", "month", "2026-11")
         planned = json.loads((work / "calendar" / "2026-11-month-plan.json").read_text(
             encoding="utf-8"))["assets"] if code == 0 else []

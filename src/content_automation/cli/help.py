@@ -206,7 +206,9 @@ GROUPS: tuple[Group, ...] = (
                "the production choice recorded; all three storyboards are kept (a missing one "
                "is created)"),
         Phrase("upload youtube BG-x", "ca youtube upload BG-x",
-               "Drive YouTube/<YYYY-MM>/<BG-ID>_<slug>/ and the tracker row"),
+               "write a Drive plugin manifest for the scripts and storyboards"),
+        Phrase("record youtube BG-x", "ca youtube record BG-x --results <json>",
+               "record Drive plugin IDs, upsert tracker.csv and finish the manifest"),
         Phrase("youtube status", "ca youtube status", "every topic and its step"),
     )),
     Group("generate-images-codex", ".agents/skills/generate-images-codex/SKILL.md", (

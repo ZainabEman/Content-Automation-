@@ -6,6 +6,8 @@ bilingual → check → select-style. All free and local; check-sources opens th
 PRD v6 weekly: `plan --format short|long` ("make short video script" / "make long video
 script"); every later step follows the topic's format."""
 
+import json
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -16,7 +18,7 @@ from content_automation.content.plan import month_label
 from content_automation.registry.db import RegistryError
 from content_automation.storage import StorageError
 from content_automation.youtube.topic import YoutubeError
-from content_automation.youtube.upload import upload_topic
+from content_automation.youtube.upload import record_youtube_results, upload_topic
 from content_automation.youtube.workflow import (
     check_scripts,
     make_bilingual,
@@ -58,6 +60,8 @@ def _run(command: str, step: str, bg_id: str | None = None, **kwargs: object) ->
                 return make_bilingual(scope.conn, bg_id)
             if step == "upload":
                 return upload_topic(settings, bg_id)
+            if step == "record":
+                return record_youtube_results(settings, bg_id, kwargs["results"])  # type: ignore[arg-type]
             if step == "storyboards":
                 return write_storyboards(scope.conn, bg_id, command=scope.command)
             if step == "check":
@@ -161,6 +165,29 @@ def youtube_upload(bg_id: BgId) -> None:
     storyboards) and the tracker row with the folder link (STORAGE_PROVIDER=mock:
     outputs/_system/drive-mock/, fake links)."""
     _echo(_run(f"ca youtube upload {bg_id}", "upload", bg_id))
+
+
+@youtube_app.command("record")
+def youtube_record(
+    bg_id: BgId,
+    results: Annotated[str, typer.Option(
+        "--results", help='The Drive plugin results: a JSON file or JSON text, each with '
+        '"id", "file_id" (folders: "folder_id") and "link".')],
+) -> None:
+    """Record Google Drive plugin results for a YouTube topic (and queue tracker.csv)."""
+    try:
+        source = Path(results)
+        text = source.read_text(encoding="utf-8") if source.is_file() else results
+    except OSError:
+        text = results
+    try:
+        parsed = json.loads(text)
+    except ValueError as error:
+        _fail(f"--results is not valid JSON: {error}", code=2)
+    found = parsed if isinstance(parsed, list) else [parsed]
+    if not all(isinstance(entry, dict) for entry in found):
+        _fail("--results must be a JSON object or a list of objects.", code=2)
+    _echo(_run(f"ca youtube record {bg_id}", "record", bg_id, results=found))
 
 
 @youtube_app.command("status")

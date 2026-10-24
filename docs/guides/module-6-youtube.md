@@ -10,7 +10,7 @@ Each approved topic can have a verified research file, three German teleprompter
 
 ## One-time setup
 
-Use the project's normal setup in `docs/SETUP-CODEX.md`. Drive upload requires `STORAGE_PROVIDER=drive` and the existing Google Drive setup.
+Use the project's normal setup in `docs/SETUP-CODEX.md`. For the Codex Google Drive connection, set `STORAGE_PROVIDER=plugin`; the configured `root` folder ID must be the `Content Automation` folder in the shared drive `other`.
 
 ## How to use
 
@@ -18,7 +18,7 @@ Use the project's normal setup in `docs/SETUP-CODEX.md`. Drive upload requires `
 2. Research it, check every source, and write scripts A, B and C from the checked facts.
 3. Check the scripts, then run `uv run ca youtube storyboards BG-x`.
 4. Complete every storyboard scene note before handing it to the editor. Factual visuals must point to source labels from the research file.
-5. Run `uv run ca youtube upload BG-x` to upload the research, scripts, and all three storyboards and update the tracker.
+5. With `STORAGE_PROVIDER=plugin`, run `uv run ca youtube upload BG-x`. Follow the generated `upload_manifest.json`: create or reuse its folders, upload only the listed scripts and storyboards, and record each result with `uv run ca youtube record BG-x --results <results.json>`. After those files are recorded, the command queues `tracker.csv` in `Calendar/`; upload and record that final entry too. `research.txt` stays local.
 6. Use `uv run ca youtube select-style BG-x B` only when the production style is chosen. This records the preference and keeps all three storyboards.
 
 ### Example Codex requests
@@ -37,11 +37,12 @@ Use the project's normal setup in `docs/SETUP-CODEX.md`. Drive upload requires `
 - `uv run ca youtube storyboards BG-x`
 - `uv run ca youtube select-style BG-x A|B|C`
 - `uv run ca youtube upload BG-x`
+- `uv run ca youtube record BG-x --results <results.json>`
 - `uv run ca youtube status [--month YYYY-MM]`
 
 ## Outputs
 
-Topic packages live under `outputs/YouTube Long-Form/<Topic Name>/` (PRD v6 R7): `research.txt` and `Style A/`, `Style B/`, `Style C/`, each with `script_de_teleprompter.txt`, `script_de_en_bilingual.txt` and `storyboard.txt`. The BG ID and the internal briefs are in `outputs/_system/youtube/`. A re-run reuses the folder and writes a changed file as `<name>_v2.txt`. New Drive uploads mirror the tree: `Content Automation/YouTube Long-Form/<Topic Name>/`; folders already on Drive are never moved or renamed. Each topic has one tracker row with links to its research, six scripts, and three storyboards.
+Topic packages live under `outputs/YouTube Long-Form/<Topic Name>/` or `outputs/YouTube Short-Form/<Topic Name>/`: `research.txt` and the format's scripts and storyboards. The BG ID and internal briefs are in `outputs/_system/youtube/`. A re-run writes changed files as `<name>_v2`. Drive uploads mirror the topic tree under `Content Automation/YouTube Long-form/` or `YouTube Short-form/`; folders already on Drive are reused and never moved or renamed. Only scripts and storyboards are uploaded, not `research.txt`. Each topic has one tracker row with the Drive topic-folder link and file links.
 
 ## Settings
 
@@ -59,4 +60,4 @@ Research, checks, scripts, storyboards, and YouTube upload are free in this work
 
 ## Switching providers
 
-YouTube topic uploads use the configured storage provider. `STORAGE_PROVIDER=drive` writes to Google Drive; `mock` writes stand-in files and links under `outputs/drive/`. The Codex Drive plugin is not supported for these YouTube uploads.
+YouTube topic uploads use the configured storage provider. `STORAGE_PROVIDER=plugin` writes an upload manifest for the connected Google Drive plugin; files are uploaded from that manifest and recorded with `ca youtube record`. `STORAGE_PROVIDER=drive` uses the separate Google API connection; `mock` writes stand-in files and links under `outputs/drive/`.

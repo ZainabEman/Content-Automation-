@@ -111,11 +111,16 @@ there is no separate sources file. The BG ID, `titleEn` and the briefs are in
 6. **"select style B for BG-x"** (long-form) → `uv run ca youtube select-style BG-x B` records
    the style for production and ensures all three storyboards exist. It does not replace the
    other two.
-7. **"upload youtube BG-x"** → `uv run ca youtube upload BG-x` uploads the scripts and
-   storyboards to Drive `Content Automation/YouTube Short-form/` or `YouTube Long-form/`
-   (`<English Topic Title> <YYYY-MM-DD>/`, the same layout as locally) and upserts the tracker
-   row (BG ID) with the folder link and the upload status. A tracker failure is printed: report
-   it. (STORAGE_PROVIDER=plugin is not built for YouTube yet: it says so; use drive.)
+7. **"upload youtube BG-x"** → with `STORAGE_PROVIDER=plugin`, `uv run ca youtube upload BG-x`
+   writes an `upload_manifest.json` for the finished scripts and storyboards under Drive
+   `Content Automation/YouTube Short-form/` or `YouTube Long-form/` (same topic and style tree
+   as locally; `research.txt` stays local). Follow the upload skill to create or reuse folders
+   and upload only its entries, then record results with
+   `uv run ca youtube record BG-x --results <results.json>`. This upserts the local tracker row;
+   then the manifest queues `tracker.csv` in `Calendar/`, which must also be uploaded and
+   recorded. A tracker failure is printed and must be resolved before upload is reported done.
+   `STORAGE_PROVIDER=drive` uses the separate Google API connection; do not use it when the
+   Codex Drive plugin is the connected destination.
 8. **"youtube status"** → `uv run ca youtube status [--month 2026-11]`.
 
 Production after the storyboard (recording, edits, finals, thumbnail): produce-video.

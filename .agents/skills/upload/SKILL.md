@@ -9,7 +9,7 @@ description: Upload Branded Genius files to Google Drive with the Codex Google D
 
 - Upload only what `ca` asks for: the approved version's files (`ca item approve` on the review gate writes them; config/storage.json `upload.requireReview`). Never upload other files, never make anything public, never change sharing.
 - Plugins are found at run time; never assume tool names. If the Google Drive plugin is missing, stop and name it.
-- v5: never rename, move or delete an existing Drive folder (the restructuring spec is PENDING); new category folders (Instagram Carousels, Facebook Posts, Facebook Ads) are created by the manifest or `ca drive setup`. The UGC ad folder is trashed only after the user's "ok" (docs/v5-drive-actions.md). YouTube topics upload with `uv run ca youtube upload BG-x` (STORAGE_PROVIDER drive or mock).
+- Never rename, move or delete an existing Drive folder. New category folders are created by the manifest or `ca drive setup`. YouTube topics also use a manifest when `STORAGE_PROVIDER=plugin`: `ca youtube upload BG-x` lists scripts and storyboards (never the local research file), and `ca youtube record BG-x --results <json>` records plugin IDs and queues the tracker CSV.
 - Record every upload with `ca`; never say "uploaded" without the file ID and link the plugin returned. Mock uploads stay labelled mock.
 
 ## Steps
@@ -31,5 +31,14 @@ A finished package (after `ca content build`, `ca calendar generate --build`, or
    - A failed call: `{"id": "<entry id>", "status": "failed", "error": "<what happened>"}`; no retry without the user's yes.
 2. Save the results as a JSON list in `<package>/upload_results.json` and run `uv run ca drive record "<package>" --results "<package>/upload_results.json"`. Recorded entries are skipped on a rerun (no duplicates).
 3. When every file is up, it adds the post-upload entries (the tracker row and the calendar copy) and marks the calendar row Generated: do 1-2 again for them. Finished when it prints "(all done)". Report the Drive folder and the files.
+
+## YouTube topic manifest
+
+`ca youtube upload BG-x` writes `upload_manifest.json` in the topic folder when the configured
+provider is `plugin`. Follow the same folder and file instructions above. After the script and
+storyboard entries are recorded, `ca youtube record BG-x --results <json>` upserts the tracker
+row locally and adds a `tracker.csv` upload entry for `Content Automation/Calendar/`. Upload that
+entry and call `ca youtube record` again. The YouTube manifest does not upload `research.txt` or
+mark a social calendar row Generated.
 
 Never upload a file that is not in the manifest, never make anything public, never change sharing.

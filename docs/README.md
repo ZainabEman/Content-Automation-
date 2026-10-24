@@ -125,7 +125,7 @@ All choices are lines in `.env`; nothing else changes.
 | Avatar clips | `AVATAR_PROVIDER` | `heygen-plugin` (Codex plugin), `mock` or `none` |
 | Voiceover | `VOICE_PROVIDER` | `none` (MVP) |
 | News | `SCRAPER_PROVIDER` | `free` (our own scraper) or `mock` |
-| Files and tracker | `STORAGE_PROVIDER` | `drive` (Google Drive + Content Tracker Sheet) or `mock` (`outputs/drive/`) |
+| Files and tracker | `STORAGE_PROVIDER` | `plugin` (Codex Google Drive plugin + upload manifests), `drive` (separate Google API connection), or `mock` (`outputs/drive/`) |
 
 ## Glossary
 

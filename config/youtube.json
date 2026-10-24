@@ -65,32 +65,41 @@
       "driveFolder": "youtube_shortform",
       "minutes": 1,
       "targetWords": [
-        140,
-        160
+        150,
+        180
       ],
+      "address": "du",
+      "_addressNote": "User decision 2026-10-24: short-form says \"du\" (casual, like German Reels and Shorts); long-form keeps the top-level address \"Sie\".",
       "presenter": {
         "speakers": [
           "HOST",
           "ROMAN"
         ],
-        "rule": "Podcast-style dialogue: every paragraph starts with HOST: (the AI-generated host introduces and asks) or ROMAN: (Roman analyses); both speak."
+        "rule": "Podcast-style clip: every paragraph starts with HOST: (the AI-generated host asks the viewer's questions and reacts in a few words) or ROMAN: (Roman tells the story and explains); both speak."
       },
       "topicsPerVideo": [
         1,
         1
       ],
-      "structure": "One negative topic: negative hook (HOST) -> one sourced stat (ROMAN) -> 2-3 points on why it happens and who it hits (HOST asks, ROMAN answers) -> solution: what companies or people can do now (ROMAN).",
+      "structure": "One AI problem told like a podcast clip: hook in the first 2 seconds (the shocking fact, twist or question) -> the real case as a story (ROMAN, HOST cuts in) -> escalation in 2-3 turns (HOST asks, ROMAN adds a sourced number, who else is hit, why it keeps happening) -> twist or meaning for Germany (ROMAN) -> one short tip (ROMAN) -> an open question as the last line.",
+      "styleReference": ".agents/skills/make-youtube/references/short-form-style.md",
+      "styleChecks": {
+        "_note": "Warnings on the short-form teleprompter (scripts.py _clip_warnings): the first sentence is the hook (no greeting or announcement, at most hookMaxWords words); the last paragraph ends with a question.",
+        "hookMaxWords": 15,
+        "badOpenings": ["hallo", "hi ", "hey ", "willkommen", "herzlich willkommen", "heute sprechen", "heute geht es", "in diesem video", "in dieser folge", "lass uns", "lasst uns"]
+      },
+      "seedTopics": ".agents/skills/make-youtube/references/short-form-topics.md",
       "prompt": ".agents/skills/make-youtube/references/short-form-prompt.md",
       "styles": [
         "S"
       ],
       "topics": [
-        "negative developments in tech in Germany",
-        "AI risks (errors, misuse, fraud, deepfakes, data protection, loss of control)",
-        "harm to people and jobs",
-        "AI limits and controversies"
+        "AI fraud and deepfakes (fake videos or voices of known people selling investments or products)",
+        "chatbots and AI answers that mislead customers or wrong companies, and who is liable",
+        "AI misuse inside companies (confidential data in AI tools, AI phishing and CEO fraud)",
+        "global AI risks with a German angle (safety tests, AI companions and children, warnings from AI pioneers)"
       ],
-      "_topicsNote": "User decision 2026-10-23: short-form topics are negative only (no positive developments) and about Germany (a global story only when it clearly hits German companies, workers or citizens); long-form stays balanced."
+      "_topicsNote": "User decision 2026-10-24 (replaces 2026-10-23): short-form topics are AI only and negative only; German cases first, a global AI story is allowed when the script says what it means for Germany; long-form stays balanced."
     }
   },
   "address": "Sie",
@@ -116,8 +125,8 @@
     "S": {
       "folder": "",
       "name": "Dialog",
-      "opening": "question",
-      "approach": "Short-form only: one style, no style subfolder. HOST opens with a negative hook, ROMAN gives one sourced stat, HOST asks 2-3 short questions and ROMAN answers each in one point, ROMAN ends with a concrete solution."
+      "opening": "incident",
+      "approach": "Short-form only: one style, no style subfolder. A podcast clip in the style of the reference reels: the hook in the first 2 seconds, Roman tells the real case as a story while HOST asks the viewer's questions and reacts, each turn escalates, then the twist, one short tip and an open question. Casual \"du\", suspense, light dry humour where the topic offers it; facts exact."
     }
   },
   "openingTypes": {
@@ -193,6 +202,7 @@
   ],
   "illustrativeMarkers": [
     "stellen sie sich vor",
+    "stell dir vor",
     "angenommen",
     "nehmen wir an",
     "ein beispiel:",

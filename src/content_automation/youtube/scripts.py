@@ -30,7 +30,7 @@ fact IDs and asks for a b-roll or screen-capture suggestion; `storyboard_warning
 Roman-on-camera scenes in a row, factual scenes without a fact ID and placeholders left.
 
 PRD v6 weekly (2026-10-22): two formats. Long-form (Roman only, about 1,700 words, 3 styles) and
-short-form (HOST: and ROMAN: dialogue, about 150 words, one style); each has its own prompt file,
+short-form (HOST: and ROMAN: dialogue, about 165 words, "du"); each has its own prompt file,
 word target and presenter (config/youtube.json formats). Files: teleprompter-de.txt,
 script-en-de.md, storyboard.md. No separate sources file: every storyboard scene with a fact is
 followed directly by its reference lines (article title, outlet, date, URL) from research.txt
@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import replace
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
@@ -110,9 +111,10 @@ def spoken_text(text: str) -> str:
     return "\n\n".join(_SPEAKER.sub("", block) for block in paragraphs(text))
 
 
-def _prompt(fmt: str) -> str:
-    """The format's own writing prompt (config/youtube.json formats.<fmt>.prompt)."""
-    path = Path(str(format_config(fmt).get("prompt", "")))
+def _prompt(fmt: str, key: str = "prompt") -> str:
+    """The format's own writing prompt (config/youtube.json formats.<fmt>.prompt), or another
+    reference file of the format (styleReference: the short-form reels, 2026-10-24)."""
+    path = Path(str(format_config(fmt).get(key, "")))
     found = path if path.is_file() else Path(__file__).resolve().parents[3] / path
     return found.read_text(encoding="utf-8").strip() if found.is_file() else ""
 
@@ -157,6 +159,9 @@ def brief_text(style: Style, title: str, research: Research, fmt: str = LONG) ->
            f"{per_topic[0]}-{per_topic[1]} min each by importance (the total stays at the "
            "target)"] if per_topic else []), "",
         f"## Prompt ({spec.get('prompt', '')})", _prompt(fmt) or "-", "",
+        *([f"## Style reference ({spec['styleReference']}: write in this rhythm, never copy "
+           "its sentences or facts)", _prompt(fmt, "styleReference"), ""]
+          if _prompt(fmt, "styleReference") else []),
         f"## Approach ({style.name})", style.approach, "",
         "## Argument outline (research.txt section 12: the same thesis and facts for all styles)",
         f"Thesis: {outline.thesis or '-'}", *points,
@@ -168,8 +173,9 @@ def brief_text(style: Style, title: str, research: Research, fmt: str = LONG) ->
         "teleprompter file)", *facts, "",
         "## Rules",
         f"- Write {TELEPROMPTER} in the {'topic' if fmt == SHORT else 'style'} folder: natural "
-        "spoken German for a CEO, address the "
-        f"viewer with \"{config.get('address', 'Sie')}\", {low}-{high} words (about "
+        f"spoken German {'like a podcast clip on Reels and Shorts' if fmt == SHORT else 'for a '
+                         'CEO'}, address the "
+        f"viewer with \"{address(fmt)}\", {low}-{high} words (about "
         f"{low // config['wordsPerMinute']}-{high // config['wordsPerMinute']} minutes), clean "
         "paragraphs separated by one empty line, readable line breaks.",
         "- Nothing that must not be read aloud: no headings, labels, step names, notes, stage "
@@ -187,6 +193,12 @@ def brief_text(style: Style, title: str, research: Research, fmt: str = LONG) ->
         f"- Then run: uv run ca youtube bilingual <BG-ID> (it makes {BILINGUAL} from your "
         "German; fill every English block).",
     ]) + "\n"
+
+
+def address(fmt: str = LONG) -> str:
+    """How the viewer is addressed: formats.<fmt>.address (short-form "du", 2026-10-24), else the
+    top-level address ("Sie")."""
+    return str(format_config(fmt).get("address") or load_config().get("address", "Sie"))
 
 
 def teleprompter_problems(text: str, style_key: str,
@@ -219,7 +231,7 @@ def teleprompter_problems(text: str, style_key: str,
         if _LABEL.match(first) or (len(first.split()) <= 6 and first.endswith(":")) or (
                 first.isupper() and len(first.split()) <= 8):
             errors.append(f'paragraph {number}: "{first[:40]}" reads as a heading or label')
-    german = check_text(text, "teleprompter", load_rules())
+    german = check_text(text, "teleprompter", replace(load_rules(), address=address(fmt)))
     errors += german.errors
     warnings += german.warnings
     lowered = text.lower()
@@ -230,12 +242,31 @@ def teleprompter_problems(text: str, style_key: str,
     if style_key.upper() == "C" and not any(marker in lowered
                                            for marker in config.get("illustrativeMarkers", [])):
         errors.append('style C: frame the scenario as illustrative ("Stellen Sie sich vor …")')
+    if fmt == SHORT:
+        warnings += _clip_warnings(text, spec.get("styleChecks", {}))
     low, high = spec["targetWords"]
     count = words(text)
     if not low <= count <= high:
         warnings.append(f"{count} words; the {spec.get('label', fmt)} target is {low}-{high} "
                         f"(about {spec.get('minutes')} min)")
     return errors, warnings + spoken_warnings(text)
+
+
+def _clip_warnings(text: str, rules: dict[str, Any]) -> list[str]:
+    """Short-form style (2026-10-24, never blocking): the hook comes first and is short, no
+    greeting or topic announcement, and the last line is an open question."""
+    found: list[str] = []
+    blocks = paragraphs(text)
+    first = next(iter(sentences(text)), (0, ""))[1]
+    if any(first.lower().startswith(word) for word in rules.get("badOpenings", [])):
+        found.append(f'hook: "{first[:40]}" opens with a greeting or announcement; start with '
+                     "the shocking fact, the twist or the question")
+    limit = int(rules.get("hookMaxWords", 15))
+    if words(first) > limit:
+        found.append(f"hook: the first sentence has {words(first)} words (at most {limit})")
+    if blocks and not blocks[-1].rstrip().endswith("?"):
+        found.append("ending: the last line should be an open question")
+    return found
 
 
 def sentences(text: str) -> list[tuple[int, str]]:

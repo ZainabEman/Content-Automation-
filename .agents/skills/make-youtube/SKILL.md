@@ -14,9 +14,9 @@ folder and Drive folder):
 | | Short-form ("make short video script") | Long-form ("make long video script") |
 |---|---|---|
 | Plan | `ca youtube plan <YYYY-MM> --format short` | `ca youtube plan <YYYY-MM> --format long` |
-| Length | about 1 min, 140-160 words | about 12 min, 1,600-1,800 words |
-| Presenter | `HOST:` (AI host, asks) and `ROMAN:` (analyses), every paragraph labelled | Roman only, no labels |
-| Prompt | `references/short-form-prompt.md` | `references/long-form-prompt.md` (5-10 topics, hook → segments → conclusion, balanced) |
+| Length | about 1 min, 150-180 words | about 12 min, 1,600-1,800 words |
+| Presenter | `HOST:` (AI host, asks and reacts) and `ROMAN:` (tells the story), every paragraph labelled; viewer addressed with "du" | Roman only, no labels |
+| Prompt | `references/short-form-prompt.md` (style from `references/short-form-style.md`, seed topics `references/short-form-topics.md`) | `references/long-form-prompt.md` (5-10 topics, hook → segments → conclusion, balanced) |
 | Folder | `outputs/YouTube Short-Form/<English Topic Title> <YYYY-MM-DD>/` with the 3 files directly | `outputs/YouTube Long-Form/<English Topic Title> <YYYY-MM-DD>/Style A|B|C/`, 3 files each |
 
 The 3 files: `script-en-de.md` (English + German, per paragraph), `teleprompter-de.txt` (German;
@@ -47,10 +47,15 @@ there is no separate sources file. The BG ID, `titleEn` and the briefs are in
 ## Steps
 
 1. **"make short video script"** / **"make long video script"** / "plan youtube November" →
-   research real German news with web access (German sources first). Short-form: one negative German topic
-   per script (a global story only when it clearly hits Germany) (negative tech developments in Germany, AI risks, harm to people and jobs, AI
-   limits and controversies; never positive news), built as negative hook → one sourced stat →
-   2-3 points → solution (`references/short-form-prompt.md`). Long-form: 5-10 topics per
+   research real German news with web access (German sources first). Short-form: one AI
+   problem per script, never positive news: German cases first (AI fraud and deepfakes, chatbots
+   that mislead customers and the court rulings, wrong AI answers about companies, confidential
+   data in AI tools, AI phishing), a global AI story only when the script says what it means for
+   Germany. Start from `references/short-form-topics.md` (leads: verify every case, date and
+   number from the original source) and propose new topics in the same shape: one concrete
+   case, one question, one angle (suspense, humour or twist). Built as a podcast clip: hook →
+   story → escalation → twist → short tip → open question, casual "du", in the rhythm of the
+   reference reels (`references/short-form-prompt.md`, `references/short-form-style.md`). Long-form: 5-10 topics per
    script, risks and positive developments balanced. No topic twice in the week or month. Then
    `uv run ca youtube plan 2026-11 --format short|long --topic "<German topic>" --title-en
    "<English title, at most about 6 words>" …` (one pair each; the month holds 16 short-form and
@@ -80,7 +85,7 @@ there is no separate sources file. The BG ID, `titleEn` and the briefs are in
 4. **"write scripts BG-x"** → `uv run ca youtube scripts BG-x` (refused until the check passed or
    was overridden). Read the briefs in `outputs/_system/youtube/BG-x/briefs/` (long-form: three,
    with the outline and the style's angle, opening and order; short-form: one, with the dialogue
-   rules) and write `teleprompter-de.txt` (long-form: per style folder; short-form: in the topic
+   rules; read `references/short-form-style.md` before writing) and write `teleprompter-de.txt` (long-form: per style folder; short-form: in the topic
    folder, every paragraph starting `HOST:` or `ROMAN:`) from the outline: spoken German only (german-editorial
    "Gesprochenes Deutsch"), clean paragraphs separated by one empty line, no headings, labels,
    notes, citations, fact IDs, URLs or English; the length target is the format's
@@ -121,6 +126,17 @@ there is no separate sources file. The BG ID, `titleEn` and the briefs are in
    recorded. A tracker failure is printed and must be resolved before upload is reported done.
    `STORAGE_PROVIDER=drive` uses the separate Google API connection; do not use it when the
    Codex Drive plugin is the connected destination.
-8. **"youtube status"** → `uv run ca youtube status [--month 2026-11]`.
+8. **"rewrite short script BG-x"** / "regenerate BG-x" (an existing short-form script in the
+   current style: the reference reels, user 2026-10-24) → `uv run ca youtube scripts BG-x`
+   (refreshes the brief with today's prompt and style reference), then write a NEW
+   `teleprompter-de.txt` from the brief and the verified facts in `research.txt`: start from
+   scratch, never edit the old text or keep its structure (old hook → stat → points → solution
+   is gone). The topic, facts and sources stay; if the research has no real case to tell as a
+   story, add one (research + check sources again) or say so. Save it as
+   `teleprompter-de.txt`; the tool keeps the old file and the new one becomes `_v2` on the
+   next steps (never overwrite by hand). Then bilingual → check (fix every hook/ending
+   warning) → storyboards → show the user the old and new opening and last line → upload
+   youtube BG-x when they say so. "rewrite all short scripts" = one by one, same steps.
+9. **"youtube status"** → `uv run ca youtube status [--month 2026-11]`.
 
 Production after the storyboard (recording, edits, finals, thumbnail): produce-video.

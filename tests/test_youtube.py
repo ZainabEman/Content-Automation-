@@ -12,15 +12,17 @@ from content_automation.youtube import sources
 from content_automation.youtube.research import parse, structure_problems, template
 from content_automation.youtube.scripts import (
     ENGLISH_PLACEHOLDER,
+    address,
     bilingual_problems,
     bilingual_text,
+    brief_text,
     paragraphs,
     read_bilingual,
     similarity_flags,
     teleprompter_problems,
 )
 from content_automation.youtube.sources import check_sources, fact_found, fetch_page
-from content_automation.youtube.topic import slug
+from content_automation.youtube.topic import LONG, SHORT, slug, styles
 
 REPO = Path(__file__).resolve().parents[1]
 FIXTURES = REPO / "tests" / "fixtures" / "youtube"
@@ -113,6 +115,40 @@ def test_teleprompter_rules() -> None:
         assert expected in joined
     no_frame = (FIXTURES / "teleprompter_A.txt").read_text(encoding="utf-8")
     assert any("illustrative" in e for e in teleprompter_problems(no_frame, "C")[0])
+
+
+def test_short_form_says_du_long_form_sie() -> None:
+    """User decision 2026-10-24: short-form addresses the viewer with "du", long-form "Sie"."""
+    assert (address(SHORT), address(LONG)) == ("du", "Sie")
+    dialogue = ("HOST: Der Milliardär hat das nie gesagt. Trotzdem haben Leute ihm Geld "
+                "überwiesen.\n\nROMAN: Und genau das kann dir auch passieren. Würdest du den "
+                "Unterschied noch erkennen?")
+    _, warnings = teleprompter_problems(dialogue, "S", SHORT)
+    assert not any("form; the default address" in w for w in warnings)
+    formal = "HOST: Kennen Sie das?\n\nROMAN: Prüfen Sie jede Überweisung."
+    _, warnings = teleprompter_problems(formal, "S", SHORT)
+    assert any('uses the "Sie" form' in w for w in warnings)
+
+
+def test_short_form_clip_style_warnings() -> None:
+    """2026-10-24: the hook comes first (no greeting) and the clip ends on an open question."""
+    old = ("HOST: Hallo und willkommen, heute sprechen wir über Deepfakes.\n\n"
+           "ROMAN: Prüf jede Überweisung zweimal.")
+    _, warnings = teleprompter_problems(old, "S", SHORT)
+    assert any("greeting" in w for w in warnings) and any("open question" in w for w in warnings)
+    clip = ("HOST: Der Milliardär hat das nie gesagt.\n\n"
+            "ROMAN: Würdest du den Unterschied noch erkennen?")
+    _, warnings = teleprompter_problems(clip, "S", SHORT)
+    assert not any(w.startswith(("hook:", "ending:")) for w in warnings)
+
+
+def test_short_brief_carries_the_style_reference() -> None:
+    style = styles(SHORT)["S"]
+    research = parse(template("Deepfake", "BG-1", "2026-11", "deepfake"))
+    brief = brief_text(style, "Deepfake", research, SHORT)
+    assert "## Style reference" in brief and "Reels and Shorts" in brief
+    assert '"du"' in brief and "Style reference" not in brief_text(
+        styles()["A"], "Deepfake", research)
 
 
 def test_bilingual_is_made_from_the_teleprompter() -> None:
